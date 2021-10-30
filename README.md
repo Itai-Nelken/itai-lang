@@ -281,7 +281,7 @@ public:
 ### Inheritance
 Inheritance is done by using `<`.
 The class inheriting from is called the **super class** or the **parent class**, and the class inheriting from the superclass is called the **child class**.<br>
-You can access all the methods and variables) in the super class (including private ones) using the `super` keyword.
+You can access all the methods and variables in the super class (including private ones) using the `super` keyword.
 #### Example
 ```java
 // the parent class
