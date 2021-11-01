@@ -26,9 +26,9 @@ from library import thing
 ```
 
 ## Variables
-```py
-type name;
-type name = value;
+```go
+var type name;
+var type name = value;
 ```
 **The type can be detected by the compiler automatically:**
 ```go
@@ -46,8 +46,8 @@ const name = value;
 #### **Initializing:**<br>
 If all the array is filled in declaration, there is no need to specify the size.
 ```go
-type name[size];
-type name[size] = {elements};
+var type name[size];
+var type name[size] = {elements};
 var name[size] = {elements};
 ```
 #### **accessing elements:**<br>
@@ -63,6 +63,10 @@ array[0]; // 0
 ```
 
 ## Types
+### Boolean
+**`bool`** - 1 byte, holds `true` or `false` (which are 1 or 0 respectively).<br>
+Any number that isn't 0 is true, 0 is false.
+
 ### Numbers
 **`int`** - 4 byte integer.<br>
 **`float`** - 32 bit floating point number.<br>
@@ -131,7 +135,7 @@ deftype struct {
 // 'Animal' is now a type.
 
 // usage
-Animal dog;
+var Animal dog;
 dog.name="doggy";
 dog.age=2;
 dog.type=DOG;
@@ -140,8 +144,8 @@ dog.type=DOG;
 ### Casting
 Casting between types is done by enclosing the value you want to cast in parentheses prefixed by the type you want to cast to.
 ```go
-int a=10;
-float b=float(a); // a is converted to a float, so it's now 10.0
+var int a=10;
+var float b=float(a); // a is converted to a float, so it's now 10.0
 // a more elegant way
 var c=float(a); // no type duplication
 ```
@@ -152,7 +156,7 @@ They work for basic types, functions and objects (classes).
 ```go
 var a = 10;
 var *ptr_to_a = &a;
-// to access the value in a
+// to access the value in 'a'
 var b = *ptr_to_a; // 10
 ```
 #### **References:**
@@ -171,7 +175,7 @@ The while loop keeps running until the condition provided is false.
 ```go
 // count to 10
 var a = 1;
-while(a <= 10) {
+while a <= 10 {
 	print("|{}|", i)
 	a=a+1;
 }
@@ -208,12 +212,44 @@ fn add(int a, int b) int {
 	return a+b;
 }
 ```
+### Variable argument functions and methods
+Variable argument functions work by adding `name...` (name can be any valid variable name) as the last parameter in a function or method. `name` is a `Vector<any>` that contains the arguments. to get each argument, you can use the `Vector<type T>` methods to get the data appending the `.get()` method of the `any<type T>` class. you can get the type by appending `.type` instead of `.get()`.
+The last argument can be accessed using the `pop_front()` Vector method, and the first one using the `pop_back()` Vector method.
+#### **Example**
+```rs
+fn variable_args(args...) {
+	var arg1 = args.pop_back().get();
+	var last_arg = args.pop_front().get();
+
+	// you can get a regular array of the arguments
+	var args_as_array[] = args.to_array();
+	// iterate over the array
+	for arg in args_as_array {
+		print("|{}|", arg);
+	}
+	// you can also do this
+	for arg in args.to_array() {
+		print("|{}|", arg);
+	}
+}
+
+```
 
 ## Objects
 ```cpp
 class name {
 <access modifier>:
 	variables, methods
+};
+```
+### Members (variables in the object)
+#### **Syntax**
+Same as variables but without the `var` keyword:
+```cpp
+class Animal {
+	int i;
+	float f;
+	String s
 };
 ```
 ### Methods
@@ -230,8 +266,8 @@ class Animal {
 };
 ```
 #### **`this` and `super`**
-* `this` is the current instance of the class, it has to be used to access anything inside the class from inside the class.<br>
-* `super` is used to access things in the superclass. when used like a function (`super()`) it calls the superclass constructor.
+* `this` is a reference to the current instance of the class, it has to be used to access anything inside the class from inside the class.<br>
+* `super` is a reference to the super-class. when used like a function (`super()`) it calls the super-class constructor.
 
 #### **Special methods**
 * **constructors** - Have to have the same name as the class.<br>
@@ -353,7 +389,7 @@ add<float>(1.5, 3.5); // 5
 You can make a template type only work with specific types by putting the types in parentheses after the template type declaration:
 ```rust
 // again, you can declare multiple types:
-// template<type N(int, float), type S(str, String), type U(uint, usize)>
+// fn add<type N(int, float), type S(str, String), type U(uint, usize)>
 fn add<type T(int, float)> (T a, T b) T {
 	return a+b;
 }
@@ -387,23 +423,22 @@ uint u = unsigned_int.get(); // 3
 
 ## Dynamic memory allocation
 New objects can be created in the heap using the `new` keyword and freed using the `delete` keyword:
-```go
+```cpp
 // create a new String in the stack
-String *s = new String;
-// you have to dereference 's' to use it.
+var String *s = new String;
+// you have to dereference 's' to use it, but you don't have to as the compiler does it for you
 *s.from("Hello, World!");
 // free it
 delete s;
 
-// You can use 'var' to create the variable and then you don't have to make it a pointer
-// because the compiler handles it for you
+// You don't have to specify the type and make it a pointer as the compiler does it for you.
 var str_in_heap = new String;
-// because 'var' was used, the compiler dereferences for you.
+// The compiler dereferences for you.
 str_in_heap.from("Hello, World!");
 delete str_in_heap;
 ```
 `new` returns a pointer to the memory address where the allocated memory starts.
-Arrays can be created using `make<type T>(usize size)`:
+Arrays in the heap can be created using `make<type T>(usize size)`:
 ```go
 // make an int array of size 10
 var array = make<int>(10);
@@ -412,6 +447,9 @@ A heap allocated object will be automatically freed when it goes out of scope an
 
 ## Standard library
 ### Available without importing
+#### Functions
+**`print(str fmt, args...)`** - Print `fmt` to standard out (`stdout`).<br>
+* Suports formatting similar to the rust `println!()` macro: `print("variable 'i' is: {}", i);`.
 #### Smart types
 **`String`** - A wrapper around a dynamic array of chars. this is what you have to use for mutable strings.<br>
 **Methods for `String`:**<br>
@@ -423,7 +461,7 @@ A heap allocated object will be automatically freed when it goes out of scope an
 * `clone() String` - Create a copy of the `String`. equivalent of `String.substr(0, String.len())`.
 **Example:**
 ```java
-String s;
+var String s;
 s.from("Hello, World!");
 s.len(); // 13
 var hello = s.substr(0, 5); // Hello
@@ -431,8 +469,8 @@ hello.append(s.substr(8, 12).to_str()); // append 'World'
 // hello is now 'Hello World'
 var s2 = s.clone(); // s2 is 'Hello, World!'
 ```
-**`Vec<type T>`** - A dynamic array that can be any type.<br>
-**Methods for `Vec<type T>`:**<br>
+**`Vector<type T>`** - A dynamic array that can be any type.<br>
+**Methods for `Vector<type T>`:**<br>
 * `push_front(T data)` - Put 'data' in the front of the array.
 * `push_back(T data)` - Put 'data' at the back of the array.
 * `push_to(uint index, T data)` - Put 'data' at 'index'.
@@ -440,11 +478,12 @@ var s2 = s.clone(); // s2 is 'Hello, World!'
 * `pop_back() T` - Remove the back value.
 * `pop_from(uint index) T` - Get the value at 'inedx' and return it.
 * `size() usize` - Get the size of the array.
+* `is_empty() bool` - Check if the `Vector` is empty.
 * `to_array() T` - Convert the array into a regular array of type 'T' and return it.
 * `dump()` - Print the entire contents of the array.
 **Example:**
 ```java
-Vec<int> v;
+Vector<int> v;
 v.push_front(1);
 v.dump(); // front [1] back
 
@@ -457,3 +496,8 @@ v.dump(); // [2,1]
 
 var int_array = v.to_array(); // [2,1]
 ```
+**`any<type T>`** - A class that can hold any type (as long as it supports using the assignment (`=`) operator).<br>
+**Methods for `any<type T>`:**<br>
+* `set(T value)` - Set the value.
+* `get() T` - Get the value (return it).
+* `type` - A variable containing the current type. (how???)
