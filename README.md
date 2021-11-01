@@ -169,6 +169,7 @@ var b = ref_to_a; // exactly the same as 'var b = a'
 
 ## Loops
 There are two loop types: `while` and `for`.<br>
+You can exit a loop with the `break` keyword, and jump to it's start with the `continue` keyword.
 The output of all the following programs will be: `|1|2|3|4|5|`.<br>
 ### The `while` loop
 The while loop keeps running until the condition provided is false.
@@ -196,6 +197,61 @@ var array = {1, 2, 3, 4, 5};
 for element in array {
 	print("|{}|", element);
 }
+```
+
+## `if`/`else`
+```go
+var a = 10;
+if a == 10 {
+	print("'a' is 10\n");
+} else {
+	print("'a' isn't 10\n");
+}
+
+// multiple tests
+if a == 10 {
+	print("'a' is 10\n");
+} else if a == 5 {
+	print("'a' is 5\n");
+} else {
+	print("'a' isn't 10 or 5\n");
+}
+```
+
+## `switch`
+```go
+var a = 10;
+switch(a) {
+	10 => print("'a' is 10\n");
+	5 => print("'a' is 5");
+default => // default catches anything that isn't handled by the other cases.
+	print("'a' isn't 10 or 5\n");
+}
+
+// for declaring variables inside the switch or having more than one line, you can create a scope
+switch(a) {
+	10 => {
+		print("'a' is 10\n");
+		var b = 5;
+		print("'b' is 5\n");
+	}
+default =>
+	print("'a' isn't 10\n");
+}
+
+// you can add labels to the cases and jump to them from a different case
+a = 5;
+switch(a) {
+	10 : ten => print("'a' is 10\n");
+default => {
+	print("'a' isn't 10, jumping to 10 case...\n");
+	break ten;
+}
+}
+// output of above switch will be:
+//
+// 'a' isn't 10, jumping to 10 case...
+// 'a' is 10
 ```
 
 ## functions
