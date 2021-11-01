@@ -26,32 +26,32 @@ from library import thing
 ```
 
 ## Variables
-```go
+```golang
 var type name;
 var type name = value;
 ```
 **The type can be detected by the compiler automatically:**
-```go
+```golang
 var name = value;
 ```
 ### Constants
-```go
+```golang
 const type name = value;
 ```
 **The type doesn't have to be specified:**
-```go
+```golang
 const name = value;
 ```
 ### Arrays
 #### **Initializing:**<br>
 If all the array is filled in declaration, there is no need to specify the size.
-```go
+```golang
 var type name[size];
 var type name[size] = {elements};
 var name[size] = {elements};
 ```
 #### **accessing elements:**<br>
-```go
+```golang
 var array[] = {1, 2, 3, 4, 5};
 // accesing elements
 array[0]; // 1
@@ -92,7 +92,7 @@ unsigned 16 byte int: `uint16`.<br>
 **`char`** - 1 byte, can hold only ASCII characters.<br>
 **`str`** - Constant string, alias for a fixed size constant `char` array.<br>
 ### Other
-**`struct`** - A Structure can hold any fixed size type inside. used to group variables that belong to the same thing together.<br>
+**`struct`** - A Structure can hold any fixed size type inside. used to group variables that belong to the same thing together. Variables defined inside a `struct` don't need to be declared with the `var` keyword.<br>
 **`enum`** - An Enumeration (enum) is a bunch of constants in a single place. they can only be numbers. the first number is 0 by default.
 #### `struct` and `enum` example
 ```c
@@ -143,7 +143,7 @@ dog.type=DOG;
 
 ### Casting
 Casting between types is done by enclosing the value you want to cast in parentheses prefixed by the type you want to cast to.
-```go
+```golang
 var int a=10;
 var float b=float(a); // a is converted to a float, so it's now 10.0
 // a more elegant way
@@ -153,14 +153,15 @@ var c=float(a); // no type duplication
 Pointers and references are supported.<br>
 They work for basic types, functions and objects (classes).
 #### **Pointers:**
-```go
+```golang
 var a = 10;
 var *ptr_to_a = &a;
 // to access the value in 'a'
 var b = *ptr_to_a; // 10
 ```
+
 #### **References:**
-```go
+```golang
 var a = 10;
 var &ref_to_a = a;
 // to access 'a'
@@ -173,7 +174,7 @@ You can exit a loop with the `break` keyword, and jump to it's start with the `c
 The output of all the following programs will be: `|1|2|3|4|5|`.<br>
 ### The `while` loop
 The while loop keeps running until the condition provided is false.
-```go
+```golang
 // count to 10
 var a = 1;
 while a <= 10 {
@@ -184,14 +185,14 @@ while a <= 10 {
 ### The `for` loop
 The `for` loop has two versions:
 **Counter:**<br>
-```go
+```golang
 // count to 10
 for var i=1; i<=10; i=i+1 {
 	print("|{}|", i);
 }
 ```
 **Iterator:**<br>
-```go
+```golang
 var array = {1, 2, 3, 4, 5};
 // iterate over every element in the array
 for element in array {
@@ -200,7 +201,7 @@ for element in array {
 ```
 
 ## `if`/`else`
-```go
+```golang
 var a = 10;
 if a == 10 {
 	print("'a' is 10\n");
@@ -219,7 +220,7 @@ if a == 10 {
 ```
 
 ## `switch`
-```go
+```golang
 var a = 10;
 switch(a) {
 	10 => print("'a' is 10\n");
@@ -272,7 +273,7 @@ fn add(int a, int b) int {
 Variable argument functions work by adding `name...` (name can be any valid variable name) as the last parameter in a function or method. `name` is a `Vector<any>` that contains the arguments. to get each argument, you can use the `Vector<type T>` methods to get the data appending the `.get()` method of the `any<type T>` class. you can get the type by appending `.type` instead of `.get()`.
 The last argument can be accessed using the `pop_front()` Vector method, and the first one using the `pop_back()` Vector method.
 #### **Example**
-```rs
+```rust
 fn variable_args(args...) {
 	var arg1 = args.pop_back().get();
 	var last_arg = args.pop_front().get();
@@ -495,7 +496,7 @@ delete str_in_heap;
 ```
 `new` returns a pointer to the memory address where the allocated memory starts.
 Arrays in the heap can be created using `make<type T>(usize size)`:
-```go
+```golang
 // make an int array of size 10
 var array = make<int>(10);
 ```
@@ -557,3 +558,4 @@ var int_array = v.to_array(); // [2,1]
 * `set(T value)` - Set the value.
 * `get() T` - Get the value (return it).
 * `type` - A variable containing the current type. (how???)
+
