@@ -1,7 +1,9 @@
 # Itai's programming language
 
 ## basic syntax
-statements are followed by a semicolon (;).<br>
+Statements are followed by a semicolon (`;`).<br>
+Expressions can be grouped inside parentheses (`()`) for precedence.<br>
+
 ### Literals
 **Integers:** `<number>` for example: `12`.<br>
 **Floats:** `<integer>.<integer>` for example: `3.14`. if no decimal point is provided, `.0` is added. so `12` becomes `12.0`.<br>
@@ -14,10 +16,21 @@ statements are followed by a semicolon (;).<br>
 **Asignment:** `=`.<br>
 **Comparison:** `==`, `!=`, `<`, `>`, `<=`, `>=`.<br>
 **Control flow:** and: `&&`, or: `||`<br>
+### prefix and postfix `+` and `-`
+```golang
+var int a=10;
+// '+' operator
+var b = a++; // 10, a is 11
+var c = ++a; // 12, a is 12
+
+// '-' operator
+var d = a--; // 12, a is 11
+var e = --a; // 10, a is 10
+```
 
 ## Comments
 * Start with `//` until end of line.
-* Between `/*` and `*/`.
+* Between `/*` and `*/` (doesn't work as part of an expression, for example: `*x/*y` means dereference `x` and `y` and divide `x` by `y`).
 
 ## Importing libraries
 ```py
@@ -27,31 +40,43 @@ from library import thing
 
 ## Variables
 ```golang
-var type name;
-var type name = value;
+var <type> <name>;
+var <type> <name> = <value>;
 ```
 **The type can be detected by the compiler automatically:**
 ```golang
-var name = value;
+var <name> = <value>;
 ```
 ### Constants
 ```golang
-const type name = value;
+const <type> <name> = <value>;
 ```
 **The type doesn't have to be specified:**
 ```golang
-const name = value;
+const <name> = <value>;
+```
+#### **Examples**
+```golang
+// regular variables
+var int num = 10;
+var num2 = 5;
+
+// constants
+const int NUM = 10;
+const NUM2 = 5;
 ```
 ### Arrays
 #### **Initializing:**<br>
 If all the array is filled in declaration, there is no need to specify the size.
 ```golang
-var type name[size];
-var type name[size] = {elements};
-var name[size] = {elements};
+var <type> <name>[<size>];
+var type <name>[size] = {<comma separated elements>};
+var <name>[<size>] = {<comma separated elements>};
 ```
 #### **accessing elements:**<br>
 ```golang
+// with type declaration:
+// var int array[] = {1, 2, 3, 4, 5};
 var array[] = {1, 2, 3, 4, 5};
 // accesing elements
 array[0]; // 1
@@ -63,6 +88,7 @@ array[0]; // 0
 ```
 
 ## Types
+**`type`** - Used to save types. **usage:** assignment: `var type type_int = int`, comparison: `type_int == int`.<br>
 ### Boolean
 **`bool`** - 1 byte, holds `true` or `false` (which are 1 or 0 respectively).<br>
 Any number that isn't 0 is true, 0 is false.
@@ -111,7 +137,7 @@ enum name {
 };
 ```
 ### Custom types
-**You can create a custom type with the `deftype` keyword:**
+**You can create a custom type with the `deftype` (define type) keyword:**
 ```
 deftype oldtype newtype;
 ```
@@ -147,7 +173,7 @@ Casting between types is done by enclosing the value you want to cast in parenth
 var int a=10;
 var float b=float(a); // a is converted to a float, so it's now 10.0
 // a more elegant way
-var c=float(a); // no type duplication
+var c=float(a); // no type name duplication
 ```
 ### Pointers and references
 Pointers and references are supported.<br>
@@ -557,5 +583,4 @@ var int_array = v.to_array(); // [2,1]
 **Methods for `any<type T>`:**<br>
 * `set(T value)` - Set the value.
 * `get() T` - Get the value (return it).
-* `type` - A variable containing the current type. (how???)
-
+* `type() type` - Returns the type being used.
