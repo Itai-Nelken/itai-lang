@@ -1,6 +1,39 @@
 # Itai's programming language
 
-## basic syntax
+## Contents
+- [Basic syntax](#basic-syntax)
+  * [Literals](#literals)
+  * [Operators](#operators)
+- [Comments](#comments)
+- [Importing libraries](#importing-libraries)
+- [Variables](#variables)
+  * [Constants](#constants)
+  * [Arrays](#arrays)
+- [Types](#types)
+  * [Numbers](#numbers)
+  * [Text](#text)
+  * [Other](#other)
+  * [Custom types](#custom-types)
+ * [Casting](#casting)
+ * [Pointers and References](#pointers-and-references)
+- [Loops](#loops)
+  * [The `while` loop](#the-while-loop)
+  * [The `for` loop](#the-for-loop)
+- [`if`/`else`](#ifelse)
+- [`switch`](#switch)
+- [Functions](#functions)
+  * [Variable argument functions and methods](#variable-argument-functions-and-methods)
+- [Objects](#objects)
+  * [Members](#members-variables-in-the-object)
+  * [Methods](#methods)
+  * [Access modifiers](#access-modifiers)
+  * [Inheritance](#inheritance)
+- [Templates](#templates)
+- [Dynamic memory allocation](#dynamic-memory-allocation)
+- [Standard library](#standard-library)
+  * [Available without importing](#available-without-importing)
+
+## Basic syntax
 Statements are followed by a semicolon (`;`).<br>
 Expressions can be grouped inside parentheses (`()`) for precedence.<br>
 
@@ -89,6 +122,7 @@ array[0]; // 0
 
 ## Types
 **`type`** - Used to save types. **usage:** assignment: `var type type_int = int`, comparison: `type_int == int`.<br>
+
 ### Boolean
 **`bool`** - 1 byte, holds `true` or `false` (which are 1 or 0 respectively).<br>
 Any number that isn't 0 is true, 0 is false.
@@ -198,6 +232,7 @@ var b = ref_to_a; // exactly the same as 'var b = a'
 There are two loop types: `while` and `for`.<br>
 You can exit a loop with the `break` keyword, and jump to it's start with the `continue` keyword.
 The output of all the following programs will be: `|1|2|3|4|5|`.<br>
+
 ### The `while` loop
 The while loop keeps running until the condition provided is false.
 ```golang
