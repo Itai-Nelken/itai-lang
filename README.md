@@ -38,6 +38,7 @@ Statements are followed by a semicolon (`;`).<br>
 Expressions can be grouped inside parentheses (`()`) for precedence.<br>
 
 ### Literals
+**Booleans:** - `true` or `false`. any number other than 0 is `true`, and 0 is `false`.<br>
 **Integers:** `<number>` for example: `12`.<br>
 **Floats:** `<integer>.<integer>` for example: `3.14`. if no decimal point is provided, `.0` is added. so `12` becomes `12.0`.<br>
 **characters:** `'<character>'` for example: `'A'`. only ASCII characters are supported.<br>
@@ -125,7 +126,6 @@ array[0]; // 0
 
 ### Boolean
 **`bool`** - 1 byte, holds `true` or `false` (which are 1 or 0 respectively).<br>
-Any number that isn't 0 is true, 0 is false.
 
 ### Numbers
 **`int`** - 4 byte integer.<br>
@@ -149,7 +149,8 @@ unsigned 8 byte int: `uint8`.<br>
 unsigned 16 byte int: `uint16`.<br>
 
 ### Text
-**`char`** - 1 byte, can hold only ASCII characters.<br>
+**`char`** - 1 unsigned byte, can hold only ASCII characters.<br>
+**`byte`** - 1 byte.<br>
 **`str`** - Constant string, alias for a fixed size constant `char` array.<br>
 ### Other
 **`struct`** - A Structure can hold any fixed size type inside. used to group variables that belong to the same thing together. Variables defined inside a `struct` don't need to be declared with the `var` keyword.<br>
@@ -262,6 +263,7 @@ for element in array {
 ```
 
 ## `if`/`else`
+The condition needs to evaluate to a `bool`.
 ```golang
 var a = 10;
 if a == 10 {
