@@ -25,9 +25,13 @@ typedef enum TokenTypes {
 
 typedef enum Types {
     TYPE_INT,
+    TYPE_INT_PTR,
     TYPE_CHAR,
+    TYPE_CHAR_PTR,
     TYPE_BYTE,
-    TYPE_BOOL
+    TYPE_BYTE_PTR,
+    TYPE_BOOL,
+    TYPE_BOOL_PTR
 } Type;
 
 #endif // TOKEN_TYPE_H
