@@ -1,5 +1,8 @@
 # itai-lang spec for version 0.1 (initial version)
 
+## Syntax
+You can give expressions higher precedence with parentheses.
+
 ## Literals
 **Integers:** `<number>` for ecample: `14`.<br>
 **Booleans:** `true` or `false` (1 and 0 respectively). any number other than 0 is `true`, 0 is `false`.
@@ -13,10 +16,6 @@ var <type> <name> = <value>;
 **int** - 4 byte integer.<br>
 **char** - 1 unsigned byte, can hold all ASCII characters.<br>
 **byte** - 1 byte.
-
-## Operators
-**Math:** `+`, `-`, `*`, `/`.<br>
-**Asignemnt:** `=`.
 
 ## Comments
 `//` until end of line.
@@ -40,6 +39,11 @@ fn add(int a, int b) int {
 
 ## Standard library
 `putchar(char c)` from the C standard library.
+
+## Operators in this version
+**Math:** `+`, `-`, `*`, `/`.<br>
+**Asignment:** `=`.<br>
+**Comparison:** `==`, `!=`, `<`, `>`, `<=`, `=>`.
 
 ## Keywords in this version
 `var`<br>
