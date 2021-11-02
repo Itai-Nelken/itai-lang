@@ -4,8 +4,9 @@
 You can give expressions higher precedence with parentheses.
 
 ## Literals
-**Integers:** `<number>` for ecample: `14`.<br>
-**Booleans:** `true` or `false` (1 and 0 respectively). any number other than 0 is `true`, 0 is `false`.
+**Integers:** `<number>` for example: `14`.<br>
+**Booleans:** `true` or `false` (1 and 0 respectively). any number other than 0 is `true`, 0 is `false`.<br>
+**Characters:** ASCII characters only, `'<character>'` (a-zA-Z and number characters, 0 to 255).
 
 ## Variables
 ```golang
