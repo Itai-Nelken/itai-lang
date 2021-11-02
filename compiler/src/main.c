@@ -3,7 +3,7 @@
 #include "scanner.h"
 
 int main(void) {
-	Scanner s = newScanner("();123");
+	Scanner s = newScanner("();123'c'");
 	Token t=scanToken(&s);
 	while(t.type != TOKEN_EOF) {
 		// print t.length first characters from t.start

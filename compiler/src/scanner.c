@@ -81,7 +81,9 @@ static inline char peek(Scanner *s) {
 }
 
 static char peekNext(Scanner *s) {
+#error "peekNext() isn't working"
     if(isAtEnd(s)) return '\0';
+    char c=++s->current;
     return s->current[1]; // same as s->current+1
 }
 
