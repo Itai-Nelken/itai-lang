@@ -1,6 +1,7 @@
 # itai-lang spec for version 0.1 (initial version)
 
 ## Syntax
+Statments end with a semicolon (`;`).<br>
 You can give expressions higher precedence with parentheses.
 
 ## Literals
