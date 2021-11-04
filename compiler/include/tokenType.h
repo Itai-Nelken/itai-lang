@@ -5,6 +5,7 @@ typedef enum TokenTypes {
     TOKEN_PAREN_LEFT,
     TOKEN_PAREN_RIGHT,
     TOKEN_SEMICOLON,
+    TOKEN_COMMA,
     TOKEN_BANG, TOKEN_BANG_EQUAL,
     TOKEN_EQUAL, TOKEN_EQUAL_EQUAL,
     TOKEN_LESS, TOKEN_LESS_EQUAL,
@@ -31,7 +32,8 @@ typedef enum Types {
     TYPE_BYTE,
     TYPE_BYTE_PTR,
     TYPE_BOOL,
-    TYPE_BOOL_PTR
+    TYPE_BOOL_PTR,
+    TYPE_UNKNOWN
 } Type;
 
 #endif // TOKEN_TYPE_H

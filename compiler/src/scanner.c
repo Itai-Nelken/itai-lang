@@ -48,6 +48,7 @@ static bool isAtEnd(Scanner *s) {
 static Token makeToken(Scanner *s, TokenType type) {
     Token t;
     t.type=type;
+    t.data_type=TYPE_UNKNOWN;
     t.start=s->start;
     t.length=(int)(s->current - s->start);
     t.line=s->line;
@@ -151,9 +152,67 @@ static Token number(Scanner *s) {
     return makeToken(s, TOKEN_NUMBER);
 }
 
+static TokenType checkKeyword(Scanner *s, int start, const char *rest, TokenType type) {
+    int length=strlen(rest);
+    if(s->current - s->start == start+length && memcmp(s->start+start, rest, length)==0) {
+        return type;
+    }
+    return TOKEN_IDENTIFIER;
+}
+
+static TokenType identifierType(Scanner *s) {
+    switch(s->start[0]) {
+        case 'v': return checkKeyword(s, 1,"ar", TOKEN_VAR);
+        case 'w': return checkKeyword(s, 1, "hile", TOKEN_WHILE);
+        case 'i': return checkKeyword(s, 1, "f", TOKEN_IF);
+        case 'e': return checkKeyword(s, 1, "lse", TOKEN_ELSE);
+        case 't': return checkKeyword(s, 1, "rue", TOKEN_TRUE);
+        case 'f':
+            if(s->current - s->start > 1) {
+                switch(s->start[1]) {
+                    case 'a': return checkKeyword(s, 1, "alse", TOKEN_FALSE);
+                    case 'n': return TOKEN_FN; // no need to check the rest as 'fn' is 2 characters (and there is no rest)
+                }
+            }
+            break;
+        case 'r': return checkKeyword(s, 1, "eturn", TOKEN_RETURN);
+    }
+    return TOKEN_IDENTIFIER;
+}
+
+static Type checkType(Scanner *s, int start, const char *rest, Type type) {
+    int length=strlen(rest);
+    // TODO: figure out a better way to do this (like keywords)
+    if(memcmp(s->current+start, rest, length)==0) {
+        // consume all the characters in the type
+        s->current+=start+length;
+        return type;
+    }
+    return TYPE_UNKNOWN;
+}
+
+static Type makeType(Scanner *s) {
+    skipWhiteSpace(s);
+    switch(peek(s)) {
+        case 'i': return checkType(s, 1, "nt", TYPE_INT);
+        case 'c': return checkType(s, 1, "har", TYPE_CHAR);
+        case 'b':
+            switch(peekNext(s)) {
+                case 'y': return checkType(s, 2, "te", TYPE_BYTE);
+                case 'o': return checkType(s, 2, "ol", TYPE_BOOL);
+            }
+    }
+    return TYPE_UNKNOWN;
+}
+
 static Token identifier(Scanner *s) {
     while(isAlpha(peek(s)) || isDigit(peek(s))) advance(s);
-    return makeToken(s, TOKEN_IDENTIFIER);
+    TokenType type=identifierType(s);
+    Token token = makeToken(s, type);
+    if(type == TOKEN_VAR) {
+        token.data_type=makeType(s);
+    }
+    return token;
 }
 
 static Token character(Scanner *s) {
@@ -186,6 +245,7 @@ Token scanToken(Scanner *s) {
         case '-': return makeToken(s, TOKEN_MINUS);
         case '*': return makeToken(s, TOKEN_STAR);
         case '/': return makeToken(s, TOKEN_SLASH);
+        case ',': return makeToken(s, TOKEN_COMMA);
         case '!': return makeToken(s, (match(s, '=') ? TOKEN_BANG_EQUAL : TOKEN_BANG));
         case '=': return makeToken(s, (match(s, '=') ? TOKEN_EQUAL_EQUAL : TOKEN_EQUAL));
         case '<': return makeToken(s, (match(s, '=') ? TOKEN_LESS_EQUAL : TOKEN_LESS));

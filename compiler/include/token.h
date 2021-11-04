@@ -5,6 +5,7 @@
 
 typedef struct token {
     TokenType type;
+    Type data_type;
     const char *start;
     int length;
     int line;
