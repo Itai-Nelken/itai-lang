@@ -9,6 +9,10 @@ static const char *t2s(TokenType type) {
 			return "TOKEN_PAREN_LEFT";
 		case TOKEN_PAREN_RIGHT:
 			return "TOKEN_PAREN_RIGHT";
+		case TOKEN_BRACE_LEFT:
+			return "TOKEN_BRACE_LEFT";
+		case TOKEN_BRACE_RIGHT:
+			return "TOKEN_BRACE_RIGHT";
 		case TOKEN_SEMICOLON:
 			return "TOKEN_SEMICOLON";
 		case TOKEN_COMMA:

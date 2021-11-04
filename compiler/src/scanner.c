@@ -211,6 +211,8 @@ static Token identifier(Scanner *s) {
     Token token = makeToken(s, type);
     if(type == TOKEN_VAR) {
         token.data_type=makeType(s);
+    } else if(type == TOKEN_FN) {
+        // TODO: add function parameter checking
     }
     return token;
 }
@@ -240,6 +242,8 @@ Token scanToken(Scanner *s) {
     switch(c) {
         case '(': return makeToken(s, TOKEN_PAREN_LEFT);
         case ')': return makeToken(s, TOKEN_PAREN_RIGHT);
+        case '{': return makeToken(s, TOKEN_BRACE_LEFT);
+        case '}': return makeToken(s, TOKEN_BRACE_RIGHT);
         case ';': return makeToken(s, TOKEN_SEMICOLON);
         case '+': return makeToken(s, TOKEN_PLUS);
         case '-': return makeToken(s, TOKEN_MINUS);
