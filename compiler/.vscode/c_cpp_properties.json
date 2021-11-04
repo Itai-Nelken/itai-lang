@@ -7,10 +7,10 @@
                 "${workspaceFolder}/include"
             ],
             "defines": [],
-            "compilerPath": "/usr/bin/clang",
+            "compilerPath": "/usr/bin/gcc",
             "cStandard": "c17",
             "cppStandard": "c++14",
-            "intelliSenseMode": "linux-clang-arm64"
+            "intelliSenseMode": "linux-gcc-arm64"
         }
     ],
     "version": 4

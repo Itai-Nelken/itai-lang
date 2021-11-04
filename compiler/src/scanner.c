@@ -77,13 +77,11 @@ static inline char advance(Scanner *s) {
 }
 
 static inline char peek(Scanner *s) {
-    return *(s->current);
+    return *s->current;
 }
 
 static char peekNext(Scanner *s) {
-#error "peekNext() isn't working"
     if(isAtEnd(s)) return '\0';
-    char c=++s->current;
     return s->current[1]; // same as s->current+1
 }
 
@@ -160,8 +158,7 @@ static Token identifier(Scanner *s) {
 
 static Token character(Scanner *s) {
     bool isClosed=false;
-    // consume the opening quote.
-    advance(s);
+    // no need to consume the opening quote as it's already consumed
     if(peekNext(s) == '\'') isClosed=true;
     if(isAscii(peek(s))) {
         // consume the character itself
