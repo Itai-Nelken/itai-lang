@@ -120,6 +120,19 @@ array[1]; // 2
 array[0]=0;
 array[0]; // 0
 ```
+#### **slices:**<br>
+You can access parts of the array using **Slices**.<br>
+**Syntax:**<br>
+```golang
+// make a new array (of type char)
+var array[] = {'a', 'b', 'c', 'd', 'e'};
+
+array[1:3]; // ['b', 'c', 'd']
+```
+**The slices are allowed:**<br>
+- `array[:]` - The entire array.<br>
+- `array[2:]` - The entire array except the first 2 elements.<br>
+- `array[:2]` - The first 2 elements.<br>
 
 ## Types
 **`type`** - Used to save types. **usage:** assignment: `var type type_int = int`, comparison: `type_int == int`.<br>
