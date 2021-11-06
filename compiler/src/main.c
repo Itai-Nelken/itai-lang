@@ -63,22 +63,18 @@ static const char *t2s(TokenType type) {
 			return "TOKEN_FN";
 		case TOKEN_RETURN:
 			return "TOKEN_RETURN";
-		default:
-			break;
-	}
-	return "UNKNOWN";
-}
-
-static const char *type2str(Type type) {
-	switch(type) {
-		case TYPE_INT:
-			return "TYPE_INT";
-		case TYPE_BYTE:
-			return "TYPE_BYTE";
-		case TYPE_CHAR:
-			return "TYPE_CHAR";
-		case TYPE_BOOL:
-			return "TYPE_BOOL";
+		case TOKEN_TYPE_INT:
+			return "TOKEN_TYPE_INT";
+		case TOKEN_TYPE_INT_PTR:
+			return "TOKEN_TYPE_INT_PTR";
+		case TOKEN_TYPE_CHAR:
+			return "TOKEN_TYPE_CHAR";
+		case TOKEN_TYPE_CHAR_PTR:
+			return "TOKEN_TYPE_CHAR_PTR";
+		case TOKEN_TYPE_BOOL:
+			return "TOKEN_TYPE_BOOL";
+		case TOKEN_TYPE_BOOL_PTR:
+			return "TOKEN_TYPE_BOOL_PTR";
 		default:
 			break;
 	}
@@ -86,15 +82,11 @@ static const char *type2str(Type type) {
 }
 
 int main(int argc, char **argv) {
-	Scanner s = newScanner((argc>1 ? argv[1] : "var int a = 123"));
+	Scanner s = newScanner((argc>1 ? argv[1] : "var int a = 123;"));
 	Token t;
 	while((t=scanToken(&s)).type != TOKEN_EOF) {
-		if(t.type == TOKEN_VAR) {
-			printf("%s, type: %s : %.*s\n", t2s(t.type), type2str(t.data_type), t.length, t.start);
-		} else {
-			// print t.length first characters from t.start
-			printf("%s : %.*s\n", t2s(t.type), t.length, t.start);
-		}
+		// print t.length first characters from t.start
+		printf("%s : %.*s\n", t2s(t.type), t.length, t.start);
 	}
 	scannerDestroy(&s);
 

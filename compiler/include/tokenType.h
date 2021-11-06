@@ -2,17 +2,20 @@
 #define TOKEN_TYPE_H
 
 typedef enum TokenTypes {
-    TOKEN_PAREN_LEFT,
-    TOKEN_PAREN_RIGHT,
-    TOKEN_BRACE_LEFT,
-    TOKEN_BRACE_RIGHT,
+    // single character tokens
+    TOKEN_PAREN_LEFT, TOKEN_PAREN_RIGHT,
+    TOKEN_BRACE_LEFT, TOKEN_BRACE_RIGHT,
     TOKEN_SEMICOLON,
     TOKEN_COMMA,
+    
+    // one or two character tokens
     TOKEN_BANG, TOKEN_BANG_EQUAL,
     TOKEN_EQUAL, TOKEN_EQUAL_EQUAL,
     TOKEN_LESS, TOKEN_LESS_EQUAL,
     TOKEN_GREATER, TOKEN_GREATER_EQUAL,
     TOKEN_PLUS, TOKEN_MINUS, TOKEN_STAR, TOKEN_SLASH,
+
+    // keywords
     TOKEN_VAR,
     TOKEN_FN,
     TOKEN_IF, TOKEN_ELSE,
@@ -22,20 +25,17 @@ typedef enum TokenTypes {
     TOKEN_NUMBER,
     TOKEN_CHARACTER,
     TOKEN_IDENTIFIER,
+
+    // types
+    TOKEN_TYPE_INT, TOKEN_TYPE_INT_PTR,
+    TOKEN_TYPE_CHAR, TOKEN_TYPE_CHAR_PTR,
+    TOKEN_TYPE_BYTE, TOKEN_TYPE_BYTE_PTR,
+    TOKEN_TYPE_BOOL, TOKEN_TYPE_BOOL_PTR,
+    
+    // other
     TOKEN_EOF,
     TOKEN_ERROR
 } TokenType;
 
-typedef enum Types {
-    TYPE_INT,
-    TYPE_INT_PTR,
-    TYPE_CHAR,
-    TYPE_CHAR_PTR,
-    TYPE_BYTE,
-    TYPE_BYTE_PTR,
-    TYPE_BOOL,
-    TYPE_BOOL_PTR,
-    TYPE_UNKNOWN
-} Type;
 
 #endif // TOKEN_TYPE_H
