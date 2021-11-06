@@ -1,6 +1,7 @@
 # Itai's programming language
 
 ## Contents
+- [Runtime system](#runtime-system)
 - [Basic syntax](#basic-syntax)
   * [Literals](#literals)
   * [Operators](#operators)
@@ -32,6 +33,36 @@
 - [Dynamic memory allocation](#dynamic-memory-allocation)
 - [Standard library](#standard-library)
   * [Available without importing](#available-without-importing)
+
+## Runtime system
+### Errors
+Function and line number are printed followed by a stack trace, for example:
+```
+Cause: Segmentation fault in "path/to/file":2
+Stack trace:
+makeSegFault()
+	"path/to/file":1
+main()
+	"path/to/file":3
+```
+First the cause is printed: the type of error and the file followed by a colon and the line number. Then the stack trace is printed.<br>
+The function name is printed (with the arguments it was passed if applicable) followed by `<path/to/file>:<line number>`.<br>
+The last function called is printed first.<br>
+Methods are orinted like this:
+```
+className.methodName(): instanceName
+	"path/to/file":1
+```
+### Memory management
+In this section, the term 'object' means any variable or instance of a class.<br>
+**Where are objects created?**<br>
+- Objects created inside a function that their size is known at compile time are created on the stack, so they are freed when the function returns.<br>
+- Objects with a known size at compile time that are to big to be created on the stack, are created in the heap.<br>
+- Global objects are created on the heap.<br>
+- Objects that their size is not known at compile time are created at run time on the heap.<br>
+- Objects allocated with the `new` keyword are created in the heap.<br>
+There is no garbage collector, but if an object allocated on the heap go out of scope and has no references or pointers to it, it's freed.<br>
+Objects known to be in the heap can be freed with the `delete` keyword. you shoudln't free automatically allocated objects, but nothing bad will happen if you do.
 
 ## Basic syntax
 Statements are followed by a semicolon (`;`).<br>
