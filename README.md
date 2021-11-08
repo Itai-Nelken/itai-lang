@@ -6,7 +6,9 @@
   * [Literals](#literals)
   * [Operators](#operators)
 - [Comments](#comments)
-- [Importing libraries](#importing-libraries)
+- [Libraries](#libraries)
+  * [Importing](#importing)
+  * [Creating a library](#creating-a-library)
 - [Variables](#variables)
   * [Constants](#constants)
   * [Arrays](#arrays)
@@ -29,7 +31,8 @@
   * [Methods](#methods)
   * [Access modifiers](#access-modifiers)
   * [Inheritance](#inheritance)
-- [Templates](#templates)
+  * [Polymorphism](#polymorphism)
+- [Generics](#generics)
 - [Dynamic memory allocation](#dynamic-memory-allocation)
 - [Standard library](#standard-library)
   * [Available without importing](#available-without-importing)
@@ -42,31 +45,36 @@ Cause: Segmentation fault in "path/to/file":2
 Stack trace:
 makeSegFault()
 	"path/to/file":1
+func1(1, 2)
+	"path/to/file":2
 main()
 	"path/to/file":3
 ```
 First the cause is printed: the type of error and the file followed by a colon and the line number. Then the stack trace is printed.<br>
+**reading the stack trace:**<br>
 The function name is printed (with the arguments it was passed if applicable) followed by `<path/to/file>:<line number>`.<br>
 The last function called is printed first.<br>
-Methods are orinted like this:
+Methods are printed like this:
 ```
 className.methodName(): instanceName
 	"path/to/file":1
 ```
+
 ### Memory management
 In this section, the term 'object' means any variable or instance of a class.<br>
 **Where are objects created?**<br>
 - Objects created inside a function that their size is known at compile time are created on the stack, so they are freed when the function returns.<br>
-- Objects with a known size at compile time that are to big to be created on the stack, are created in the heap.<br>
-- Global objects are created on the heap.<br>
-- Objects that their size is not known at compile time are created at run time on the heap.<br>
+- Objects with a known size at compile time that are to big to be created on the stack, are created in the heap and freed automatically when the function returns.<br>
+- Global objects are created on the heap and freed automatically when the program exits.<br>
+- Objects that their size is not known at compile time are created at run time on the heap and automatically freed.<br>
 - Objects allocated with the `new` keyword are created in the heap.<br>
-There is no garbage collector, but if an object allocated on the heap go out of scope and has no references or pointers to it, it's freed.<br>
-Objects known to be in the heap can be freed with the `delete` keyword. you shoudln't free automatically allocated objects, but nothing bad will happen if you do.
+  * Manually allocated objects are NOT freed, you have to free them yourself.<br>
+- There is no garbage collector, but if an object allocated on the heap goes out of scope and has no references or pointers to it, it's freed.<br>
+- Objects known to be in the heap can be freed with the `delete` keyword. you shoudln't free automatically allocated objects (compiler warning), but nothing bad will happen if you do and the object wasn't needed anymore.
 
 ## Basic syntax
 Statements are followed by a semicolon (`;`).<br>
-Expressions can be grouped inside parentheses (`()`) for precedence.<br>
+Expressions can be grouped inside parentheses (`()`) for higher precedence.<br>
 
 ### Literals
 **Booleans:** - `true` or `false`. any number other than 0 is `true`, and 0 is `false`.<br>
@@ -75,12 +83,31 @@ Expressions can be grouped inside parentheses (`()`) for precedence.<br>
 **characters:** `'<character>'` for example: `'A'`. only ASCII characters are supported.<br>
 **strings:** `"<string>"` for example: `"Hello, World!"`. only ASCII characters are supported.<br>
 
+Any number can be postfixed with a type, so `10usize` means 10 is a number literal of type `usize`.<br>
+
 ## Operators
 **Math**: addition: `+`, substraction: `-`, multiplication: `*`, division: `/`, modulo (remainder): `%`.<br>
-**Bitwise:** and: `&`, or: `|`, not: `!`, xor: `^`.<br>
+**Bitwise:** and: `&`, or: `|`, not: `!`, xor: `^`, left shift: `<<`, right shift: `>>` // TODO: add the other ones.<br>
 **Asignment:** `=`.<br>
 **Comparison:** `==`, `!=`, `<`, `>`, `<=`, `>=`.<br>
 **Control flow:** and: `&&`, or: `||`<br>
+### Assignemt + math and bitwise operators (excluding `!`)
+```golang
+var int a = 10;
+
+// math operators
+a += 10; // a = a + 10
+a -= 10; // a = a - 10
+a *= 2; // a = a * 2
+a /= 2; // a = a / 2
+
+// bitwise operators
+a &= 2; // a = a & 2
+a |= 2; // a = a | 2
+// != is a comparison operator, so it doesn't work like this.
+a <<= 2; // a = a << 2
+a >>= 2; // a = a >> 2
+```
 ### prefix and postfix `+` and `-`
 ```golang
 var int a=10;
@@ -97,10 +124,20 @@ var e = --a; // 10, a is 10
 * Start with `//` until end of line.
 * Between `/*` and `*/` (doesn't work as part of an expression, for example: `*x/*y` means dereference `x` and `y` and divide `x` by `y`).
 
-## Importing libraries
+## Libraries
+### Creating a library
+TODO
+
+### Importing
 ```py
-import library
-from library import thing
+// import a whole library
+import library;
+
+// import a single thing from a library
+from library import thing;
+
+// import multiple things from a library
+from library import thing1, thing2;
 ```
 
 ## Variables
@@ -212,7 +249,8 @@ struct name {
 enum name {
 	A, // 0
 	B, // 1
-	C=10 // 10
+	C=10, // 10
+	D // 11
 };
 ```
 ### Custom types
@@ -360,14 +398,26 @@ default => {
 //
 // 'a' isn't 10, jumping to 10 case...
 // 'a' is 10
+
+// fallthrough
+a = 10;
+switch(a) {
+	10 => fallthrough;
+	5 => print("'a' is 5 or 10\n");
+default => print("'a' isn't 5 or 10\n");
+}
+// output of above switch will be:
+//
+// 'a' is 5 or 10
 ```
 
 ## functions
 ```rust
-fn name(type parameter) return_type {
-	body
+fn name(<parameters>) <return_type> {
+	<body>
 }
 ```
+**`parameters`** are declared as following: `type name, type2 name2`.<br>
 **`body`** is the body of the function.<br>
 **`return_type`** is the return type of the function. if not provided, the function doesn't return anything.
 ### example
@@ -377,29 +427,31 @@ fn add(int a, int b) int {
 }
 ```
 ### Variable argument functions and methods
-Variable argument functions work by adding `name...` (name can be any valid variable name) as the last parameter in a function or method. `name` is a `Vector<any>` that contains the arguments. to get each argument, you can use the `Vector<type T>` methods to get the data appending the `.get()` method of the `any<type T>` class. you can get the type by appending `.type` instead of `.get()`.
-The last argument can be accessed using the `pop_front()` Vector method, and the first one using the `pop_back()` Vector method.
+Variable argument functions work by adding `name...` (name can be any valid variable name) as the last parameter in a function or method. `name` is a `Vector<any>` that contains the arguments. to get each argument, you can use the `Vector<T>` `peek_*` and `pop_*` methods to get the data as an `any<T>`, and you can get the actual value by appending the `.get()` method of the `any<T>` class. you can get the type by appending `.type()` instead of `.get()`.
+The last argument can be accessed using the `peek_front()` Vector method, and the first one using the `peek_back()` Vector method.
 #### **Example**
 ```rust
 fn variable_args(args...) {
-	var arg1 = args.pop_back().get();
-	var last_arg = args.pop_front().get();
+	var arg1 = args.peek_back().get();
+	var arg1_type = args.peek_back().type();
+	var last_arg = args.peek_front().get();
 
 	// you can get a regular array of the arguments
 	var args_as_array[] = args.to_array();
 	// iterate over the array
 	for arg in args_as_array {
-		print("|{}|", arg);
+		print("|{}|", arg.get());
 	}
 	// you can also do this
 	for arg in args.to_array() {
-		print("|{}|", arg);
+		print("|{}|", arg.get());
 	}
 }
 
 ```
 
 ## Objects
+TODO: decide if class based or binding methods to structs based.
 ```cpp
 class name {
 <access modifier>:
@@ -530,18 +582,21 @@ public:
 ```
 The child class `Dog` has access to everything in the super class `Animal` using the `super` keyword.
 
-## Templates
-Templates make writing one function for many different types possible. templates work with functions, classes and methods.<br>
+### Polymorphism
+TODO
+
+## Generics
+Generics make writing one function for many different types possible, they work with functions, classes and methods.<br>
 The compiler creates a version of the function for every provided type.
 ```rust
-// declaring a template function
+// declaring a function with generics
 // multiple types can be declared:
-// fn add<type A, type B, type C>
-fn add<type T> (T a, T b) T {
+// fn add<A, B, C>
+fn add<T> (T a, T b) T {
 	return a+b;
 }
 
-// calling a template function
+// calling the function function
 add<int>(1, 2); // 3
 add<float>(1.5, 3.5); // 5
 // the following function is generated by the compiler for the above call:
@@ -550,21 +605,21 @@ add<float>(1.5, 3.5); // 5
 //     return a+b;
 // }
 ```
-You can make a template type only work with specific types by putting the types in parentheses after the template type declaration:
+You can make a generic type work only with specific types by putting the types in parentheses after the template type declaration:
 ```rust
 // again, you can declare multiple types:
-// fn add<type N(int, float), type S(str, String), type U(uint, usize)>
-fn add<type T(int, float)> (T a, T b) T {
+// fn add<N(int, float), type S(str, String), type U(uint, usize)>
+fn add<T(int, float)> (T a, T b) T {
 	return a+b;
 }
 
 add<int>(1, 4); // works.
 add<char>('a', 'b'); // doesn't work, compilation error.
 ```
-Templates in a class:
+Generics in classes:
 ```cpp
 // declaring a template class
-class any_type<type T> {
+class any_type<T> {
 	T value;
 public:
 	any_number(T value) {
@@ -578,11 +633,11 @@ public:
 	}
 };
 
-// creating instances of a template class
+// creating instances of generic classes
 any_type<int> integer(12);
 any_type<uint> unsigned_int(3);
-int i = integer.get() // 12
-uint u = unsigned_int.get(); // 3
+var int i = integer.get() // 12
+var uint u = unsigned_int.get(); // 3
 ```
 
 ## Dynamic memory allocation
@@ -633,14 +688,17 @@ hello.append(s.substr(8, 12).to_str()); // append 'World'
 // hello is now 'Hello World'
 var s2 = s.clone(); // s2 is 'Hello, World!'
 ```
-**`Vector<type T>`** - A dynamic array that can be any type.<br>
-**Methods for `Vector<type T>`:**<br>
+**`Vector<T>`** - A dynamic array that can be any type.<br>
+**Methods for `Vector<T>`:**<br>
 * `push_front(T data)` - Put 'data' in the front of the array.
 * `push_back(T data)` - Put 'data' at the back of the array.
 * `push_to(uint index, T data)` - Put 'data' at 'index'.
-* `pop_front() T` - Remove the front value.
-* `pop_back() T` - Remove the back value.
-* `pop_from(uint index) T` - Get the value at 'inedx' and return it.
+* `pop_front() T` - Remove the front value and return it.
+* `pop_back() T` - Remove the back value and return it.
+* `pop_from(uint index) T` - Remove the value at 'index' and return it.
+* `peek_front() T` - Get the front value.
+* `peek_back() T` - Get the back value.
+* `peek_at(uint index) T` - Get the value at 'index'
 * `size() usize` - Get the size of the array.
 * `is_empty() bool` - Check if the `Vector` is empty.
 * `to_array() T` - Convert the array into a regular array of type 'T' and return it.
@@ -660,8 +718,12 @@ v.dump(); // [2,1]
 
 var int_array = v.to_array(); // [2,1]
 ```
-**`any<type T>`** - A class that can hold any type (as long as it supports using the assignment (`=`) operator).<br>
-**Methods for `any<type T>`:**<br>
+**`any<T>`** - A class that can hold any type (as long as it supports using the assignment (`=`) operator).<br>
+**Methods for `any<T>`:**<br>
 * `set(T value)` - Set the value.
 * `get() T` - Get the value (return it).
 * `type() type` - Returns the type being used.
+
+### `stdio` (standard I/O)
+Functions for printing text (to stdout, stderr and files), reading text (from stdin and files), file I/O.
+
