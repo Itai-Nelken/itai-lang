@@ -63,14 +63,13 @@ className.methodName(): instanceName
 ### Memory management
 In this section, the term 'object' means any variable or instance of a class.<br>
 **Where are objects created?**<br>
-- Objects created inside a function that their size is known at compile time are created on the stack, so they are freed when the function returns.<br>
-- Objects with a known size at compile time that are to big to be created on the stack, are created in the heap and freed automatically when the function returns.<br>
+- Objects created inside a function with known size at compile time are created on the stack, so they are automatically freed when the function returns.<br>
 - Global objects are created on the heap and freed automatically when the program exits.<br>
-- Objects that their size is not known at compile time are created at run time on the heap and automatically freed.<br>
+- Objects with an unknown size at compile time are created on the heap and automatically freed.<br>
 - Objects allocated with the `new` keyword are created in the heap.<br>
   * Manually allocated objects are NOT freed, you have to free them yourself.<br>
 - There is no garbage collector, but if an object allocated on the heap goes out of scope and has no references or pointers to it, it's freed.<br>
-- Objects known to be in the heap can be freed with the `delete` keyword. you shoudln't free automatically allocated objects (compiler warning), but nothing bad will happen if you do and the object wasn't needed anymore.
+- Objects known to be in the heap can be freed with the `delete` keyword. You can't free objects automatically allocated on the heap. ding so will cause a runtime error.
 
 ## Basic syntax
 Statements are followed by a semicolon (`;`).<br>
@@ -129,7 +128,7 @@ var e = --a; // 10, a is 10
 TODO
 
 ### Importing
-```py
+```golang
 // import a whole library
 import library;
 
@@ -138,7 +137,13 @@ from library import thing;
 
 // import multiple things from a library
 from library import thing1, thing2;
+
+// using 'add(a int, b int)' from 'library'
+library::add(1, 2);
 ```
+
+## Namespaces
+TODO
 
 ## Variables
 ```golang
@@ -169,10 +174,10 @@ const NUM2 = 5;
 ```
 ### Arrays
 #### **Initializing:**<br>
-If all the array is filled in declaration, there is no need to specify the size.
+If all the array is filled at declaration, there is no need to specify the size.
 ```golang
 var <type> <name>[<size>];
-var type <name>[size] = {<comma separated elements>};
+var type <name>[<size>] = {<comma separated elements>};
 var <name>[<size>] = {<comma separated elements>};
 ```
 #### **accessing elements:**<br>
@@ -192,18 +197,22 @@ array[0]; // 0
 You can access parts of the array using **Slices**.<br>
 **Syntax:**<br>
 ```golang
+array[<from>:<to>];
+```
+**Example:**<br>
+```golang
 // make a new array (of type char)
 var array[] = {'a', 'b', 'c', 'd', 'e'};
 
 array[1:3]; // ['b', 'c', 'd']
 ```
-**The slices are allowed:**<br>
+**The following are valid slices:**<br>
 - `array[:]` - The entire array.<br>
 - `array[2:]` - The entire array except the first 2 elements.<br>
 - `array[:2]` - The first 2 elements.<br>
 
 ## Types
-**`type`** - Used to save types. **usage:** assignment: `var type type_int = int`, comparison: `type_int == int`.<br>
+**`type`** - Used to save types. **usage:** assignment: `var type type_int = type(int)`, comparison: `type_int == type(int)`. you have to explicitly cast the type.<br>
 
 ### Boolean
 **`bool`** - 1 byte, holds `true` or `false` (which are 1 or 0 respectively).<br>
@@ -215,7 +224,7 @@ array[1:3]; // ['b', 'c', 'd']
 
 #### **Larger sizes are available by appending the size to the end:**
 **`int` sizes:**<br>
-**`2`, `4`, `8`, `16`** (bytes).<br>
+**`2`, `4`, `8`, `16`** (bytes).// TODO: change to bits instead of bytes<br>
 `int` is an alias for `int4`.<br>
 **`float` sizes:**<br>
 **`32`, `64`** (bits).<br>
@@ -230,9 +239,9 @@ unsigned 8 byte int: `uint8`.<br>
 unsigned 16 byte int: `uint16`.<br>
 
 ### Text
-**`char`** - 1 unsigned byte, can hold only ASCII characters.<br>
 **`byte`** - 1 byte.<br>
-**`str`** - Constant string, alias for a fixed size constant `char` array.<br>
+**`char`** - 1 unsigned byte, can hold only ASCII characters.<br>
+**`str`** - Constant size string, alias for a fixed size `char` array.<br>
 ### Other
 **`struct`** - A Structure can hold any fixed size type inside. used to group variables that belong to the same thing together. Variables defined inside a `struct` don't need to be declared with the `var` keyword.<br>
 **`enum`** - An Enumeration (enum) is a bunch of constants in a single place. they can only be numbers. the first number is 0 by default.
@@ -252,6 +261,12 @@ enum name {
 	C=10, // 10
 	D // 11
 };
+
+// accesing enum values
+name::A; // 0
+name::B; // 1
+name::C; // 10
+name::D; // 11
 ```
 ### Custom types
 **You can create a custom type with the `deftype` (define type) keyword:**
@@ -279,9 +294,9 @@ deftype struct {
 
 // usage
 var Animal dog;
-dog.name="doggy";
-dog.age=2;
-dog.type=DOG;
+dog.name.from("doggy");
+dog.age = 2;
+dog.type = AnimalType::DOG;
 ```
 
 ### Casting
@@ -294,14 +309,25 @@ var c=float(a); // no type name duplication
 ```
 ### Pointers and references
 Pointers and references are supported.<br>
-They work for basic types, functions and objects (classes).
+They work for basic types, functions and objects (classes).<br>
+It's recommended to only use references unless you need pointer arithmetic.<br>
 #### **Pointers:**
 ```golang
 var a = 10;
 var *ptr_to_a = &a;
 // to access the value in 'a'
 var b = *ptr_to_a; // 10
+
+// pointer arithmetic
+var array[] = {1, 2, 3, 4, 5};
+var *ptr_array = array[0];
+*ptr_array; // 1
+*ptr_array+1; // 2
+ptr_array += 1;
+*ptr_array; // 2
+// same for subtraction, multipliaction, and division.
 ```
+Pointer arithmetic is safe because they have runtime checks to check that they aren't accesing memory they shouldn't.<br>
 
 #### **References:**
 ```golang
@@ -370,8 +396,8 @@ var a = 10;
 switch(a) {
 	10 => print("'a' is 10\n");
 	5 => print("'a' is 5");
-default => // default catches anything that isn't handled by the other cases.
-	print("'a' isn't 10 or 5\n");
+// default catches anything that isn't handled by the other cases.
+default => print("'a' isn't 10 or 5\n");
 }
 
 // for declaring variables inside the switch or having more than one line, you can create a scope
@@ -381,8 +407,7 @@ switch(a) {
 		var b = 5;
 		print("'b' is 5\n");
 	}
-default =>
-	print("'a' isn't 10\n");
+default => print("'a' isn't 10\n");
 }
 
 // you can add labels to the cases and jump to them from a different case
@@ -390,9 +415,9 @@ a = 5;
 switch(a) {
 	10 : ten => print("'a' is 10\n");
 default => {
-	print("'a' isn't 10, jumping to 10 case...\n");
-	break ten;
-}
+		print("'a' isn't 10, jumping to 10 case...\n");
+		break ten;
+	}
 }
 // output of above switch will be:
 //
@@ -417,7 +442,7 @@ fn name(<parameters>) <return_type> {
 	<body>
 }
 ```
-**`parameters`** are declared as following: `type name, type2 name2`.<br>
+**`parameters`** are declared as following: `type name, type2 name2`. if multiple parameters have the same type, you can declare them as following: `type name, name2`.<br>
 **`body`** is the body of the function.<br>
 **`return_type`** is the return type of the function. if not provided, the function doesn't return anything.
 ### example
@@ -427,24 +452,23 @@ fn add(int a, int b) int {
 }
 ```
 ### Variable argument functions and methods
-Variable argument functions work by adding `name...` (name can be any valid variable name) as the last parameter in a function or method. `name` is a `Vector<any>` that contains the arguments. to get each argument, you can use the `Vector<T>` `peek_*` and `pop_*` methods to get the data as an `any<T>`, and you can get the actual value by appending the `.get()` method of the `any<T>` class. you can get the type by appending `.type()` instead of `.get()`.
+Variable argument functions work by adding `name...type` (name can be any valid variable name, and type can be any valid type) as the last parameter in a function or method. `name` is a `Vector<type>` that contains the arguments. to get each argument, you can use the `Vector<T>` `peek_*` and `pop_*` methods to get the values.<br>
 The last argument can be accessed using the `peek_front()` Vector method, and the first one using the `peek_back()` Vector method.
 #### **Example**
 ```rust
-fn variable_args(args...) {
-	var arg1 = args.peek_back().get();
-	var arg1_type = args.peek_back().type();
-	var last_arg = args.peek_front().get();
+fn variable_args(args...int) {
+	var arg1 = args.peek_back();
+	var last_arg = args.peek_front();
 
 	// you can get a regular array of the arguments
 	var args_as_array[] = args.to_array();
 	// iterate over the array
 	for arg in args_as_array {
-		print("|{}|", arg.get());
+		print("|{}|", arg);
 	}
 	// you can also do this
 	for arg in args.to_array() {
-		print("|{}|", arg.get());
+		print("|{}|", arg);
 	}
 }
 
@@ -526,7 +550,7 @@ public:
 	Animal(str name, str sound, int age) {
 		this.name.from(name);
 		this.sound.from(sound);
-		this.age=age;
+		this.age = age;
 	}
 };
 ```
@@ -546,7 +570,7 @@ public:
 		this.sound.from(sound);
 	}
 	get_name() String {
-		return this.name; // calling this method makes a copy of this.name for the return address. like calling String.clone()
+		return this.name;
 	}
 	get_sound() String {
 		return this.sound;
@@ -608,7 +632,7 @@ add<float>(1.5, 3.5); // 5
 You can make a generic type work only with specific types by putting the types in parentheses after the template type declaration:
 ```rust
 // again, you can declare multiple types:
-// fn add<N(int, float), type S(str, String), type U(uint, usize)>
+// fn add<N(int, float), S(str, String), U(uint, usize)>
 fn add<T(int, float)> (T a, T b) T {
 	return a+b;
 }
@@ -623,10 +647,10 @@ class any_type<T> {
 	T value;
 public:
 	any_number(T value) {
-		this.value=value;
+		this.value = value;
 	}
 	set(T value) {
-		this.value=value;
+		this.value = value;
 	}
 	get() T {
 		return this.value;
@@ -657,7 +681,7 @@ str_in_heap.from("Hello, World!");
 delete str_in_heap;
 ```
 `new` returns a pointer to the memory address where the allocated memory starts.
-Arrays in the heap can be created using `make<type T>(usize size)`:
+Arrays in the heap can be created using `make<T>(usize size)`:
 ```golang
 // make an int array of size 10
 var array = make<int>(10);
@@ -667,15 +691,16 @@ A heap allocated object will be automatically freed when it goes out of scope an
 ## Standard library
 ### Available without importing
 #### Functions
-**`print(str fmt, args...)`** - Print `fmt` to standard out (`stdout`).<br>
+**`print(str fmt, args...str)`** - Print `fmt` to standard out (`stdout`).<br>
 * Suports formatting similar to the rust `println!()` macro: `print("variable 'i' is: {}", i);`.
+* TODO: find out how to make an elegant way to cast all the variable arguments to a `str`.
 #### Smart types
 **`String`** - A wrapper around a dynamic array of chars. this is what you have to use for mutable strings.<br>
 **Methods for `String`:**<br>
 * `from(str s)` - add the contents of `s` into the `String`.
 * `to_str() str` - convert the contents of the `String` into a `str` and return it.
 * `len() usize` return the length of the string in the `String`.
-* `substr(usize start, usize end) String` - return a new `String` containing the contents between `start` and `end` in the original `String`.
+* `substr(usize start, end) String` - return a new `String` containing the contents between `start` and `end` in the original `String`.
 * `append(str s)` - Append `s` to the `String`.
 * `clone() String` - Create a copy of the `String`. equivalent of `String.substr(0, String.len())`.
 **Example:**
@@ -718,11 +743,6 @@ v.dump(); // [2,1]
 
 var int_array = v.to_array(); // [2,1]
 ```
-**`any<T>`** - A class that can hold any type (as long as it supports using the assignment (`=`) operator).<br>
-**Methods for `any<T>`:**<br>
-* `set(T value)` - Set the value.
-* `get() T` - Get the value (return it).
-* `type() type` - Returns the type being used.
 
 ### `stdio` (standard I/O)
 Functions for printing text (to stdout, stderr and files), reading text (from stdin and files), file I/O.
