@@ -199,7 +199,7 @@ static Token character(Scanner *s) {
     bool isClosed=false;
     // no need to consume the opening quote as it's already consumed
     if(peekNext(s) == '\'') isClosed=true;
-    if(isAscii(peek(s))) {
+    if(isClosed && isAscii(peek(s))) {
         // consume the character itself
         advance(s);
         // and the closing quote

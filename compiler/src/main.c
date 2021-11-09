@@ -5,6 +5,8 @@
 
 static const char *t2s(TokenType type) {
 	switch (type) {
+		case TOKEN_ERROR:
+			return "TOKEN_ERROR";
 		case TOKEN_PAREN_LEFT:
 			return "TOKEN_PAREN_LEFT";
 		case TOKEN_PAREN_RIGHT:
@@ -85,9 +87,14 @@ int main(int argc, char **argv) {
 	Scanner s = newScanner((argc>1 ? argv[1] : "var int a = 123;"));
 	Token t;
 	while((t=scanToken(&s)).type != TOKEN_EOF) {
-		// print t.length first characters from t.start
-		printf("%s : %.*s\n", t2s(t.type), t.length, t.start);
+		if(t.type == TOKEN_ERROR) {
+			printf("%s : line %d, %.*s\n", t2s(t.type), t.line, t.length, t.start);
+		} else {
+			// print t.length first characters from t.start
+			printf("%s : %.*s\n", t2s(t.type), t.length, t.start);
+		}
 	}
+	puts("TOKEN_EOF");
 	scannerDestroy(&s);
 
 	return 0;

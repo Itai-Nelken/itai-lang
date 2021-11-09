@@ -41,6 +41,7 @@ fn add(int a, int b) int {
 
 ## Standard library
 `putchar(char c)` from the C standard library.
+`getchar() char` from the C standard library.
 
 ## Operators in this version
 **Math:** `+`, `-`, `*`, `/`.<br>
