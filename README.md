@@ -124,7 +124,7 @@ var e = --a; // 10, a is 10
 * Between `/*` and `*/` (doesn't work as part of an expression, for example: `*x/*y` means dereference `x` and `y` and divide `x` by `y`).
 
 ## Libraries
-### Creating a library
+### Creating
 TODO
 
 ### Importing
@@ -243,6 +243,7 @@ unsigned 16 byte int: `uint16`.<br>
 **`char`** - 1 unsigned byte, can hold only ASCII characters.<br>
 **`str`** - Constant size string, alias for a fixed size `char` array.<br>
 ### Other
+**`any`** - big enough to hold a pointer to any value. it's size depends on the largest type. works only for pointers, `var any a = 12` is invalid.<br>
 **`struct`** - A Structure can hold any fixed size type inside. used to group variables that belong to the same thing together. Variables defined inside a `struct` don't need to be declared with the `var` keyword.<br>
 **`enum`** - An Enumeration (enum) is a bunch of constants in a single place. they can only be numbers. the first number is 0 by default.
 #### `struct` and `enum` example
@@ -454,6 +455,8 @@ fn add(int a, int b) int {
 ### Variable argument functions and methods
 Variable argument functions work by adding `name...type` (name can be any valid variable name, and type can be any valid type) as the last parameter in a function or method. `name` is a `Vector<type>` that contains the arguments. to get each argument, you can use the `Vector<T>` `peek_*` and `pop_*` methods to get the values.<br>
 The last argument can be accessed using the `peek_front()` Vector method, and the first one using the `peek_back()` Vector method.
+
+The type is optional, and can be removed to get variable type variable arguments. You can avvess them with the `*_as<TP>()` `Vector<T>` methods.
 #### **Example**
 ```rust
 fn variable_args(args...int) {
@@ -472,7 +475,13 @@ fn variable_args(args...int) {
 	}
 }
 
+fn variable_type_args(args...) {
+	var arg1 = args.peek_back_as<int>();
+	var last_arg = args,peek_front_as<char>();
+}
+
 ```
+
 
 ## Objects
 TODO: decide if class based or binding methods to structs based.
@@ -691,9 +700,8 @@ A heap allocated object will be automatically freed when it goes out of scope an
 ## Standard library
 ### Available without importing
 #### Functions
-**`print(str fmt, args...str)`** - Print `fmt` to standard out (`stdout`).<br>
+**`print(str fmt, args...)`** - Print `fmt` to standard out (`stdout`).<br>
 * Suports formatting similar to the rust `println!()` macro: `print("variable 'i' is: {}", i);`.
-* TODO: find out how to make an elegant way to cast all the variable arguments to a `str`.
 #### Smart types
 **`String`** - A wrapper around a dynamic array of chars. this is what you have to use for mutable strings.<br>
 **Methods for `String`:**<br>
@@ -719,15 +727,25 @@ var s2 = s.clone(); // s2 is 'Hello, World!'
 * `push_back(T data)` - Put 'data' at the back of the array.
 * `push_to(uint index, T data)` - Put 'data' at 'index'.
 * `pop_front() T` - Remove the front value and return it.
+* `pop_front_as<TP>() TP` - Remove the front value and return it as `TP`.
 * `pop_back() T` - Remove the back value and return it.
+* `pop_back_as<TP>() TP` - Remove the back value and return it as `TP`.
 * `pop_from(uint index) T` - Remove the value at 'index' and return it.
+* `pop_from_as<TP>(uint index) TP`
 * `peek_front() T` - Get the front value.
+* `peek_front_as<TP>() TP` - Get the front value as `TP`.
 * `peek_back() T` - Get the back value.
+* `peek_back_as<TP>() TP` - Get the back value as `TP`.
 * `peek_at(uint index) T` - Get the value at 'index'
+* `peek_at_as<TP>(uint index) TP` - Get the value at 'index' as `TP`.
+* `ensure(usize elements)` - Ensure that at least 'elements' space is available.
 * `size() usize` - Get the size of the array.
 * `is_empty() bool` - Check if the `Vector` is empty.
 * `to_array() T` - Convert the array into a regular array of type 'T' and return it.
 * `dump()` - Print the entire contents of the array.
+
+**NOTE:** non `*_as<TP>()` methods call `*_as<TP>()` with `T` as the type. The data is stored as a `any` pointer to a heap allocated buffer, so it can be any type.
+
 **Example:**
 ```java
 Vector<int> v;
