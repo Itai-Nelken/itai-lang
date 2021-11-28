@@ -1,0 +1,9 @@
+variable argument functions (variadic functions)
+================================================
+'args...' args (any valid identifier name works) can be of type Args which inherits from Vector<any*>. every element points to the place on the stack where the argument is, and using the get_as<T>() method they can be accesed casted to the correct type.
+
+Inheritance
+===========
+private and public inheritance
+
+
