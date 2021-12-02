@@ -153,7 +153,15 @@ static Token number(Scanner *s) {
 
 static TokenType checkKeyword(Scanner *s, int start, const char *rest, TokenType type) {
     int length=strlen(rest);
-    if(s->current - s->start == start+length && memcmp(s->start+start, rest, length)==0) {
+    // subtracting to pointers to the same array returns the offset between them
+    // for example:
+    // 
+    // int array[10];
+    // int *ptr1 = array + 2;
+    // int *ptr2 = array;
+    // printf("%d\n", ptr1 - ptr2); // will print 2
+    //
+    if(s->current - s->start == start+length && memcmp(s->start + start, rest, length) == 0) {
         return type;
     }
     return TOKEN_IDENTIFIER;

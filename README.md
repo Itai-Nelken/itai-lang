@@ -8,6 +8,7 @@
 - [Comments](#comments)
 - [Libraries](#libraries)
   * [Importing](#importing)
+  * [Namespaces](#namespaces) 
   * [Creating a library](#creating-a-library)
 - [Variables](#variables)
   * [Constants](#constants)
@@ -63,13 +64,13 @@ className.methodName(): instanceName
 ### Memory management
 In this section, the term 'object' means any variable or instance of a class.<br>
 **Where are objects created?**<br>
-- Objects created inside a function with known size at compile time are created on the stack, so they are automatically freed when the function returns.<br>
+- Objects created inside a function with a known size at compile time are created on the stack, so they are automatically freed when the function returns.<br>
 - Global objects are created on the heap and freed automatically when the program exits.<br>
 - Objects with an unknown size at compile time are created on the heap and automatically freed.<br>
 - Objects allocated with the `new` keyword are created in the heap.<br>
   * Manually allocated objects are NOT freed, you have to free them yourself.<br>
 - There is no garbage collector, but if an object allocated on the heap goes out of scope and has no references or pointers to it, it's freed.<br>
-- Objects known to be in the heap can be freed with the `delete` keyword. You can't free objects automatically allocated on the heap. ding so will cause a runtime error.
+- Objects known to be in the heap can be freed with the `delete` keyword. You can't free objects automatically allocated on the heap. doing so will cause a runtime error.
 
 ## Basic syntax
 Statements are followed by a semicolon (`;`).<br>
@@ -328,7 +329,7 @@ ptr_array += 1;
 *ptr_array; // 2
 // same for subtraction, multipliaction, and division.
 ```
-Pointer arithmetic is safe because they have runtime checks to check that they aren't accesing memory they shouldn't.<br>
+Pointer arithmetic is safe because it has runtime checks to make sure that memory that shouldn't be accesed isn't accessed.<br>
 
 #### **References:**
 ```golang
