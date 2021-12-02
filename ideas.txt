@@ -6,4 +6,8 @@ Inheritance
 ===========
 private and public inheritance <-- probably don't want that, to complicated. want simple and nice yet powerful like C and GO.
 
+Function literals (lambdas)
+==========================
+var adder = fn(int a, int b) -> int { return a + b; }; <-- direct assignemnt
+var fn(int, int) -> int Adder; <-- as a type
 
