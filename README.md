@@ -355,7 +355,7 @@ while a <= 10 {
 }
 ```
 ### The `for` loop
-The `for` loop has two versions:
+The `for` loop has two versions:<br>
 **Counter:**<br>
 ```golang
 // count to 10
