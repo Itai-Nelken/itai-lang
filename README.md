@@ -22,6 +22,7 @@
 - [Loops](#loops)
   * [The `while` loop](#the-while-loop)
   * [The `for` loop](#the-for-loop)
+  * [Iterators](#iterators)
 - [`if`/`else`](#ifelse)
 - [`switch`](#switch)
 - [Functions](#functions)
@@ -371,7 +372,7 @@ for element in array {
 }
 ```
 
-## Iterator
+## Iterators
 TODO
 
 ## `if`/`else`
