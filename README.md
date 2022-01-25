@@ -786,7 +786,7 @@ The global namespace holds module names and global function and variable (and co
 | `using`               |                                  |
 | `while`               | declare a while loop             |
 | `for`                 | declare a for loop               |
-|                       |                                  |
+| `type`                | define a custom type             |
 |                       |                                  |
 
 
