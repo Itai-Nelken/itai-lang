@@ -19,7 +19,7 @@ export struct Stack<T> {
 }
 
 const INITIAL_SIZE = 16;
-export fn [static Stack]new(usize initial_size)<T> -> Stack<T> {
+export fn [static Stack]new<T>(usize initial_size) -> Stack<T> {
     if initial_size == 0 {
         initial_size = INITIAL_SIZE;
     }
