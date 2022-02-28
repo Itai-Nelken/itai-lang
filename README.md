@@ -111,24 +111,24 @@ The Preprocessor and Compiler can be passed certain options using directives:
 
 **NOTE:** `str` isn't a primitive, but it's an alias to one.
 
-| Type                              | Equivalent in C              |
-| --------------------------------- | ---------------------------- |
-| `i8`                              | `int8_t` (`char`)            |
-| `i16`                             | `int16_t`                    |
-| `i32`                             | `int32_t` (`int`)            |
-| `i64`                             | `int64_t` (`long`)           |
-| `i128`                            | `__int128_t`                 |
-| `u8`                              | `uint8_t` (`unsigned char`)  |
-| `u16`                             | `uint16_t`                   |
-| `u32`                             | `uint32_t` (`unsigned`)      |
-| `u64`                             | `uint64_t` (`unsigned long`) |
-| `u128`                            | `__uint128_t`                |
-| `f32`                             | `float`                      |
-| `f64`                             | `double`                     |
-| `isize`                           | `ssize_t`                    |
-| `usize`                           | `size_t`                     |
-| `char`                            | `char`                       |
-| `str` (pointer to string literal) | `char*` or `char*`           |
+| Type | Equivalent in C |
+| --- | --- |
+| `i8` | `int8_t` (`char`) |
+| `i16` | `int16_t` |
+| `i32` | `int32_t` (`int`) |
+| `i64` | `int64_t` (`long`) |
+| `i128` | `__int128_t` |
+| `u8` | `uint8_t` (`unsigned char`) |
+| `u16` | `uint16_t` |
+| `u32` | `uint32_t` (`unsigned`) |
+| `u64` | `uint64_t` (`unsigned long`) |
+| `u128` | `__uint128_t` |
+| `f32` | `float` |
+| `f64` | `double` |
+| `isize` | `ssize_t` |
+| `usize` | `size_t` |
+| `char` | `char` |
+| `str` (pointer to string literal) | `char*` or `char*` |
 
 ### Advanced (from the standard library)
 
@@ -136,9 +136,9 @@ Those aren't primitive types, but they are pretty basic in modern programming la
 
 They are automatically imported and put in the global scope.
 
-| Type        | Description                                                                           |
-| ----------- | ------------------------------------------------------------------------------------- |
-| `String`    | Mutable string with advanced features (using bound functions)                         |
+| Type | Description |
+| --- | --- |
+| `String` | Mutable string with advanced features (using bound functions) |
 | `Vector<T>` | A vector for any type (using generics). has advanced features (using bound functions) |
 
 ### Function types
@@ -146,38 +146,43 @@ They are automatically imported and put in the global scope.
 Function types are the type of function literals. they can also be used to store pointers/references to functions.
 
 ```rust
-fn(<types>)T
+fn(<types>) -> T
 ```
 
-The `<types>` is the argument types. this can be empty.  
+The `<types>` is the argument types, and it can be empty.
 
-`T` is the return type. it also can be multiple types in parentheses or none.
+`T` is the return type. it also can be multiple types in parentheses or none (if none, than the `->` isn't needed).
+
+Function types have to be defined as an other type meaning you can't do `var func: fn()`, you have to do:
+
+```rust
+type nullfn = fn()
+var func: nullfn;
+```
 
 The following function type is used when referencing function types in this document:
 
 ```rust
-fn(...)T
+fn(...) -> T
 ```
 
-### Reference, Pointer, and Array types
+### Reference and Array types
 
-Each type has reference, pointer, and array variants of itself.  
+Each type has reference and array variants of itself.
 
 In the table bellow, one type from each group is shown.
 
-| Type        | Reference variant                | Pointer variant                  | Array variant |
-| ----------- | -------------------------------- | -------------------------------- | ------------- |
-| `u8`        | `&u8`, `&const u8`               | `*u8`, `*const u8`               | `u8[]`        |
-| `Vector<T>` | `&Vector<T>`, `&const Vector<T>` | `*Vector<T>`, `*const Vector<T>` | `Vector<T>[]` |
-| `fn(...)T`  | `&fn(...)T`, `&const fn(...)T`   | `*fn(...)T`, `*const fn(...)T`   | `fn(...)T[]`  |
+| Type | Reference variant | Array variant |
+| --- | --- | --- |
+| `u8` | `&u8`, `&const u8` | `u8[]` |
+| `Vector<T>` | `&Vector<T>`, `&const Vector<T>` | `Vector<T>[]` |
+| `fn(...)T` | `&fn(...) -> T`, `&const fn(...) -> T` | `fn(...)T[]` |
 
-The array variant can be mixed with the pointer or reference ones, for example:
+The array variant can be mixed with the reference ones, for example:
 
 ```rust
 &u8[] // reference to an array of type u8 and unknown size
 &const u8[4] // read-only reference to an array of type u8, size 4
-*fn(i32)i32 // pointer to a function that recieves an i32 and return an i32
-&const Vector<i32>[2] // a read-only reference to an array of type Vector<i32>, size 2
 ```
 
 ### Defining custom types
@@ -185,13 +190,11 @@ The array variant can be mixed with the pointer or reference ones, for example:
 Custom types are defined using the `type` keyword:
 
 ```go
-type Number i32;
+type Number = i32;
 var num: Number = 12;
+Number typeof num; // true
 Number typeof 12; // false
-
 ```
-
-
 
 ### Type casting
 
@@ -217,10 +220,11 @@ Hexadecimal numbers have to be prefixed with `0x` , binary numbers with `0b`, an
 
 ```rust
 // numbers
-42
-0x64
-0b1010
-O666
+42 // decimal
+0x64 // hexadecimal
+0b1010 // binary
+O666 // octal
+
 12.5
 1_000
 0b1001_0000_1000
@@ -289,64 +293,64 @@ split("abcd"); // "ab", "cd"
 
 ### Math
 
-| Operator | Description         | Type            |
-|:--------:|:-------------------:|:---------------:|
-| `+`      | addition            | infix, prestfix |
-| `-`      | subtraction         | infix, prestfix |
-| `*`      | multiplication      | infix           |
-| `/`      | division            | infix           |
-| `%`      | modulus (remainder) | infix           |
+| Operator | Description | Type |
+| --- | --- | --- |
+| `+` | addition | infix, prestfix |
+| `-` | subtraction | infix, prestfix |
+| `*` | multiplication | infix |
+| `/` | division | infix |
+| `%` | modulus (remainder) | infix |
 
 ### Bitwise
 
-| Operator | Description             | Type   |
-|:--------:|:-----------------------:|:------:|
-| `&`      | AND                     | infix  |
-| `\|`     | OR                      | infix  |
-| `^`      | XOR                     | infix  |
-| `~`      | Binary One's Complement | prefix |
-| `<<`     | left shift              | infix  |
-| `>>`     | right shift             | infix  |
+| Operator | Description | Type |
+| --- | --- | --- |
+| `&` | AND | infix |
+| `\|` | OR  | infix |
+| `^` | XOR | infix |
+| `~` | Binary One's Complement | prefix |
+| `<<` | left shift | infix |
+| `>>` | right shift | infix |
 
 ### Assignment
 
-| Operator | Description               | Type  |
-|:--------:|:-------------------------:|:-----:|
-| `=`      | assignment                | infix |
-| `+=`     | addition+assignment       | infix |
-| `-=`     | subtraction+assignment    | infix |
-| `*=`     | multiplication+assignment | infix |
-| `/=`     | division+assignment       | infix |
-| `&=`     | AND+assignment            | infix |
-| `\|=`    | OR+assignment             | infix |
-| `^=`     | XOR+assignment            | infix |
-| `<<=`    | left shift+assignment     | infix |
-| `>>=`    | right shift+assignment    | infix |
+| Operator | Description | Type |
+| --- | --- | --- |
+| `=` | assignment | infix |
+| `+=` | addition+assignment | infix |
+| `-=` | subtraction+assignment | infix |
+| `*=` | multiplication+assignment | infix |
+| `/=` | division+assignment | infix |
+| `&=` | AND+assignment | infix |
+| `\|=` | OR+assignment | infix |
+| `^=` | XOR+assignment | infix |
+| `<<=` | left shift+assignment | infix |
+| `>>=` | right shift+assignment | infix |
 
 ### Comparison
 
-| Operator | Description            | Type  |
-|:--------:|:----------------------:|:-----:|
-| `==`     | equal                  | infix |
-| `!=`     | not equal              | infix |
-| `>`      | larger than...         | infix |
-| `<`      | smaller than...        | infix |
-| `>=`     | larger or equal to...  | infix |
-| `<=`     | smaller or equal to... | infix |
+| Operator | Description | Type |
+| --- | --- | --- |
+| `==` | equal | infix |
+| `!=` | not equal | infix |
+| `>` | larger than... | infix |
+| `<` | smaller than... | infix |
+| `>=` | larger or equal to... | infix |
+| `<=` | smaller or equal to... | infix |
 
 ### Other
 
-| Operator      | Description                                                  |               |
-|:-------------:|:------------------------------------------------------------:| ------------- |
-| `sizeof`      | returns the size of an object                                | prefix        |
-| `typeof`      | returns the type of an object/compares an object with a type | prefix, infix |
-| `?:`          | conditional expression                                       | N/A           |
-| `++`          | increment                                                    | postfix       |
-| `--`          | decrement                                                    | postfix       |
-| `&`, `&const` | reference and constant reference                             | prefix        |
-| `*`           | dereference                                                  | prefix        |
-| `[]`          | subscript (for arrays)                                       | postfix       |
-| `::`          | Scope resolution                                             | prefix, infix |
+| Operator | Description |     |
+| --- | --- | --- |
+| `sizeof` | returns the size of an object | prefix |
+| `typeof` | returns the type of an object/compares an object with a type | prefix, infix |
+| `?:` | conditional expression | N/A |
+| `++` | increment | postfix |
+| `--` | decrement | postfix |
+| `&`, `&const` | reference and constant reference | prefix |
+| `*` | dereference | prefix |
+| `[]` | subscript (for arrays) | postfix |
+| `::` | Scope resolution | prefix, infix |
 
 ## Constructs
 
@@ -461,7 +465,7 @@ const name: type = value;
 
 Functions are declared with the `fn` keyword followed by a pair of opening and closing parentheses (`()`) containing the paraneters.`->` followed by the return type(s) can be added if the function returns something.<br>
 
-A function is called by its name followed by opening and closing parentheses  (`()`)containing the arguments if applicable.
+A function is called by its name followed by opening and closing parentheses (`()`)containing the arguments if applicable.
 
 ```rust
 // declaring
@@ -498,13 +502,13 @@ fn printf(str format, ...) {
             i++;
             switch format[i] {
                 'i' => fallthrough;
-                'd' => out.append_char(strings::ctoi(va_arg<i32>()));
+                'd' => out.append_char(va_arg<i32>());
                 'c' => out.append_char(va_arg<char>());
                 '%' => out.append_char('%');
-                _ => out.append(format[i-1:i]);
+                _ => out.append(format[i-1 : i]);
             }
         } else {
-            out.append(format[i:i+1]);
+            out.append(format[i : i+1]);
             i++;
         }
     }
@@ -523,11 +527,11 @@ a[0] = 1;
 a[1] = 2;
 
 // 2d arrays
-var 2d = [
+var two_d = [
     [1, 2, 3, 4],
     [5, 6, 7, 8]
 ];
-i32[2][4] typeof 2d; // true
+i32[2][4] typeof two_d; // true
 var b: i32[2][2];
 b[0] = [1, 2];
 b[1] = [3, 4];
@@ -535,21 +539,31 @@ b[1] = [3, 4];
 // accessing
 array[0]; // 1
 a[1]; // 2
-2d[0][1]; // 6
+two_d[0][1]; // 6
 b[1][0]; // 3
 ```
 
-## References
+## References/Pointers
+
+References also known as pointers allow you to "point" to a variable instead of copying it.
+
+A reference of a variable can be taken by adding `&` before it, and the value of it can be accessed using `*`:
 
 ```go
 // a number (i32)
 var number = 42;
 
-// read/write (regular) reference
+// take a reference of the variable 'number',
+// and store it in the variable 'ref'
 var ref = &number;
-// get/change the value
+// access the address of 'number'
+ref;
+// access the value stored in 'number'
 *ref; // 42
-*ref = 45-3; // still 42
+// change 'number'
+*ref = 12;
+// now number is 12
+number; // 12
 
 // read-only reference
 var ro_ref = &const number;
@@ -557,22 +571,21 @@ var ro_ref = &const number;
 // *ro_ref = 12 is a compile-time error
 ```
 
-## Pointers
+Read only or constant references are references that can only be used to read a value, not change it.
+
+A constant reference can be taken by adding `&const` before the variable, and it can be accessed the same way as a regular reference:
 
 ```go
 // a number (i32)
 var number = 42;
 
-// read/write (regular) pointer
-var ptr = &addr number;
-// get/change the value
-*ptr; // 42
-*ptr = 45-3; // still 42
+// take a constant reference to the variable 'number'
+// and store it in the variable 'ref'
+var ref = &const number;
+// access the value stored in 'number'
+*ref; // 42
 
-// read-only reference (expllicit type is mandatory)
-var ro_ptr: *const i32 = &addr number;
-*ro_ptr; // 42
-// *ro_ptr = 12 is a compile-time error
+// *ref = 12; is a compile time error.
 ```
 
 ## Structs
@@ -581,27 +594,29 @@ Structs are used to group a bunch of related variables (and functions) together.
 
 ```cpp
 struct name {
-    type field,
-    type2 field2
+    type field;
+    type2 field2;
 }
 ```
 
-When accessing the fields of a struct instance through a reference, the compiler auto-dereferences it. so the following is valid code:
+When accessing the fields of a struct instance through a reference, the compiler auto-dereferences it.
+
+so the following is valid code:
 
 ```rust
 struct Foo {
-    i32 a,
-    i32 b
+    i32 a;
+    i32 b;
 }
 
 var instance = Foo{a: 40, b: 2};
 var ref = &instance;
 
-// var bar = ref; // INVALID
+// var bar = ref; // makes 'bar' a reference to 'instance'
 var bar = *ref; // same as var bar = foo
 ref.a + ref.b; // 42
-// the above is translated into the following by the compiler
-*(ref).a + *(ref).b;
+// the above is translated into the following by the compiler:
+// *(ref).a + *(ref).b;
 ```
 
 ### Binding functions to structs
@@ -610,7 +625,7 @@ There are associated functions and bound functions.
 
 associated functions "belong" to the struct itself, not instances of it.
 
-bound functions "belong" to instances of the struct, and cannot be without an instance.
+bound functions "belong" to instances of the struct, and cannot be called without an instance.
 
 ```rust
 struct Person {
@@ -637,10 +652,10 @@ fn [this &const Person]getAge() -> i32 {
 }
 
 // usage
-var p = Person::new("Zaphod", 42);
-p.getName(); // "Zaphod"
-p.changeName("Arthur");
-p.getName(); // "Arthur"
+var p = Person::new("Robert", 42);
+p.getName(); // "Robert"
+p.changeName("John");
+p.getName(); // "John"
 p.getAge(); // 42
 ```
 
@@ -742,17 +757,40 @@ export fn TheAnswer() -> i32 {
 **file2:**
 
 ```rust
-import "file1";
+import "file1/";
+// above can also be:
+// import "answers";
+// if the name of the file is "answers.<ext>"
 
 file1::answers::TheAnswer(); // 42;
 
+// the namespace of the 'file1::answers' module can be brought
+// into the current scope like this:
 using file1::answers;
-answers::TheAnswer(); // 42
+TheAnswer(); // 42
 ```
+
+### Importing files and modules
+
+A file can be imported by `import "<filename>";`, `<filename>` being the path to the file (absolute or relative to the provided import paths).
+
+If a file contains a single module and its name is the same as the module, it can be imported with `import "<modulename>";`, `<modulename>` being the name of the module.
+
+If a file contains multiple modules, single modules can be imported with `import "<filename>/<modulename>";`.
+
+A module can be imported using a different name with the `as` keyword:
+
+```rust
+import "file/mod" as m;
+```
+
+When a file is imported, it gets it's own namespace. this is useful when multiple modules are defined in a single file.
+
+this doesn't apply when a module from a file (`import "<file>/<module>";` ) or when a module with the same name as its file (`import "<module>";`) is imported.
 
 ## Scopes
 
-A scope is whatever is inside a pair of opening and closing braces (`{}`).
+A scope is whatever is inside a pair of opening and closing braces (`{}`) (a block).
 
 A scope has it's own namespace that has higher precedence than it's parent scope. that means that if a scope and it's parent scope have an object with the same name, referencing it in the child scope will use the one defined in it. to use the one from the parent scope, the `::` (scope resolution) operator is used in it's prefix variant.
 
@@ -762,31 +800,28 @@ Each function, enum, struct, module, and scope has it's own namespace.
 
 The global namespace holds module names and global function and variable (and constant) names.
 
-
-
 ## Keywords
 
-| Keyword               | Description                      |
-|:---------------------:|:--------------------------------:|
-| `var`                 | declaring variables              |
-| `const`               | declaring constants              |
-| `static`              |                                  |
-| `fn`                  | declaring functions              |
-| `return`              | return from a function           |
-| all the default types | N/A                              |
-| `enum`                | declare an enum                  |
-| `struct`              | declare a struct                 |
-| `if`                  | if statement                     |
-| `else`                | if statement                     |
-| `switch`              | switch statement                 |
-| `static`              |                                  |
-| `module`              | declare a module                 |
-| `export`              | export an object in a module     |
-| `import`              | import a module (or parts of it) |
-| `using`               |                                  |
-| `while`               | declare a while loop             |
-| `for`                 | declare a for loop               |
-| `type`                | define a custom type             |
-|                       |                                  |
-
-
+| Keyword | Description |
+| --- | --- |
+| `var` | declare a variable |
+| `const` | declare a constant/make a reference constant |
+| `static` |     |
+| `fn` | declaring functions |
+| `return` | return from a function |
+| all the default types | N/A |
+| `enum` | declare an enum |
+| `struct` | declare a struct |
+| `if` | if statement |
+| `else` | if statement |
+| `switch` | switch statement |
+| `static` |     |
+| `module` | declare a module |
+| `export` | export an object in a module |
+| `import` | import a module (or parts of it) |
+| `as` | change the name of an imported module |
+| `using` | bring the namespace of a module into the current scope. |
+| `while` | declare a while loop |
+| `for` | declare a for loop |
+| `type` | define a custom type |
+|     |     |
