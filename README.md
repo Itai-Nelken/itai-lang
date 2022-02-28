@@ -721,6 +721,12 @@ add_num<i32>(40, 2); // compiles fine
 add_num<char>('a', 'b'); // compilation error!
 ```
 
+## The `defer` statement
+
+The `defer` statement defers the execution of a function call until the parent (surrounding) function returns.
+
+The deferred call's arguments are evaluated immediately, but the function call is not executed until the parent function returns.
+
 ## Modules
 
 A module is used to group together a bunch of types, variables, constants, enums, structs, and functions that do a single thing. each module has its own namespace.<br>
