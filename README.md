@@ -258,8 +258,8 @@ Array elements are put as a comma separated list inside `[]` (brackets).
 [1, 2, 3, 4, 42]
 ['a', 'b', 'c']
 ["s1", "s2", "s3"]
-// nested arrays
-[1, [2, 3, [4, 5, 6], 7], 8]
+// nested arrays (array of arrays)
+[[1, 2], [3, 4]]
 ```
 
 ### Structs
