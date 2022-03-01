@@ -153,11 +153,16 @@ The `<types>` is the argument types, and it can be empty.
 
 `T` is the return type. it also can be multiple types in parentheses or none (if none, than the `->` isn't needed).
 
-Function types have to be defined as an other type meaning you can't do `var func: fn()`, you have to do:
+### Example
 
 ```rust
-type nullfn = fn()
-var func: nullfn;
+fn nullfn() { io::println("nullfn()"); }
+var func: fn() = null;
+var func2 = nullfn;
+func = nullfn;
+nullfn();
+func();
+func2();
 ```
 
 The following function type is used when referencing function types in this document:
@@ -258,8 +263,8 @@ Array elements are put as a comma separated list inside `[]` (brackets).
 [1, 2, 3, 4, 42]
 ['a', 'b', 'c']
 ["s1", "s2", "s3"]
-// nested arrays (array of arrays)
-[[1, 2], [3, 4]]
+// nested arrays
+[1, [2, 3, [4, 5, 6], 7], 8]
 ```
 
 ### Structs
