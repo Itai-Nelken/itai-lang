@@ -141,6 +141,26 @@ They are automatically imported and put in the global scope.
 | `String` | Mutable string with advanced features (using bound functions) |
 | `Vector<T>` | A vector for any type (using generics). has advanced features (using bound functions) |
 
+### `null`
+
+`null` isn't really a type. it is a placeholder for the empty state of each type.
+
+for example: for integers, `null` is `0`, and for strings it's `""` (empty string).
+
+for references, it's an invalid address (0x0) and dereferencing a null reference is a runtime error and where possible, a compile time error.
+
+The table bellow shows what `null` is for every built-in type:
+
+| **type** | **value of `null`** |
+| --- | --- |
+| all integers (signed and unsigned) | 0   |
+| all floats | 0.0 |
+| `isize`, `usize` | 0   |
+| `char` | nul character (ascii character 0) |
+| `str`, `String` | empty string |
+| function types | `panic()` built in function (with appropriate error message) |
+| All references | 0x0 (an invalid address) |
+
 ### Function types
 
 Function types are the type of function literals. they can also be used to store pointers/references to functions.
@@ -160,12 +180,13 @@ fn nullfn() { io::println("nullfn()"); }
 var func: fn() = null;
 var func2 = nullfn;
 func = nullfn;
+// all calls bellow call nullfn()
 nullfn();
 func();
 func2();
 ```
 
-The following function type is used when referencing function types in this document:
+The following function type is used when referencing a function type in this document:
 
 ```rust
 fn(...) -> T
@@ -835,4 +856,4 @@ The global namespace holds module names and global function and variable (and co
 | `while` | declare a while loop |
 | `for` | declare a for loop |
 | `type` | define a custom type |
-|     |     |
+| `null` | empty value for each type |
