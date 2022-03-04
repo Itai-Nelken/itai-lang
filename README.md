@@ -13,13 +13,13 @@ module Stack {
 using arrays::{make, grow};
 
 export struct Stack<T> {
-    T data[];
-    i32 sp;
-    usize size;
+    data: T[];
+    sp: i32;
+    sp: usize;
 }
 
 const INITIAL_SIZE = 16;
-export fn [static Stack]new<T>(usize initial_size) -> Stack<T> {
+export fn [static Stack]new<T>(initial_size: usize) -> Stack<T> {
     if initial_size == 0 {
         initial_size = INITIAL_SIZE;
     }
@@ -39,7 +39,7 @@ fn [this &Stack]grow() {
     ::grow(&this.data, this.size);
 }
 
-export fn [this &Stack]push(T data) {
+export fn [this &Stack]push(data: T) {
     if this.isFull() {
         this.grow();
     }
@@ -306,9 +306,9 @@ var instance = Foo{a: 20, b: 2};
 Function literals are simply `fn` followed by the argument list inside parentheses, `->` and the return types (inside parentheses if necessary).
 
 ```go
-var add = fn(i32 a, i32 b) -> i32 { return a + b; };
+var add = fn(a: i32, b: i32) -> i32 { return a + b; };
 add(1, 2); // returns 3
-var split = fn(String s) -> (String, String) {
+var split = fn(s: String) -> (String, String) {
     var len = s.length()/2;
     return s.substring(0, len), s.substring(len, s.length());
 }
@@ -491,11 +491,11 @@ const name: type = value;
 
 Functions are declared with the `fn` keyword followed by a pair of opening and closing parentheses (`()`) containing the paraneters.`->` followed by the return type(s) can be added if the function returns something.<br>
 
-A function is called by its name followed by opening and closing parentheses (`()`)containing the arguments if applicable.
+A function is called by its name followed by opening and closing parentheses (`()`) containing the arguments if applicable.
 
 ```rust
 // declaring
-fn add(i32 a, i32 b) -> i32 {
+fn add(a: i32, b: i32) -> i32 {
     return a + b;
 }
 
@@ -506,7 +506,7 @@ add(40, 2); // 42
 A function can return more than one value, this is done by putting the return types in a comma separated list inside parentheses after the `->`:
 
 ```rust
-fn divide(i32 a, i32 b) -> (i32, i32) {
+fn divide(a: i32, b: i32) -> (i32, i32) {
     var remainder = a % b;
     return a / b, remainder;
 }
@@ -516,20 +516,35 @@ var result, remainder = divide(10, 2); // 5, 0
 
 ### Variable arguments
 
-Variable argument functions (variadic functions) are declared by adding `...` after the last argument (an argument before the `...` is required).
+Variable argument functions (variadic functions) are declared by adding a last parameter of type `...`. Note that at least one parameter is required before the `...`.
 
-the arguments can then be accessed using the `va_arg<T>()` built-in function.
+The following api is available to access the arguments:
+
+- `va_start(ap, lastarg)`
+  
+- `va_end(ap)`
+  
+- `va_arg<T>() -> T`
+  
+- `va_copy(from, to)`
+  
+
+The above functions are internal and not from the standard library.
+
+**example:**
 
 ```rust
-fn printf(str format, ...) {
-    String out;
+fn printf(format: str, ap: ...) {
+    var out: String;
+    va_start(ap, format);
+    defer va_end(ap);
     for(var i = 0; format[i] != '\0'; i++) {
         if format[i] == '%' {
             i++;
             switch format[i] {
                 'i' => fallthrough;
-                'd' => out.append_char(va_arg<i32>());
-                'c' => out.append_char(va_arg<char>());
+                'd' => out.append_char(va_arg<i32>(ap));
+                'c' => out.append_char(va_arg<char>(ap));
                 '%' => out.append_char('%');
                 _ => out.append(format[i-1 : i]);
             }
@@ -620,8 +635,8 @@ Structs are used to group a bunch of related variables (and functions) together.
 
 ```cpp
 struct name {
-    type field;
-    type2 field2;
+    field: type;
+    field2: type2;
 }
 ```
 
@@ -631,8 +646,8 @@ so the following is valid code:
 
 ```rust
 struct Foo {
-    i32 a;
-    i32 b;
+    a: i32;
+    b: i32;
 }
 
 var instance = Foo{a: 40, b: 2};
@@ -655,8 +670,8 @@ bound functions "belong" to instances of the struct, and cannot be called withou
 
 ```rust
 struct Person {
-    String name;
-    i32 age;
+    name: String;
+    age: i32;
 }
 
 // associated function
@@ -723,7 +738,7 @@ Generics allow a type in a function or struct to be any type the user provides.
 ```rust
 // structs
 struct Foo<T> {
-    T value;
+    value: T;
 }
 var value = Foo<i32>{value: 12};
 var str = Foo<String>{value: String::from_str("Hello, World!")};
