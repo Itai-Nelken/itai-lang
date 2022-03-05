@@ -269,11 +269,8 @@ Multiline strings can be put in between `"""` (3 double quotes).
 // string
 "string"
 // multiline string
-"""
-This is a
-multiline
-string
-"""
+"multiline
+string"
 ```
 
 ### Arrays
@@ -332,7 +329,7 @@ split("abcd"); // "ab", "cd"
 | Operator | Description | Type |
 | --- | --- | --- |
 | `&` | AND | infix |
-| `\|` | OR  | infix |
+| `|` | OR  | infix |
 | `^` | XOR | infix |
 | `~` | Binary One's Complement | prefix |
 | `<<` | left shift | infix |
@@ -347,8 +344,9 @@ split("abcd"); // "ab", "cd"
 | `-=` | subtraction+assignment | infix |
 | `*=` | multiplication+assignment | infix |
 | `/=` | division+assignment | infix |
+| `%=` | modulus+assignment | infix |
 | `&=` | AND+assignment | infix |
-| `\|=` | OR+assignment | infix |
+| `|=` | OR+assignment | infix |
 | `^=` | XOR+assignment | infix |
 | `<<=` | left shift+assignment | infix |
 | `>>=` | right shift+assignment | infix |
@@ -857,12 +855,12 @@ The global namespace holds module names and global function and variable (and co
 | `fn` | declaring functions |
 | `return` | return from a function |
 | all the default types | N/A |
+| `null` | empty value for each type |
 | `enum` | declare an enum |
 | `struct` | declare a struct |
 | `if` | if statement |
 | `else` | if statement |
 | `switch` | switch statement |
-| `static` |     |
 | `module` | declare a module |
 | `export` | export an object in a module |
 | `import` | import a module (or parts of it) |
@@ -871,4 +869,4 @@ The global namespace holds module names and global function and variable (and co
 | `while` | declare a while loop |
 | `for` | declare a for loop |
 | `type` | define a custom type |
-| `null` | empty value for each type |
+| `typeof` | get the type of an object |

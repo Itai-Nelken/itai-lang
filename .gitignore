@@ -1,1 +1,3 @@
-utils/md2html/md2html
+compiler/build/**
+compiler/.vscode/**
+
