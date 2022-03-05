@@ -25,7 +25,6 @@ static const char *tokentype_str_lut[] = {
     [TK_LBRACE]          = "TK_LBRACE",
     [TK_RBRACE]          = "TK_RBRACE",
     [TK_COMMA]           = "TK_COMMA",
-    [TK_DOT]             = "TK_DOT",
     [TK_SEMICOLON]       = "TK_SEMICOLON",
     [TK_COLON]           = "TK_COLON",
     [TK_TILDE]           = "TK_TILDE",
@@ -64,6 +63,8 @@ static const char *tokentype_str_lut[] = {
     [TK_LESS_EQUAL]      = "TK_LESS_EQUAL",
     [TK_LSHIFT]          = "TK_LSHIFT",
     [TK_LSHIFT_EQUAL]    = "TK_LSHIFT_EQUAL",
+    [TK_DOT]             = "TK_DOT",
+    [TK_ELIPSIS]             = "TK_ELIPSIS",
 
     // literals
     [TK_STRLIT]          = "TK_STRLIT",
@@ -117,5 +118,8 @@ static const char *tokentype_str_lut[] = {
 };
 
 inline const char *tokenTypeToString(TokenType type) {
+    if(type > TK_EOF + 1) {
+        return "UNKNOWN";
+    }
     return tokentype_str_lut[type];
 }

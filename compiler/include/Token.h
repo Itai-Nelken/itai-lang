@@ -13,7 +13,7 @@ typedef enum token_type {
     TK_LPAREN, TK_RPAREN,
     TK_LBRACKET, TK_RBRACKET,
     TK_LBRACE, TK_RBRACE,
-    TK_COMMA, TK_DOT,
+    TK_COMMA,
     TK_SEMICOLON, TK_COLON,
     TK_TILDE,
 
@@ -32,6 +32,7 @@ typedef enum token_type {
     // one, two, or three character tokens
     TK_GREATER, TK_GREATER_EQUAL, TK_RSHIFT, TK_RSHIFT_EQUAL,
     TK_LESS, TK_LESS_EQUAL, TK_LSHIFT, TK_LSHIFT_EQUAL,
+    TK_DOT, TK_ELIPSIS,
 
     // literals
     TK_STRLIT,

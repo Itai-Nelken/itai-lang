@@ -300,7 +300,7 @@ static void skipWhitespace(Scanner *s) {
                     while(peek(s) != '\n' && !isAtEnd(s)) advance(s);
                 } else if(peekNext(s) == '*') {
                     // multiline comment
-                    int depth = 1; // to allow "nested" comments
+                    int depth = 0; // to allow "nested" comments
                     while(!isAtEnd(s)) {
                         if(peek(s) == '\n') {
                             s->line++;
@@ -312,6 +312,8 @@ static void skipWhitespace(Scanner *s) {
                             if(depth > 1) {
                                 depth--;
                             } else {
+                                // skip the closing '*/'
+                                advance(s); advance(s);
                                 break;
                             }
                         }
@@ -320,6 +322,7 @@ static void skipWhitespace(Scanner *s) {
                 } else {
                     return;
                 }
+                break;
             default:
                 return;
         }
@@ -351,7 +354,6 @@ Token nextToken(Scanner *s) {
         case '{': return makeToken(s, TK_LBRACE);
         case '}': return makeToken(s, TK_RBRACE);
         case ',': return makeToken(s, TK_COMMA);
-        case '.': return makeToken(s, TK_DOT);
         case ';': return makeToken(s, TK_SEMICOLON);
         case ':': return makeToken(s, TK_COLON);
         case '~': return makeToken(s, TK_TILDE);
@@ -406,6 +408,14 @@ Token nextToken(Scanner *s) {
                 return makeToken(s, TK_LSHIFT);
             }
             return makeToken(s, TK_LESS);
+        case '.':
+            if(peek(s) == '.' && peekNext(s) == '.') {
+                advance(s); advance(s);
+		return makeToken(s, TK_ELIPSIS);
+            }
+            return makeToken(s, TK_DOT);
+
+        // literals (other than number which is at the top)
         case '"': return string(s);
         case '\'':
             if(peekNext(s) != '\'') {

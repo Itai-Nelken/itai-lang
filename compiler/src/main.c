@@ -3,7 +3,10 @@
 #include "Token.h"
 
 int main(int argc, char **argv) {
-    if(argc < 2) return 1;
+    if(argc < 2) {
+        fprintf(stderr, "\x1b[1mUSAGE:\x1b[0m %s [str]\n", argv[0]);
+        return 1;
+    }
     Scanner s;
     initScanner(&s, "Test", argv[1]);
     Token t;
