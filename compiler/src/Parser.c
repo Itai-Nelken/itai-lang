@@ -15,15 +15,17 @@ void freeParser(Parser *p) {
     freeScanner(&p->scanner);
 }
 
-// TODO: print line containing offending charater(s) with a '^~~' pointing at the character(s)
+// TODO: print line containing offending charater(s) with a '^~~' pointing at the character(s).
+//       this can be done by adding a pointer to the current line to the Coordinate struct
+//       and making Coordinate.at point to the starting character of the lexeme.
 static void error(Parser *p, Token tok, const char *message) {
     p->has_error = true;
     fprintf(stderr, "\x1b[1m%s:%d:%d: ", tok.location.file, tok.location.line, tok.location.at);
     fprintf(stderr, "\x1b[31merror:\x1b[0m %s\n", message);
 }
 
+// FIXME: assumes tok.lexeme is a nul terminated string
 static void errorToken(Parser *p, Token tok) {
-    // FIXME: this assumes tok.lexeme is a nul terminated string
     error(p, tok, tok.lexeme);
 }
 
@@ -75,14 +77,90 @@ static void parsePrecedence(Parser *p, Precedence prec);
 static ASTNode *expression(Parser *p);
 
 static ParseRule rules[TK__COUNT] = {
-    [TK_LPAREN] = {parse_grouping, NULL, PREC_NONE},
-    [TK_RPAREN] = {NULL, NULL, PREC_NONE},
-    [TK_MINUS] = {NULL, parse_binary, PREC_TERM},
-    [TK_PLUS] = {NULL, parse_binary, PREC_TERM},
-    [TK_SLASH] = {NULL, parse_binary, PREC_FACTOR},
-    [TK_STAR] = {NULL, parse_binary, PREC_FACTOR},
-    [TK_NUMLIT] = {parse_number, NULL, PREC_NONE},
-    [TK_EOF] = {NULL, NULL, PREC_NONE}
+    [TK_LPAREN]          = {parse_grouping, NULL, PREC_NONE},
+    [TK_RPAREN]          = {NULL, NULL, PREC_NONE},
+    [TK_LBRACKET]        = {NULL, NULL, PREC_NONE},
+    [TK_RBRACKET]        = {NULL, NULL, PREC_NONE},
+    [TK_LBRACE]          = {NULL, NULL, PREC_NONE},
+    [TK_RBRACE]          = {NULL, NULL, PREC_NONE},
+    [TK_COMMA]           = {NULL, NULL, PREC_NONE},
+    [TK_SEMICOLON]       = {NULL, NULL, PREC_NONE},
+    [TK_COLON]           = {NULL, NULL, PREC_NONE},
+    [TK_TILDE]           = {NULL, NULL, PREC_NONE},
+    [TK_MINUS]           = {NULL, parse_binary, PREC_TERM},
+    [TK_MINUS_EQUAL]     = {NULL, NULL, PREC_NONE},
+    [TK_DECR]            = {NULL, NULL, PREC_NONE},
+    [TK_PLUS]            = {NULL, parse_binary, PREC_TERM},
+    [TK_PLUS_EQUAL]      = {NULL, NULL, PREC_NONE},
+    [TK_INCR]            = {NULL, NULL, PREC_NONE},
+    [TK_SLASH]           = {NULL, parse_binary, PREC_FACTOR},
+    [TK_SLASH_EQUAL]     = {NULL, NULL, PREC_NONE},
+    [TK_STAR]            = {NULL, parse_binary, PREC_FACTOR},
+    [TK_STAR_EQUAL]      = {NULL, NULL, PREC_NONE},
+    [TK_BANG]            = {NULL, NULL, PREC_NONE},
+    [TK_BANG_EQUAL]      = {NULL, NULL, PREC_NONE},
+    [TK_EQUAL]           = {NULL, NULL, PREC_NONE},
+    [TK_EQUAL_EQUAL]     = {NULL, NULL, PREC_NONE},
+    [TK_PERCENT]         = {NULL, NULL, PREC_NONE},
+    [TK_PERCENT_EQUAL]   = {NULL, NULL, PREC_NONE},
+    [TK_XOR]             = {NULL, NULL, PREC_NONE},
+    [TK_XOR_EQUAL]       = {NULL, NULL, PREC_NONE},
+    [TK_PIPE]            = {NULL, NULL, PREC_NONE},
+    [TK_PIPE_EQUAL]      = {NULL, NULL, PREC_NONE},
+    [TK_AMPERSAND]       = {NULL, NULL, PREC_NONE},
+    [TK_AMPERSAND_EQUAL] = {NULL, NULL, PREC_NONE},
+    [TK_GREATER]         = {NULL, NULL, PREC_NONE},
+    [TK_GREATER_EQUAL]   = {NULL, NULL, PREC_NONE},
+    [TK_RSHIFT]          = {NULL, NULL, PREC_NONE},
+    [TK_RSHIFT_EQUAL]    = {NULL, NULL, PREC_NONE},
+    [TK_LESS]            = {NULL, NULL, PREC_NONE},
+    [TK_LESS_EQUAL]      = {NULL, NULL, PREC_NONE},
+    [TK_LSHIFT]          = {NULL, NULL, PREC_NONE},
+    [TK_LSHIFT_EQUAL]    = {NULL, NULL, PREC_NONE},
+    [TK_DOT]             = {NULL, NULL, PREC_NONE},
+    [TK_ELIPSIS]         = {NULL, NULL, PREC_NONE},
+    [TK_STRLIT]          = {NULL, NULL, PREC_NONE},
+    [TK_CHARLIT]         = {NULL, NULL, PREC_NONE},
+    [TK_NUMLIT]          = {parse_number, NULL, PREC_NONE},
+    [TK_IDENTIFIER]      = {NULL, NULL, PREC_NONE},
+    [TK_I8]              = {NULL, NULL, PREC_NONE},
+    [TK_I16]             = {NULL, NULL, PREC_NONE},
+    [TK_I32]             = {NULL, NULL, PREC_NONE},
+    [TK_I64]             = {NULL, NULL, PREC_NONE},
+    [TK_I128]            = {NULL, NULL, PREC_NONE},
+    [TK_U8]              = {NULL, NULL, PREC_NONE},
+    [TK_U16]             = {NULL, NULL, PREC_NONE},
+    [TK_U32]             = {NULL, NULL, PREC_NONE},
+    [TK_U64]             = {NULL, NULL, PREC_NONE},
+    [TK_U128]            = {NULL, NULL, PREC_NONE},
+    [TK_F32]             = {NULL, NULL, PREC_NONE},
+    [TK_F64]             = {NULL, NULL, PREC_NONE},
+    [TK_ISIZE]           = {NULL, NULL, PREC_NONE},
+    [TK_USIZE]           = {NULL, NULL, PREC_NONE},
+    [TK_CHAR]            = {NULL, NULL, PREC_NONE},
+    [TK_STR]             = {NULL, NULL, PREC_NONE},
+    [TK_VAR]             = {NULL, NULL, PREC_NONE},
+    [TK_CONST]           = {NULL, NULL, PREC_NONE},
+    [TK_STATIC]          = {NULL, NULL, PREC_NONE},
+    [TK_FN]              = {NULL, NULL, PREC_NONE},
+    [TK_RETURN]          = {NULL, NULL, PREC_NONE},
+    [TK_ENUM]            = {NULL, NULL, PREC_NONE},
+    [TK_STRUCT]          = {NULL, NULL, PREC_NONE},
+    [TK_IF]              = {NULL, NULL, PREC_NONE},
+    [TK_ELSE]            = {NULL, NULL, PREC_NONE},
+    [TK_SWITCH]          = {NULL, NULL, PREC_NONE},
+    [TK_MODULE]          = {NULL, NULL, PREC_NONE},
+    [TK_EXPORT]          = {NULL, NULL, PREC_NONE},
+    [TK_IMPORT]          = {NULL, NULL, PREC_NONE},
+    [TK_AS]              = {NULL, NULL, PREC_NONE},
+    [TK_USING]           = {NULL, NULL, PREC_NONE},
+    [TK_WHILE]           = {NULL, NULL, PREC_NONE},
+    [TK_FOR]             = {NULL, NULL, PREC_NONE},
+    [TK_TYPE]            = {NULL, NULL, PREC_NONE},
+    [TK_NULL]            = {NULL, NULL, PREC_NONE},
+    [TK_TYPEOF]          = {NULL, NULL, PREC_NONE},
+    [TK_ERROR]           = {NULL, NULL, PREC_NONE},
+    [TK_EOF]             = {NULL, NULL, PREC_NONE}
 };
 
 static ParseRule *getRule(TokenType type) {
