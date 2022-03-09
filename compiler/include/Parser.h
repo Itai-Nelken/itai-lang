@@ -7,7 +7,8 @@
 
 typedef struct parser {
     Scanner scanner;
-    Token current_token;
+    Token current_token, previous_token;
+    bool has_error;
     ASTNode *current_expr;
 } Parser;
 

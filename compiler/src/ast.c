@@ -19,3 +19,9 @@ void freeAST(ASTNode *root) {
     freeAST(root->right);
     FREE(root);
 }
+
+ASTNode *newNumberNode(int value) {
+    ASTNode *n = newNode(ND_NUM, NULL, NULL);
+    n->literal.int32 = value;
+    return n;
+}

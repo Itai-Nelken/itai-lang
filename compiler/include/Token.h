@@ -81,7 +81,8 @@ typedef enum token_type {
     TK_TYPEOF,
 
     // other
-    TK_ERROR, TK_EOF
+    TK_ERROR, TK_EOF,
+    TK__COUNT
 } TokenType;
 
 typedef struct token {

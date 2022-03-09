@@ -21,4 +21,6 @@ ASTNode *newNode(ASTNodeType type, ASTNode *left, ASTNode *right);
 
 void freeAST(ASTNode *root);
 
+ASTNode *newNumberNode(int value);
+
 #endif // AST_H

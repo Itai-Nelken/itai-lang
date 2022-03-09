@@ -1,6 +1,7 @@
 #ifndef TYPES_H
 #define TYPES_H
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h> // for size_t and ssize_t
 
@@ -19,8 +20,8 @@ typedef __uint128_t u128;
 typedef ssize_t isize;
 typedef size_t usize;
 
-typedef _Float32 f32;
-typedef _Float64 f64;
+typedef float f32;
+typedef double f64;
 
 typedef const char *str;
 
