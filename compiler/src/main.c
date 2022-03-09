@@ -33,7 +33,7 @@ static int interpret(ASTNode *n) {
 
 int main(int argc, char **argv) {
     if(argc < 2) {
-        fprintf(stderr, "\x1b[1mUSAGE:\x1b[0m %s [str]\n", argv[0]);
+        fprintf(stderr, "\x1b[1mUSAGE:\x1b[0m %s [expr]\n", argv[0]);
         return 1;
     }
     Parser p;
