@@ -4,6 +4,8 @@
 
 typedef struct coordinate {
     char *file;
+    char *containing_line;
+    int line_length;
     int line;
     int at;
 } Coordinate;

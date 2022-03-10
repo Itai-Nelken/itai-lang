@@ -10,6 +10,7 @@ typedef struct scanner {
     char *source;
     char *start;
     char *current;
+    char *current_line;
 } Scanner;
 
 /***

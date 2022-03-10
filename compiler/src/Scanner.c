@@ -7,6 +7,7 @@
 void initScanner(Scanner *s, const char *filename, char *source) {
     s->filename = strdup(filename);
     s->current = s->start = s->source = source;
+    s->current_line = s->source;
     s->line = 1;
 }
 
@@ -17,9 +18,17 @@ void freeScanner(Scanner *s) {
     s->line = 1;
 }
 
+static int generate_line_length(Scanner *s) {
+    char *p = s->current_line;
+    for(; *p != '\0' && *p != '\n'; p++);
+    return (int)(p - s->current_line);
+}
+
 static Token makeToken(Scanner *s, TokenType type) {
     Coordinate loc = {
         .file = s->filename,
+        .containing_line = s->current_line,
+        .line_length = generate_line_length(s),
         .line = s->line,
         .at = s->current - s->start
     };
@@ -30,6 +39,8 @@ static Token errorToken(Scanner *s, const char *message) {
     Coordinate loc = {
         .file = s->filename,
         .line = s->line,
+        .containing_line = s->current_line,
+        .line_length = generate_line_length(s),
         .at = s->current - s->start
     };
     return newToken(TK_ERROR, loc, (char *)message, strlen(message));
@@ -293,6 +304,7 @@ static void skipWhitespace(Scanner *s) {
             case '\n':
                 s->line++;
                 advance(s);
+                s->current_line = s->current;
                 break;
             case '/':
                 if(peekNext(s) == '/') {
@@ -304,6 +316,7 @@ static void skipWhitespace(Scanner *s) {
                     while(!isAtEnd(s)) {
                         if(peek(s) == '\n') {
                             s->line++;
+                            s->current_line = s->current_line + 1;
                         }
                         if(peek(s) == '/' && peekNext(s) == '*') {
                             depth++;

@@ -12,8 +12,22 @@ Token newToken(TokenType type, Coordinate loc, char *lexeme, int length) {
 }
 
 void printToken(Token t) {
-    printf("Token{\x1b[1mtype:\x1b[33m %s\x1b[0m, \x1b[34;1mlocation\x1b[0m{\x1b[1mfile: \x1b[0;33m'%s'\x1b[0m, \x1b[1mline: \x1b[0;36m%d\x1b[0m, \x1b[1mat: \x1b[0;36m%d\x1b[0m}, \x1b[1mlexeme:\x1b[0;33m '%.*s'\x1b[0m, \x1b[1mlength:\x1b[0;36m %d\x1b[0m}\n", 
-        tokenTypeToString(t.type), t.location.file, t.location.line, t.location.at, t.length, t.lexeme, t.length);
+    printf("Token{\x1b[1mtype:\x1b[33m %s\x1b[0m, "
+           "\x1b[34;1mlocation\x1b[0m{\x1b[1mfile: \x1b[0;33m'%s'\x1b[0m, "
+                "\x1b[1mcontaining_line:\x1b[0;33m'%.*s'\x1b[0m, "
+                "\x1b[1mline_length:\x1b[0;33m %d\x1b[0m, "
+                "\x1b[1mline: \x1b[0;36m%d\x1b[0m,"
+                "\x1b[1mat: \x1b[0;36m%d\x1b[0m}, "
+            "\x1b[1mlexeme:\x1b[0;33m '%.*s'\x1b[0m, "
+            "\x1b[1mlength:\x1b[0;36m %d\x1b[0m}\n",
+        tokenTypeToString(t.type),
+        t.location.file,
+        t.location.line_length, t.location.containing_line,
+        t.location.line_length,
+        t.location.line,
+        t.location.at,
+        t.length, t.lexeme,
+        t.length);
 }
 
 // lut == lookup table
