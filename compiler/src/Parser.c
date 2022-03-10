@@ -15,18 +15,52 @@ void freeParser(Parser *p) {
     freeScanner(&p->scanner);
 }
 
-// TODO: print line containing offending charater(s) with a '^~~' pointing at the character(s).
-//       this can be done by adding a pointer to the current line to the Coordinate struct
-//       and making Coordinate.at point to the starting character of the lexeme.
+// print the location of a token in the following format:
+// <line number> | <line>
+static void printLocation(Token tok) {
+    fprintf(stderr, "\t%d |  ", tok.location.line);
+    fprintf(stderr, "%.*s\n", tok.location.line_length, tok.location.containing_line);
+}
+
+static void indentLine(Token tok) {
+    int line = tok.location.line;
+    short indent = 0;
+    // FIXME: only works with up to 9999 lines of code
+    if(line < 10) {
+        indent = 1;
+    } else if(line < 100) {
+        indent = 2;
+    } else if(line < 1000) {
+        indent = 3;
+    } else if(line < 10000) {
+        indent = 3;
+    } else {
+        UNREACHABLE();
+    }
+    fprintf(stderr, "%*s", indent, "");
+}
+
+// TODO: print '~' for every character in multicharacter tokens.
+// FIXME: tok.locatin.at may not be always correct?
 static void error(Parser *p, Token tok, const char *message) {
     p->has_error = true;
-    fprintf(stderr, "\x1b[1m%s:%d:%d: ", tok.location.file, tok.location.line, tok.location.at);
-    fprintf(stderr, "\x1b[31merror:\x1b[0m %s\n", message);
+    fprintf(stderr, "\x1b[1m%s:%d:%d: ", tok.location.file, tok.location.line, tok.location.at + 1);
+    fprintf(stderr, "\x1b[31merror:\x1b[0m\n");
+    printLocation(tok);
+    fprintf(stderr, "\t");
+    indentLine(tok);
+    fprintf(stderr, " | %*s", tok.location.line_length - tok.location.at, "");
+    fprintf(stderr, "\x1b[1;35m^\x1b[0;1m %s\x1b[0m\n", message);
 }
 
 static void warning(Parser *p, Token tok, const char *message) {
-    fprintf(stderr, "\x1b[1m%s:%d:%d: ", tok.location.file, tok.location.line, tok.location.at);
-    fprintf(stderr, "\x1b[35mwarning:\x1b[0m %s\n", message);
+    fprintf(stderr, "\x1b[1m%s:%d:%d: ", tok.location.file, tok.location.line, tok.location.at + 1);
+    fprintf(stderr, "\x1b[35mwarning:\x1b[0m\n");
+    printLocation(tok);
+    fprintf(stderr, "\t");
+    indentLine(tok);
+    fprintf(stderr, " | %*s", tok.location.line_length - tok.location.at, "");
+    fprintf(stderr, "\x1b[1;35m^\x1b[0;1m %s\x1b[0m\n", message);
 }
 
 // FIXME: assumes tok.lexeme is a nul terminated string
