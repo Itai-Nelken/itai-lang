@@ -91,7 +91,7 @@ static ParseRule rules[TK__COUNT] = {
     [TK_TILDE]           = {NULL, NULL, PREC_NONE},
     [TK_MINUS]           = {parse_unary, parse_binary, PREC_TERM},
     [TK_MINUS_EQUAL]     = {NULL, NULL, PREC_NONE},
-    [TK_PLUS]            = {NULL, parse_binary, PREC_TERM},
+    [TK_PLUS]            = {parse_unary, parse_binary, PREC_TERM},
     [TK_PLUS_EQUAL]      = {NULL, NULL, PREC_NONE},
     [TK_SLASH]           = {NULL, parse_binary, PREC_FACTOR},
     [TK_SLASH_EQUAL]     = {NULL, NULL, PREC_NONE},
@@ -205,6 +205,9 @@ static void parse_unary(Parser *p) {
     switch(operatorType) {
         case TK_MINUS:
             p->current_expr = newUnaryNode(ND_NEG, p->current_expr);
+            break;
+        case TK_PLUS:
+            // nothing, leave the operand
             break;
         default:
             UNREACHABLE();
