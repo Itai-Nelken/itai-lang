@@ -24,6 +24,11 @@ static void error(Parser *p, Token tok, const char *message) {
     fprintf(stderr, "\x1b[31merror:\x1b[0m %s\n", message);
 }
 
+static void warning(Parser *p, Token tok, const char *message) {
+    fprintf(stderr, "\x1b[1m%s:%d:%d: ", tok.location.file, tok.location.line, tok.location.at);
+    fprintf(stderr, "\x1b[35mwarning:\x1b[0m %s\n", message);
+}
+
 // FIXME: assumes tok.lexeme is a nul terminated string
 static void errorToken(Parser *p, Token tok) {
     error(p, tok, tok.lexeme);
@@ -232,7 +237,7 @@ static void parse_binary(Parser *p) {
             break;
         case TK_SLASH:
             if(p->current_expr->literal.int32 == 0) {
-                error(p, previous(p), "division by 0");
+                warning(p, previous(p), "division by 0");
                 return;
             }
             p->current_expr = newNode(ND_DIV, left, p->current_expr);
