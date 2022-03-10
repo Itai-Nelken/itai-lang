@@ -364,18 +364,15 @@ Token nextToken(Scanner *s) {
                 return makeToken(s, TK_MINUS_EQUAL);
             } else if(match(s, '>')) {
                 return makeToken(s, TK_ARROW);
-            } else if(match(s, '-')) {
-                return makeToken(s, TK_DECR);
             } else {
                 return makeToken(s, TK_MINUS);
             }
         case '+':
             if(match(s, '=')) {
                 return makeToken(s, TK_PLUS_EQUAL);
-            } else if(match(s, '+')) {
-                return makeToken(s, TK_INCR);
+            } else {
+                return makeToken(s, TK_PLUS);
             }
-            return makeToken(s, TK_PLUS);
         case '/': return makeToken(s, match(s, '=') ? TK_SLASH_EQUAL : TK_SLASH);
         case '*': return makeToken(s, match(s, '=') ? TK_STAR_EQUAL : TK_STAR);
         case '!': return makeToken(s, match(s, '=') ? TK_BANG_EQUAL : TK_BANG);

@@ -6,6 +6,7 @@
 typedef enum ast_type {
     ND_ADD, ND_SUB,
     ND_MUL, ND_DIV,
+    ND_NEG,
     ND_NUM
 } ASTNodeType;
 
@@ -22,5 +23,6 @@ ASTNode *newNode(ASTNodeType type, ASTNode *left, ASTNode *right);
 void freeAST(ASTNode *root);
 
 ASTNode *newNumberNode(int value);
+ASTNode *newUnaryNode(ASTNodeType type, ASTNode *left);
 
 #endif // AST_H

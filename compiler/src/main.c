@@ -14,21 +14,32 @@ static void test_scanner(char *source) {
     freeScanner(&s);
 }
 
-static int interpret(ASTNode *n) {
-    if(n->type == ND_NUM) {
-        return n->literal.int32;
-    }
+static int interpret(ASTNode *node) {
+	if(node->type == ND_NUM) {
+		return node->literal.int32;
+	}
 
-    int left = interpret(n->left);
-    int right = interpret(n->right);
-    switch(n->type) {
-        case ND_ADD: return left + right;
-        case ND_SUB: return left - right;
-        case ND_MUL: return left * right;
-        case ND_DIV: return left / right;
-        default:
-            UNREACHABLE();
-    }
+	int value = interpret(node->left);
+	switch(node->type) {
+		case ND_ADD:
+			value = value + interpret(node->right);
+			break;
+		case ND_SUB:
+			value = value - interpret(node->right);
+			break;
+		case ND_MUL:
+			value = value * interpret(node->right);
+			break;
+		case ND_DIV:
+			value = value / interpret(node->right);
+			break;
+		case ND_NEG:
+			value = -value;
+			break;
+		default:
+			UNREACHABLE();
+	}
+	return value;
 }
 
 int main(int argc, char **argv) {

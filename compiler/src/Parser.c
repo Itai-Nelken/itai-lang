@@ -59,7 +59,8 @@ typedef enum precedence {
     PREC_NONE    = 0,
     PREC_TERM    = 1, // infix + - (lowest)
     PREC_FACTOR  = 2, // infix * /
-    PREC_PRIMARY = 3  // highest
+    PREC_UNARY   = 3,
+    PREC_PRIMARY = 4  // highest
 } Precedence;
 
 typedef void (*ParseFn)(Parser *p);
@@ -73,6 +74,7 @@ typedef struct parse_rule {
 static void parse_number(Parser *p);
 static void parse_binary(Parser *p);
 static void parse_grouping(Parser *p);
+static void parse_unary(Parser *p);
 static void parsePrecedence(Parser *p, Precedence prec);
 static ASTNode *expression(Parser *p);
 
@@ -87,12 +89,10 @@ static ParseRule rules[TK__COUNT] = {
     [TK_SEMICOLON]       = {NULL, NULL, PREC_NONE},
     [TK_COLON]           = {NULL, NULL, PREC_NONE},
     [TK_TILDE]           = {NULL, NULL, PREC_NONE},
-    [TK_MINUS]           = {NULL, parse_binary, PREC_TERM},
+    [TK_MINUS]           = {parse_unary, parse_binary, PREC_TERM},
     [TK_MINUS_EQUAL]     = {NULL, NULL, PREC_NONE},
-    [TK_DECR]            = {NULL, NULL, PREC_NONE},
     [TK_PLUS]            = {NULL, parse_binary, PREC_TERM},
     [TK_PLUS_EQUAL]      = {NULL, NULL, PREC_NONE},
-    [TK_INCR]            = {NULL, NULL, PREC_NONE},
     [TK_SLASH]           = {NULL, parse_binary, PREC_FACTOR},
     [TK_SLASH_EQUAL]     = {NULL, NULL, PREC_NONE},
     [TK_STAR]            = {NULL, parse_binary, PREC_FACTOR},
@@ -197,6 +197,18 @@ static void parse_number(Parser *p) {
 static void parse_grouping(Parser *p) {
     p->current_expr = expression(p);
     consume(p, TK_RPAREN, "expected \x1b[1m')'\x1b[0m after expression");
+}
+
+static void parse_unary(Parser *p) {
+    TokenType operatorType = previous(p).type;
+    parsePrecedence(p, PREC_UNARY);
+    switch(operatorType) {
+        case TK_MINUS:
+            p->current_expr = newUnaryNode(ND_NEG, p->current_expr);
+            break;
+        default:
+            UNREACHABLE();
+    }
 }
 
 static void parse_binary(Parser *p) {

@@ -25,3 +25,7 @@ ASTNode *newNumberNode(int value) {
     n->literal.int32 = value;
     return n;
 }
+
+ASTNode *newUnaryNode(ASTNodeType type, ASTNode *left) {
+    return newNode(type, left, NULL);
+}

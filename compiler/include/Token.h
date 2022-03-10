@@ -18,8 +18,8 @@ typedef enum token_type {
     TK_TILDE,
 
     // one or two character tokens
-    TK_MINUS, TK_MINUS_EQUAL, TK_DECR, /* -- */ TK_ARROW, // ->
-    TK_PLUS, TK_PLUS_EQUAL, TK_INCR, // ++
+    TK_MINUS, TK_MINUS_EQUAL, TK_ARROW, // ->
+    TK_PLUS, TK_PLUS_EQUAL,
     TK_SLASH, TK_SLASH_EQUAL,
     TK_STAR, TK_STAR_EQUAL,
     TK_BANG, TK_BANG_EQUAL,

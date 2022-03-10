@@ -32,11 +32,9 @@ static const char *tokentype_str_lut[] = {
     // one or two character tokens
     [TK_MINUS]           = "TK_MINUS",
     [TK_MINUS_EQUAL]     = "TK_MINUS_EQUAL",
-    [TK_DECR]            = "TK_DECR", // -- (postfix)
     [TK_ARROW]           = "TK_ARROW", // ->
     [TK_PLUS]            = "TK_PLUS",
     [TK_PLUS_EQUAL]      = "TK_PLUS_EQUAL",
-    [TK_INCR]            = "TK_INCR", // ++ (postfix)
     [TK_SLASH]           = "TK_SLASH",
     [TK_SLASH_EQUAL]     = "TK_SLASH_EQUAL",
     [TK_STAR]            = "TK_STAR",
