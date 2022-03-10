@@ -7,7 +7,7 @@
 
 void initParser(Parser *p, const char *filename, char *source) {
     p->current_expr = NULL;
-    p->has_error = false;
+    p->had_error = false;
     initScanner(&p->scanner, filename, source);
 }
 
@@ -42,7 +42,7 @@ static void indentLine(Token tok) {
 
 // TODO: print '~' for every character in multicharacter tokens.
 static void error(Parser *p, Token tok, const char *message) {
-    p->has_error = true;
+    p->had_error = true;
     fprintf(stderr, "\x1b[1m%s:%d:%d: ", tok.location.file, tok.location.line, tok.location.at + 1);
     fprintf(stderr, "\x1b[31merror:\x1b[0m\n");
     printLocation(tok);
@@ -321,13 +321,16 @@ static ASTNode *expression(Parser *p) {
     return p->current_expr;
 }
 
-ASTNode *parse(Parser *p) {
+ASTProg parse(Parser *p) {
     advance(p);
     ASTNode *expr = expression(p);
     consume(p, TK_EOF, "expected end of input");
-    if(p->has_error) {
+    if(p->had_error) {
         freeAST(expr);
         expr = NULL;
     }
-    return expr;
+    ASTProg prog = {
+        .expr = expr
+    };
+    return prog;
 }

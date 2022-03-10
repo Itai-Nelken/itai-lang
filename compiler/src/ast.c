@@ -2,6 +2,14 @@
 #include "memory.h"
 #include "ast.h"
 
+void initASTProg(ASTProg *astp, ASTNode *expr) {
+    astp->expr = expr;
+}
+
+void freeASTProg(ASTProg *astp) {
+    freeAST(astp->expr);
+}
+
 ASTNode *newNode(ASTNodeType type, ASTNode *left, ASTNode *right) {
     ASTNode *n = CALLOC(1, sizeof(*n));
     n->type = type;

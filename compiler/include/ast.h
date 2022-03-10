@@ -21,6 +21,13 @@ typedef struct ast_node {
     } literal;
 } ASTNode;
 
+typedef struct ast_program {
+    ASTNode *expr;
+} ASTProg;
+
+void initASTProg(ASTProg *astp, ASTNode *expr);
+void freeASTProg(ASTProg *astp);
+
 ASTNode *newNode(ASTNodeType type, ASTNode *left, ASTNode *right);
 
 void freeAST(ASTNode *root);

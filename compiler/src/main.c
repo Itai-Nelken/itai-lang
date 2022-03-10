@@ -3,6 +3,7 @@
 #include "Token.h"
 #include "Scanner.h"
 #include "Parser.h"
+#include "codegen.h"
 
 static void test_scanner(char *source) {
     Scanner s;
@@ -60,15 +61,12 @@ static int interpret(ASTNode *node) {
 	return value;
 }
 
-int main(int argc, char **argv) {
-    if(argc < 2) {
-        fprintf(stderr, "\x1b[1mUSAGE:\x1b[0m %s [expr]\n", argv[0]);
-        return 1;
-    }
-    Parser p;
-    initParser(&p, "Test", argv[1]);
-    ASTNode *n = parse(&p);
+static void test_parser(char *source) {
+	Parser p;
+    initParser(&p, "Test", source);
+    ASTProg prog = parse(&p);
     freeParser(&p);
+	ASTNode *n = prog.expr;
 
     if(n == NULL) {
         fputs("Parsing failed!\n", stderr);
@@ -77,5 +75,35 @@ int main(int argc, char **argv) {
     }
 
     freeAST(n);
+}
+
+int main(int argc, char **argv) {
+    if(argc < 2) {
+        fprintf(stderr, "\x1b[1mUSAGE:\x1b[0m %s [expr]\n", argv[0]);
+        return 1;
+    }
+	Parser p;
+	CodeGenerator cg;
+	
+	// initialize the parser (and scanner (lexer))
+	initParser(&p, "Test", argv[1]);
+	// step 1 + 2: scan (lex) the source code, and parse it into an AST
+	ASTProg prog = parse(&p);
+	if(p.had_error) {
+		fputs("Parsing failed!", stderr);
+		freeParser(&p);
+		return 1;
+	}
+	
+	// initialize the code generator
+	initCodegen(&cg, prog, stdout);
+	// step 3: walk the AST and generate assembly
+	codegen(&cg);
+
+	// free all resources
+	freeCodegen(&cg);
+	freeASTProg(&prog);
+	freeParser(&p);
+
     return 0;
 }
