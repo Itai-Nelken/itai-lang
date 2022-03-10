@@ -41,7 +41,6 @@ static void indentLine(Token tok) {
 }
 
 // TODO: print '~' for every character in multicharacter tokens.
-// FIXME: tok.locatin.at may not be always correct?
 static void error(Parser *p, Token tok, const char *message) {
     p->has_error = true;
     fprintf(stderr, "\x1b[1m%s:%d:%d: ", tok.location.file, tok.location.line, tok.location.at + 1);
