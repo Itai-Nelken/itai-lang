@@ -90,7 +90,7 @@ int main(int argc, char **argv) {
 	// step 1 + 2: scan (lex) the source code, and parse it into an AST
 	ASTProg prog = parse(&p);
 	if(p.had_error) {
-		fputs("Parsing failed!", stderr);
+		fputs("Parsing failed!\n", stderr);
 		freeParser(&p);
 		return 1;
 	}

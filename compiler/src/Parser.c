@@ -40,7 +40,7 @@ static void indentLine(Token tok) {
     fprintf(stderr, "%*s", indent, "");
 }
 
-// TODO: print '~' for every character in multicharacter tokens.
+// FIXME: tok.location.at isn't set to the correct value.
 static void error(Parser *p, Token tok, const char *message) {
     p->had_error = true;
     fprintf(stderr, "\x1b[1m%s:%d:%d: ", tok.location.file, tok.location.line, tok.location.at + 1);
@@ -49,7 +49,11 @@ static void error(Parser *p, Token tok, const char *message) {
     fprintf(stderr, "\t");
     indentLine(tok);
     fprintf(stderr, " | %*s", tok.location.line_length - tok.location.at, "");
-    fprintf(stderr, "\x1b[1;35m^\x1b[0;1m %s\x1b[0m\n", message);
+    fprintf(stderr, "\x1b[1;35m^");
+    for(int i = 0; i < tok.length; ++i) {
+        fputc('~', stderr);
+    }
+    fprintf(stderr, " \x1b[0;1m%s\x1b[0m\n", message);
 }
 
 static void warning(Parser *p, Token tok, const char *message) {
@@ -59,7 +63,11 @@ static void warning(Parser *p, Token tok, const char *message) {
     fprintf(stderr, "\t");
     indentLine(tok);
     fprintf(stderr, " | %*s", tok.location.line_length - tok.location.at, "");
-    fprintf(stderr, "\x1b[1;35m^\x1b[0;1m %s\x1b[0m\n", message);
+    fprintf(stderr, "\x1b[1;35m^");
+    for(int i = 0; i < tok.length; ++i) {
+        fputc('~', stderr);
+    }
+    fprintf(stderr, " \x1b[0;1m%s\x1b[0m\n", message);
 }
 
 // FIXME: assumes tok.lexeme is a nul terminated string
