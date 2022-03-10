@@ -4,10 +4,13 @@
 #include "types.h"
 
 typedef enum ast_type {
-    ND_ADD, ND_SUB,
-    ND_MUL, ND_DIV,
-    ND_NEG,
-    ND_NUM
+    ND_ADD, ND_SUB, // infix +, -
+    ND_MUL, ND_DIV, // infix *, /
+    ND_EQ, ND_NE, // ==, !=
+    ND_GT, ND_GE, // >, >=
+    ND_LT, ND_LE, // <, <=
+    ND_NEG, // unary -
+    ND_NUM  // numbers
 } ASTNodeType;
 
 typedef struct ast_node {

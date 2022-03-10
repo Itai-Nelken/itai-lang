@@ -94,11 +94,13 @@ static void consume(Parser *p, TokenType expected, const char *message) {
 }
 
 typedef enum precedence {
-    PREC_NONE    = 0,
-    PREC_TERM    = 1, // infix + - (lowest)
-    PREC_FACTOR  = 2, // infix * /
-    PREC_UNARY   = 3,
-    PREC_PRIMARY = 4  // highest
+    PREC_NONE       = 0,
+    PREC_EQUALITY   = 1, // infix == !=
+    PREC_COMPARISON = 2, // infix > >= < <=
+    PREC_TERM       = 3, // infix + - (lowest)
+    PREC_FACTOR     = 4, // infix * /
+    PREC_UNARY      = 5,
+    PREC_PRIMARY    = 6  // highest
 } Precedence;
 
 typedef void (*ParseFn)(Parser *p);
@@ -136,9 +138,9 @@ static ParseRule rules[TK__COUNT] = {
     [TK_STAR]            = {NULL, parse_binary, PREC_FACTOR},
     [TK_STAR_EQUAL]      = {NULL, NULL, PREC_NONE},
     [TK_BANG]            = {NULL, NULL, PREC_NONE},
-    [TK_BANG_EQUAL]      = {NULL, NULL, PREC_NONE},
+    [TK_BANG_EQUAL]      = {NULL, parse_binary, PREC_EQUALITY},
     [TK_EQUAL]           = {NULL, NULL, PREC_NONE},
-    [TK_EQUAL_EQUAL]     = {NULL, NULL, PREC_NONE},
+    [TK_EQUAL_EQUAL]     = {NULL, parse_binary, PREC_EQUALITY},
     [TK_PERCENT]         = {NULL, NULL, PREC_NONE},
     [TK_PERCENT_EQUAL]   = {NULL, NULL, PREC_NONE},
     [TK_XOR]             = {NULL, NULL, PREC_NONE},
@@ -147,12 +149,12 @@ static ParseRule rules[TK__COUNT] = {
     [TK_PIPE_EQUAL]      = {NULL, NULL, PREC_NONE},
     [TK_AMPERSAND]       = {NULL, NULL, PREC_NONE},
     [TK_AMPERSAND_EQUAL] = {NULL, NULL, PREC_NONE},
-    [TK_GREATER]         = {NULL, NULL, PREC_NONE},
-    [TK_GREATER_EQUAL]   = {NULL, NULL, PREC_NONE},
+    [TK_GREATER]         = {NULL, parse_binary, PREC_COMPARISON},
+    [TK_GREATER_EQUAL]   = {NULL, parse_binary, PREC_COMPARISON},
     [TK_RSHIFT]          = {NULL, NULL, PREC_NONE},
     [TK_RSHIFT_EQUAL]    = {NULL, NULL, PREC_NONE},
-    [TK_LESS]            = {NULL, NULL, PREC_NONE},
-    [TK_LESS_EQUAL]      = {NULL, NULL, PREC_NONE},
+    [TK_LESS]            = {NULL, parse_binary, PREC_COMPARISON},
+    [TK_LESS_EQUAL]      = {NULL, parse_binary, PREC_COMPARISON},
     [TK_LSHIFT]          = {NULL, NULL, PREC_NONE},
     [TK_LSHIFT_EQUAL]    = {NULL, NULL, PREC_NONE},
     [TK_DOT]             = {NULL, NULL, PREC_NONE},
@@ -275,6 +277,24 @@ static void parse_binary(Parser *p) {
             }
             p->current_expr = newNode(ND_DIV, left, p->current_expr);
             break;
+        case TK_EQUAL_EQUAL:
+            p->current_expr = newNode(ND_EQ, left, p->current_expr);
+            break;
+        case TK_BANG_EQUAL:
+            p->current_expr = newNode(ND_NE, left, p->current_expr);
+            break;
+        case TK_GREATER:
+            p->current_expr = newNode(ND_GT, left, p->current_expr);
+            break;
+        case TK_GREATER_EQUAL:
+            p->current_expr = newNode(ND_GE, left, p->current_expr);
+            break;
+        case TK_LESS:
+            p->current_expr = newNode(ND_LT, left, p->current_expr);
+            break;
+        case TK_LESS_EQUAL:
+            p->current_expr = newNode(ND_LE, left, p->current_expr);
+            break;
         default:
             UNREACHABLE();
     }
@@ -296,8 +316,8 @@ static void parsePrecedence(Parser *p, Precedence prec) {
 }
 
 static ASTNode *expression(Parser *p) {
-    // the lowest precedence
-    parsePrecedence(p, PREC_TERM);
+    // start parsing with the lowest precedence
+    parsePrecedence(p, PREC_EQUALITY);
     return p->current_expr;
 }
 

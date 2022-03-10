@@ -36,6 +36,24 @@ static int interpret(ASTNode *node) {
 		case ND_NEG:
 			value = -value;
 			break;
+		case ND_EQ:
+			value = value == interpret(node->right);
+			break;
+		case ND_NE:
+			value = value != interpret(node->right);
+			break;
+		case ND_GT:
+			value = value > interpret(node->right);
+			break;
+		case ND_GE:
+			value = value >= interpret(node->right);
+			break;
+		case ND_LT:
+			value = value < interpret(node->right);
+			break;
+		case ND_LE:
+			value = value <= interpret(node->right);
+			break;
 		default:
 			UNREACHABLE();
 	}
