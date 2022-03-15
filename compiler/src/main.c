@@ -55,6 +55,15 @@ static int interpret(ASTNode *node) {
 		case ND_LE:
 			value = value <= interpret(node->right);
 			break;
+		case ND_BIT_OR:
+			value = value | interpret(node->right);
+			break;
+		case ND_XOR:
+			value = value ^ interpret(node->right);
+			break;
+		case ND_BIT_AND:
+			value = value & interpret(node->right);
+			break;
 		default:
 			UNREACHABLE();
 	}

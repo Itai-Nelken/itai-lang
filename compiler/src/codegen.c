@@ -32,8 +32,9 @@ static void gen_expr(CodeGenerator *cg, ASTNode *expr) {
     }
 
     gen_expr(cg, expr->left);
-    println(cg, "mov x1, x0");
+    println(cg, "str x0, [sp, -16]!"); // push x0
     gen_expr(cg, expr->right);
+    println(cg, "ldr x1, [sp, 8], 16"); // pop x1
 
     switch(expr->type) {
         case ND_ADD:
@@ -72,6 +73,15 @@ static void gen_expr(CodeGenerator *cg, ASTNode *expr) {
         case ND_LE:
             println(cg, "cmp x0, x1");
             println(cg, "cset x0, le");
+            break;
+        case ND_BIT_OR:
+            println(cg, "orr x0, x0, x1");
+            break;
+        case ND_XOR:
+            println(cg, "eor x0, x0, x1");
+            break;
+        case ND_BIT_AND:
+            println(cg, "and x0, x0, x1");
             break;
         default:
             UNREACHABLE();
