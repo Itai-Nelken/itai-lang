@@ -81,8 +81,6 @@ static void gen_expr(CodeGenerator *cg, ASTNode *expr) {
 void codegen(CodeGenerator *cg) {
     println(cg, ".global main\n"
                 "main:\n");
-    // set default return value
-    println(cg, "mov x0, 0 // default return value");
 
     gen_expr(cg, cg->program.expr);
     
