@@ -8,6 +8,7 @@
 void initParser(Parser *p, const char *filename, char *source) {
     p->current_expr = NULL;
     p->had_error = false;
+    p->panic_mode = false;
     initScanner(&p->scanner, filename, source);
 }
 
@@ -40,17 +41,22 @@ static void indentLine(Token tok) {
     fprintf(stderr, "%*s", indent, "");
 }
 
-// FIXME: tok.location.at isn't set to the correct value.
 static void error(Parser *p, Token tok, const char *message) {
+    // suppress any errors that may be caused by previous errors
+    if(p->panic_mode) {
+        return;
+    }
     p->had_error = true;
+    p->panic_mode = true;
     fprintf(stderr, "\x1b[1m%s:%d:%d: ", tok.location.file, tok.location.line, tok.location.at + 1);
     fprintf(stderr, "\x1b[31merror:\x1b[0m\n");
     printLocation(tok);
     fprintf(stderr, "\t");
     indentLine(tok);
-    fprintf(stderr, " | %*s", tok.location.line_length - tok.location.at, "");
+    fprintf(stderr, " | %*s", tok.location.line_length - tok.location.at - tok.length, "");
     fprintf(stderr, "\x1b[1;35m^");
-    for(int i = 0; i < tok.length; ++i) {
+    // tok.length - 1 because the first character is used by the '^'
+    for(int i = 0; i < tok.length - 1; ++i) {
         fputc('~', stderr);
     }
     fprintf(stderr, " \x1b[0;1m%s\x1b[0m\n", message);
@@ -62,9 +68,10 @@ static void warning(Parser *p, Token tok, const char *message) {
     printLocation(tok);
     fprintf(stderr, "\t");
     indentLine(tok);
-    fprintf(stderr, " | %*s", tok.location.line_length - tok.location.at, "");
+    fprintf(stderr, " | %*s", tok.location.line_length - tok.location.at - tok.length, "");
     fprintf(stderr, "\x1b[1;35m^");
-    for(int i = 0; i < tok.length; ++i) {
+    // tok.length - 1 because the first character is used by the '^'
+    for(int i = 0; i < tok.length - 1; ++i) {
         fputc('~', stderr);
     }
     fprintf(stderr, " \x1b[0;1m%s\x1b[0m\n", message);

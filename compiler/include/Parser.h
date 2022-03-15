@@ -8,7 +8,7 @@
 typedef struct parser {
     Scanner scanner;
     Token current_token, previous_token;
-    bool had_error;
+    bool had_error, panic_mode;
     ASTNode *current_expr;
 } Parser;
 
