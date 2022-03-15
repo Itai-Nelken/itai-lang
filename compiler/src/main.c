@@ -64,6 +64,12 @@ static int interpret(ASTNode *node) {
 		case ND_BIT_AND:
 			value = value & interpret(node->right);
 			break;
+		case ND_BIT_RSHIFT:
+			value = value >> interpret(node->right);
+			break;
+		case ND_BIT_LSHIFT:
+			value = value << interpret(node->right);
+			break;
 		default:
 			UNREACHABLE();
 	}
@@ -91,6 +97,7 @@ int main(int argc, char **argv) {
         fprintf(stderr, "\x1b[1mUSAGE:\x1b[0m %s [expr]\n", argv[0]);
         return 1;
     }
+
 	Parser p;
 	CodeGenerator cg;
 	

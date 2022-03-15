@@ -112,10 +112,11 @@ typedef enum precedence {
     PREC_BIT_AND    = 3,  // infix &
     PREC_EQUALITY   = 4, // infix == !=
     PREC_COMPARISON = 5, // infix > >= < <=
-    PREC_TERM       = 6, // infix + - (lowest)
-    PREC_FACTOR     = 7, // infix * /
-    PREC_UNARY      = 8,
-    PREC_PRIMARY    = 9  // highest
+    PREC_BIT_SHIFT  = 6, // infix << >>
+    PREC_TERM       = 7, // infix + -
+    PREC_FACTOR     = 8, // infix * /
+    PREC_UNARY      = 9,
+    PREC_PRIMARY    = 10  // highest
 } Precedence;
 
 typedef void (*ParseFn)(Parser *p);
@@ -166,11 +167,11 @@ static ParseRule rules[TK__COUNT] = {
     [TK_AMPERSAND_EQUAL] = {NULL, NULL, PREC_NONE},
     [TK_GREATER]         = {NULL, parse_binary, PREC_COMPARISON},
     [TK_GREATER_EQUAL]   = {NULL, parse_binary, PREC_COMPARISON},
-    [TK_RSHIFT]          = {NULL, NULL, PREC_NONE},
+    [TK_RSHIFT]          = {NULL, parse_binary, PREC_BIT_SHIFT},
     [TK_RSHIFT_EQUAL]    = {NULL, NULL, PREC_NONE},
     [TK_LESS]            = {NULL, parse_binary, PREC_COMPARISON},
     [TK_LESS_EQUAL]      = {NULL, parse_binary, PREC_COMPARISON},
-    [TK_LSHIFT]          = {NULL, NULL, PREC_NONE},
+    [TK_LSHIFT]          = {NULL, parse_binary, PREC_BIT_SHIFT},
     [TK_LSHIFT_EQUAL]    = {NULL, NULL, PREC_NONE},
     [TK_DOT]             = {NULL, NULL, PREC_NONE},
     [TK_ELIPSIS]         = {NULL, NULL, PREC_NONE},
@@ -226,17 +227,19 @@ static ParseRule *getRule(TokenType type) {
 static void parse_number(Parser *p) {
     Token tok = previous(p);
     int base = 10;
+    char *lexeme = tok.lexeme;
 
     if(tok.length < 2) {
         // only base 10 literals can be 1 character
         goto end;
     }
-    if(tok.lexeme[0] == 'O') {
-        base = 8;
-    } else if(tok.lexeme[0] == '0') {
+    if(tok.lexeme[0] == '0') {
         switch(tok.lexeme[1]) {
-            case 'x': base = 16; break;
-            case 'b': base = 2; break;
+            // ignore the 0x, 0b, and 0o prefixes as strtol doesn't understand them
+            // (it does understand 0x)
+            case 'x': base = 16; lexeme = lexeme + 2; break;
+            case 'b': base = 2; lexeme = lexeme + 2; break;
+            case 'o': base = 8; lexeme = lexeme + 2; break;
             default:
                 // only option left is base 10
                 break;
@@ -244,7 +247,7 @@ static void parse_number(Parser *p) {
     }
 
 end:
-    p->current_expr = newNumberNode((int)strtol(tok.lexeme, NULL, base));
+    p->current_expr = newNumberNode((int)strtol(lexeme, NULL, base));
 }
 
 static void parse_grouping(Parser *p) {
@@ -283,6 +286,12 @@ static void parse_binary(Parser *p) {
             break;
         case TK_AMPERSAND:
             p->current_expr = newNode(ND_BIT_AND, left, p->current_expr);
+            break;
+        case TK_RSHIFT:
+            p->current_expr = newNode(ND_BIT_RSHIFT, left, p->current_expr);
+            break;
+        case TK_LSHIFT:
+            p->current_expr = newNode(ND_BIT_LSHIFT, left, p->current_expr);
             break;
         case TK_EQUAL_EQUAL:
             p->current_expr = newNode(ND_EQ, left, p->current_expr);

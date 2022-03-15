@@ -47,11 +47,6 @@ static Token errorToken(Scanner *s, const char *message) {
     return newErrorToken(loc, s->start, s->current - s->start, message);
 }
 
-static bool isNumber(char c) {
-    //    for decimal, hex, binary | for octal
-    return (c >= '0' && c <= '9') || c == 'O';
-}
-
 static bool isAlpha(char c) {
     return isAscii(c) || c == '_';
 }
@@ -108,42 +103,42 @@ static Token scan_binary(Scanner *s) {
     return makeToken(s, TK_NUMLIT);
 }
 
-static void scan_octal(Scanner *s) {
+static Token scan_octal(Scanner *s) {
+    // consume the 'o'
+    advance(s);
     while((peek(s) >= '0' && peek(s) <= '7') || peek(s) == '_') {
         advance(s);
     }
+    return makeToken(s, TK_NUMLIT);
 }
 
-static void scan_decimal(Scanner *s, TokenType *numtype) {
+static Token scan_decimal(Scanner *s) {
+    TokenType numtype = TK_NUMLIT;
     while(isDigit(peek(s)) || peek(s) == '_') {
         advance(s);
     }
 
     // look for fractional part.
     if(peek(s) == '.' && isDigit(peekNext(s))) {
-        *numtype = TK_FLOATLIT;
+        numtype = TK_FLOATLIT;
         // consume the dot ('.').
         advance(s);
         while(isDigit(peek(s)) || peek(s) == '_') {
             advance(s);
         }
     }
+    return makeToken(s, numtype);
 }
 
 static Token number(Scanner *s) {
-    TokenType numtype = TK_NUMLIT;
+    Token t;
     switch(peek(s)) {
-        case 'x': return scan_hex(s); break;
-        case 'b': return scan_binary(s); break;
-        default:
-            if(s->current[-1] == 'O') {
-                scan_octal(s);
-            } else {
-                scan_decimal(s, &numtype);
-            }
-            break;
+        case 'x': t = scan_hex(s); break;
+        case 'b': t = scan_binary(s); break;
+        case 'o': t = scan_octal(s); break;
+        default:  t = scan_decimal(s); break;
     }
-    return makeToken(s, numtype);
+    return t;
 }
 
 static Token string(Scanner *s) {
@@ -347,7 +342,7 @@ Token nextToken(Scanner *s) {
 
     char c = advance(s);
     // number literals
-    if(isNumber(c)) {
+    if(isDigit(c)) {
         return number(s);
     }
     // keywords, types, and identifiers

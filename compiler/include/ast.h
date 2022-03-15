@@ -9,9 +9,10 @@ typedef enum ast_type {
     ND_EQ, ND_NE, // ==, !=
     ND_GT, ND_GE, // >, >=
     ND_LT, ND_LE, // <, <=
-    ND_BIT_OR,
-    ND_XOR,
-    ND_BIT_AND,
+    ND_BIT_OR, // infix |
+    ND_XOR, // infix ^
+    ND_BIT_AND, // infix &
+    ND_BIT_RSHIFT, ND_BIT_LSHIFT, // infix >> <<
     ND_NEG, // unary -
     ND_NUM  // numbers
 } ASTNodeType;
