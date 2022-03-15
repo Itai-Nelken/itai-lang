@@ -47,7 +47,7 @@ static void gen_expr(CodeGenerator *cg, ASTNode *expr) {
             println(cg, "mul x0, x0, x1");
             break;
         case ND_DIV:
-            // TODO: Check if unsigned values, and then use 'udiv'
+            // use 'udiv' for unsigned values
             println(cg, "sdiv x0, x0, x1");
             break;
         case ND_EQ:
