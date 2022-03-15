@@ -275,6 +275,7 @@ static void parse_binary(Parser *p) {
     ParseRule *rule = getRule(operatorType);
 
     ASTNode *left = p->current_expr;
+    p->current_expr = NULL;
     parsePrecedence(p, rule->precedence + 1);
     switch(operatorType) {
         case TK_PLUS:
