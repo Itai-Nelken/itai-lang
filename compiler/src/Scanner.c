@@ -316,7 +316,8 @@ static void skipWhitespace(Scanner *s) {
                     while(!isAtEnd(s)) {
                         if(peek(s) == '\n') {
                             s->line++;
-                            s->current_line = s->current_line + 1;
+                            // was = 's->current_line+1', why???
+                            s->current_line = s->current;
                         }
                         if(peek(s) == '/' && peekNext(s) == '*') {
                             depth++;
