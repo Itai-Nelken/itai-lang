@@ -43,7 +43,7 @@ static Token errorToken(Scanner *s, const char *message) {
         .line_length = calculate_line_length(s),
         .at = s->start - s->current_line
     };
-    return newToken(TK_ERROR, loc, (char *)message, strlen(message));
+    return newErrorToken(loc, s->start, s->current - s->start, message);
 }
 
 static bool isDigit(char c) {

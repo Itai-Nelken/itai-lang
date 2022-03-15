@@ -92,9 +92,13 @@ typedef struct token {
     Location location;
     char *lexeme;
     int length;
+
+    // for TK_ERROR
+    const char *errmsg;
 } Token;
 
 Token newToken(TokenType type, Location loc, char *lexeme, int length);
+Token newErrorToken(Location loc, char *lexene, int length, const char *message);
 void printToken(Token t);
 const char *tokenTypeToString(TokenType t);
 

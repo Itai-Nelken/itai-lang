@@ -16,15 +16,8 @@ void freeParser(Parser *p) {
     freeScanner(&p->scanner);
 }
 
-// print the location of a token in the following format:
-// <line number> | <line>
-static void printLocation(Token tok) {
-    fprintf(stderr, "\t%d | ", tok.location.line);
-    fprintf(stderr, "%.*s\n", tok.location.line_length, tok.location.containing_line);
-}
-
-static void indentLine(Token tok) {
-    int line = tok.location.line;
+static void indentLine(Token *tok) {
+    int line = tok->location.line;
     short indent = 0;
     // FIXME: only works with up to 9999 lines of code
     if(line < 10) {
@@ -41,6 +34,13 @@ static void indentLine(Token tok) {
     fprintf(stderr, "%*s", indent, "");
 }
 
+static void printTokenLocation(Token *tok) {
+    fprintf(stderr, "\t%d | ", tok->location.line);
+    fprintf(stderr, "%.*s\n", tok->location.line_length, tok->location.containing_line);
+    fputs("\t", stderr);
+    indentLine(tok);
+}
+
 static void error(Parser *p, Token tok, const char *message) {
     // suppress any errors that may be caused by previous errors
     if(p->panic_mode) {
@@ -51,9 +51,7 @@ static void error(Parser *p, Token tok, const char *message) {
 
     fprintf(stderr, "\x1b[1m%s:%d:%d: ", tok.location.file, tok.location.line, tok.location.at + 1);
     fprintf(stderr, "\x1b[31merror:\x1b[0m\n");
-    printLocation(tok);
-    fprintf(stderr, "\t");
-    indentLine(tok);
+    printTokenLocation(&tok);
     fprintf(stderr, " | %*s", tok.location.at, "");
     fprintf(stderr, "\x1b[1;35m^");
     // tok.length - 1 because the first character is used by the '^'
@@ -66,9 +64,7 @@ static void error(Parser *p, Token tok, const char *message) {
 static void warning(Parser *p, Token tok, const char *message) {
     fprintf(stderr, "\x1b[1m%s:%d:%d: ", tok.location.file, tok.location.line, tok.location.at + 1);
     fprintf(stderr, "\x1b[35mwarning:\x1b[0m\n");
-    printLocation(tok);
-    fprintf(stderr, "\t");
-    indentLine(tok);
+    printTokenLocation(&tok);
     fprintf(stderr, " | %*s", tok.location.at, "");
     fprintf(stderr, "\x1b[1;35m^");
     // tok.length - 1 because the first character is used by the '^'
@@ -78,9 +74,8 @@ static void warning(Parser *p, Token tok, const char *message) {
     fprintf(stderr, " \x1b[0;1m%s\x1b[0m\n", message);
 }
 
-// FIXME: assumes tok.lexeme is a nul terminated string
-static void errorToken(Parser *p, Token tok) {
-    error(p, tok, tok.lexeme);
+static inline void errorToken(Parser *p, Token tok) {
+    error(p, tok, tok.errmsg);
 }
 
 static Token advance(Parser *p) {
