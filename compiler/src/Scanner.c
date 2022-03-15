@@ -25,7 +25,7 @@ static int calculate_line_length(Scanner *s) {
 }
 
 static Token makeToken(Scanner *s, TokenType type) {
-    Coordinate loc = {
+    Location loc = {
         .file = s->filename,
         .containing_line = s->current_line,
         .line_length = calculate_line_length(s),
@@ -36,7 +36,7 @@ static Token makeToken(Scanner *s, TokenType type) {
 }
 
 static Token errorToken(Scanner *s, const char *message) {
-    Coordinate loc = {
+    Location loc = {
         .file = s->filename,
         .line = s->line,
         .containing_line = s->current_line,

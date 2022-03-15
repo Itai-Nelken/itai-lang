@@ -2,13 +2,13 @@
 #define TOKEN_H
 
 
-typedef struct coordinate {
+typedef struct location {
     char *file;
     char *containing_line;
     int line_length;
     int line;
     int at;
-} Coordinate;
+} Location;
 
 typedef enum token_type {
     // one character tokens
@@ -89,12 +89,12 @@ typedef enum token_type {
 
 typedef struct token {
     TokenType type;
-    Coordinate location;
+    Location location;
     char *lexeme;
     int length;
 } Token;
 
-Token newToken(TokenType type, Coordinate loc, char *lexeme, int length);
+Token newToken(TokenType type, Location loc, char *lexeme, int length);
 void printToken(Token t);
 const char *tokenTypeToString(TokenType t);
 

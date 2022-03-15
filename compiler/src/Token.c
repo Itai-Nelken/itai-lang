@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include "Token.h"
 
-Token newToken(TokenType type, Coordinate loc, char *lexeme, int length) {
+Token newToken(TokenType type, Location loc, char *lexeme, int length) {
     Token t = {
         .type = type,
         .location = loc,
