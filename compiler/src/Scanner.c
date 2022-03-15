@@ -18,7 +18,7 @@ void freeScanner(Scanner *s) {
     s->line = 1;
 }
 
-static int generate_line_length(Scanner *s) {
+static int calculate_line_length(Scanner *s) {
     char *p = s->current_line;
     for(; *p != '\0' && *p != '\n'; p++);
     return (int)(p - s->current_line);
@@ -28,7 +28,7 @@ static Token makeToken(Scanner *s, TokenType type) {
     Coordinate loc = {
         .file = s->filename,
         .containing_line = s->current_line,
-        .line_length = generate_line_length(s),
+        .line_length = calculate_line_length(s),
         .line = s->line,
         .at = s->current - s->start
     };
@@ -40,7 +40,7 @@ static Token errorToken(Scanner *s, const char *message) {
         .file = s->filename,
         .line = s->line,
         .containing_line = s->current_line,
-        .line_length = generate_line_length(s),
+        .line_length = calculate_line_length(s),
         .at = s->current - s->start
     };
     return newToken(TK_ERROR, loc, (char *)message, strlen(message));
