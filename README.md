@@ -242,14 +242,14 @@ For decimal numbers, simply the number.
 
 The character `_` may be used to make the numbers more readable for humans (it's ignored by the compiler).
 
-Hexadecimal numbers have to be prefixed with `0x` , binary numbers with `0b`, and octal numbers with `O` (capital O).
+Hexadecimal numbers have to be prefixed with `0x` , binary numbers with `0b`, and octal numbers with `0o` (0 followed by lowercase 'o').
 
 ```rust
 // numbers
 42 // decimal
 0x64 // hexadecimal
 0b1010 // binary
-O666 // octal
+0o666 // octal
 
 12.5
 1_000
@@ -329,7 +329,7 @@ split("abcd"); // "ab", "cd"
 | Operator | Description | Type |
 | --- | --- | --- |
 | `&` | AND | infix |
-| `|` | OR  | infix |
+| `   | `   | OR  |
 | `^` | XOR | infix |
 | `~` | Binary One's Complement | prefix |
 | `<<` | left shift | infix |
@@ -346,7 +346,7 @@ split("abcd"); // "ab", "cd"
 | `/=` | division+assignment | infix |
 | `%=` | modulus+assignment | infix |
 | `&=` | AND+assignment | infix |
-| `|=` | OR+assignment | infix |
+| `   | =`  | OR+assignment |
 | `^=` | XOR+assignment | infix |
 | `<<=` | left shift+assignment | infix |
 | `>>=` | right shift+assignment | infix |
