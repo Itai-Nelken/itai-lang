@@ -30,7 +30,7 @@ static Token makeToken(Scanner *s, TokenType type) {
         .containing_line = s->current_line,
         .line_length = calculate_line_length(s),
         .line = s->line,
-        .at = s->current - s->start
+        .at = s->start - s->current_line
     };
     return newToken(type, loc, s->start, s->current - s->start);
 }
@@ -41,7 +41,7 @@ static Token errorToken(Scanner *s, const char *message) {
         .line = s->line,
         .containing_line = s->current_line,
         .line_length = calculate_line_length(s),
-        .at = s->current - s->start
+        .at = s->start - s->current_line
     };
     return newToken(TK_ERROR, loc, (char *)message, strlen(message));
 }

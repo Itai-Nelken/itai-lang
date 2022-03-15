@@ -19,7 +19,7 @@ void freeParser(Parser *p) {
 // print the location of a token in the following format:
 // <line number> | <line>
 static void printLocation(Token tok) {
-    fprintf(stderr, "\t%d |  ", tok.location.line);
+    fprintf(stderr, "\t%d | ", tok.location.line);
     fprintf(stderr, "%.*s\n", tok.location.line_length, tok.location.containing_line);
 }
 
@@ -48,12 +48,13 @@ static void error(Parser *p, Token tok, const char *message) {
     }
     p->had_error = true;
     p->panic_mode = true;
+
     fprintf(stderr, "\x1b[1m%s:%d:%d: ", tok.location.file, tok.location.line, tok.location.at + 1);
     fprintf(stderr, "\x1b[31merror:\x1b[0m\n");
     printLocation(tok);
     fprintf(stderr, "\t");
     indentLine(tok);
-    fprintf(stderr, " | %*s", tok.location.line_length - tok.location.at - tok.length, "");
+    fprintf(stderr, " | %*s", tok.location.at, "");
     fprintf(stderr, "\x1b[1;35m^");
     // tok.length - 1 because the first character is used by the '^'
     for(int i = 0; i < tok.length - 1; ++i) {
@@ -68,7 +69,7 @@ static void warning(Parser *p, Token tok, const char *message) {
     printLocation(tok);
     fprintf(stderr, "\t");
     indentLine(tok);
-    fprintf(stderr, " | %*s", tok.location.line_length - tok.location.at - tok.length, "");
+    fprintf(stderr, " | %*s", tok.location.at, "");
     fprintf(stderr, "\x1b[1;35m^");
     // tok.length - 1 because the first character is used by the '^'
     for(int i = 0; i < tok.length - 1; ++i) {

@@ -16,7 +16,7 @@ void printToken(Token t) {
            "\x1b[34;1mlocation\x1b[0m{\x1b[1mfile: \x1b[0;33m'%s'\x1b[0m, "
                 "\x1b[1mcontaining_line:\x1b[0;33m'%.*s'\x1b[0m, "
                 "\x1b[1mline_length:\x1b[0;33m %d\x1b[0m, "
-                "\x1b[1mline: \x1b[0;36m%d\x1b[0m,"
+                "\x1b[1mline: \x1b[0;36m%d\x1b[0m, "
                 "\x1b[1mat: \x1b[0;36m%d\x1b[0m}, "
             "\x1b[1mlexeme:\x1b[0;33m '%.*s'\x1b[0m, "
             "\x1b[1mlength:\x1b[0;36m %d\x1b[0m}\n",
