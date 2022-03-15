@@ -114,13 +114,14 @@ static void scan_octal(Scanner *s) {
     }
 }
 
-static void scan_decimal(Scanner *s) {
+static void scan_decimal(Scanner *s, TokenType *numtype) {
     while(isDigit(peek(s)) || peek(s) == '_') {
         advance(s);
     }
 
     // look for fractional part.
     if(peek(s) == '.' && isDigit(peekNext(s))) {
+        *numtype = TK_FLOATLIT;
         // consume the dot ('.').
         advance(s);
         while(isDigit(peek(s)) || peek(s) == '_') {
@@ -130,6 +131,7 @@ static void scan_decimal(Scanner *s) {
 }
 
 static Token number(Scanner *s) {
+    TokenType numtype = TK_NUMLIT;
     switch(peek(s)) {
         case 'x': return scan_hex(s); break;
         case 'b': return scan_binary(s); break;
@@ -137,11 +139,11 @@ static Token number(Scanner *s) {
             if(s->current[-1] == 'O') {
                 scan_octal(s);
             } else {
-                scan_decimal(s);
+                scan_decimal(s, &numtype);
             }
             break;
     }
-    return makeToken(s, TK_NUMLIT);
+    return makeToken(s, numtype);
 }
 
 static Token string(Scanner *s) {

@@ -39,7 +39,8 @@ typedef enum token_type {
     // literals
     TK_STRLIT,
     TK_CHARLIT,
-    TK_NUMLIT,
+    TK_NUMLIT,   // example: 123
+    TK_FLOATLIT, // example: 1.23
     TK_IDENTIFIER,
 
     // types

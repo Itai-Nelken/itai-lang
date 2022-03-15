@@ -88,6 +88,7 @@ static const char *tokentype_str_lut[] = {
     [TK_STRLIT]          = "TK_STRLIT",
     [TK_CHARLIT]         = "TK_CHARLIT",
     [TK_NUMLIT]          = "TK_NUMLIT",
+    [TK_FLOATLIT]        = "TK_FLOATLIT",
     [TK_IDENTIFIER]      = "TK_IDENTIFIER",
 
     // types
@@ -136,7 +137,7 @@ static const char *tokentype_str_lut[] = {
 };
 
 inline const char *tokenTypeToString(TokenType type) {
-    if(type > TK_EOF + 1) {
+    if(type > TK__COUNT) {
         return "UNKNOWN";
     }
     return tokentype_str_lut[type];

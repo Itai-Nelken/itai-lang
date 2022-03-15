@@ -174,6 +174,7 @@ static ParseRule rules[TK__COUNT] = {
     [TK_STRLIT]          = {NULL, NULL, PREC_NONE},
     [TK_CHARLIT]         = {NULL, NULL, PREC_NONE},
     [TK_NUMLIT]          = {parse_number, NULL, PREC_NONE},
+    [TK_FLOATLIT]        = {NULL, NULL, PREC_NONE},
     [TK_IDENTIFIER]      = {NULL, NULL, PREC_NONE},
     [TK_I8]              = {NULL, NULL, PREC_NONE},
     [TK_I16]             = {NULL, NULL, PREC_NONE},
@@ -223,7 +224,11 @@ static ParseRule *getRule(TokenType type) {
 static void parse_number(Parser *p) {
     Token tok = previous(p);
     if((tok.lexeme[1] != 'b' || tok.lexeme[1] != 'x') && isDigit(tok.lexeme[0])) { // decimal
-        p->current_expr = newNumberNode((int)strtol(tok.lexeme, NULL, 10));
+        if(tok.type == TK_NUMLIT) {
+            p->current_expr = newNumberNode((int)strtol(tok.lexeme, NULL, 10));
+        } else {
+            UNREACHABLE();
+        }
         return;
     } else if(tok.lexeme[0] == 'O') { // octal
         p->current_expr = newNumberNode((int)strtol(tok.lexeme, NULL, 8));
