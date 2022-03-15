@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "common.h"
+#include "utilities.h"
 #include "ast.h"
 #include "Token.h"
 #include "Scanner.h"
@@ -216,11 +217,6 @@ static ParseRule rules[TK__COUNT] = {
 
 static ParseRule *getRule(TokenType type) {
     return &rules[type];
-}
-
-// FIXME: duplicate with scanner one
-static bool isDigit(char c) {
-    return c >= '0' && c <= '9';
 }
 
 // FIXME: doesn't check if the literal is empty

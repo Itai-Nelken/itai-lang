@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include "utilities.h"
 #include "Token.h"
 #include "Scanner.h"
 
@@ -46,17 +47,9 @@ static Token errorToken(Scanner *s, const char *message) {
     return newErrorToken(loc, s->start, s->current - s->start, message);
 }
 
-static bool isDigit(char c) {
-    return c >= '0' && c <= '9';
-}
-
 static bool isNumber(char c) {
     //    for decimal, hex, binary | for octal
     return (c >= '0' && c <= '9') || c == 'O';
-}
-
-static bool isAscii(char c) {
-    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 }
 
 static bool isAlpha(char c) {
