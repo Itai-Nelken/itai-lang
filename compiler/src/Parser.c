@@ -220,30 +220,28 @@ static ParseRule *getRule(TokenType type) {
     return &rules[type];
 }
 
-// FIXME: doesn't check if the literal is empty
 static void parse_number(Parser *p) {
     Token tok = previous(p);
-    if((tok.lexeme[1] != 'b' || tok.lexeme[1] != 'x') && isDigit(tok.lexeme[0])) { // decimal
-        if(tok.type == TK_NUMLIT) {
-            p->current_expr = newNumberNode((int)strtol(tok.lexeme, NULL, 10));
-        } else {
-            UNREACHABLE();
+    int base = 10;
+
+    if(tok.length < 2) {
+        // only base 10 literals can be 1 character
+        goto end;
+    }
+    if(tok.lexeme[0] == 'O') {
+        base = 8;
+    } else if(tok.lexeme[0] == '0') {
+        switch(tok.lexeme[1]) {
+            case 'x': base = 16; break;
+            case 'b': base = 2; break;
+            default:
+                // only option left is base 10
+                break;
         }
-        return;
-    } else if(tok.lexeme[0] == 'O') { // octal
-        p->current_expr = newNumberNode((int)strtol(tok.lexeme, NULL, 8));
-        return;
     }
-    switch(tok.lexeme[1]) {
-        case 'x':
-            p->current_expr = newNumberNode((int)strtol(tok.lexeme, NULL, 16));
-            break;
-        case 'b':
-            p->current_expr = newNumberNode((int)strtol(tok.lexeme, NULL, 2));
-            break;
-        default:
-            UNREACHABLE();
-    }
+
+end:
+    p->current_expr = newNumberNode((int)strtol(tok.lexeme, NULL, base));
 }
 
 static void parse_grouping(Parser *p) {
