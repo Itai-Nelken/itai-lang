@@ -322,7 +322,7 @@ static void parse_binary(Parser *p) {
             break;
         case TK_SLASH:
             if(p->current_expr->literal.int32 == 0) {
-                warning(p, peek(p), "division by 0");
+                warning(p, previous(p), "division by 0");
             }
             p->current_expr = newNode(ND_DIV, left, p->current_expr);
             break;
