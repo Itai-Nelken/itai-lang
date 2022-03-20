@@ -34,6 +34,9 @@ static int interpret(ASTNode *node) {
 		case ND_DIV:
 			value = value / interpret(node->right);
 			break;
+		case ND_REM:
+			value = value % interpret(node->right);
+			break;
 		case ND_NEG:
 			value = -value;
 			break;

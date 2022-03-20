@@ -327,11 +327,11 @@ split("abcd"); // "ab", "cd"
 ### Bitwise
 
 | Operator | Description | Type |
-| --- | --- | --- |
-| `&` | AND | infix |
-| `   | `   | OR  |
-| `^` | XOR | infix |
-| `~` | Binary One's Complement | prefix |
+| ---  | --- | --- |
+| `&`  | AND | infix |
+| `|`  | OR  |
+| `^`  | XOR | infix |
+| `~`  | Binary One's Complement | prefix |
 | `<<` | left shift | infix |
 | `>>` | right shift | infix |
 

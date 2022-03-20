@@ -157,7 +157,7 @@ static ParseRule rules[TK__COUNT] = {
     [TK_BANG_EQUAL]      = {NULL, parse_binary, PREC_EQUALITY},
     [TK_EQUAL]           = {NULL, NULL, PREC_NONE},
     [TK_EQUAL_EQUAL]     = {NULL, parse_binary, PREC_EQUALITY},
-    [TK_PERCENT]         = {NULL, NULL, PREC_NONE},
+    [TK_PERCENT]         = {NULL, parse_binary, PREC_FACTOR},
     [TK_PERCENT_EQUAL]   = {NULL, NULL, PREC_NONE},
     [TK_XOR]             = {NULL, parse_binary, PREC_BIT_XOR},
     [TK_XOR_EQUAL]       = {NULL, NULL, PREC_NONE},
@@ -325,6 +325,12 @@ static void parse_binary(Parser *p) {
                 warning(p, previous(p), "division by 0");
             }
             p->current_expr = newNode(ND_DIV, left, p->current_expr);
+            break;
+        case TK_PERCENT:
+            if(p->current_expr->literal.int32 == 0) {
+                warning(p, previous(p), "causes division by 0");
+            }
+            p->current_expr = newNode(ND_REM, left, p->current_expr);
             break;
         default:
             UNREACHABLE();

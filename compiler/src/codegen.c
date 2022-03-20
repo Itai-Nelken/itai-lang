@@ -53,6 +53,14 @@ static void gen_expr(CodeGenerator *cg, ASTNode *expr) {
             // use 'udiv' for unsigned values
             println(cg, "sdiv x0, x0, x1");
             break;
+        case ND_REM:
+            // tmp = a / b
+            // tmp = tmp * b
+            // result = tmp - b
+            println(cg, "sdiv x2, x0, x1");
+            println(cg, "mul x1, x2, x1");
+            println(cg, "sub x0, x0, x1");
+            break;
         case ND_EQ:
             println(cg, "cmp x0, x1");
             println(cg, "cset x0, eq");
