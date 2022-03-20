@@ -31,9 +31,12 @@ static void gen_expr(CodeGenerator *cg, ASTNode *expr) {
         return;
     }
 
-    gen_expr(cg, expr->left);
-    println(cg, "str x0, [sp, -16]!"); // push x0
+    // first generate the right side because
+    // we want right to be in x1 and left to be in x0.
+    // this can be achieved in different ways.
     gen_expr(cg, expr->right);
+    println(cg, "str x0, [sp, -16]!"); // push x0
+    gen_expr(cg, expr->left);
     println(cg, "ldr x1, [sp], 16"); // pop x1
 
     switch(expr->type) {
