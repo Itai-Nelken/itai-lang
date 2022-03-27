@@ -1,6 +1,7 @@
 #ifndef PARSER_H
 #define PARSER_H
 
+#include <stdbool.h>
 #include "ast.h"
 #include "Token.h"
 #include "Scanner.h"

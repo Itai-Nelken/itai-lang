@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdbool.h>
 #include "common.h"
 #include "utilities.h"
 #include "ast.h"
@@ -252,7 +253,7 @@ end:
 
 static void parse_grouping(Parser *p) {
     p->current_expr = expression(p);
-    consume(p, TK_RPAREN, "expected \x1b[1m')'\x1b[0m after expression");
+    consume(p, TK_RPAREN, "expected ')' after expression");
 }
 
 static void parse_unary(Parser *p) {
