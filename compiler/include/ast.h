@@ -4,6 +4,7 @@
 #include "types.h"
 
 typedef enum ast_type {
+    ND_EXPR_STMT, // expression statement
     ND_ADD, ND_SUB, // infix +, -
     ND_MUL, ND_DIV, // infix *, /
     ND_REM, // infix % (remainder, modulo)

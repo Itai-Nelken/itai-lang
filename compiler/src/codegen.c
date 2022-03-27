@@ -105,12 +105,20 @@ static void gen_expr(CodeGenerator *cg, ASTNode *expr) {
     }
 }
 
+void gen_stmt(CodeGenerator *cg, ASTNode *node) {
+    if(node->type != ND_EXPR_STMT) {
+        abort();
+        return;
+    }
+    gen_expr(cg, node->left);
+}
+
 void codegen(CodeGenerator *cg) {
     println(cg, ".global main\n"
                 "main:\n");
 
     for(int i = 0; i < (int)cg->program->used; ++i) {
-        gen_expr(cg, ASTProgAt(cg->program, i));
+        gen_stmt(cg, ASTProgAt(cg->program, i));
     }
     
     // return

@@ -78,6 +78,9 @@ static void warning(Parser *p, Token tok, const char *message) {
 
 static inline void errorToken(Parser *p, Token tok) {
     error(p, tok, tok.errmsg);
+    // because errors from the parser won't cause
+    // cascading errors.
+    p->panic_mode = false;
 }
 
 static Token advance(Parser *p) {
@@ -360,7 +363,7 @@ static ASTNode *expression(Parser *p) {
 }
 
 static ASTNode *expr_stmt(Parser *p) {
-    ASTNode *n = expression(p);
+    p->current_expr = newUnaryNode(ND_EXPR_STMT, expression(p));
     consume(p, TK_SEMICOLON, "Expected ';' after expression");
     return p->current_expr;
 }
@@ -373,6 +376,9 @@ bool parse(Parser *p, ASTProg *prog) {
     advance(p);
     while(peek(p).type != TK_EOF) {
         ASTNode *node = statement(p);
+        // reset the parser for the next statement
+        p->panic_mode = false;
+        p->current_expr = NULL;
         if(p->had_error) {
             freeAST(node);
             continue;
