@@ -111,6 +111,7 @@ static void consume(Parser *p, TokenType expected, const char *message) {
 
 typedef enum precedence {
     PREC_NONE       = 0,
+    PREC_ASSIGNMENT = 1, // infix =
     PREC_BIT_OR     = 1,  // infix |
     PREC_BIT_XOR    = 2,  // infix ^
     PREC_BIT_AND    = 3,  // infix &

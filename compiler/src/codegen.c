@@ -107,8 +107,7 @@ static void gen_expr(CodeGenerator *cg, ASTNode *expr) {
 
 void gen_stmt(CodeGenerator *cg, ASTNode *node) {
     if(node->type != ND_EXPR_STMT) {
-        abort();
-        return;
+        UNREACHABLE();
     }
     gen_expr(cg, node->left);
 }
