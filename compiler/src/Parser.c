@@ -359,16 +359,25 @@ static ASTNode *expression(Parser *p) {
     return p->current_expr;
 }
 
-ASTProg parse(Parser *p) {
+static ASTNode *expr_stmt(Parser *p) {
+    ASTNode *n = expression(p);
+    consume(p, TK_SEMICOLON, "Expected ';' after expression");
+    return p->current_expr;
+}
+
+static ASTNode *statement(Parser *p) {
+    return expr_stmt(p);
+}
+
+bool parse(Parser *p, ASTProg *prog) {
     advance(p);
-    ASTNode *expr = expression(p);
-    consume(p, TK_EOF, "expected end of input");
-    if(p->had_error) {
-        freeAST(expr);
-        expr = NULL;
+    while(peek(p).type != TK_EOF) {
+        ASTNode *node = statement(p);
+        if(p->had_error) {
+            freeAST(node);
+            continue;
+        }
+        ASTProgPush(prog, node);
     }
-    ASTProg prog = {
-        .expr = expr
-    };
-    return prog;
+    return p->had_error ? false : true;
 }

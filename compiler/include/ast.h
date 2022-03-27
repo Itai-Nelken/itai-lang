@@ -27,11 +27,15 @@ typedef struct ast_node {
 } ASTNode;
 
 typedef struct ast_program {
-    ASTNode *expr;
+    ASTNode **statements;
+    size_t capacity, used;
 } ASTProg;
 
-void initASTProg(ASTProg *astp, ASTNode *expr);
+void initASTProg(ASTProg *astp);
 void freeASTProg(ASTProg *astp);
+void ASTProgPush(ASTProg *astp, ASTNode *node);
+ASTNode *ASTProgAt(ASTProg *astp, int index);
+ASTNode *ASTProgPop(ASTProg *astp);
 
 ASTNode *newNode(ASTNodeType type, ASTNode *left, ASTNode *right);
 

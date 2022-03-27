@@ -13,25 +13,27 @@ int main(int argc, char **argv) {
 
 	Parser p;
 	CodeGenerator cg;
+	ASTProg program;
 	
 	// initialize the parser (and scanner (lexer))
 	initParser(&p, "Test", argv[1]);
+	// initialize the AST program
+	initASTProg(&program);
 	// step 1 + 2: scan (lex) the source code, and parse it into an AST
-	ASTProg prog = parse(&p);
-	if(p.had_error) {
+	if(!parse(&p, &program)) {
 		fputs("Parsing failed!\n", stderr);
 		freeParser(&p);
 		return 1;
 	}
 	
 	// initialize the code generator
-	initCodegen(&cg, prog, stdout);
+	initCodegen(&cg, &program, stdout);
 	// step 3: walk the AST and generate assembly
 	codegen(&cg);
 
 	// free all resources
 	freeCodegen(&cg);
-	freeASTProg(&prog);
+	freeASTProg(&program);
 	freeParser(&p);
 
     return 0;

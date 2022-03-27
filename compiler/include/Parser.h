@@ -16,6 +16,12 @@ typedef struct parser {
 void initParser(Parser *p, const char *filename, char *source);
 void freeParser(Parser *p);
 
-ASTProg parse(Parser *p);
+/***
+ * Parse source code into an AST program
+ * @param p An initialized parser
+ * @param prog An initialized program.
+ * @return true of parsing succeeded, false if not.
+ ***/
+bool parse(Parser *p, ASTProg *prog);
 
 #endif // PARSER_H

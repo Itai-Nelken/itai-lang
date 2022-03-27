@@ -3,7 +3,7 @@
 #include "common.h"
 #include "codegen.h"
 
-void initCodegen(CodeGenerator *cg, ASTProg program, FILE *file) {
+void initCodegen(CodeGenerator *cg, ASTProg *program, FILE *file) {
     cg->out = file;
     cg->program = program;
     cg->stack_has_space = false;
@@ -109,7 +109,9 @@ void codegen(CodeGenerator *cg) {
     println(cg, ".global main\n"
                 "main:\n");
 
-    gen_expr(cg, cg->program.expr);
+    for(int i = 0; i < (int)cg->program->used; ++i) {
+        gen_expr(cg, ASTProgAt(cg->program, i));
+    }
     
     // return
     println(cg, "ret");
