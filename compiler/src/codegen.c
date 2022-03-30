@@ -156,8 +156,8 @@ void gen_stmt(CodeGenerator *cg, ASTNode *node) {
     if(node->type != ND_EXPR_STMT) {
         UNREACHABLE();
     }
-    // FIXME: what if result isn't always in x0 (R0)?
-    gen_expr(cg, node->left);
+    Register result = gen_expr(cg, node->left);
+    assert(result == R0);
 }
 
 void codegen(CodeGenerator *cg) {
