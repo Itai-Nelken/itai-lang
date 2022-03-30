@@ -12,6 +12,7 @@ set(sources
     src/Scanner.c
     src/Parser.c
     src/codegen.c
+    src/Table.c
 )
 
 add_executable(ilc ${sources})
