@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <string.h> // memset()
 #include <stdarg.h>
-#include <assert.h>
 #include "common.h"
 #include "codegen.h"
 
@@ -60,6 +59,12 @@ static void free_register(CodeGenerator *cg, Register reg) {
             UNREACHABLE();
         }
         cg->free_regs[reg] = true;
+    }
+}
+
+static void free_all_registers(CodeGenerator *cg) {
+    for(int i = 0; i < _REG_COUNT; ++i) {
+        cg->free_regs[i] = true;
     }
 }
 
@@ -158,7 +163,12 @@ void gen_stmt(CodeGenerator *cg, ASTNode *node) {
         UNREACHABLE();
     }
     Register result = gen_expr(cg, node->left);
-    assert(result == R0);
+    // make sure the result is always in R0
+    if(result != R0) {
+        free_all_registers(cg);
+        cg->free_regs[R0] = false; // allocate R0
+        println(cg, "mov x0, %s", reg_to_str(result));
+    }
 }
 
 void codegen(CodeGenerator *cg) {
