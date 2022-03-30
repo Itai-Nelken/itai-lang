@@ -8,37 +8,10 @@ void initCodegen(CodeGenerator *cg, ASTProg *program, FILE *file) {
     cg->out = file;
     cg->program = program;
     memset(cg->free_regs, true, _REG_COUNT);
+    cg->spilled_regs = 0;
 }
 void freeCodegen(CodeGenerator *cg) {
     // nothing
-}
-
-// TODO: register spilling
-static Register allocate_register(CodeGenerator *cg) {
-    for(int i = 0; i < _REG_COUNT; ++i) {
-        if(cg->free_regs[i]) {
-            cg->free_regs[i] = false;
-            return (Register)i;
-        }
-    }
-    // no registers left
-    UNREACHABLE();
-}
-
-static void free_register(CodeGenerator *cg, Register reg) {
-    if(cg->free_regs[reg]) {
-        // double free
-        UNREACHABLE();
-    }
-    cg->free_regs[reg] = true;
-}
-
-static const char *registers[_REG_COUNT] = {"x0", "x1", "x2", "x3"};
-static const char *reg_to_str(Register reg) {
-    if(reg > _REG_COUNT) {
-        UNREACHABLE();
-    }
-    return registers[reg];
 }
 
 static void println(CodeGenerator *cg, const char *format, ...) {
@@ -48,6 +21,45 @@ static void println(CodeGenerator *cg, const char *format, ...) {
     vfprintf(cg->out, format, ap);
     va_end(ap);
     fputs("\n", cg->out);
+}
+
+static const char *registers[_REG_COUNT] = {"x0", "x1", "x2", "x3", "x4"};
+static const char *reg_to_str(Register reg) {
+    if(reg > _REG_COUNT) {
+        UNREACHABLE();
+    }
+    return registers[reg];
+}
+
+static Register allocate_register(CodeGenerator *cg) {
+    for(int i = 0; i < _REG_COUNT; ++i) {
+        if(cg->free_regs[i]) {
+            cg->free_regs[i] = false;
+            return (Register)i;
+        }
+    }
+    // no free registers left
+    // so spill one into the stack
+    Register reg = (Register)(cg->spilled_regs % (_REG_COUNT - 1));
+    cg->spilled_regs++;
+    println(cg, "// spilling register %s", reg_to_str(reg));
+    println(cg, "str %s, [sp, -16]!", reg_to_str(reg));
+    return reg;
+}
+
+static void free_register(CodeGenerator *cg, Register reg) {
+    if(cg->spilled_regs > 0) {
+        cg->spilled_regs--;
+        Register reg = (cg->spilled_regs % (_REG_COUNT - 1));
+        println(cg, "// unspilling register %s", reg_to_str(reg));
+        println(cg, "ldr %s, [sp], 16", reg_to_str(reg));
+    } else {
+        if(cg->free_regs[reg]) {
+            // double free
+            UNREACHABLE();
+        }
+        cg->free_regs[reg] = true;
+    }
 }
 
 // returns the register that will contain the result
