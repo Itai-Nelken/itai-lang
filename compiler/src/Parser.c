@@ -63,7 +63,7 @@ static void error(Parser *p, Token tok, const char *message) {
     fprintf(stderr, " \x1b[0;1m%s\x1b[0m\n", message);
 }
 
-static void warning(Parser *p, Token tok, const char *message) {
+static void warning(Token tok, const char *message) {
     fprintf(stderr, "\x1b[1m%s:%d:%d: ", tok.location.file, tok.location.line, tok.location.at + 1);
     fprintf(stderr, "\x1b[35mwarning:\x1b[0m\n");
     printTokenLocation(&tok);
@@ -327,13 +327,13 @@ static void parse_binary(Parser *p) {
             break;
         case TK_SLASH:
             if(p->current_expr->type == ND_NUM && p->current_expr->literal.int32 == 0) {
-                warning(p, previous(p), "division by 0");
+                warning(previous(p), "division by 0");
             }
             p->current_expr = newNode(ND_DIV, left, p->current_expr);
             break;
         case TK_PERCENT:
             if(p->current_expr->type == ND_NUM && p->current_expr->literal.int32 == 0) {
-                warning(p, previous(p), "causes division by 0");
+                warning(previous(p), "causes division by 0");
             }
             p->current_expr = newNode(ND_REM, left, p->current_expr);
             break;

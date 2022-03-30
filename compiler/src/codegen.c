@@ -12,6 +12,7 @@ void initCodegen(CodeGenerator *cg, ASTProg *program, FILE *file) {
 }
 void freeCodegen(CodeGenerator *cg) {
     // nothing
+    UNUSED(cg);
 }
 
 static void println(CodeGenerator *cg, const char *format, ...) {

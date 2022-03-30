@@ -25,7 +25,7 @@ void ASTProgPush(ASTProg *astp, ASTNode *node) {
 }
 
 ASTNode *ASTProgAt(ASTProg *astp, int index) {
-    if((int)index > astp->used) {
+    if((size_t)index > astp->used) {
         return NULL;
     }
     return astp->statements[index];

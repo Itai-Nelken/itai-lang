@@ -6,7 +6,7 @@
 #include "codegen.h"
 
 int main(int argc, char **argv) {
-    if(argc < 2) {
+	if(argc < 2) {
         fprintf(stderr, "\x1b[1mUSAGE:\x1b[0m %s [expr]\n", argv[0]);
         return 1;
     }
