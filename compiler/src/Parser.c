@@ -363,22 +363,54 @@ static ASTNode *expression(Parser *p) {
     return p->current_expr;
 }
 
+static void synchronize(Parser *p) {
+    // synchronize to statement boundaries
+    while(peek(p).type != TK_EOF) {
+        if(previous(p).type == TK_SEMICOLON) {
+            return;
+        }
+        switch(peek(p).type) {
+            case TK_FN:
+            case TK_VAR:
+            case TK_FOR:
+            case TK_WHILE:
+            case TK_IF:
+            case TK_RETURN:
+                return;
+            default:
+                break;
+        }
+
+        advance(p);
+    }
+}
+
 static ASTNode *expr_stmt(Parser *p) {
     p->current_expr = newUnaryNode(ND_EXPR_STMT, expression(p));
     consume(p, TK_SEMICOLON, "Expected ';' after expression");
     return p->current_expr;
 }
 
+// statement -> expr_stmt
+// declaration -> statement
 static ASTNode *statement(Parser *p) {
     return expr_stmt(p);
+}
+
+static ASTNode *declaration(Parser *p) {
+    return statement(p);
 }
 
 bool parse(Parser *p, ASTProg *prog) {
     advance(p);
     while(peek(p).type != TK_EOF) {
-        ASTNode *node = statement(p);
+        ASTNode *node = declaration(p);
+
         // reset the parser for the next statement
-        p->panic_mode = false;
+        if(p->panic_mode) {
+            p->panic_mode = false;
+            synchronize(p);
+        }
         p->current_expr = NULL;
         if(p->had_error) {
             freeAST(node);

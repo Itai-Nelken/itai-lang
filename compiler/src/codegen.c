@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h> // memset()
 #include <stdarg.h>
+#include <assert.h>
 #include "common.h"
 #include "codegen.h"
 
