@@ -6,7 +6,6 @@
 void initCodegen(CodeGenerator *cg, ASTProg *program, FILE *file) {
     cg->out = file;
     cg->program = program;
-    cg->stack_has_space = false;
 }
 void freeCodegen(CodeGenerator *cg) {
     // nothing
@@ -23,7 +22,7 @@ static void println(CodeGenerator *cg, const char *format, ...) {
 
 static void gen_expr(CodeGenerator *cg, ASTNode *expr) {
     if(expr->type == ND_NUM) {
-        println(cg, "mov x0, %d",expr->literal.int32);
+        println(cg, "mov x0, %d", expr->literal.int32);
         return;
     } else if(expr->type == ND_NEG) {
         gen_expr(cg, expr->left);

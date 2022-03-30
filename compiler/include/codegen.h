@@ -8,9 +8,6 @@
 typedef struct code_generator {
     ASTProg *program;
     FILE *out;
-
-    // internal state
-    bool stack_has_space;
 } CodeGenerator;
 
 void initCodegen(CodeGenerator *cg, ASTProg *program, FILE *file);
