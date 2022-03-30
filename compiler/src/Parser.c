@@ -326,13 +326,13 @@ static void parse_binary(Parser *p) {
             p->current_expr = newNode(ND_MUL, left, p->current_expr);
             break;
         case TK_SLASH:
-            if(p->current_expr->literal.int32 == 0) {
+            if(p->current_expr->type == ND_NUM && p->current_expr->literal.int32 == 0) {
                 warning(p, previous(p), "division by 0");
             }
             p->current_expr = newNode(ND_DIV, left, p->current_expr);
             break;
         case TK_PERCENT:
-            if(p->current_expr->literal.int32 == 0) {
+            if(p->current_expr->type == ND_NUM && p->current_expr->literal.int32 == 0) {
                 warning(p, previous(p), "causes division by 0");
             }
             p->current_expr = newNode(ND_REM, left, p->current_expr);
