@@ -48,10 +48,13 @@ char *stringResize(char *s, int newLength) {
     return str + 4;
 }
 
-char *stringCopy(const char *s) {
-    int length = strlen(s);
+char *stringNCopy(const char *s, int length) {
     char *str = newString(length + 1);
     memcpy(str, s, length);
     str[length] = '\0';
     return str;
+}
+
+char *stringCopy(const char *s) {
+    return stringNCopy(s, strlen(s));
 }

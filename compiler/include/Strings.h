@@ -36,6 +36,15 @@ int stringLength(char *s);
 char *stringResize(char *s, int newLength);
 
 /***
+ * Copy 'length' characters from 's' into a new string.
+ * 
+ * @param s A string to copy.
+ * @param length How much characters to copy.
+ * @return A new copy of 'length' characters of 's'.
+ ***/
+char *stringNCopy(const char *s, int length);
+
+/***
  * Copy a string into a new string.
  * 
  * @param s A string to copy.
