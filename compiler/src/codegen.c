@@ -1,13 +1,16 @@
 #include <stdio.h>
 #include <string.h> // memset()
 #include <stdarg.h>
+#include <assert.h>
 #include "common.h"
 #include "codegen.h"
+
+static void free_all_registers(CodeGenerator *cg);
 
 void initCodegen(CodeGenerator *cg, ASTProg *program, FILE *file) {
     cg->out = file;
     cg->program = program;
-    memset(cg->free_regs, true, _REG_COUNT);
+    free_all_registers(cg);
     cg->spilled_regs = 0;
 }
 void freeCodegen(CodeGenerator *cg) {
@@ -64,9 +67,7 @@ static void free_register(CodeGenerator *cg, Register reg) {
 }
 
 static void free_all_registers(CodeGenerator *cg) {
-    for(int i = 0; i < _REG_COUNT; ++i) {
-        cg->free_regs[i] = true;
-    }
+    memset(cg->free_regs, true, _REG_COUNT-1);
 }
 
 // returns the register that will contain the result
@@ -163,13 +164,7 @@ void gen_stmt(CodeGenerator *cg, ASTNode *node) {
     if(node->type != ND_EXPR_STMT) {
         UNREACHABLE();
     }
-    Register result = gen_expr(cg, node->left);
-    // make sure the result is always in R0
-    if(result != R0) {
-        free_all_registers(cg);
-        cg->free_regs[R0] = false; // allocate R0
-        println(cg, "mov x0, %s", reg_to_str(result));
-    }
+    assert(gen_expr(cg, node->left) == R0);
 }
 
 void codegen(CodeGenerator *cg) {

@@ -13,6 +13,7 @@ set(sources
     src/Parser.c
     src/codegen.c
     src/Table.c
+    src/Strings.c
 )
 
 add_executable(ilc ${sources})
