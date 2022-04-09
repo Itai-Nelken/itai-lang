@@ -19,24 +19,27 @@ typedef enum ast_type {
     ND_NUM  // numbers
 } ASTNodeType;
 
+typedef struct ast_obj {
+    char *name;
+} ASTObj;
+
 typedef struct ast_node {
     ASTNodeType type;
     struct ast_node *left, *right;
     union {
-        i32 int32;
-    } literal;
+        union {
+            i32 int32;
+        } literal;
+        ASTObj obj;
+    } as;
 } ASTNode;
 
 typedef struct ast_program {
-    ASTNode **statements;
-    size_t capacity, used;
+    Array statements;
 } ASTProg;
 
 void initASTProg(ASTProg *astp);
 void freeASTProg(ASTProg *astp);
-void ASTProgPush(ASTProg *astp, ASTNode *node);
-ASTNode *ASTProgAt(ASTProg *astp, int index);
-ASTNode *ASTProgPop(ASTProg *astp);
 
 ASTNode *newNode(ASTNodeType type, ASTNode *left, ASTNode *right);
 

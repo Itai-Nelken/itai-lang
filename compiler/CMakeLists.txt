@@ -14,6 +14,7 @@ set(sources
     src/codegen.c
     src/Table.c
     src/Strings.c
+    src/Array.c
 )
 
 add_executable(ilc ${sources})

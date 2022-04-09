@@ -74,7 +74,7 @@ static void free_all_registers(CodeGenerator *cg) {
 static Register gen_expr(CodeGenerator *cg, ASTNode *expr) {
     if(expr->type == ND_NUM) {
         Register reg = allocate_register(cg);
-        println(cg, "mov %s, %d", reg_to_str(reg), expr->literal.int32);
+        println(cg, "mov %s, %d", reg_to_str(reg), expr->as.literal.int32);
         return reg;
     } else if(expr->type == ND_NEG) {
         Register reg = gen_expr(cg, expr->left);
@@ -171,8 +171,8 @@ void codegen(CodeGenerator *cg) {
     println(cg, ".global main\n"
                 "main:\n");
 
-    for(int i = 0; i < (int)cg->program->used; ++i) {
-        gen_stmt(cg, ASTProgAt(cg->program, i));
+    for(int i = 0; i < (int)cg->program->statements.used; ++i) {
+        gen_stmt(cg, ARRAY_GET_AS(ASTNode *, &cg->program->statements, i));
     }
     
     // return

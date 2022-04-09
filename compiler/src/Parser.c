@@ -2,6 +2,8 @@
 #include <stdbool.h>
 #include "common.h"
 #include "utilities.h"
+#include "Strings.h"
+#include "Array.h"
 #include "ast.h"
 #include "Token.h"
 #include "Scanner.h"
@@ -326,13 +328,13 @@ static void parse_binary(Parser *p) {
             p->current_expr = newNode(ND_MUL, left, p->current_expr);
             break;
         case TK_SLASH:
-            if(p->current_expr->type == ND_NUM && p->current_expr->literal.int32 == 0) {
+            if(p->current_expr->type == ND_NUM && p->current_expr->as.literal.int32 == 0) {
                 warning(previous(p), "division by 0");
             }
             p->current_expr = newNode(ND_DIV, left, p->current_expr);
             break;
         case TK_PERCENT:
-            if(p->current_expr->type == ND_NUM && p->current_expr->literal.int32 == 0) {
+            if(p->current_expr->type == ND_NUM && p->current_expr->as.literal.int32 == 0) {
                 warning(previous(p), "causes division by 0");
             }
             p->current_expr = newNode(ND_REM, left, p->current_expr);
@@ -416,7 +418,7 @@ bool parse(Parser *p, ASTProg *prog) {
             freeAST(node);
             continue;
         }
-        ASTProgPush(prog, node);
+        arrayPush(&prog->statements, node);
     }
     return p->had_error ? false : true;
 }

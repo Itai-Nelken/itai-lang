@@ -1,41 +1,17 @@
 #include <stdlib.h>
 #include "memory.h"
+#include "Array.h"
 #include "ast.h"
 
 void initASTProg(ASTProg *astp) {
-    astp->statements = NULL;
-    astp->capacity = astp->used = 0;
+    initArray(&astp->statements);
 }
 
 void freeASTProg(ASTProg *astp) {
-    for(size_t i = 0; i < astp->used; ++i) {
-        freeAST(astp->statements[i]);
+    for(size_t i = 0; i < astp->statements.used; ++i) {
+        freeAST(astp->statements.data[i]);
     }
-    FREE(astp->statements);
-    astp->statements = NULL;
-}
-
-void ASTProgPush(ASTProg *astp, ASTNode *node) {
-    if(astp->used >= astp->capacity) {
-        astp->capacity = astp->capacity == 0 ? 8 : astp->capacity;
-        astp->capacity *= 2;
-        astp->statements = REALLOC(astp->statements, astp->capacity);
-    }
-    astp->statements[astp->used++] = node;
-}
-
-ASTNode *ASTProgAt(ASTProg *astp, int index) {
-    if((size_t)index > astp->used) {
-        return NULL;
-    }
-    return astp->statements[index];
-}
-
-ASTNode *ASTProgPop(ASTProg *astp) {
-    if(astp->used == 0) {
-        return NULL;
-    }
-    return astp->statements[astp->used--];
+    freeArray(&astp->statements);
 }
 
 ASTNode *newNode(ASTNodeType type, ASTNode *left, ASTNode *right) {
@@ -58,7 +34,7 @@ void freeAST(ASTNode *root) {
 
 ASTNode *newNumberNode(int value) {
     ASTNode *n = newNode(ND_NUM, NULL, NULL);
-    n->literal.int32 = value;
+    n->as.literal.int32 = value;
     return n;
 }
 
