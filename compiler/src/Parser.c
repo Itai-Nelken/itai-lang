@@ -29,11 +29,11 @@ static void error(Parser *p, Token tok, const char *message) {
     p->had_error = true;
     p->panic_mode = true;
 
-    printError(ERR_ERROR, tok, message);
+    printError(ERR_ERROR, tok.location, message);
 }
 
 static inline void warning(Token tok, const char *message) {
-    printError(ERR_WARNING, tok, message);
+    printError(ERR_WARNING, tok.location, message);
 }
 
 static inline void errorToken(Parser *p, Token tok) {
@@ -213,15 +213,15 @@ static void parse_number(Parser *p) {
     }
 
 end:
-    p->current_expr = newNumberNode((int)strtol(lexeme, NULL, base));
+    p->current_expr = newNumberNode((int)strtol(lexeme, NULL, base), previous(p).location);
 }
 
 static void parse_identifier(Parser *p) {
-    p->current_expr = newNode(ND_VAR, NULL, NULL);
+    p->current_expr = newNode(ND_VAR, NULL, NULL, previous(p).location);
     p->current_expr->as.var.name = stringNCopy(previous(p).lexeme, previous(p).length);
     if(peek(p).type == TK_EQUAL) {
         advance(p);
-        p->current_expr = newNode(ND_ASSIGN, p->current_expr, expression(p));
+        p->current_expr = newNode(ND_ASSIGN, p->current_expr, expression(p), previous(p).location);
     }
 }
 
@@ -235,7 +235,7 @@ static void parse_unary(Parser *p) {
     parsePrecedence(p, PREC_UNARY);
     switch(operatorType) {
         case TK_MINUS:
-            p->current_expr = newUnaryNode(ND_NEG, p->current_expr);
+            p->current_expr = newUnaryNode(ND_NEG, p->current_expr, previous(p).location);
             break;
         case TK_PLUS:
             // nothing, leave the operand
@@ -254,58 +254,58 @@ static void parse_binary(Parser *p) {
     parsePrecedence(p, rule->precedence + 1);
     switch(operatorType) {
         case TK_PIPE:
-            p->current_expr = newNode(ND_BIT_OR, left, p->current_expr);
+            p->current_expr = newNode(ND_BIT_OR, left, p->current_expr, previous(p).location);
             break;
         case TK_XOR:
-            p->current_expr = newNode(ND_XOR, left, p->current_expr);
+            p->current_expr = newNode(ND_XOR, left, p->current_expr, previous(p).location);
             break;
         case TK_AMPERSAND:
-            p->current_expr = newNode(ND_BIT_AND, left, p->current_expr);
+            p->current_expr = newNode(ND_BIT_AND, left, p->current_expr, previous(p).location);
             break;
         case TK_RSHIFT:
-            p->current_expr = newNode(ND_BIT_RSHIFT, left, p->current_expr);
+            p->current_expr = newNode(ND_BIT_RSHIFT, left, p->current_expr, previous(p).location);
             break;
         case TK_LSHIFT:
-            p->current_expr = newNode(ND_BIT_LSHIFT, left, p->current_expr);
+            p->current_expr = newNode(ND_BIT_LSHIFT, left, p->current_expr, previous(p).location);
             break;
         case TK_EQUAL_EQUAL:
-            p->current_expr = newNode(ND_EQ, left, p->current_expr);
+            p->current_expr = newNode(ND_EQ, left, p->current_expr, previous(p).location);
             break;
         case TK_BANG_EQUAL:
-            p->current_expr = newNode(ND_NE, left, p->current_expr);
+            p->current_expr = newNode(ND_NE, left, p->current_expr, previous(p).location);
             break;
         case TK_GREATER:
-            p->current_expr = newNode(ND_GT, left, p->current_expr);
+            p->current_expr = newNode(ND_GT, left, p->current_expr, previous(p).location);
             break;
         case TK_GREATER_EQUAL:
-            p->current_expr = newNode(ND_GE, left, p->current_expr);
+            p->current_expr = newNode(ND_GE, left, p->current_expr, previous(p).location);
             break;
         case TK_LESS:
-            p->current_expr = newNode(ND_LT, left, p->current_expr);
+            p->current_expr = newNode(ND_LT, left, p->current_expr, previous(p).location);
             break;
         case TK_LESS_EQUAL:
-            p->current_expr = newNode(ND_LE, left, p->current_expr);
+            p->current_expr = newNode(ND_LE, left, p->current_expr, previous(p).location);
             break;
         case TK_PLUS:
-            p->current_expr = newNode(ND_ADD, left, p->current_expr);
+            p->current_expr = newNode(ND_ADD, left, p->current_expr, previous(p).location);
             break;
         case TK_MINUS:
-            p->current_expr = newNode(ND_SUB, left, p->current_expr);
+            p->current_expr = newNode(ND_SUB, left, p->current_expr, previous(p).location);
             break;
         case TK_STAR:
-            p->current_expr = newNode(ND_MUL, left, p->current_expr);
+            p->current_expr = newNode(ND_MUL, left, p->current_expr, previous(p).location);
             break;
         case TK_SLASH:
             if(p->current_expr->type == ND_NUM && p->current_expr->as.literal.int32 == 0) {
                 warning(previous(p), "division by 0");
             }
-            p->current_expr = newNode(ND_DIV, left, p->current_expr);
+            p->current_expr = newNode(ND_DIV, left, p->current_expr, previous(p).location);
             break;
         case TK_PERCENT:
             if(p->current_expr->type == ND_NUM && p->current_expr->as.literal.int32 == 0) {
                 warning(previous(p), "causes division by 0");
             }
-            p->current_expr = newNode(ND_REM, left, p->current_expr);
+            p->current_expr = newNode(ND_REM, left, p->current_expr, previous(p).location);
             break;
         default:
             UNREACHABLE();
@@ -356,7 +356,7 @@ static void synchronize(Parser *p) {
 }
 
 static ASTNode *expr_stmt(Parser *p) {
-    p->current_expr = newUnaryNode(ND_EXPR_STMT, expression(p));
+    p->current_expr = newUnaryNode(ND_EXPR_STMT, expression(p), previous(p).location);
     consume(p, TK_SEMICOLON, "Expected ';' after expression");
     return p->current_expr;
 }
@@ -368,12 +368,12 @@ static ASTNode *var_decl(Parser *p) {
     
     // TODO: check for types
     
-    ASTNode *var = newNode(ND_VAR, NULL, NULL);
+    ASTNode *var = newNode(ND_VAR, NULL, NULL, previous(p).location);
     var->as.var.name = name;
 
     if(peek(p).type == TK_EQUAL) {
         advance(p);
-        var = newNode(ND_ASSIGN, var, expression(p));
+        var = newNode(ND_ASSIGN, var, expression(p), previous(p).location);
     }
 
     consume(p, TK_SEMICOLON, "Expected ';' after variable declaration");
@@ -389,7 +389,7 @@ static ASTNode *statement(Parser *p) {
     ASTNode *n = NULL;
     if(peek(p).type == TK_PRINT) {
         advance(p);
-        n = newUnaryNode(ND_PRINT, expression(p));
+        n = newUnaryNode(ND_PRINT, expression(p), previous(p).location);
         consume(p, TK_SEMICOLON, "Expected ';' after 'print' statement");
     } else {
         n = expr_stmt(p);

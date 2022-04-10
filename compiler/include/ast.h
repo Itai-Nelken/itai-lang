@@ -2,6 +2,7 @@
 #define AST_H
 
 #include "types.h"
+#include "Token.h"
 #include "Array.h"
 
 typedef enum ast_type {
@@ -29,6 +30,7 @@ typedef struct ast_obj {
 typedef struct ast_node {
     ASTNodeType type;
     struct ast_node *left, *right;
+    Location loc; // for error reporting
     union {
         union {
             i32 int32;
@@ -44,11 +46,11 @@ typedef struct ast_program {
 void initASTProg(ASTProg *astp);
 void freeASTProg(ASTProg *astp);
 
-ASTNode *newNode(ASTNodeType type, ASTNode *left, ASTNode *right);
+ASTNode *newNode(ASTNodeType type, ASTNode *left, ASTNode *right, Location loc);
 
 void freeAST(ASTNode *root);
 
-ASTNode *newNumberNode(int value);
-ASTNode *newUnaryNode(ASTNodeType type, ASTNode *left);
+ASTNode *newNumberNode(int value, Location loc);
+ASTNode *newUnaryNode(ASTNodeType type, ASTNode *left, Location loc);
 
 #endif // AST_H

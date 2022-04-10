@@ -3,9 +3,12 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include "common.h"
+#include "Errors.h"
 #include "memory.h"
 #include "Array.h"
 #include "Strings.h"
+#include "Token.h"
+#include "ast.h"
 #include "codegen.h"
 
 static void free_all_registers(CodeGenerator *cg);
@@ -13,6 +16,7 @@ static void free_all_registers(CodeGenerator *cg);
 void initCodegen(CodeGenerator *cg, ASTProg *program, FILE *file) {
     cg->out = file;
     cg->program = program;
+    cg->had_error = false;
     free_all_registers(cg);
     cg->spilled_regs = 0;
     initArray(&cg->globals);
@@ -24,6 +28,9 @@ void freeCodegen(CodeGenerator *cg) {
     }
    freeArray(&cg->globals);
 }
+
+#define error(cg, location, format) do { printErrorF(ERR_ERROR, location, format); cg->had_error = true; } while(0)
+#define errorf(cg, location, format, ...) do { printErrorF(ERR_ERROR, location, format, __VA_ARGS__); cg->had_error = true; } while(0)
 
 static void println(CodeGenerator *cg, const char *format, ...) {
     fputs("\t", cg->out);
@@ -59,6 +66,9 @@ static Register allocate_register(CodeGenerator *cg) {
 }
 
 static void free_register(CodeGenerator *cg, Register reg) {
+    if(reg == NOREG) {
+        return;
+    }
     if(cg->spilled_regs > 0) {
         cg->spilled_regs--;
         Register reg = (cg->spilled_regs % (_REG_COUNT - 1));
@@ -193,12 +203,11 @@ static ASTObj *getGlobal(CodeGenerator *cg, char *name) {
     return NULL;
 }
 
-static Register load_glob_addr(CodeGenerator *cg, char *name) {
+static Register load_glob_addr(CodeGenerator *cg, char *name, Location loc) {
     ASTObj *var = getGlobal(cg, name);
     if(var == NULL) {
-        // FIXME: proper error handling
-        LOG_ERR_F("Undeclared variable '%s'!\n", name);
-        UNREACHABLE();
+        error(cg, loc, "Undeclared variable");
+        return NOREG;
     }
     Register reg = allocate_register(cg);
     const char *r = reg_to_str(reg);
@@ -207,8 +216,11 @@ static Register load_glob_addr(CodeGenerator *cg, char *name) {
     return reg;
 }
 
-static Register load_glob(CodeGenerator *cg, char *name) {
-    Register address = load_glob_addr(cg, name);
+static Register load_glob(CodeGenerator *cg, char *name, Location loc) {
+    Register address = load_glob_addr(cg, name, loc);
+    if(address == NOREG) {
+        return NOREG;
+    }
     Register r = allocate_register(cg);
     println(cg, "ldr %s, [%s]", reg_to_str(r), reg_to_str(address));
     free_register(cg, address);
@@ -221,9 +233,9 @@ static Register gen_expr(CodeGenerator *cg, ASTNode *node) {
         case ND_NUM:
             return cgloadint(cg, node->as.literal.int32);
         case ND_VAR:
-            return load_glob(cg, node->as.var.name);
+            return load_glob(cg, node->as.var.name, node->loc);
         case ND_ASSIGN: {
-            Register addr = load_glob_addr(cg, node->left->as.var.name);
+            Register addr = load_glob_addr(cg, node->left->as.var.name, node->loc);
             Register rvalue = gen_expr(cg, node->right);
             println(cg, "str %s, [%s]", reg_to_str(rvalue), reg_to_str(addr));
             free_register(cg, addr);
@@ -270,6 +282,9 @@ static void gen_stmt(CodeGenerator *cg, ASTNode *node) {
     switch(node->type) {
         case ND_PRINT: {
             Register val = gen_expr(cg, node->left);
+            if(val == NOREG) {
+                return;
+            }
             println(cg, "// spilling all registers");
             for(int i = 0; i < _REG_COUNT; ++i) {
                 println(cg, "str %s, [sp, -16]!", reg_to_str(i));
@@ -322,6 +337,9 @@ void codegen(CodeGenerator *cg) {
 
     for(int i = 0; i < (int)cg->program->statements.used; ++i) {
         gen_stmt(cg, ARRAY_GET_AS(ASTNode *, &cg->program->statements, i));
+        if(cg->had_error) {
+            return;
+        }
     }
     // return
     println(cg, "ldp fp, lr, [sp], 16"); 

@@ -7,7 +7,7 @@ typedef struct location {
     char *containing_line;
     int line_length;
     int line;
-    int at;
+    int at, length;
 } Location;
 
 typedef enum token_type {

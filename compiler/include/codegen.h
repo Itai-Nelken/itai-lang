@@ -15,6 +15,7 @@ typedef struct code_generator {
     ASTProg *program;
     FILE *out;
 
+    bool had_error;
     Array globals;
     bool free_regs[_REG_COUNT];
     int spilled_regs;

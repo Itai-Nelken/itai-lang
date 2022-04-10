@@ -12,7 +12,7 @@ typedef enum error_type {
     ERR_ERROR
 } ErrorType;
 
-void printError(ErrorType type, Token tok, const char *message);
-int printErrorF(ErrorType type, Token tok, const char *format, ...) __attribute__((format(printf, 3, 4)));
+void printError(ErrorType type, Location loc, const char *message);
+int printErrorF(ErrorType type, Location loc, const char *format, ...) __attribute__((format(printf, 3, 4)));
 
 #endif // ERRORS_H

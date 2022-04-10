@@ -7,8 +7,8 @@
 #include "Token.h"
 #include "Errors.h"
 
-static void indentLine(Token *tok) {
-    int line = tok->location.line;
+static void indentLine(Location *const loc) {
+    int line = loc->line;
     short indent = 0;
     // FIXME: only works with up to 9999 lines of code
     if(line < 10) {
@@ -25,29 +25,29 @@ static void indentLine(Token *tok) {
     fprintf(stderr, "%*s", indent, "");
 }
 
-static void printTokenLocation(Token *tok) {
-    fprintf(stderr, "\t%d | ", tok->location.line);
-    fprintf(stderr, "%.*s\n", tok->location.line_length, tok->location.containing_line);
+static void printLocation(Location *const loc) {
+    fprintf(stderr, "\t%d | ", loc->line);
+    fprintf(stderr, "%.*s\n", loc->line_length, loc->containing_line);
     fputs("\t", stderr);
-    indentLine(tok);
+    indentLine(loc);
 }
 
 static const char *errortypes[] = {"\x1b[35mwarning", "\x1b[31merror"};
 
-void printError(ErrorType type, Token tok, const char *message) {
-    fprintf(stderr, "\x1b[1m%s:%d:%d: ", tok.location.file, tok.location.line, tok.location.at + 1);
+void printError(ErrorType type, Location loc, const char *message) {
+    fprintf(stderr, "\x1b[1m%s:%d:%d: ", loc.file, loc.line, loc.at + 1);
     fprintf(stderr, "%s:\x1b[0m\n", errortypes[type]);
-    printTokenLocation(&tok);
-    fprintf(stderr, " | %*s", tok.location.at, "");
+    printLocation(&loc);
+    fprintf(stderr, " | %*s", loc.at, "");
     fprintf(stderr, "\x1b[1;35m^");
     // tok.length - 1 because the first character is used by the '^'
-    for(int i = 0; i < tok.length - 1; ++i) {
+    for(int i = 0; i < loc.length - 1; ++i) {
         fputc('~', stderr);
     }
     fprintf(stderr, " \x1b[0;1m%s\x1b[0m\n", message);
 }
 
-int printErrorF(ErrorType type, Token tok, const char *format, ...) {
+int printErrorF(ErrorType type, Location loc, const char *format, ...) {
     char *buffer = NULL;
     int length = 0;
     va_list ap;
@@ -64,7 +64,7 @@ int printErrorF(ErrorType type, Token tok, const char *format, ...) {
     length = vsnprintf(buffer, (size_t)length + 1, format, ap);
     va_end(ap);
 
-    printError(type, tok, buffer);
+    printError(type, loc, buffer);
 
     freeString(buffer);
     return length;

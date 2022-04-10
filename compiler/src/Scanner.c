@@ -31,7 +31,8 @@ static Token makeToken(Scanner *s, TokenType type) {
         .containing_line = s->current_line,
         .line_length = calculate_line_length(s),
         .line = s->line,
-        .at = s->start - s->current_line
+        .at = s->start - s->current_line,
+        .length = s->current - s->start
     };
     return newToken(type, loc, s->start, s->current - s->start);
 }
@@ -42,7 +43,8 @@ static Token errorToken(Scanner *s, const char *message) {
         .line = s->line,
         .containing_line = s->current_line,
         .line_length = calculate_line_length(s),
-        .at = s->start - s->current_line
+        .at = s->start - s->current_line,
+        .length = s->current - s->start
     };
     return newErrorToken(loc, s->start, s->current - s->start, message);
 }
