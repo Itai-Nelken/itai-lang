@@ -274,8 +274,8 @@ static void gen_stmt(CodeGenerator *cg, ASTNode *node) {
             for(int i = 0; i < _REG_COUNT; ++i) {
                 println(cg, "str %s, [sp, -16]!", reg_to_str(i));
             }
-            println(cg, "ldr x0, =printf_int_str");
             println(cg, "mov x1, %s", reg_to_str(val));
+            println(cg, "ldr x0, =printf_int_str");
             println(cg, "bl printf");
             println(cg, "// unspilling all registers");
             for(int i = _REG_COUNT-1; i >= 0; --i) {
