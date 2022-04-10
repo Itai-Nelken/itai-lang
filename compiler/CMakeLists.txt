@@ -9,6 +9,7 @@ set(sources
     src/utilities.c
     src/ast.c
     src/Token.c
+    src/Errors.c
     src/Scanner.c
     src/Parser.c
     src/codegen.c

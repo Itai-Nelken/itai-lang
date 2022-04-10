@@ -6,6 +6,7 @@
 #include "Array.h"
 #include "ast.h"
 #include "Token.h"
+#include "Errors.h"
 #include "Scanner.h"
 #include "Parser.h"
 
@@ -20,31 +21,6 @@ void freeParser(Parser *p) {
     freeScanner(&p->scanner);
 }
 
-static void indentLine(Token *tok) {
-    int line = tok->location.line;
-    short indent = 0;
-    // FIXME: only works with up to 9999 lines of code
-    if(line < 10) {
-        indent = 1;
-    } else if(line < 100) {
-        indent = 2;
-    } else if(line < 1000) {
-        indent = 3;
-    } else if(line < 10000) {
-        indent = 3;
-    } else {
-        UNREACHABLE();
-    }
-    fprintf(stderr, "%*s", indent, "");
-}
-
-static void printTokenLocation(Token *tok) {
-    fprintf(stderr, "\t%d | ", tok->location.line);
-    fprintf(stderr, "%.*s\n", tok->location.line_length, tok->location.containing_line);
-    fputs("\t", stderr);
-    indentLine(tok);
-}
-
 static void error(Parser *p, Token tok, const char *message) {
     // suppress any errors that may be caused by previous errors
     if(p->panic_mode) {
@@ -53,34 +29,16 @@ static void error(Parser *p, Token tok, const char *message) {
     p->had_error = true;
     p->panic_mode = true;
 
-    fprintf(stderr, "\x1b[1m%s:%d:%d: ", tok.location.file, tok.location.line, tok.location.at + 1);
-    fprintf(stderr, "\x1b[31merror:\x1b[0m\n");
-    printTokenLocation(&tok);
-    fprintf(stderr, " | %*s", tok.location.at, "");
-    fprintf(stderr, "\x1b[1;35m^");
-    // tok.length - 1 because the first character is used by the '^'
-    for(int i = 0; i < tok.length - 1; ++i) {
-        fputc('~', stderr);
-    }
-    fprintf(stderr, " \x1b[0;1m%s\x1b[0m\n", message);
+    printError(ERR_ERROR, tok, message);
 }
 
-static void warning(Token tok, const char *message) {
-    fprintf(stderr, "\x1b[1m%s:%d:%d: ", tok.location.file, tok.location.line, tok.location.at + 1);
-    fprintf(stderr, "\x1b[35mwarning:\x1b[0m\n");
-    printTokenLocation(&tok);
-    fprintf(stderr, " | %*s", tok.location.at, "");
-    fprintf(stderr, "\x1b[1;35m^");
-    // tok.length - 1 because the first character is used by the '^'
-    for(int i = 0; i < tok.length - 1; ++i) {
-        fputc('~', stderr);
-    }
-    fprintf(stderr, " \x1b[0;1m%s\x1b[0m\n", message);
+static inline void warning(Token tok, const char *message) {
+    printError(ERR_WARNING, tok, message);
 }
 
 static inline void errorToken(Parser *p, Token tok) {
     error(p, tok, tok.errmsg);
-    // because errors from the parser won't cause
+    // because errors from the scanner won't cause
     // cascading errors.
     p->panic_mode = false;
 }
