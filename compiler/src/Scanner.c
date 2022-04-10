@@ -217,6 +217,8 @@ static TokenType identifierType(Scanner *s) {
             break;
         case 'm': return checkKeyword(s, 1, "odule", TK_MODULE);
         case 'n': return checkKeyword(s, 1, "ull", TK_NULL);
+        // TODO: remove builtin print fn
+        case 'p': return checkKeyword(s, 1, "rint", TK_PRINT);
         case 'r': return checkKeyword(s, 1, "eturn", TK_RETURN);
         case 's':
             if(s->current - s->start > 1) {

@@ -52,4 +52,12 @@ char *stringNCopy(const char *s, int length);
  ***/
 char *stringCopy(const char *s);
 
+/***
+ * Duplicate a string allocated with stringNew() or stringCopy().
+ * 
+ * @param s A string allocated by stringNew() or stringCopy().
+ * @return A new copy of the string.
+ ***/
+char *stringDuplicate(char *s);
+
 #endif // STRINGS_H

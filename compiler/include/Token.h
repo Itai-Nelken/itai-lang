@@ -62,6 +62,7 @@ typedef enum token_type {
     TK_STR,
 
     // keywords
+    TK_PRINT,
     TK_VAR,
     TK_CONST,
     TK_STATIC,

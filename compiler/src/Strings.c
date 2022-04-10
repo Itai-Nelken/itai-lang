@@ -58,3 +58,11 @@ char *stringNCopy(const char *s, int length) {
 char *stringCopy(const char *s) {
     return stringNCopy(s, strlen(s));
 }
+
+char *stringDuplicate(char *s) {
+    int length = stringLength(s);
+    char *str = newString(length+1);
+    memcpy(str, s, length);
+    str[length] = '\0';
+    return str;
+}

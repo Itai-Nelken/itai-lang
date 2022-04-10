@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include "memory.h"
+#include "Strings.h"
 #include "Array.h"
 #include "ast.h"
 
@@ -29,6 +30,9 @@ void freeAST(ASTNode *root) {
     }
     freeAST(root->left);
     freeAST(root->right);
+    if(root->type == ND_VAR) {
+        freeString(root->as.var.name);
+    }
     FREE(root);
 }
 

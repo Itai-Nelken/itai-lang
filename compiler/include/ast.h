@@ -2,8 +2,11 @@
 #define AST_H
 
 #include "types.h"
+#include "Array.h"
 
 typedef enum ast_type {
+    ND_PRINT, // temporary print function
+    ND_VAR, ND_ASSIGN, // variable, assignment
     ND_EXPR_STMT, // expression statement
     ND_ADD, ND_SUB, // infix +, -
     ND_MUL, ND_DIV, // infix *, /
@@ -30,7 +33,7 @@ typedef struct ast_node {
         union {
             i32 int32;
         } literal;
-        ASTObj obj;
+        ASTObj var;
     } as;
 } ASTNode;
 

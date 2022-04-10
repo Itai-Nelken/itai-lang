@@ -135,6 +135,7 @@ typedef struct parse_rule {
 
 // prototypes
 static void parse_number(Parser *p);
+static void parse_identifier(Parser *p);
 static void parse_binary(Parser *p);
 static void parse_grouping(Parser *p);
 static void parse_unary(Parser *p);
@@ -186,7 +187,7 @@ static ParseRule rules[TK__COUNT] = {
     [TK_CHARLIT]         = {NULL, NULL, PREC_NONE},
     [TK_NUMLIT]          = {parse_number, NULL, PREC_NONE},
     [TK_FLOATLIT]        = {NULL, NULL, PREC_NONE},
-    [TK_IDENTIFIER]      = {NULL, NULL, PREC_NONE},
+    [TK_IDENTIFIER]      = {parse_identifier, NULL, PREC_NONE},
     [TK_I8]              = {NULL, NULL, PREC_NONE},
     [TK_I16]             = {NULL, NULL, PREC_NONE},
     [TK_I32]             = {NULL, NULL, PREC_NONE},
@@ -255,6 +256,15 @@ static void parse_number(Parser *p) {
 
 end:
     p->current_expr = newNumberNode((int)strtol(lexeme, NULL, base));
+}
+
+static void parse_identifier(Parser *p) {
+    p->current_expr = newNode(ND_VAR, NULL, NULL);
+    p->current_expr->as.var.name = stringNCopy(previous(p).lexeme, previous(p).length);
+    if(peek(p).type == TK_EQUAL) {
+        advance(p);
+        p->current_expr = newNode(ND_ASSIGN, p->current_expr, expression(p));
+    }
 }
 
 static void parse_grouping(Parser *p) {
@@ -393,14 +403,51 @@ static ASTNode *expr_stmt(Parser *p) {
     return p->current_expr;
 }
 
-// statement -> expr_stmt
-// declaration -> statement
+static ASTNode *var_decl(Parser *p) {
+    // 'var' is already consumed
+    consume(p, TK_IDENTIFIER, "Expected an identifier after 'var'");
+    char *name = stringNCopy(previous(p).lexeme, previous(p).length);
+    
+    // TODO: check for types
+    
+    ASTNode *var = newNode(ND_VAR, NULL, NULL);
+    var->as.var.name = name;
+
+    if(peek(p).type == TK_EQUAL) {
+        advance(p);
+        var = newNode(ND_ASSIGN, var, expression(p));
+    }
+
+    consume(p, TK_SEMICOLON, "Expected ';' after variable declaration");
+    return var;
+}
+
+// expr_stmt -> expression ';'
+// var_decl -> 'var' IDENTIFIER (':' TYPE)? ('=' expression)? ';'
+// print_stmt -> 'print' expression ';'
+// statement -> expr_stmt | print_stmt
+// declaration -> var_decl | statement
 static ASTNode *statement(Parser *p) {
-    return expr_stmt(p);
+    ASTNode *n = NULL;
+    if(peek(p).type == TK_PRINT) {
+        advance(p);
+        n = newUnaryNode(ND_PRINT, expression(p));
+        consume(p, TK_SEMICOLON, "Expected ';' after 'print' statement");
+    } else {
+        n = expr_stmt(p);
+    }
+    return n;
 }
 
 static ASTNode *declaration(Parser *p) {
-    return statement(p);
+    ASTNode *n = NULL;
+    if(peek(p).type == TK_VAR) {
+        advance(p);
+        n = var_decl(p);
+    } else {
+        n = statement(p);
+    }
+    return n;
 }
 
 bool parse(Parser *p, ASTProg *prog) {

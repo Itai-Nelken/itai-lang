@@ -110,30 +110,31 @@ static const char *tokentype_str_lut[] = {
     [TK_STR]             = "TK_STR",
 
     // keywords
-    [TK_VAR] = "TK_VAR",
-    [TK_CONST] = "TK_CONST",
-    [TK_STATIC] = "TK_STATIC",
-    [TK_FN] = "TK_FN",
-    [TK_RETURN] = "TK_RETURN",
-    [TK_ENUM] = "TK_ENUM",
-    [TK_STRUCT] = "TK_STRUCT",
-    [TK_IF] = "TK_IF",
-    [TK_ELSE] = "TK_ELSE",
-    [TK_SWITCH] = "TK_SWITCH",
-    [TK_MODULE] = "TK_MODULE",
-    [TK_EXPORT] = "TK_EXPORT",
-    [TK_IMPORT] = "TK_IMPORT",
-    [TK_AS] = "TK_AS",
-    [TK_USING] = "TK_USING",
-    [TK_WHILE] = "TK_WHILE",
-    [TK_FOR] = "TK_FOR",
-    [TK_TYPE] = "TK_TYPE",
-    [TK_NULL] = "TK_NULL",
-    [TK_TYPEOF] = "TK_TYPEOF",
+    [TK_PRINT]           = "TK_PRINT",
+    [TK_VAR]             = "TK_VAR",
+    [TK_CONST]           = "TK_CONST",
+    [TK_STATIC]          = "TK_STATIC",
+    [TK_FN]              = "TK_FN",
+    [TK_RETURN]          = "TK_RETURN",
+    [TK_ENUM]            = "TK_ENUM",
+    [TK_STRUCT]          = "TK_STRUCT",
+    [TK_IF]              = "TK_IF",
+    [TK_ELSE]            = "TK_ELSE",
+    [TK_SWITCH]          = "TK_SWITCH",
+    [TK_MODULE]          = "TK_MODULE",
+    [TK_EXPORT]          = "TK_EXPORT",
+    [TK_IMPORT]          = "TK_IMPORT",
+    [TK_AS]              = "TK_AS",
+    [TK_USING]           = "TK_USING",
+    [TK_WHILE]           = "TK_WHILE",
+    [TK_FOR]             = "TK_FOR",
+    [TK_TYPE]            = "TK_TYPE",
+    [TK_NULL]            = "TK_NULL",
+    [TK_TYPEOF]          = "TK_TYPEOF",
 
     // other
-    [TK_ERROR] = "TK_ERROR",
-    [TK_EOF] = "TK_EOF"
+    [TK_ERROR]           = "TK_ERROR",
+    [TK_EOF]             = "TK_EOF"
 };
 
 inline const char *tokenTypeToString(TokenType type) {
