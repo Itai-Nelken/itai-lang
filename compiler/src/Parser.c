@@ -219,7 +219,7 @@ end:
 static void parse_identifier(Parser *p) {
     p->current_expr = newNode(ND_VAR, NULL, NULL, previous(p).location);
     p->current_expr->as.var.name = stringNCopy(previous(p).lexeme, previous(p).length);
-    if(peek(p).type == TK_EQUAL) {
+    if(p->can_assign && peek(p).type == TK_EQUAL) {
         advance(p);
         p->current_expr = newNode(ND_ASSIGN, p->current_expr, expression(p), previous(p).location);
     }
@@ -319,11 +319,17 @@ static void parsePrecedence(Parser *p, Precedence prec) {
         error(p, previous(p), "expected an expression");
         return;
     }
+    p->can_assign = prec <= PREC_ASSIGNMENT;
     prefix(p);
     while(prec <= getRule(peek(p).type)->precedence) {
         advance(p);
         ParseFn infix = getRule(previous(p).type)->infix;
         infix(p);
+    }
+
+    if(p->can_assign && peek(p).type == TK_EQUAL) {
+        error(p, previous(p), "Expected an lvalue (invalid assignment target)");
+        advance(p);
     }
 }
 
