@@ -329,7 +329,7 @@ static void parsePrecedence(Parser *p, Precedence prec) {
 
 static ASTNode *expression(Parser *p) {
     // start parsing with the lowest precedence
-    parsePrecedence(p, PREC_BIT_OR);
+    parsePrecedence(p, PREC_ASSIGNMENT);
     return p->current_expr;
 }
 
