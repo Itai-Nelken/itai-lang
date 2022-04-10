@@ -19,6 +19,7 @@ void initCodegen(CodeGenerator *cg, ASTProg *program, FILE *file) {
 }
 void freeCodegen(CodeGenerator *cg) {
     for(size_t i = 0; i < cg->globals.used; ++i) {
+        freeString(((ASTObj *)cg->globals.data[i])->name);
         FREE(cg->globals.data[i]);
     }
    freeArray(&cg->globals);
