@@ -2,6 +2,7 @@
 #define CODEGEN_H
 
 #include <stdio.h>
+#include <stddef.h> // size_t
 #include <stdbool.h>
 #include "Array.h"
 #include "ast.h"
@@ -13,8 +14,11 @@ typedef enum registers {
 
 typedef struct code_generator {
     ASTProg *program;
-    FILE *out;
+    char *buffer;
+    size_t buffer_size;
+    FILE *buff, *out; // buff is actually the buffer, out is the real file
 
+    bool print_stmt_used;
     bool had_error;
     Array globals;
     bool free_regs[_REG_COUNT];

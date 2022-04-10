@@ -14,31 +14,46 @@
 static void free_all_registers(CodeGenerator *cg);
 
 void initCodegen(CodeGenerator *cg, ASTProg *program, FILE *file) {
-    cg->out = file;
     cg->program = program;
+    cg->out = file;
+    cg->buffer = NULL;
+    cg->buffer_size = 0;
+    cg->buff = open_memstream(&cg->buffer, &cg->buffer_size);
+
+    cg->print_stmt_used = false;
     cg->had_error = false;
     free_all_registers(cg);
     cg->spilled_regs = 0;
     initArray(&cg->globals);
 }
 void freeCodegen(CodeGenerator *cg) {
+    // write the code to the output file
+    // and free the buffer
+    fclose(cg->buff);
+    if(!cg->had_error) {
+        fwrite(cg->buffer, sizeof(char), cg->buffer_size, cg->out);
+    }
+    free(cg->buffer);
+    cg->buffer = NULL;
+    cg->buffer_size = 0;
+
     for(size_t i = 0; i < cg->globals.used; ++i) {
         freeString(((ASTObj *)cg->globals.data[i])->name);
         FREE(cg->globals.data[i]);
     }
-   freeArray(&cg->globals);
+    freeArray(&cg->globals);
 }
 
 #define error(cg, location, format) do { printErrorF(ERR_ERROR, location, format); cg->had_error = true; } while(0)
 #define errorf(cg, location, format, ...) do { printErrorF(ERR_ERROR, location, format, __VA_ARGS__); cg->had_error = true; } while(0)
 
 static void println(CodeGenerator *cg, const char *format, ...) {
-    fputs("\t", cg->out);
+    fputs("\t", cg->buff);
     va_list ap;
     va_start(ap, format);
-    vfprintf(cg->out, format, ap);
+    vfprintf(cg->buff, format, ap);
     va_end(ap);
-    fputs("\n", cg->out);
+    fputs("\n", cg->buff);
 }
 
 static const char *registers[_REG_COUNT] = {"x0", "x1", "x2", "x3", "x4"};
@@ -281,10 +296,12 @@ static Register gen_expr(CodeGenerator *cg, ASTNode *node) {
 static void gen_stmt(CodeGenerator *cg, ASTNode *node) {
     switch(node->type) {
         case ND_PRINT: {
+            cg->print_stmt_used = true;
             Register val = gen_expr(cg, node->left);
             if(val == NOREG) {
                 return;
             }
+            // could use 'stp' to save a few instructions and bytes
             println(cg, "// spilling all registers");
             for(int i = 0; i < _REG_COUNT; ++i) {
                 println(cg, "str %s, [sp, -16]!", reg_to_str(i));
@@ -317,10 +334,12 @@ static void gen_stmt(CodeGenerator *cg, ASTNode *node) {
 
 static void emit_data(CodeGenerator *cg) {
     println(cg, ".data");
-    // temporary for builtin print statement
-    println(cg, ".local printf_int_str\n"
-                "printf_int_str:\n"
-                "\t.string \"%%d\\n\"\n");
+    // temporary data for builtin print statement
+    if(cg->print_stmt_used) {
+        println(cg, ".local printf_int_str\n"
+                    "printf_int_str:\n"
+                    "\t.string \"%%d\\n\"\n");
+    }
     for(size_t i = 0; i < cg->globals.used; ++i) {
         ASTObj *g = ARRAY_GET_AS(ASTObj *, &cg->globals, i);
         println(cg, ".global %s\n"
