@@ -84,19 +84,21 @@ typedef enum precedence {
     PREC_PRIMARY    = 10  // highest
 } Precedence;
 
-typedef void (*ParseFn)(Parser *p);
+typedef void (*InfixParseFn)(Parser *p);
+typedef void (*PrefixParseFn)(Parser *p, bool canAssign);
 
 typedef struct parse_rule {
-    ParseFn prefix, infix;
+    PrefixParseFn prefix;
+    InfixParseFn infix;
     Precedence precedence;
 } ParseRule;
 
 // prototypes
-static void parse_number(Parser *p);
-static void parse_identifier(Parser *p);
+static void parse_number(Parser *p, bool canAssign);
+static void parse_identifier(Parser *p, bool canAssign);
+static void parse_grouping(Parser *p, bool canAssign);
+static void parse_unary(Parser *p, bool canAssign);
 static void parse_binary(Parser *p);
-static void parse_grouping(Parser *p);
-static void parse_unary(Parser *p);
 static void parsePrecedence(Parser *p, Precedence prec);
 static ASTNode *expression(Parser *p);
 
@@ -190,7 +192,8 @@ static ParseRule *getRule(TokenType type) {
     return &rules[type];
 }
 
-static void parse_number(Parser *p) {
+static void parse_number(Parser *p, bool canAssign) {
+    UNUSED(canAssign);
     Token tok = previous(p);
     int base = 10;
     char *lexeme = tok.lexeme;
@@ -216,21 +219,23 @@ end:
     p->current_expr = newNumberNode((int)strtol(lexeme, NULL, base), previous(p).location);
 }
 
-static void parse_identifier(Parser *p) {
+static void parse_identifier(Parser *p, bool canAssign) {
     p->current_expr = newNode(ND_VAR, NULL, NULL, previous(p).location);
     p->current_expr->as.var.name = stringNCopy(previous(p).lexeme, previous(p).length);
-    if(p->can_assign && peek(p).type == TK_EQUAL) {
+    if(canAssign && peek(p).type == TK_EQUAL) {
         advance(p);
         p->current_expr = newNode(ND_ASSIGN, p->current_expr, expression(p), previous(p).location);
     }
 }
 
-static void parse_grouping(Parser *p) {
+static void parse_grouping(Parser *p, bool canAssign) {
+    UNUSED(canAssign);
     p->current_expr = expression(p);
     consume(p, TK_RPAREN, "expected ')' after expression");
 }
 
-static void parse_unary(Parser *p) {
+static void parse_unary(Parser *p, bool canAssign) {
+    UNUSED(canAssign);
     TokenType operatorType = previous(p).type;
     parsePrecedence(p, PREC_UNARY);
     switch(operatorType) {
@@ -314,21 +319,22 @@ static void parse_binary(Parser *p) {
 
 static void parsePrecedence(Parser *p, Precedence prec) {
     advance(p);
-    ParseFn prefix = getRule(previous(p).type)->prefix;
+    PrefixParseFn prefix = getRule(previous(p).type)->prefix;
     if(prefix == NULL) {
         error(p, previous(p), "expected an expression");
         return;
     }
-    p->can_assign = prec <= PREC_ASSIGNMENT;
-    prefix(p);
+    bool canAssign = prec <= PREC_ASSIGNMENT;
+    prefix(p, canAssign);
     while(prec <= getRule(peek(p).type)->precedence) {
         advance(p);
-        ParseFn infix = getRule(previous(p).type)->infix;
+        InfixParseFn infix = getRule(previous(p).type)->infix;
         infix(p);
     }
 
-    if(p->can_assign && peek(p).type == TK_EQUAL) {
-        error(p, previous(p), "Expected an lvalue (invalid assignment target)");
+    if(canAssign && peek(p).type == TK_EQUAL) {
+        // invalid assignment target
+        error(p, peek(p), "lvalue required as left operand of assignment");
         advance(p);
     }
 }

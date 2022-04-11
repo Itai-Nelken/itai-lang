@@ -11,7 +11,6 @@ typedef struct parser {
     Token current_token, previous_token;
     bool had_error, panic_mode;
     ASTNode *current_expr;
-    bool can_assign;
 } Parser;
 
 void initParser(Parser *p, const char *filename, char *source);
