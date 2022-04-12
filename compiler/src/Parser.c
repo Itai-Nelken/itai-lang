@@ -351,6 +351,7 @@ static void synchronize(Parser *p) {
         if(previous(p).type == TK_SEMICOLON) {
             return;
         }
+        // FIXME: add all statements (and declarations)
         switch(peek(p).type) {
             case TK_FN:
             case TK_VAR:

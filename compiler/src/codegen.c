@@ -60,6 +60,8 @@ static const char *registers[_REG_COUNT] = {"x0", "x1", "x2", "x3", "x4"};
 static const char *reg_to_str(Register reg) {
     if(reg > _REG_COUNT) {
         UNREACHABLE();
+    } else if(reg == NOREG) {
+        return "NOREG";
     }
     return registers[reg];
 }
@@ -251,6 +253,9 @@ static Register gen_expr(CodeGenerator *cg, ASTNode *node) {
             return load_glob(cg, node->as.var.name, node->loc);
         case ND_ASSIGN: {
             Register addr = load_glob_addr(cg, node->left->as.var.name, node->loc);
+            if(addr == NOREG) {
+                return NOREG;
+            }
             Register rvalue = gen_expr(cg, node->right);
             println(cg, "str %s, [%s]", reg_to_str(rvalue), reg_to_str(addr));
             free_register(cg, addr);
