@@ -361,9 +361,9 @@ void codegen(CodeGenerator *cg) {
 
     for(int i = 0; i < (int)cg->program->statements.used; ++i) {
         gen_stmt(cg, ARRAY_GET_AS(ASTNode *, &cg->program->statements, i));
-        if(cg->had_error) {
-            return;
-        }
+        //if(cg->had_error) {
+        //    return;
+        //}
     }
     // return
     println(cg, "ldp fp, lr, [sp], 16"); 
