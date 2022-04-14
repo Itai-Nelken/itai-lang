@@ -26,6 +26,7 @@ void initCodegen(CodeGenerator *cg, ASTProg *program, FILE *file) {
     free_all_registers(cg);
     cg->spilled_regs = 0;
     initArray(&cg->globals);
+    cg->counter = 0;
 }
 void freeCodegen(CodeGenerator *cg) {
     // write the code to the output file
@@ -118,6 +119,10 @@ static void free_register(CodeGenerator *cg, Register reg) {
 
 static void free_all_registers(CodeGenerator *cg) {
     memset(cg->free_regs, true, _REG_COUNT-1);
+}
+
+static int count(CodeGenerator *cg) {
+    return cg->counter++;
 }
 
 static Register cgloadint(CodeGenerator *cg, i32 value) {
@@ -316,6 +321,21 @@ static Register gen_expr(CodeGenerator *cg, ASTNode *node) {
 
 static void gen_stmt(CodeGenerator *cg, ASTNode *node) {
     switch(node->type) {
+        case ND_IF: {
+            int c = count(cg);
+            Register cond = gen_expr(cg, node->as.conditional.condition);
+            println(cg, "cmp %s, 0", reg_to_str(cond));
+            println(cg, "beq .L.else.%d", c);
+            free_register(cg, cond);
+            gen_stmt(cg, node->as.conditional.then);
+            println(cg, "b .L.end.%d", c);
+            print(cg, ".L.else.%d:\n", c);
+            if(node->as.conditional.els) {
+                gen_stmt(cg, node->as.conditional.els);
+            }
+            print(cg, ".L.end.%d:\n", c);
+            break;
+        }
         case ND_RETURN: {
             Register val = gen_expr(cg, node->left);
             assert(val != NOREG);

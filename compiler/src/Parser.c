@@ -393,19 +393,30 @@ static ASTNode *var_decl(Parser *p) {
     return var;
 }
 
-// expr_stmt -> expression ';'
-// var_decl -> 'var' IDENTIFIER (':' TYPE)? ('=' expression)? ';'
-// print_stmt -> 'print' expression ';'
-// return_stmt -> 'return' expression ';'
-// compound_stmt -> statement* '}'
-// statement -> print_stmt
-//            | return_stmt
-//            | '{' compound_stmt
-//            | expr_stmt
-// declaration -> var_decl
-//              | statement
 static ASTNode *declaration(Parser *p);
 
+static ASTNode *block(Parser *p) {
+    ASTNode *n = newNode(ND_BLOCK, NULL, NULL, previous(p).location);
+    initArray(&n->as.body);
+    while(peek(p).type != TK_RBRACE && peek(p).type != TK_EOF) {
+        arrayPush(&n->as.body, declaration(p));
+    }
+    consume(p, TK_RBRACE, "Expected '}' after block");
+    return n;
+}
+
+// expr_stmt     -> expression ';'
+// var_decl      -> 'var' IDENTIFIER (':' TYPE)? ('=' expression)? ';'
+// print_stmt    -> 'print' expression ';'
+// return_stmt   -> 'return' expression? ';'
+// if_stmt       -> 'if' expression block ('else' block)?
+// block         -> '{' statement* '}'
+// statement     -> print_stmt
+//                | return_stmt
+//                | block
+//                | expr_stmt
+// declaration   -> var_decl
+//                | statement
 static ASTNode *statement(Parser *p) {
     ASTNode *n = NULL;
     switch(peek(p).type) {
@@ -414,6 +425,20 @@ static ASTNode *statement(Parser *p) {
             n = newUnaryNode(ND_PRINT, expression(p), previous(p).location);
             consume(p, TK_SEMICOLON, "Expected ';' after 'print' statement");
             break;
+        case TK_IF:
+            advance(p);
+            n = newNode(ND_IF, NULL, NULL, previous(p).location);
+            n->as.conditional.condition = expression(p);
+            consume(p, TK_LBRACE, "Expected '{'");
+            n->as.conditional.then = block(p);
+            if(peek(p).type == TK_ELSE) {
+                advance(p);
+                consume(p, TK_LBRACE, "Expected '{'");
+                n->as.conditional.els = block(p);
+            } else {
+                n->as.conditional.els = NULL;
+            }
+            break;
         case TK_RETURN:
             advance(p);
             n = newUnaryNode(ND_RETURN, expression(p), previous(p).location);
@@ -421,12 +446,7 @@ static ASTNode *statement(Parser *p) {
             break;
         case TK_LBRACE:
             advance(p);
-            n = newNode(ND_BLOCK, NULL, NULL, previous(p).location);
-            initArray(&n->as.body);
-            while(peek(p).type != TK_RBRACE && peek(p).type != TK_EOF) {
-                arrayPush(&n->as.body, declaration(p));
-            }
-            consume(p, TK_RBRACE, "Expected '}' after block");
+            n = block(p);
             break;
         default:
             n = expr_stmt(p);

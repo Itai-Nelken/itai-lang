@@ -21,6 +21,7 @@ typedef struct code_generator {
     bool print_stmt_used;
     bool had_error;
     Array globals;
+    int counter;
     bool free_regs[_REG_COUNT];
     int spilled_regs;
 } CodeGenerator;
