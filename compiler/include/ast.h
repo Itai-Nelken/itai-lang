@@ -7,6 +7,7 @@
 
 typedef enum ast_type {
     ND_PRINT, // temporary print function
+    ND_RETURN, // return statement
     ND_VAR, ND_ASSIGN, // variable, assignment
     ND_EXPR_STMT, // expression statement
     ND_ADD, ND_SUB, // infix +, -

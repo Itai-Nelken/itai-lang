@@ -396,7 +396,8 @@ static ASTNode *var_decl(Parser *p) {
 // expr_stmt -> expression ';'
 // var_decl -> 'var' IDENTIFIER (':' TYPE)? ('=' expression)? ';'
 // print_stmt -> 'print' expression ';'
-// statement -> expr_stmt | print_stmt
+// return_stmt -> 'return' expression ';'
+// statement -> print_stmt | return_stmt | expr_stmt
 // declaration -> var_decl | statement
 static ASTNode *statement(Parser *p) {
     ASTNode *n = NULL;
@@ -404,6 +405,10 @@ static ASTNode *statement(Parser *p) {
         advance(p);
         n = newUnaryNode(ND_PRINT, expression(p), previous(p).location);
         consume(p, TK_SEMICOLON, "Expected ';' after 'print' statement");
+    } else if(peek(p).type == TK_RETURN) {
+        advance(p);
+        n = newUnaryNode(ND_RETURN, expression(p), previous(p).location);
+        consume(p, TK_SEMICOLON, "Expected ';' after 'return' statement");
     } else {
         n = expr_stmt(p);
     }

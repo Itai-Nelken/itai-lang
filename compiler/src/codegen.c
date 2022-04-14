@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h> // memset()
+#include <assert.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include "common.h"
@@ -44,8 +45,15 @@ void freeCodegen(CodeGenerator *cg) {
     freeArray(&cg->globals);
 }
 
-#define error(cg, location, format) do { printErrorF(ERR_ERROR, location, format); cg->had_error = true; } while(0)
+#define error(cg, location, format) do { printError(ERR_ERROR, location, format); cg->had_error = true; } while(0)
 #define errorf(cg, location, format, ...) do { printErrorF(ERR_ERROR, location, format, __VA_ARGS__); cg->had_error = true; } while(0)
+
+static void print(CodeGenerator *cg, const char *format, ...) {
+    va_list ap;
+    va_start(ap, format);
+    vfprintf(cg->buff, format, ap);
+    va_end(ap);
+}
 
 static void println(CodeGenerator *cg, const char *format, ...) {
     fputs("\t", cg->buff);
@@ -56,7 +64,15 @@ static void println(CodeGenerator *cg, const char *format, ...) {
     fputs("\n", cg->buff);
 }
 
-static const char *registers[_REG_COUNT] = {"x0", "x1", "x2", "x3", "x4"};
+// x0 is reserved for return values
+//static const char *return_reg = "x0";
+static const char *registers[_REG_COUNT] = {
+    [R0] = "x1",
+    [R1] = "x2",
+    [R2] = "x3",
+    [R3] = "x4",
+    [R4] = "x5"
+};
 static const char *reg_to_str(Register reg) {
     if(reg > _REG_COUNT) {
         UNREACHABLE();
@@ -93,7 +109,7 @@ static void free_register(CodeGenerator *cg, Register reg) {
         println(cg, "ldr %s, [sp], 16", reg_to_str(reg));
     } else {
         if(cg->free_regs[reg]) {
-            // double free
+            LOG_ERR_F("Double free: register %s (%d)\n", reg_to_str(reg), (int)reg);
             UNREACHABLE();
         }
         cg->free_regs[reg] = true;
@@ -300,12 +316,17 @@ static Register gen_expr(CodeGenerator *cg, ASTNode *node) {
 
 static void gen_stmt(CodeGenerator *cg, ASTNode *node) {
     switch(node->type) {
+        case ND_RETURN: {
+            Register val = gen_expr(cg, node->left);
+            assert(val != NOREG);
+            println(cg, "mov x0, %s", reg_to_str(val));
+            println(cg, "b .L.return");
+            break;
+        }
         case ND_PRINT: {
             cg->print_stmt_used = true;
             Register val = gen_expr(cg, node->left);
-            if(val == NOREG) {
-                return;
-            }
+            assert(val != NOREG);
             // could use 'stp' to save a few instructions and bytes
             println(cg, "// spilling all registers");
             for(int i = 0; i < _REG_COUNT; ++i) {
@@ -361,14 +382,14 @@ void codegen(CodeGenerator *cg) {
 
     for(int i = 0; i < (int)cg->program->statements.used; ++i) {
         gen_stmt(cg, ARRAY_GET_AS(ASTNode *, &cg->program->statements, i));
-        //if(cg->had_error) {
-        //    return;
-        //}
     }
-    // return
-    println(cg, "ldp fp, lr, [sp], 16"); 
-    println(cg, "mov x0, 0");
-    println(cg, "ret\n");
 
+    // return
+    println(cg, "mov x0, 0"); // default return value of 0
+    print(cg, ".L.return:\n");
+    println(cg, "ldp fp, lr, [sp], 16"); 
+    println(cg, "ret");
+
+    print(cg, "\n\n");
     emit_data(cg);
 }
