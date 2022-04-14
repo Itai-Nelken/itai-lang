@@ -181,19 +181,19 @@ static Register cgcompare(CodeGenerator *cg, Register a, Register b, ASTNodeType
             println(cg, "cset %s, eq", reg_to_str(a));
             break;
         case ND_NE:
-            println(cg, "cset %s, eq", reg_to_str(a));
+            println(cg, "cset %s, ne", reg_to_str(a));
             break;
         case ND_GT:
-            println(cg, "cset %s, eq", reg_to_str(a));
+            println(cg, "cset %s, gt", reg_to_str(a));
             break;
         case ND_GE:
-            println(cg, "cset %s, eq", reg_to_str(a));
+            println(cg, "cset %s, ge", reg_to_str(a));
             break;
         case ND_LT:
-            println(cg, "cset %s, eq", reg_to_str(a));
+            println(cg, "cset %s, lt", reg_to_str(a));
             break;
         case ND_LE:
-            println(cg, "cset %s, eq", reg_to_str(a));
+            println(cg, "cset %s, le", reg_to_str(a));
             break;
         default:
             UNREACHABLE();
