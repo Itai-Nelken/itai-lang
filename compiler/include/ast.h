@@ -8,6 +8,7 @@
 typedef enum ast_type {
     ND_PRINT, // temporary print function
     ND_RETURN, // return statement
+    ND_BLOCK, // { ... }
     ND_VAR, ND_ASSIGN, // variable, assignment
     ND_EXPR_STMT, // expression statement
     ND_ADD, ND_SUB, // infix +, -
@@ -35,8 +36,9 @@ typedef struct ast_node {
     union {
         union {
             i32 int32;
-        } literal;
-        ASTObj var;
+        } literal; // ND_NUM
+        ASTObj var; // ND_VAR
+        Array body; // ND_BLOCK
     } as;
 } ASTNode;
 

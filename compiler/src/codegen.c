@@ -345,6 +345,11 @@ static void gen_stmt(CodeGenerator *cg, ASTNode *node) {
         case ND_EXPR_STMT:
             free_register(cg, gen_expr(cg, node->left));
             break;
+        case ND_BLOCK:
+            for(int i = 0; i < (int)node->as.body.used; ++i) {
+                gen_stmt(cg, ARRAY_GET_AS(ASTNode *, &node->as.body, i));
+            }
+            break;
         case ND_ASSIGN:
             addGlobal(cg, node->left->as.var.name);
             free_register(cg, gen_expr(cg, node));

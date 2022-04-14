@@ -34,6 +34,10 @@ void freeAST(ASTNode *root) {
     freeAST(root->right);
     if(root->type == ND_VAR) {
         freeString(root->as.var.name);
+    } else if(root->type == ND_BLOCK) {
+        for(int i = 0; i < (int)root->as.body.used; ++i) {
+            freeAST(ARRAY_GET_AS(ASTNode *, &root->as.body, i));
+        }
     }
     FREE(root);
 }

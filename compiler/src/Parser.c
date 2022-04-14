@@ -397,20 +397,40 @@ static ASTNode *var_decl(Parser *p) {
 // var_decl -> 'var' IDENTIFIER (':' TYPE)? ('=' expression)? ';'
 // print_stmt -> 'print' expression ';'
 // return_stmt -> 'return' expression ';'
-// statement -> print_stmt | return_stmt | expr_stmt
-// declaration -> var_decl | statement
+// compound_stmt -> statement* '}'
+// statement -> print_stmt
+//            | return_stmt
+//            | '{' compound_stmt
+//            | expr_stmt
+// declaration -> var_decl
+//              | statement
+static ASTNode *declaration(Parser *p);
+
 static ASTNode *statement(Parser *p) {
     ASTNode *n = NULL;
-    if(peek(p).type == TK_PRINT) {
-        advance(p);
-        n = newUnaryNode(ND_PRINT, expression(p), previous(p).location);
-        consume(p, TK_SEMICOLON, "Expected ';' after 'print' statement");
-    } else if(peek(p).type == TK_RETURN) {
-        advance(p);
-        n = newUnaryNode(ND_RETURN, expression(p), previous(p).location);
-        consume(p, TK_SEMICOLON, "Expected ';' after 'return' statement");
-    } else {
-        n = expr_stmt(p);
+    switch(peek(p).type) {
+        case TK_PRINT:
+            advance(p);
+            n = newUnaryNode(ND_PRINT, expression(p), previous(p).location);
+            consume(p, TK_SEMICOLON, "Expected ';' after 'print' statement");
+            break;
+        case TK_RETURN:
+            advance(p);
+            n = newUnaryNode(ND_RETURN, expression(p), previous(p).location);
+            consume(p, TK_SEMICOLON, "Expected ';' after 'return' statement");
+            break;
+        case TK_LBRACE:
+            advance(p);
+            n = newNode(ND_BLOCK, NULL, NULL, previous(p).location);
+            initArray(&n->as.body);
+            while(peek(p).type != TK_RBRACE && peek(p).type != TK_EOF) {
+                arrayPush(&n->as.body, declaration(p));
+            }
+            consume(p, TK_RBRACE, "Expected '}' after block");
+            break;
+        default:
+            n = expr_stmt(p);
+            break;
     }
     return n;
 }
