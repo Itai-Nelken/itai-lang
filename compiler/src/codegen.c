@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <string.h> // memset()
-#include <assert.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include "common.h"
@@ -321,6 +320,30 @@ static Register gen_expr(CodeGenerator *cg, ASTNode *node) {
 
 static void gen_stmt(CodeGenerator *cg, ASTNode *node) {
     switch(node->type) {
+        case ND_LOOP: {
+            int c = count(cg);
+            // initializer
+            if(node->as.conditional.initializer != NULL) {
+                gen_stmt(cg, node->as.conditional.initializer);
+            }
+            print(cg, ".L.begin.%d:\n", c);
+            // condition
+            if(node->as.conditional.condition != NULL) {
+                Register cond = gen_expr(cg, node->as.conditional.condition);
+                println(cg, "cmp %s, 0", reg_to_str(cond));
+                println(cg, "beq .L.end.%d", c);
+                free_register(cg, cond);
+            }
+            // body
+            gen_stmt(cg, node->as.conditional.then);
+            // increment
+            if(node->as.conditional.increment != NULL) {
+                free_register(cg, gen_expr(cg, node->as.conditional.increment));
+            }
+            println(cg, "b .L.begin.%d", c);
+            print(cg, ".L.end.%d:\n", c);
+            break;
+        }
         case ND_IF: {
             int c = count(cg);
             Register cond = gen_expr(cg, node->as.conditional.condition);
@@ -338,7 +361,9 @@ static void gen_stmt(CodeGenerator *cg, ASTNode *node) {
         }
         case ND_RETURN: {
             Register val = gen_expr(cg, node->left);
-            assert(val != NOREG);
+            if(val == NOREG) {
+                return;
+            }
             println(cg, "mov x0, %s", reg_to_str(val));
             println(cg, "b .L.return");
             break;
@@ -346,7 +371,9 @@ static void gen_stmt(CodeGenerator *cg, ASTNode *node) {
         case ND_PRINT: {
             cg->print_stmt_used = true;
             Register val = gen_expr(cg, node->left);
-            assert(val != NOREG);
+            if(val == NOREG) {
+                return;
+            }
             // could use 'stp' to save a few instructions and bytes
             println(cg, "// spilling all registers");
             for(int i = 0; i < _REG_COUNT; ++i) {

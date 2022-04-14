@@ -8,6 +8,7 @@
 typedef enum ast_type {
     ND_PRINT, // temporary print function
     ND_IF, // if statement
+    ND_LOOP, // for statement
     ND_RETURN, // return statement
     ND_BLOCK, // { ... }
     ND_VAR, ND_ASSIGN, // variable, assignment
@@ -42,7 +43,8 @@ typedef struct ast_node {
         Array body; // ND_BLOCK
         struct {
             struct ast_node *condition, *then, *els;
-        } conditional; // ND_IF
+            struct ast_node *initializer, *increment;
+        } conditional; // ND_IF, ND_LOOP
     } as;
 } ASTNode;
 

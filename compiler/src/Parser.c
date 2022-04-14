@@ -410,8 +410,13 @@ static ASTNode *block(Parser *p) {
 // print_stmt    -> 'print' expression ';'
 // return_stmt   -> 'return' expression? ';'
 // if_stmt       -> 'if' expression block ('else' block)?
+// for_stmt      -> 'for' (var_decl | expr_stmt | ';') expression? ';' expression? block
+// while_stmt    -> 'while' expression block
 // block         -> '{' statement* '}'
 // statement     -> print_stmt
+//                | if_stmt
+//                | for_stmt
+//                | while_stmt
 //                | return_stmt
 //                | block
 //                | expr_stmt
@@ -424,6 +429,50 @@ static ASTNode *statement(Parser *p) {
             advance(p);
             n = newUnaryNode(ND_PRINT, expression(p), previous(p).location);
             consume(p, TK_SEMICOLON, "Expected ';' after 'print' statement");
+            break;
+        case TK_WHILE:
+            advance(p);
+            n = newNode(ND_LOOP, NULL, NULL, previous(p).location);
+            // condition
+            n->as.conditional.condition = expression(p);
+            // body
+            consume(p, TK_LBRACE, "Expected '{'");
+            n->as.conditional.then = block(p);
+            break;
+        case TK_FOR:
+            advance(p);
+            n = newNode(ND_LOOP, NULL, NULL, previous(p).location);
+            
+            // initializer clause
+            if(peek(p).type == TK_SEMICOLON) {
+                advance(p);
+                n->as.conditional.initializer = NULL;
+            } else if(peek(p).type == TK_VAR) {
+                advance(p);
+                n->as.conditional.initializer = var_decl(p);
+            } else {
+                // expr_stmt consumes the ';'
+                n->as.conditional.initializer = expr_stmt(p);
+            }
+
+            // condition clause
+            if(peek(p).type != TK_SEMICOLON) {
+                n->as.conditional.condition = expression(p);
+            } else {
+                n->as.conditional.condition = NULL;
+            }
+            consume(p, TK_SEMICOLON, "Expected ';'");
+
+            // increment clause
+            if(peek(p).type != TK_LBRACE) {
+                n->as.conditional.increment = expression(p);
+            } else {
+                n->as.conditional.increment = NULL;
+            }
+            consume(p, TK_LBRACE, "Expected '{'");
+
+            // body
+            n->as.conditional.then = block(p);
             break;
         case TK_IF:
             advance(p);
