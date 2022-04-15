@@ -32,12 +32,25 @@ void freeAST(ASTNode *root) {
     }
     freeAST(root->left);
     freeAST(root->right);
-    if(root->type == ND_VAR) {
-        freeString(root->as.var.name);
-    } else if(root->type == ND_BLOCK) {
-        for(int i = 0; i < (int)root->as.body.used; ++i) {
-            freeAST(ARRAY_GET_AS(ASTNode *, &root->as.body, i));
-        }
+    switch(root->type) {
+        case ND_VAR:
+            freeString(root->as.var.name);
+            break;
+        case ND_BLOCK:
+            for(int i = 0; i < (int)root->as.body.used; ++i) {
+                freeAST(ARRAY_GET_AS(ASTNode *, &root->as.body, i));
+            }
+            break;
+        case ND_IF:
+        case ND_LOOP:
+            freeAST(root->as.conditional.initializer);
+            freeAST(root->as.conditional.increment);
+            freeAST(root->as.conditional.condition);
+            freeAST(root->as.conditional.then);
+            freeAST(root->as.conditional.els);
+            break;
+        default:
+            break;
     }
     FREE(root);
 }
