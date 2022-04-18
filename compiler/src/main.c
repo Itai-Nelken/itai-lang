@@ -23,6 +23,7 @@ int main(int argc, char **argv) {
 	if(!parse(&p, &program)) {
 		fputs("Parsing failed!\n", stderr);
 		freeParser(&p);
+		freeASTProg(&program);
 		return 1;
 	}
 	
