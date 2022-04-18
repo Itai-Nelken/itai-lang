@@ -36,17 +36,10 @@ static inline void warning(Token tok, const char *message) {
     printError(ERR_WARNING, tok.location, message);
 }
 
-static inline void errorToken(Parser *p, Token tok) {
-    error(p, tok, tok.errmsg);
-    // because errors from the scanner won't cause
-    // cascading errors.
-    p->panic_mode = false;
-}
-
 static Token advance(Parser *p) {
     Token tok;
     while((tok = nextToken(&p->scanner)).type == TK_ERROR) {
-        errorToken(p, tok);
+        error(p, tok, tok.errmsg);
     }
     p->previous_token = p->current_token;
     p->current_token = tok;
@@ -351,13 +344,21 @@ static void synchronize(Parser *p) {
         if(previous(p).type == TK_SEMICOLON) {
             return;
         }
-        // FIXME: add all statements (and declarations)
         switch(peek(p).type) {
-            case TK_FN:
+            case TK_MODULE:
+            case TK_EXPORT:
+            case TK_IMPORT:
+            case TK_USING:
+            case TK_TYPE:
+            case TK_ENUM:
+            case TK_STRUCT:
+            case TK_CONST:
             case TK_VAR:
+            case TK_FN:
             case TK_FOR:
             case TK_WHILE:
             case TK_IF:
+            case TK_SWITCH:
             case TK_RETURN:
                 return;
             default:
