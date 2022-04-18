@@ -15,7 +15,7 @@ using arrays::{make, grow};
 export struct Stack<T> {
     data: T[];
     sp: i32;
-    sp: usize;
+    size: usize;
 }
 
 const INITIAL_SIZE = 16;
