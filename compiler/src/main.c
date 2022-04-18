@@ -3,6 +3,7 @@
 #include "Token.h"
 #include "Scanner.h"
 #include "Parser.h"
+#include "Validator.h"
 #include "codegen.h"
 
 int main(int argc, char **argv) {
@@ -26,6 +27,9 @@ int main(int argc, char **argv) {
 		freeASTProg(&program);
 		return 1;
 	}
+
+	// validate the AST to make sure its valid
+	validate(&program);
 	
 	// initialize the code generator
 	initCodegen(&cg, &program, stdout);

@@ -12,6 +12,7 @@ set(sources
     src/Errors.c
     src/Scanner.c
     src/Parser.c
+    src/Validator.c
     src/codegen.c
     src/Table.c
     src/Strings.c
