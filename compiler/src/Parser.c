@@ -54,12 +54,13 @@ static Token previous(Parser *p) {
     return p->previous_token;
 }
 
-static void consume(Parser *p, TokenType expected, const char *message) {
+static bool consume(Parser *p, TokenType expected, const char *message) {
     if(peek(p).type != expected) {
         error(p, peek(p), message);
-        return;
+        return false;
     }
     advance(p);
+    return true;
 }
 
 typedef enum precedence {
@@ -377,7 +378,9 @@ static ASTNode *expr_stmt(Parser *p) {
 
 static ASTNode *var_decl(Parser *p) {
     // 'var' is already consumed
-    consume(p, TK_IDENTIFIER, "Expected an identifier after 'var'");
+    if(!consume(p, TK_IDENTIFIER, "Expected an identifier after 'var'")) {
+        return NULL;
+    }
     char *name = stringNCopy(previous(p).lexeme, previous(p).length);
     
     // TODO: check for types
@@ -491,7 +494,11 @@ static ASTNode *statement(Parser *p) {
             break;
         case TK_RETURN:
             advance(p);
-            n = newUnaryNode(ND_RETURN, expression(p), previous(p).location);
+            if(peek(p).type != TK_SEMICOLON) {
+                n = newUnaryNode(ND_RETURN, expression(p), previous(p).location);
+            } else {
+                n = newUnaryNode(ND_RETURN, NULL, previous(p).location);
+            }
             consume(p, TK_SEMICOLON, "Expected ';' after 'return' statement");
             break;
         case TK_LBRACE:

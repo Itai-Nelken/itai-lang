@@ -359,15 +359,18 @@ static void gen_stmt(CodeGenerator *cg, ASTNode *node) {
             print(cg, ".L.end.%d:\n", c);
             break;
         }
-        case ND_RETURN: {
-            Register val = gen_expr(cg, node->left);
-            if(val == NOREG) {
-                return;
+        case ND_RETURN:
+            if(node->left) {
+                Register val = gen_expr(cg, node->left);
+                if(val == NOREG) {
+                    return;
+                }
+                println(cg, "mov x0, %s", reg_to_str(val));
+                free_register(cg, val);
             }
-            println(cg, "mov x0, %s", reg_to_str(val));
+            // no need for a default return value, it's put by default
             println(cg, "b .L.return");
             break;
-        }
         case ND_PRINT: {
             cg->print_stmt_used = true;
             Register val = gen_expr(cg, node->left);
