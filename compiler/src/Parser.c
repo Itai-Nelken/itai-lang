@@ -409,6 +409,22 @@ static ASTNode *block(Parser *p) {
     return n;
 }
 
+// primary       -> '(' expression ')'
+//                | NUMBER
+//                | IDENTIFIER
+// unary         -> ('+' | '-') primary
+//                  | primary
+// factor        -> unary (('*' | '/') unary)*
+// term          -> factor (('+' | '-') factor)*
+// bit_shift     -> term (('<<' | '>>') term)*
+// comparison    -> bit_shift (('>' | '>=' | '<' | '<=') bit_shift)*
+// equality      -> comparison (('==' | '!=') comparison)*
+// bit_and       -> equality ('&' equality)*
+// bit_xor       -> bit_and ('^' bit_and)*
+// bit_or        -> bit_xor ('|' bit_xor)*
+// assignment    -> IDENTIFIER '=' assignment
+//                | bit_or
+// expression    -> assignment
 // expr_stmt     -> expression ';'
 // var_decl      -> 'var' IDENTIFIER (':' TYPE)? ('=' expression)? ';'
 // print_stmt    -> 'print' expression ';'
@@ -426,6 +442,7 @@ static ASTNode *block(Parser *p) {
 //                | expr_stmt
 // declaration   -> var_decl
 //                | statement
+// program       -> declaration* EOF
 static ASTNode *statement(Parser *p) {
     ASTNode *n = NULL;
     switch(peek(p).type) {
