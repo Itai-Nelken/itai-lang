@@ -168,6 +168,7 @@ static TokenType checkKeyword(Scanner *s, int start, const char *rest, TokenType
 static TokenType identifierType(Scanner *s) {
     switch(s->start[0]) {
         case 'a': return ((s->current - s->start > 1) && s->start[1] == 's') ? TK_AS : TK_IDENTIFIER;
+        case 'b': return checkKeyword(s, 1, "ool", TK_BOOL);
         case 'c':
             if(checkKeyword(s, 1, "onst", TK_CONST) == TK_IDENTIFIER) {
                 return checkKeyword(s, 1, "har", TK_CHAR);

@@ -60,6 +60,7 @@ typedef enum token_type {
     TK_USIZE,
     TK_CHAR,
     TK_STR,
+    TK_BOOL,
 
     // keywords
     TK_PRINT,

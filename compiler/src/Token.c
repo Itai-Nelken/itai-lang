@@ -108,6 +108,7 @@ static const char *tokentype_str_lut[] = {
     [TK_USIZE]           = "TK_USIZE",
     [TK_CHAR]            = "TK_CHAR",
     [TK_STR]             = "TK_STR",
+    [TK_BOOL]            = "TK_BOOL",
 
     // keywords
     [TK_PRINT]           = "TK_PRINT",
