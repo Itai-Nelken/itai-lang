@@ -74,10 +74,10 @@ static const char *registers[_REG_COUNT] = {
     [R4] = "x5"
 };
 static const char *reg_to_str(Register reg) {
-    if(reg > _REG_COUNT) {
-        UNREACHABLE();
-    } else if(reg == NOREG) {
+    if(reg == NOREG) {
         return "NOREG";
+    } else if(reg > _REG_COUNT) {
+        UNREACHABLE();
     }
     return registers[reg];
 }
