@@ -5,6 +5,7 @@
 #define __attribute__(x)
 #endif
 
+#include <stdarg.h>
 #include "Token.h"
 
 typedef enum error_type {
@@ -13,6 +14,7 @@ typedef enum error_type {
 } ErrorType;
 
 void printError(ErrorType type, Location loc, const char *message);
+int vprintErrorF(ErrorType type, Location loc, const char *format, va_list ap);
 int printErrorF(ErrorType type, Location loc, const char *format, ...) __attribute__((format(printf, 3, 4)));
 
 #endif // ERRORS_H

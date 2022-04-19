@@ -47,6 +47,26 @@ void printError(ErrorType type, Location loc, const char *message) {
     fprintf(stderr, " \x1b[0;1m%s\x1b[0m\n", message);
 }
 
+int vprintErrorF(ErrorType type, Location loc, const char *format, va_list ap) {
+    char *buffer = NULL;
+    int length = 0;
+    va_list copy;
+
+    va_copy(copy, ap);
+
+    // determine how much space is needed for the final string
+    // copied from 'man 3 printf'
+    length = vsnprintf(buffer, 0, format, ap);
+    assert(length > 0);
+
+    buffer = newString(length + 1); // +1 for the nul character ('\0')
+    length = vsnprintf(buffer, (size_t)length + 1, format, copy);
+    va_end(copy);
+
+    printError(type, loc, buffer);
+    return length;
+}
+
 int printErrorF(ErrorType type, Location loc, const char *format, ...) {
     char *buffer = NULL;
     int length = 0;
@@ -55,16 +75,8 @@ int printErrorF(ErrorType type, Location loc, const char *format, ...) {
     // determine how much space is needed for the final string
     // copied from 'man 3 printf'
     va_start(ap, format);
-    length = vsnprintf(buffer, 0, format, ap);
+    vprintErrorF(type, loc, format, ap);
     va_end(ap);
-    assert(length > 0);
-
-    buffer = newString(length + 1); // +1 for the nul character ('\0')
-    va_start(ap, format);
-    length = vsnprintf(buffer, (size_t)length + 1, format, ap);
-    va_end(ap);
-
-    printError(type, loc, buffer);
 
     freeString(buffer);
     return length;
