@@ -56,7 +56,7 @@ static void _validate(void *node, void *cl) {
 
 // TODO: finish
 bool validate(ASTProg *prog) {
-    bool had_error = true;
+    bool had_error = false;
     arrayMap(&prog->statements, _validate, (void *)&had_error);
     return !had_error;
 }
