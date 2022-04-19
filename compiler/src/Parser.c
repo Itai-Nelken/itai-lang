@@ -66,16 +66,16 @@ static bool consume(Parser *p, TokenType expected, const char *message) {
 typedef enum precedence {
     PREC_NONE       = 0,
     PREC_ASSIGNMENT = 1, // infix =
-    PREC_BIT_OR     = 1,  // infix |
-    PREC_BIT_XOR    = 2,  // infix ^
-    PREC_BIT_AND    = 3,  // infix &
-    PREC_EQUALITY   = 4, // infix == !=
-    PREC_COMPARISON = 5, // infix > >= < <=
-    PREC_BIT_SHIFT  = 6, // infix << >>
-    PREC_TERM       = 7, // infix + -
-    PREC_FACTOR     = 8, // infix * /
-    PREC_UNARY      = 9,
-    PREC_PRIMARY    = 10  // highest
+    PREC_BIT_OR     = 2,  // infix |
+    PREC_BIT_XOR    = 3,  // infix ^
+    PREC_BIT_AND    = 4,  // infix &
+    PREC_EQUALITY   = 5, // infix == !=
+    PREC_COMPARISON = 6, // infix > >= < <=
+    PREC_BIT_SHIFT  = 7, // infix << >>
+    PREC_TERM       = 8, // infix + -
+    PREC_FACTOR     = 9, // infix * /
+    PREC_UNARY      = 10,
+    PREC_PRIMARY    = 11  // highest
 } Precedence;
 
 typedef void (*InfixParseFn)(Parser *p);
