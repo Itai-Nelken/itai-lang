@@ -370,12 +370,7 @@ static void synchronize(Parser *p) {
     }
 }
 
-static ASTNode *expr_stmt(Parser *p) {
-    p->current_expr = newUnaryNode(ND_EXPR_STMT, expression(p), previous(p).location);
-    consume(p, TK_SEMICOLON, "Expected ';' after expression");
-    return p->current_expr;
-}
-
+/*** declarations ***/
 static ASTNode *var_decl(Parser *p) {
     // 'var' is already consumed
     if(!consume(p, TK_IDENTIFIER, "Expected an identifier after 'var'")) {
@@ -406,6 +401,86 @@ static ASTNode *block(Parser *p) {
         arrayPush(&n->as.body, declaration(p));
     }
     consume(p, TK_RBRACE, "Expected '}' after block");
+    return n;
+}
+
+/*** statements ***/
+static ASTNode *expr_stmt(Parser *p) {
+    ASTNode *n = newUnaryNode(ND_EXPR_STMT, expression(p), previous(p).location);
+    consume(p, TK_SEMICOLON, "Expected ';' after expression");
+    return n;
+}
+
+static ASTNode *return_stmt(Parser *p) {
+    ASTNode *n = NULL;
+    if(peek(p).type != TK_SEMICOLON) {
+        n = newUnaryNode(ND_RETURN, expression(p), previous(p).location);
+    } else {
+        n = newUnaryNode(ND_RETURN, NULL, previous(p).location);
+    }
+    consume(p, TK_SEMICOLON, "Expected ';' after 'return' statement");
+    return n;
+}
+
+static ASTNode *if_stmt(Parser *p) {
+    ASTNode *n = newNode(ND_IF, NULL, NULL, previous(p).location);
+    n->as.conditional.condition = expression(p);
+    consume(p, TK_LBRACE, "Expected '{'");
+    n->as.conditional.then = block(p);
+    if(peek(p).type == TK_ELSE) {
+        advance(p);
+        consume(p, TK_LBRACE, "Expected '{'");
+        n->as.conditional.els = block(p);
+    } else {
+        n->as.conditional.els = NULL;
+    }
+    return n;
+}
+
+static ASTNode *while_stmt(Parser *p) {
+    ASTNode *n = newNode(ND_LOOP, NULL, NULL, previous(p).location);
+    // condition
+    n->as.conditional.condition = expression(p);
+    // body
+    consume(p, TK_LBRACE, "Expected '{'");
+    n->as.conditional.then = block(p);
+    return n;
+}
+
+static ASTNode *for_stmt(Parser *p) {
+    ASTNode *n = newNode(ND_LOOP, NULL, NULL, previous(p).location);
+
+    // initializer clause
+    if(peek(p).type == TK_SEMICOLON) {
+        advance(p);
+        n->as.conditional.initializer = NULL;
+    } else if(peek(p).type == TK_VAR) {
+        advance(p);
+        n->as.conditional.initializer = var_decl(p);
+    } else {
+        // expr_stmt consumes the ';'
+        n->as.conditional.initializer = expr_stmt(p);
+    }
+
+    // condition clause
+    if(peek(p).type != TK_SEMICOLON) {
+        n->as.conditional.condition = expression(p);
+    } else {
+        n->as.conditional.condition = NULL;
+    }
+    consume(p, TK_SEMICOLON, "Expected ';'");
+
+    // increment clause
+    if(peek(p).type != TK_LBRACE) {
+        n->as.conditional.increment = expression(p);
+    } else {
+        n->as.conditional.increment = NULL;
+    }
+
+    // body
+    consume(p, TK_LBRACE, "Expected '{'");
+    n->as.conditional.then = block(p);
+
     return n;
 }
 
@@ -453,70 +528,19 @@ static ASTNode *statement(Parser *p) {
             break;
         case TK_WHILE:
             advance(p);
-            n = newNode(ND_LOOP, NULL, NULL, previous(p).location);
-            // condition
-            n->as.conditional.condition = expression(p);
-            // body
-            consume(p, TK_LBRACE, "Expected '{'");
-            n->as.conditional.then = block(p);
+            n = while_stmt(p);
             break;
         case TK_FOR:
             advance(p);
-            n = newNode(ND_LOOP, NULL, NULL, previous(p).location);
-            
-            // initializer clause
-            if(peek(p).type == TK_SEMICOLON) {
-                advance(p);
-                n->as.conditional.initializer = NULL;
-            } else if(peek(p).type == TK_VAR) {
-                advance(p);
-                n->as.conditional.initializer = var_decl(p);
-            } else {
-                // expr_stmt consumes the ';'
-                n->as.conditional.initializer = expr_stmt(p);
-            }
-
-            // condition clause
-            if(peek(p).type != TK_SEMICOLON) {
-                n->as.conditional.condition = expression(p);
-            } else {
-                n->as.conditional.condition = NULL;
-            }
-            consume(p, TK_SEMICOLON, "Expected ';'");
-
-            // increment clause
-            if(peek(p).type != TK_LBRACE) {
-                n->as.conditional.increment = expression(p);
-            } else {
-                n->as.conditional.increment = NULL;
-            }
-            consume(p, TK_LBRACE, "Expected '{'");
-
-            // body
-            n->as.conditional.then = block(p);
+            n = for_stmt(p);
             break;
         case TK_IF:
             advance(p);
-            n = newNode(ND_IF, NULL, NULL, previous(p).location);
-            n->as.conditional.condition = expression(p);
-            consume(p, TK_LBRACE, "Expected '{'");
-            n->as.conditional.then = block(p);
-            if(peek(p).type == TK_ELSE) {
-                advance(p);
-                consume(p, TK_LBRACE, "Expected '{'");
-                n->as.conditional.els = block(p);
-            } else {
-                n->as.conditional.els = NULL;
-            }
+            n = if_stmt(p);
             break;
         case TK_RETURN:
             advance(p);
-            if(peek(p).type != TK_SEMICOLON) {
-                n = newUnaryNode(ND_RETURN, expression(p), previous(p).location);
-            } else {
-                n = newUnaryNode(ND_RETURN, NULL, previous(p).location);
-            }
-            consume(p, TK_SEMICOLON, "Expected ';' after 'return' statement");
+            n = return_stmt(p);
             break;
         case TK_LBRACE:
             advance(p);
