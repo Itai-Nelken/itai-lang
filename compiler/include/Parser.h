@@ -5,12 +5,22 @@
 #include "ast.h"
 #include "Token.h"
 #include "Scanner.h"
+#include "Array.h"
+
+typedef struct scope {
+    struct scope *previous;
+    Array locals; // Array<ASTObj *>
+    int depth;
+} Scope;
 
 typedef struct parser {
     Scanner scanner;
     Token current_token, previous_token;
     bool had_error, panic_mode;
     ASTNode *current_expr;
+
+    Scope *scopes;
+    int scope_depth;
 } Parser;
 
 void initParser(Parser *p, const char *filename, char *source);

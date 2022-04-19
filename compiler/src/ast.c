@@ -6,14 +6,14 @@
 #include "ast.h"
 
 void initASTProg(ASTProg *astp) {
-    initArray(&astp->statements);
+    initArray(&astp->declarations);
 }
 
 void freeASTProg(ASTProg *astp) {
-    for(size_t i = 0; i < astp->statements.used; ++i) {
-        freeAST(astp->statements.data[i]);
+    for(size_t i = 0; i < astp->declarations.used; ++i) {
+        freeAST(astp->declarations.data[i]);
     }
-    freeArray(&astp->statements);
+    freeArray(&astp->declarations);
 }
 
 ASTNode *newNode(ASTNodeType type, ASTNode *left, ASTNode *right, Location loc) {
@@ -33,6 +33,11 @@ void freeAST(ASTNode *root) {
     freeAST(root->left);
     freeAST(root->right);
     switch(root->type) {
+        case ND_FN:
+            freeString(root->as.fn.name);
+            freeArray(&root->as.fn.locals);
+            freeAST(root->as.fn.body);
+            break;
         case ND_VAR:
             freeString(root->as.var.name);
             break;

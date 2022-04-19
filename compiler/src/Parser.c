@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <stdbool.h>
+#include <stdarg.h>
+#include <assert.h>
 #include "common.h"
+#include "memory.h"
 #include "utilities.h"
 #include "Strings.h"
 #include "Array.h"
@@ -14,14 +17,78 @@ void initParser(Parser *p, const char *filename, char *source) {
     p->current_expr = NULL;
     p->had_error = false;
     p->panic_mode = false;
+    p->scope_depth = 0;
+    p->scopes = NULL;
     initScanner(&p->scanner, filename, source);
+}
+
+static void scope_free_locals_callback(void *local, void *cl) {
+    UNUSED(cl);
+    ASTObj *l = (ASTObj *)local;
+    freeString(l->name);
 }
 
 void freeParser(Parser *p) {
     freeScanner(&p->scanner);
+    if(p->scopes != NULL) {
+        while(p->scopes != NULL) {
+            Scope *previous = p->scopes->previous;
+            arrayMap(&p->scopes->locals, scope_free_locals_callback, NULL);
+            freeArray(&p->scopes->locals);
+            FREE(p->scopes);
+            p->scopes = previous;
+        }
+    }
 }
 
-static void error(Parser *p, Token tok, const char *message) {
+static Scope *newScope(int depth) {
+    Scope *sc = CALLOC(1, sizeof(*sc));
+    sc->depth = depth;
+    initArray(&sc->locals);
+    sc->previous = NULL;
+    return sc;
+}
+
+static void beginScope(Parser *p) {
+    p->scope_depth++;
+    Scope *sc = newScope(p->scope_depth);
+    sc->previous = p->scopes;
+    p->scopes = sc;
+}
+
+static void endScope(Parser *p) {
+    assert(p->scope_depth > 0);
+    Scope *sc = p->scopes;
+    p->scopes = sc->previous;
+    // don't free the local names as they are also referenced
+    // in the ASTObj's inside the ASTNode's, and will be freed
+    // when the ASTNode's will be freed.
+    freeArray(&sc->locals);
+    FREE(sc);
+    p->scope_depth--;
+}
+
+static ASTObj *find_local(Parser *p, char *name) {
+    Scope *sc = p->scopes;
+    while(sc != NULL) {
+        for(int i = 0; i < (int)sc->locals.used; ++i) {
+            ASTObj *l = ARRAY_GET_AS(ASTObj *, &sc->locals, i);
+            if(stringEqual(l->name, name)) {
+                return l;
+            }
+        }
+        sc = sc->previous;
+    }
+    return NULL;
+}
+
+static void add_local(Parser *p, char *name) {
+    ASTObj *local = CALLOC(1, sizeof(*local));
+    local->name = stringIsValid(name) ? name : stringCopy(name);
+    arrayPush(&p->scopes->locals, local);
+}
+
+static void error(Parser *p, Token tok, const char *format, ...) {
     // suppress any errors that may be caused by previous errors
     if(p->panic_mode) {
         return;
@@ -29,7 +96,10 @@ static void error(Parser *p, Token tok, const char *message) {
     p->had_error = true;
     p->panic_mode = true;
 
-    printError(ERR_ERROR, tok.location, message);
+    va_list ap;
+    va_start(ap, format);
+    vprintErrorF(ERR_ERROR, tok.location, format, ap);
+    va_end(ap);
 }
 
 static inline void warning(Token tok, const char *message) {
@@ -215,7 +285,16 @@ end:
 
 static void parse_identifier(Parser *p, bool canAssign) {
     p->current_expr = newNode(ND_VAR, NULL, NULL, previous(p).location);
-    p->current_expr->as.var.name = stringNCopy(previous(p).lexeme, previous(p).length);
+    
+    char *name = stringNCopy(previous(p).lexeme, previous(p).length);
+    p->current_expr->as.var.name = name;
+    
+    if(p->scope_depth > 0 && find_local(p, name) != NULL) {
+        p->current_expr->as.var.is_local = true;
+    } else {
+        p->current_expr->as.var.is_local = false;
+    }
+    
     if(canAssign && peek(p).type == TK_EQUAL) {
         advance(p);
         p->current_expr = newNode(ND_ASSIGN, p->current_expr, expression(p), previous(p).location);
@@ -336,6 +415,10 @@ static void parsePrecedence(Parser *p, Precedence prec) {
 static ASTNode *expression(Parser *p) {
     // start parsing with the lowest precedence
     parsePrecedence(p, PREC_ASSIGNMENT);
+    // to prevent uninitialized nodes (invalid pointers) from being returned.
+    if(p->had_error) {
+        return NULL;
+    }
     return p->current_expr;
 }
 
@@ -382,6 +465,12 @@ static ASTNode *var_decl(Parser *p) {
     
     ASTNode *var = newNode(ND_VAR, NULL, NULL, previous(p).location);
     var->as.var.name = name;
+    if(p->scope_depth > 0) {
+        add_local(p, name);
+        var->as.var.is_local = true;
+    } else {
+        var->as.var.is_local = false;
+    }
 
     if(peek(p).type == TK_EQUAL) {
         advance(p);
@@ -395,12 +484,14 @@ static ASTNode *var_decl(Parser *p) {
 static ASTNode *declaration(Parser *p);
 
 static ASTNode *block(Parser *p) {
+    beginScope(p);
     ASTNode *n = newNode(ND_BLOCK, NULL, NULL, previous(p).location);
     initArray(&n->as.body);
     while(peek(p).type != TK_RBRACE && peek(p).type != TK_EOF) {
         arrayPush(&n->as.body, declaration(p));
     }
     consume(p, TK_RBRACE, "Expected '}' after block");
+    endScope(p);
     return n;
 }
 
@@ -449,6 +540,7 @@ static ASTNode *while_stmt(Parser *p) {
 
 static ASTNode *for_stmt(Parser *p) {
     ASTNode *n = newNode(ND_LOOP, NULL, NULL, previous(p).location);
+    beginScope(p);
 
     // initializer clause
     if(peek(p).type == TK_SEMICOLON) {
@@ -481,9 +573,12 @@ static ASTNode *for_stmt(Parser *p) {
     consume(p, TK_LBRACE, "Expected '{'");
     n->as.conditional.then = block(p);
 
+    endScope(p);
     return n;
 }
 
+// === GRAMMAR ===
+// == EXPRESSIONS ==
 // primary       -> '(' expression ')'
 //                | NUMBER
 //                | IDENTIFIER
@@ -500,8 +595,10 @@ static ASTNode *for_stmt(Parser *p) {
 // assignment    -> IDENTIFIER '=' assignment
 //                | bit_or
 // expression    -> assignment
-// expr_stmt     -> expression ';'
+//
+// == STATEMENTS ==
 // var_decl      -> 'var' IDENTIFIER (':' TYPE)? ('=' expression)? ';'
+// expr_stmt     -> expression ';'
 // print_stmt    -> 'print' expression ';'
 // return_stmt   -> 'return' expression? ';'
 // if_stmt       -> 'if' expression block ('else' block)?
@@ -517,6 +614,7 @@ static ASTNode *for_stmt(Parser *p) {
 //                | expr_stmt
 // declaration   -> var_decl
 //                | statement
+// TODO: make add functions so (var_decl | fn_decl)* EOF
 // program       -> declaration* EOF
 static ASTNode *statement(Parser *p) {
     ASTNode *n = NULL;
@@ -579,7 +677,7 @@ bool parse(Parser *p, ASTProg *prog) {
             freeAST(node);
             continue;
         }
-        arrayPush(&prog->statements, node);
+        arrayPush(&prog->declarations, node);
     }
     return p->had_error ? false : true;
 }

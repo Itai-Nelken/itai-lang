@@ -243,7 +243,7 @@ static ASTObj *getGlobal(CodeGenerator *cg, char *name) {
 static Register load_glob_addr(CodeGenerator *cg, char *name, Location loc) {
     ASTObj *var = getGlobal(cg, name);
     if(var == NULL) {
-        error(cg, loc, "Undeclared variable");
+        errorf(cg, loc, "Undeclared variable '%s'", name);
         return NOREG;
     }
     Register reg = allocate_register(cg);
@@ -270,16 +270,24 @@ static Register gen_expr(CodeGenerator *cg, ASTNode *node) {
         case ND_NUM:
             return cgloadint(cg, node->as.literal.int32);
         case ND_VAR:
-            return load_glob(cg, node->as.var.name, node->loc);
-        case ND_ASSIGN: {
-            Register addr = load_glob_addr(cg, node->left->as.var.name, node->loc);
-            if(addr == NOREG) {
-                return NOREG;
+            if(node->as.var.is_local) {
+                UNREACHABLE();
+            } else {
+                return load_glob(cg, node->as.var.name, node->loc);
             }
-            Register rvalue = gen_expr(cg, node->right);
-            println(cg, "str %s, [%s]", reg_to_str(rvalue), reg_to_str(addr));
-            free_register(cg, addr);
-            return rvalue; // assignment returns thr value assigned
+        case ND_ASSIGN: {
+            if(node->left->as.var.is_local) {
+                UNREACHABLE();
+            } else {
+                Register addr = load_glob_addr(cg, node->left->as.var.name, node->loc);
+                if(addr == NOREG) {
+                    return NOREG;
+                }
+                Register rvalue = gen_expr(cg, node->right);
+                println(cg, "str %s, [%s]", reg_to_str(rvalue), reg_to_str(addr));
+                free_register(cg, addr);
+                return rvalue; // assignment returns the value assigned
+            }
         }
         case ND_NEG:
             return cgneg(cg, gen_expr(cg, node->left));
@@ -435,8 +443,8 @@ void codegen(CodeGenerator *cg) {
                 "main:\n");
     println(cg, "stp fp, lr, [sp, -16]!");
 
-    for(int i = 0; i < (int)cg->program->statements.used; ++i) {
-        gen_stmt(cg, ARRAY_GET_AS(ASTNode *, &cg->program->statements, i));
+    for(int i = 0; i < (int)cg->program->declarations.used; ++i) {
+        gen_stmt(cg, ARRAY_GET_AS(ASTNode *, &cg->program->declarations, i));
     }
 
     // return

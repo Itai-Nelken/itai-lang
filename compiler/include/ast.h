@@ -1,12 +1,14 @@
 #ifndef AST_H
 #define AST_H
 
+#include <stdbool.h>
 #include "types.h"
 #include "Token.h"
 #include "Array.h"
 
 typedef enum ast_type {
     ND_PRINT, // temporary print function
+    ND_FN, // function
     ND_IF, // if statement
     ND_LOOP, // for statement
     ND_RETURN, // return statement
@@ -29,7 +31,16 @@ typedef enum ast_type {
 
 typedef struct ast_obj {
     char *name;
+    bool is_local;
 } ASTObj;
+
+typedef struct ast_node ASTNode;
+typedef struct ast_function {
+    char *name;
+    ASTNode *body;
+    Array locals;
+    int stack_size;
+} ASTFunction;
 
 typedef struct ast_node {
     ASTNodeType type;
@@ -41,6 +52,7 @@ typedef struct ast_node {
         } literal; // ND_NUM
         ASTObj var; // ND_VAR
         Array body; // ND_BLOCK
+        ASTFunction fn; // ND_FN
         struct {
             struct ast_node *condition, *then, *els;
             struct ast_node *initializer, *increment;
@@ -49,7 +61,7 @@ typedef struct ast_node {
 } ASTNode;
 
 typedef struct ast_program {
-    Array statements;
+    Array declarations;
 } ASTProg;
 
 void initASTProg(ASTProg *astp);
