@@ -507,7 +507,7 @@ static ASTNode *for_stmt(Parser *p) {
 // if_stmt       -> 'if' expression block ('else' block)?
 // for_stmt      -> 'for' (var_decl | expr_stmt | ';') expression? ';' expression? block
 // while_stmt    -> 'while' expression block
-// block         -> '{' statement* '}'
+// block         -> '{' declaration* '}'
 // statement     -> print_stmt
 //                | if_stmt
 //                | for_stmt
