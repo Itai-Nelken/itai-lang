@@ -29,7 +29,12 @@ int main(int argc, char **argv) {
 	}
 
 	// validate the AST to make sure its valid
-	validate(&program);
+	if(!validate(&program)) {
+		fputs("Validating failed!\n", stderr);
+		freeParser(&p);
+		freeASTProg(&program);
+		return 1;
+	}
 	
 	// initialize the code generator
 	initCodegen(&cg, &program, stdout);
