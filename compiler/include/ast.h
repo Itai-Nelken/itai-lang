@@ -8,6 +8,7 @@
 
 typedef enum ast_type {
     ND_PRINT, // temporary print function
+    ND_FN_CALL, // function call
     ND_IF, // if statement
     ND_LOOP, // for statement
     ND_RETURN, // return statement
@@ -56,6 +57,7 @@ typedef struct ast_node {
         } literal; // ND_NUM
         ASTObj var; // ND_VAR
         Array body; // ND_BLOCK
+        char *name; // ND_FN_CALL
         struct {
             struct ast_node *condition, *then, *els;
             struct ast_node *initializer, *increment;

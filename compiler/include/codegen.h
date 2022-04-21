@@ -9,7 +9,7 @@
 
 typedef enum registers {
     R0, R1, R2, R3, R4,
-    _REG_COUNT, NOREG
+    _REG_COUNT, RETREG, NOREG
 } Register;
 
 typedef struct code_generator {

@@ -54,6 +54,9 @@ void freeAST(ASTNode *root) {
     freeAST(root->left);
     freeAST(root->right);
     switch(root->type) {
+        case ND_FN_CALL:
+            freeString(root->as.name);
+            break;
         case ND_VAR:
             freeString(root->as.var.name);
             break;

@@ -153,8 +153,9 @@ typedef enum precedence {
     PREC_BIT_SHIFT  = 7, // infix << >>
     PREC_TERM       = 8, // infix + -
     PREC_FACTOR     = 9, // infix * /
-    PREC_UNARY      = 10,
-    PREC_PRIMARY    = 11  // highest
+    PREC_UNARY      = 10, // unary + -
+    PREC_CALL       = 11, // ()
+    PREC_PRIMARY    = 12  // highest
 } Precedence;
 
 typedef void (*InfixParseFn)(Parser *p);
@@ -171,12 +172,13 @@ static void parse_number(Parser *p, bool canAssign);
 static void parse_identifier(Parser *p, bool canAssign);
 static void parse_grouping(Parser *p, bool canAssign);
 static void parse_unary(Parser *p, bool canAssign);
+static void parse_call(Parser *p);
 static void parse_binary(Parser *p);
 static void parsePrecedence(Parser *p, Precedence prec);
 static ASTNode *expression(Parser *p);
 
 static ParseRule rules[TK__COUNT] = {
-    [TK_LPAREN]          = {parse_grouping, NULL, PREC_NONE},
+    [TK_LPAREN]          = {parse_grouping, parse_call, PREC_CALL},
     [TK_RPAREN]          = {NULL, NULL, PREC_NONE},
     [TK_LBRACKET]        = {NULL, NULL, PREC_NONE},
     [TK_RBRACKET]        = {NULL, NULL, PREC_NONE},
@@ -308,6 +310,17 @@ static void parse_identifier(Parser *p, bool canAssign) {
         advance(p);
         p->current_expr = newNode(ND_ASSIGN, p->current_expr, expression(p), previous(p).location);
     }
+}
+
+static void parse_call(Parser *p) {
+    // IDENTIFIER '(' are already consumed
+    if(!consume(p, TK_RPAREN, "Expected ')'")) {
+        p->current_expr = NULL;
+        return;
+    }
+    char *name = p->current_expr->as.var.name;
+    p->current_expr = newNode(ND_FN_CALL, NULL, NULL, previous(p).location);
+    p->current_expr->as.name = name;
 }
 
 static void parse_grouping(Parser *p, bool canAssign) {

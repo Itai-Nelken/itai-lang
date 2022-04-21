@@ -61,18 +61,19 @@ static void println(CodeGenerator *cg, const char *format, ...) {
     fputs("\n", cg->buff);
 }
 
-// x0 is reserved for return values
-//static const char *return_reg = "x0";
+static const char *return_value_reg = "x0";
 static const char *registers[_REG_COUNT] = {
-    [R0] = "x1",
-    [R1] = "x2",
-    [R2] = "x3",
-    [R3] = "x4",
-    [R4] = "x5"
+    [R0]     = "x1",
+    [R1]     = "x2",
+    [R2]     = "x3",
+    [R3]     = "x4",
+    [R4]     = "x5",
 };
 static const char *reg_to_str(Register reg) {
     if(reg == NOREG) {
         return "NOREG";
+    } else if(reg == RETREG) {
+        return return_value_reg;
     } else if(reg > _REG_COUNT) {
         UNREACHABLE();
     }
@@ -96,7 +97,7 @@ static Register allocate_register(CodeGenerator *cg) {
 }
 
 static void free_register(CodeGenerator *cg, Register reg) {
-    if(reg == NOREG) {
+    if(reg == NOREG || reg == RETREG) {
         return;
     }
     if(cg->spilled_regs > 0) {
@@ -287,6 +288,12 @@ static Register gen_expr(CodeGenerator *cg, ASTNode *node) {
     switch(node->type) {
         case ND_NUM:
             return cgloadint(cg, node->as.literal.int32);
+        case ND_NEG:
+            return cgneg(cg, gen_expr(cg, node->left));
+        case ND_FN_CALL:
+            println(cg, "mov %s, 0", reg_to_str(RETREG));
+            println(cg, "bl %s", node->as.name);
+            return RETREG;
         case ND_VAR:
             if(node->as.var.type == OBJ_LOCAL) {
                 return load_local(cg, node->as.var.name);
@@ -307,8 +314,6 @@ static Register gen_expr(CodeGenerator *cg, ASTNode *node) {
             }
             return rvalue;
         }
-        case ND_NEG:
-            return cgneg(cg, gen_expr(cg, node->left));
         default:
             break;
     }
@@ -391,10 +396,9 @@ static void gen_stmt(CodeGenerator *cg, ASTNode *node) {
                 if(val == NOREG) {
                     return;
                 }
-                println(cg, "mov x0, %s", reg_to_str(val));
+                println(cg, "mov %s, %s", reg_to_str(RETREG), reg_to_str(val));
                 free_register(cg, val);
             }
-            // no need for a default return value, it's put by default
             println(cg, "b .L.return.%s", cg->current_fn->name);
             break;
         }
@@ -473,7 +477,7 @@ static void emit_functions(CodeGenerator *cg) {
         print(cg, ".L.return.%s:\n", fn->name);
         println(cg, "mov sp, fp");
         println(cg, "ldp fp, lr, [sp], 16");
-        println(cg, "ret");
+        println(cg, "ret\n");
     }
 }
 
