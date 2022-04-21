@@ -8,7 +8,6 @@
 
 typedef enum ast_type {
     ND_PRINT, // temporary print function
-    ND_FN, // function
     ND_IF, // if statement
     ND_LOOP, // for statement
     ND_RETURN, // return statement
@@ -29,16 +28,22 @@ typedef enum ast_type {
     ND_NUM  // numbers
 } ASTNodeType;
 
+typedef enum ast_obj_type {
+    OBJ_GLOBAL,
+    OBJ_LOCAL
+} ASTObjType;
+
 typedef struct ast_obj {
+    ASTObjType type;
     char *name;
-    bool is_local;
+    int offset; // for OBJ_LOCAL
 } ASTObj;
 
 typedef struct ast_node ASTNode;
 typedef struct ast_function {
     char *name;
     ASTNode *body;
-    Array locals;
+    Array locals; // Array<ASTObj *>
     int stack_size;
 } ASTFunction;
 
@@ -52,7 +57,6 @@ typedef struct ast_node {
         } literal; // ND_NUM
         ASTObj var; // ND_VAR
         Array body; // ND_BLOCK
-        ASTFunction fn; // ND_FN
         struct {
             struct ast_node *condition, *then, *els;
             struct ast_node *initializer, *increment;
@@ -61,11 +65,15 @@ typedef struct ast_node {
 } ASTNode;
 
 typedef struct ast_program {
-    Array declarations;
+    Array functions; // Array<ASTFunction *>
+    Array globals; // Array<ASTNode *>
 } ASTProg;
 
 void initASTProg(ASTProg *astp);
 void freeASTProg(ASTProg *astp);
+
+ASTFunction *newFunction(const char *name, ASTNode *body);
+void freeFunction(ASTFunction *fn);
 
 ASTNode *newNode(ASTNodeType type, ASTNode *left, ASTNode *right, Location loc);
 

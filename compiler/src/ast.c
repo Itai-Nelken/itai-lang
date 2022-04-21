@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include "common.h"
 #include "memory.h"
 #include "Strings.h"
 #include "Array.h"
@@ -6,14 +7,35 @@
 #include "ast.h"
 
 void initASTProg(ASTProg *astp) {
-    initArray(&astp->declarations);
+    initArray(&astp->functions);
+    initArray(&astp->globals);
 }
 
 void freeASTProg(ASTProg *astp) {
-    for(size_t i = 0; i < astp->declarations.used; ++i) {
-        freeAST(astp->declarations.data[i]);
-    }
-    freeArray(&astp->declarations);
+    freeArray(&astp->functions);
+    freeArray(&astp->globals);
+}
+
+ASTFunction *newFunction(const char *name, ASTNode *body) {
+    ASTFunction *fn = CALLOC(1, sizeof(*fn));
+    fn->name = stringCopy(name);
+    fn->body = body;
+    fn->stack_size = -1;
+    initArray(&fn->locals);
+    return fn;
+}
+
+static void free_ast_obj_callback(void *obj, void *cl) {
+    UNUSED(cl);
+    ASTObj *o = (ASTObj *)obj;
+    freeString(o->name);
+}
+
+void freeFunction(ASTFunction *fn) {
+    freeString(fn->name);
+    freeAST(fn->body);
+    arrayMap(&fn->locals, free_ast_obj_callback, NULL);
+    freeArray(&fn->locals);
 }
 
 ASTNode *newNode(ASTNodeType type, ASTNode *left, ASTNode *right, Location loc) {
@@ -33,11 +55,6 @@ void freeAST(ASTNode *root) {
     freeAST(root->left);
     freeAST(root->right);
     switch(root->type) {
-        case ND_FN:
-            freeString(root->as.fn.name);
-            freeArray(&root->as.fn.locals);
-            freeAST(root->as.fn.body);
-            break;
         case ND_VAR:
             freeString(root->as.var.name);
             break;

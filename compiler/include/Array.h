@@ -13,6 +13,7 @@ void freeArray(Array *a);
 void arrayPush(Array *a, void *value);
 void *arrayPop(Array *a);
 void *arrayGet(Array *a, int index);
+void arrayCopy(Array *dest, Array *src);
 void arrayMap(Array *a, void(*fn)(void *item, void *cl), void *cl);
 
 #define ARRAY_POP_AS(type, array) ((type)arrayPop(array))

@@ -3,6 +3,28 @@
 #include "ast.h"
 #include "Validator.h"
 
+static void validate_global(void *global, void *cl) {
+    ASTNode *g = (ASTNode *)global;
+    bool *had_error = (bool *)cl;
+
+    if(g->left == NULL || g->right == NULL) {
+        *had_error = true;
+        return;
+    }
+    if(g->left->as.var.type != OBJ_GLOBAL) {
+        *had_error = true;
+    }
+}
+
+static void validate_local(void *local, void *cl) {
+    ASTObj *l = (ASTObj *)local;
+    bool *had_error = (bool *)cl;
+
+    if(l->type != OBJ_LOCAL) {
+        *had_error = true;
+    }
+}
+
 static bool validate_unary(ASTNode *n) {
     if(n->left == NULL) {
         return true;
@@ -17,16 +39,14 @@ static bool validate_binary(ASTNode *n) {
     return false;
 }
 
-static void _validate(void *node, void *cl) {
-    bool *had_error = (bool *)cl;
-    ASTNode *n = (ASTNode *)node;
-    switch(n->type) {
+static void validate_ast(ASTNode *node, bool *had_error) {
+    switch(node->type) {
         // check that unary nodes have a valid operand
         case ND_EXPR_STMT:
         case ND_NEG:
         case ND_PRINT:
         case ND_RETURN:
-            *had_error = validate_unary(n);
+            *had_error = validate_unary(node);
             break;
         // check that binary nodes have valid operands
         case ND_ASSIGN:
@@ -46,7 +66,7 @@ static void _validate(void *node, void *cl) {
         case ND_BIT_AND:
         case ND_BIT_RSHIFT:
         case ND_BIT_LSHIFT:
-            *had_error = validate_binary(n);
+            *had_error = validate_binary(node);
             break;
         // everything else isn't handled yet
         default:
@@ -54,9 +74,18 @@ static void _validate(void *node, void *cl) {
     }
 }
 
+static void validate_function(void *function, void *cl) {
+    ASTFunction *fn = (ASTFunction *)function;
+    bool *had_error = (bool *)cl;
+
+    arrayMap(&fn->locals, validate_local, cl);
+    validate_ast(fn->body, had_error);
+}
+
 // TODO: finish
 bool validate(ASTProg *prog) {
     bool had_error = false;
-    arrayMap(&prog->declarations, _validate, (void *)&had_error);
+    arrayMap(&prog->globals, validate_global, (void *)&had_error);
+    arrayMap(&prog->functions, validate_function, (void *)&had_error);
     return !had_error;
 }

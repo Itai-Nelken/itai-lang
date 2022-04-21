@@ -56,6 +56,7 @@ static void beginScope(Parser *p) {
     p->scopes = sc;
 }
 
+// FIXME: handle local variables that are inside the current function's scope
 static void endScope(Parser *p) {
     assert(p->scope_depth > 0);
     Scope *sc = p->scopes;
@@ -66,6 +67,10 @@ static void endScope(Parser *p) {
     freeArray(&sc->locals);
     FREE(sc);
     p->scope_depth--;
+}
+
+static inline Scope *currentScope(Parser *p) {
+    return p->scopes;
 }
 
 static ASTObj *find_local(Parser *p, char *name) {
@@ -290,9 +295,9 @@ static void parse_identifier(Parser *p, bool canAssign) {
     p->current_expr->as.var.name = name;
     
     if(p->scope_depth > 0 && find_local(p, name) != NULL) {
-        p->current_expr->as.var.is_local = true;
+        p->current_expr->as.var.type = OBJ_LOCAL;
     } else {
-        p->current_expr->as.var.is_local = false;
+        p->current_expr->as.var.type = OBJ_GLOBAL;
     }
     
     if(canAssign && peek(p).type == TK_EQUAL) {
@@ -454,6 +459,42 @@ static void synchronize(Parser *p) {
 }
 
 /*** declarations ***/
+static ASTNode *block(Parser *p);
+
+static ASTFunction *fn_decl(Parser *p) {
+    // 'fn' is already consumed
+    if(!consume(p, TK_IDENTIFIER, "Expected an identifier after 'fn'")) {
+        return NULL;
+    }
+    char *name = stringNCopy(previous(p).lexeme, previous(p).length);
+
+    if(!consume(p, TK_LPAREN, "Expected '('")) {
+        freeString(name);
+        return NULL;
+    }
+    // TODO: parameters
+    if(!consume(p, TK_RPAREN, "Expected ')'")) {
+        freeString(name);
+        return NULL;
+    }
+
+    // TODO: return type
+
+    if(!consume(p, TK_LBRACE, "Expected '{'")) {
+        freeString(name);
+        return NULL;
+    }
+    beginScope(p);
+    ASTFunction *fn = newFunction(name, block(p));
+    // FIXME: This only saves local variables in the function's scope.
+    //        This can be fixed by saving a pointer to the current function in
+    //        the Parser struct and having endScope() handle the locals?
+    arrayCopy(&fn->locals, &currentScope(p)->locals);
+    endScope(p);
+
+    return fn;
+}
+
 static ASTNode *var_decl(Parser *p) {
     // 'var' is already consumed
     if(!consume(p, TK_IDENTIFIER, "Expected an identifier after 'var'")) {
@@ -467,9 +508,9 @@ static ASTNode *var_decl(Parser *p) {
     var->as.var.name = name;
     if(p->scope_depth > 0) {
         add_local(p, name);
-        var->as.var.is_local = true;
+        var->as.var.type = OBJ_LOCAL;
     } else {
-        var->as.var.is_local = false;
+        var->as.var.type = OBJ_GLOBAL;
     }
 
     if(peek(p).type == TK_EQUAL) {
@@ -595,6 +636,8 @@ static ASTNode *for_stmt(Parser *p) {
 // expression    -> assignment
 //
 // == STATEMENTS ==
+// TODO: add function arguments
+// fn_decl       -> 'fn' IDENTIFIER '(' ')' ('->' TYPE)? block
 // var_decl      -> 'var' IDENTIFIER (':' TYPE)? ('=' expression)? ';'
 // expr_stmt     -> expression ';'
 // print_stmt    -> 'print' expression ';'
@@ -610,10 +653,10 @@ static ASTNode *for_stmt(Parser *p) {
 //                | return_stmt
 //                | block
 //                | expr_stmt
+// TODO: support closures by fn_decl inside block or only fn literal?
 // declaration   -> var_decl
 //                | statement
-// TODO: make add functions so (var_decl | fn_decl)* EOF
-// program       -> declaration* EOF
+// program       -> (fn_decl | var_decl)* EOF
 static ASTNode *statement(Parser *p) {
     ASTNode *n = NULL;
     switch(peek(p).type) {
@@ -665,19 +708,38 @@ static ASTNode *declaration(Parser *p) {
 bool parse(Parser *p, ASTProg *prog) {
     advance(p);
     while(peek(p).type != TK_EOF) {
-        ASTNode *node = declaration(p);
+        switch (peek(p).type) {
+            case TK_FN: {
+                advance(p);
+                ASTFunction *fn = fn_decl(p);
+                if(fn != NULL) {
+                    arrayPush(&prog->functions, fn);
+                } else {
+                    freeFunction(fn);
+                }
+                break;
+            }
+            case TK_VAR: {
+                advance(p);
+                ASTNode *var = var_decl(p);
+                if(var != NULL) {
+                    arrayPush(&prog->globals, var);
+                } else {
+                    freeAST(var);
+                }
+                break;
+            }
+            default:
+                error(p, peek(p), "Only  ['fn', 'var'] allowed in global scope");
+                break;
+        }
 
-        // reset the parser for the next statement
+        // reset the parser state
         if(p->panic_mode) {
             p->panic_mode = false;
             synchronize(p);
         }
         p->current_expr = NULL;
-        if(p->had_error) {
-            freeAST(node);
-            continue;
-        }
-        arrayPush(&prog->declarations, node);
     }
     return p->had_error ? false : true;
 }

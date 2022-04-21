@@ -36,6 +36,13 @@ void *arrayGet(Array *a, int index) {
     return a->data[index];
 }
 
+void arrayCopy(Array *dest, Array *src) {
+    // ssize_t to make gcc happy (unsigned value >= 0 is always true)
+    for(ssize_t i = src->used-1; i >= 0; --i) {
+        arrayPush(dest, arrayGet(src, i));
+    }
+}
+
 void arrayMap(Array *a, void(*fn)(void *item, void *cl), void *cl) {
     for(size_t i = 0; i < a->used; ++i) {
         fn(a->data[i], cl);

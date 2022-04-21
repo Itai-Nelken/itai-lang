@@ -270,13 +270,13 @@ static Register gen_expr(CodeGenerator *cg, ASTNode *node) {
         case ND_NUM:
             return cgloadint(cg, node->as.literal.int32);
         case ND_VAR:
-            if(node->as.var.is_local) {
+            if(node->as.var.type == OBJ_LOCAL) {
                 UNREACHABLE();
             } else {
                 return load_glob(cg, node->as.var.name, node->loc);
             }
         case ND_ASSIGN: {
-            if(node->left->as.var.is_local) {
+            if(node->left->as.var.type == OBJ_LOCAL) {
                 UNREACHABLE();
             } else {
                 Register addr = load_glob_addr(cg, node->left->as.var.name, node->loc);
@@ -443,9 +443,10 @@ void codegen(CodeGenerator *cg) {
                 "main:\n");
     println(cg, "stp fp, lr, [sp, -16]!");
 
-    for(int i = 0; i < (int)cg->program->declarations.used; ++i) {
-        gen_stmt(cg, ARRAY_GET_AS(ASTNode *, &cg->program->declarations, i));
-    }
+    //for(int i = 0; i < (int)cg->program->declarations.used; ++i) {
+    //    gen_stmt(cg, ARRAY_GET_AS(ASTNode *, &cg->program->declarations, i));
+    //}
+    LOG_ERR("UNFINISHED!\n");
 
     // return
     println(cg, "mov x0, 0"); // default return value of 0
