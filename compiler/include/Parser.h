@@ -18,6 +18,7 @@ typedef struct parser {
     Token current_token, previous_token;
     bool had_error, panic_mode;
     ASTNode *current_expr;
+    ASTFunction *current_fn;
 
     Scope *scopes;
     int scope_depth;

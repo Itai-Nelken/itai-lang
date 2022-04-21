@@ -14,6 +14,7 @@
 #include "Parser.h"
 
 void initParser(Parser *p, const char *filename, char *source) {
+    p->current_fn = NULL;
     p->current_expr = NULL;
     p->had_error = false;
     p->panic_mode = false;
@@ -90,7 +91,9 @@ static ASTObj *find_local(Parser *p, char *name) {
 static void add_local(Parser *p, char *name) {
     ASTObj *local = CALLOC(1, sizeof(*local));
     local->name = stringIsValid(name) ? name : stringCopy(name);
-    arrayPush(&p->scopes->locals, local);
+    arrayPush(&p->scopes->locals, local); // for finding locals
+    assert(p->current_fn != NULL);
+    arrayPush(&p->current_fn->locals, local); // for codegeneration
 }
 
 static void error(Parser *p, Token tok, const char *format, ...) {
@@ -484,13 +487,13 @@ static ASTFunction *fn_decl(Parser *p) {
         freeString(name);
         return NULL;
     }
+    ASTFunction *fn = newFunction(name, NULL);
+    // NOTE: assumes there are only toplevel functions.
+    p->current_fn = fn;
     beginScope(p);
-    ASTFunction *fn = newFunction(name, block(p));
-    // FIXME: This only saves local variables in the function's scope.
-    //        This can be fixed by saving a pointer to the current function in
-    //        the Parser struct and having endScope() handle the locals?
-    arrayCopy(&fn->locals, &currentScope(p)->locals);
+    fn->body = block(p);
     endScope(p);
+    p->current_fn = NULL;
 
     return fn;
 }

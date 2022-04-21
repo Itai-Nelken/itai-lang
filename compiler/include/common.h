@@ -12,7 +12,7 @@
 
 #define UNUSED(a) ((void)a)
 
-#define LOG_ERR(msg) fprintf(stderr, "\x1b[1;31m[ERROR]:\x1b[0m" msg)
-#define LOG_ERR_F(msg, ...) fprintf(stderr, "\x1b[1;31m[ERROR]:\x1b[0m" msg, __VA_ARGS__)
+#define LOG_ERR(msg) fprintf(stderr, "\x1b[1;31m[ERROR]:\x1b[0m " msg)
+#define LOG_ERR_F(msg, ...) fprintf(stderr, "\x1b[1;31m[ERROR]:\x1b[0m " msg, __VA_ARGS__)
 
 #endif // COMMON_H
