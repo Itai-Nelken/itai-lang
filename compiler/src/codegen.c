@@ -302,13 +302,14 @@ static Register gen_expr(CodeGenerator *cg, ASTNode *node) {
                 return load_global(cg, node->as.var.name, node->loc);
             }
         case ND_ASSIGN: {
+            ASTObjType type = node->left->as.var.type;
             ASTObj *lvalue = get_local(cg, node->left->as.var.name);
             Register rvalue = gen_expr(cg, node->right);
-            if(lvalue->type == OBJ_LOCAL) {
+            if(type == OBJ_LOCAL) {
                 println(cg, "str %s, [fp, %d]", reg_to_str(rvalue), lvalue->offset);
             } else {
-                assert(lvalue->type == OBJ_GLOBAL);
-                Register addr = load_global_addr(cg, lvalue->name, node->loc);
+                assert(type == OBJ_GLOBAL);
+                Register addr = load_global_addr(cg, node->left->as.var.name, node->loc);
                 println(cg, "str %s, [%s]", reg_to_str(rvalue), reg_to_str(addr));
                 free_register(cg, addr);
             }

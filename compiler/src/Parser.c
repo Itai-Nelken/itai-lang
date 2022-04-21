@@ -748,7 +748,7 @@ bool parse(Parser *p, ASTProg *prog) {
             }
             default:
                 error(p, peek(p), "Only  ['fn', 'var'] allowed in global scope");
-                break;
+                return false; // to prevent an infinite loop
         }
 
         // reset the parser state

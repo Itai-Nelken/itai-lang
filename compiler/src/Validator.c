@@ -7,11 +7,12 @@ static void validate_global(void *global, void *cl) {
     ASTNode *g = (ASTNode *)global;
     bool *had_error = (bool *)cl;
 
-    if(g->left == NULL || (g->type == ND_ASSIGN && g->right == NULL)) {
+    if(g->type == ND_ASSIGN && (g->left == NULL || g->right == NULL)) {
         *had_error = true;
         return;
     }
-    if(g->left->as.var.type != OBJ_GLOBAL) {
+    ASTObjType type = g->type == ND_ASSIGN ? g->left->as.var.type : g->as.var.type;
+    if(type != OBJ_GLOBAL) {
         *had_error = true;
     }
 }
