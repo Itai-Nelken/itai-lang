@@ -4,7 +4,6 @@
 #include "Scanner.h"
 #include "Parser.h"
 #include "Validator.h"
-#include "codegen.h"
 
 int main(int argc, char **argv) {
 	if(argc < 2) {
@@ -13,13 +12,13 @@ int main(int argc, char **argv) {
     }
 
 	Parser p;
-	CodeGenerator cg;
 	ASTProg program;
 	
 	// initialize the parser (and scanner (lexer))
 	initParser(&p, "Test", argv[1]);
 	// initialize the AST program
 	initASTProg(&program);
+
 	// step 1 + 2: scan (lex) the source code, and parse it into an AST
 	if(!parse(&p, &program)) {
 		fputs("Parsing failed!\n", stderr);
@@ -28,7 +27,7 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-	// validate the AST to make sure its valid
+	// step 3: make sure the AST is valid
 	if(!validate(&program)) {
 		fputs("Validating failed!\n", stderr);
 		freeParser(&p);
@@ -36,13 +35,12 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 	
-	// initialize the code generator
-	initCodegen(&cg, &program, stdout);
-	// step 3: walk the AST and generate assembly
-	codegen(&cg);
+	// step 4: generate IR (intermidiate representation) bytecode from the AST
+
+	// step 5: generate the actual assembly from the IR bytecode.
+
 
 	// free all resources
-	freeCodegen(&cg);
 	freeASTProg(&program);
 	freeParser(&p);
 

@@ -13,7 +13,8 @@ set(sources
     src/Scanner.c
     src/Parser.c
     src/Validator.c
-    src/codegen.c
+    src/IR.c
+    src/irgen.c
     src/Table.c
     src/Strings.c
     src/Array.c
