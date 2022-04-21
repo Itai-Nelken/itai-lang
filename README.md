@@ -85,7 +85,7 @@ gcc print42.s -o print42
 The output of the above will be `42`.
 
 ## Full language spec
-The full spec for the language is [SPEC.md](here).
+The full spec for the language is [here](SPEC.md).
 It isn't final yet.
 
 ## TODO
