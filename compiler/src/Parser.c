@@ -484,14 +484,12 @@ static ASTNode *var_decl(Parser *p) {
 static ASTNode *declaration(Parser *p);
 
 static ASTNode *block(Parser *p) {
-    beginScope(p);
     ASTNode *n = newNode(ND_BLOCK, NULL, NULL, previous(p).location);
     initArray(&n->as.body);
     while(peek(p).type != TK_RBRACE && peek(p).type != TK_EOF) {
         arrayPush(&n->as.body, declaration(p));
     }
     consume(p, TK_RBRACE, "Expected '}' after block");
-    endScope(p);
     return n;
 }
 
@@ -642,7 +640,9 @@ static ASTNode *statement(Parser *p) {
             break;
         case TK_LBRACE:
             advance(p);
+            beginScope(p);
             n = block(p);
+            endScope(p);
             break;
         default:
             n = expr_stmt(p);
