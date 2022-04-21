@@ -64,11 +64,11 @@ int vprintErrorF(ErrorType type, Location loc, const char *format, va_list ap) {
     va_end(copy);
 
     printError(type, loc, buffer);
+    freeString(buffer);
     return length;
 }
 
 int printErrorF(ErrorType type, Location loc, const char *format, ...) {
-    char *buffer = NULL;
     int length = 0;
     va_list ap;
 
@@ -78,6 +78,5 @@ int printErrorF(ErrorType type, Location loc, const char *format, ...) {
     vprintErrorF(type, loc, format, ap);
     va_end(ap);
 
-    freeString(buffer);
     return length;
 }

@@ -295,7 +295,7 @@ static Register gen_expr(CodeGenerator *cg, ASTNode *node) {
                 return load_global(cg, node->as.var.name, node->loc);
             }
         case ND_ASSIGN: {
-            ASTObj *lvalue = &node->left->as.var;
+            ASTObj *lvalue = get_local(cg, node->left->as.var.name);
             Register rvalue = gen_expr(cg, node->right);
             if(lvalue->type == OBJ_LOCAL) {
                 println(cg, "str %s, [fp, %d]", reg_to_str(rvalue), lvalue->offset);
@@ -427,6 +427,8 @@ static void gen_stmt(CodeGenerator *cg, ASTNode *node) {
                 gen_stmt(cg, ARRAY_GET_AS(ASTNode *, &node->as.body, i));
             }
             break;
+        // FIXME: this is a hack. they should be an expr_stmt.
+        case ND_VAR:
         case ND_ASSIGN:
             free_register(cg, gen_expr(cg, node));
             break;
@@ -438,7 +440,7 @@ static void gen_stmt(CodeGenerator *cg, ASTNode *node) {
 
 static int assign_local_var_offsets(Array *locals) {
     int offset = 0;
-    for(ssize_t i = locals->used - 1; i >= 0; --i) {
+    for(size_t i = 0; i < locals->used; ++i) {
         ASTObj *obj = ARRAY_GET_AS(ASTObj *, locals, i);
         obj->offset = -offset;
         offset += 8;
