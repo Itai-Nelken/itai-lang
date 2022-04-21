@@ -7,7 +7,7 @@ static void validate_global(void *global, void *cl) {
     ASTNode *g = (ASTNode *)global;
     bool *had_error = (bool *)cl;
 
-    if(g->left == NULL || g->right == NULL) {
+    if(g->left == NULL || (g->type == ND_ASSIGN && g->right == NULL)) {
         *had_error = true;
         return;
     }
@@ -82,7 +82,9 @@ static void validate_function(void *function, void *cl) {
     validate_ast(fn->body, had_error);
 }
 
-// TODO: finish
+//  == TODO ==
+// * check that fn main() exists
+// * check that no global variable & function names clash
 bool validate(ASTProg *prog) {
     bool had_error = false;
     arrayMap(&prog->globals, validate_global, (void *)&had_error);

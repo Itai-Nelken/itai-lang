@@ -90,6 +90,7 @@ static ASTObj *find_local(Parser *p, char *name) {
 
 static void add_local(Parser *p, char *name) {
     ASTObj *local = CALLOC(1, sizeof(*local));
+    local->type = OBJ_LOCAL;
     local->name = stringIsValid(name) ? name : stringCopy(name);
     arrayPush(&p->scopes->locals, local); // for finding locals
     assert(p->current_fn != NULL);

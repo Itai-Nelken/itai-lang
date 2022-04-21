@@ -1,8 +1,10 @@
 #include <stdio.h>
 #include <string.h> // memset()
+#include <assert.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include "common.h"
+#include "utilities.h"
 #include "Errors.h"
 #include "memory.h"
 #include "Array.h"
@@ -20,13 +22,14 @@ void initCodegen(CodeGenerator *cg, ASTProg *program, FILE *file) {
     cg->buffer_size = 0;
     cg->buff = open_memstream(&cg->buffer, &cg->buffer_size);
 
+    cg->current_fn = NULL;
     cg->print_stmt_used = false;
     cg->had_error = false;
     free_all_registers(cg);
     cg->spilled_regs = 0;
-    initArray(&cg->globals);
     cg->counter = 0;
 }
+
 void freeCodegen(CodeGenerator *cg) {
     // write the code to the output file
     // and free the buffer
@@ -37,12 +40,6 @@ void freeCodegen(CodeGenerator *cg) {
     free(cg->buffer);
     cg->buffer = NULL;
     cg->buffer_size = 0;
-
-    for(size_t i = 0; i < cg->globals.used; ++i) {
-        freeString(((ASTObj *)cg->globals.data[i])->name);
-        FREE(cg->globals.data[i]);
-    }
-    freeArray(&cg->globals);
 }
 
 #define error(cg, location, format) do { printError(ERR_ERROR, location, format); cg->had_error = true; } while(0)
@@ -125,6 +122,7 @@ static int count(CodeGenerator *cg) {
 }
 
 static Register cgloadint(CodeGenerator *cg, i32 value) {
+    // TODO: handle large literals (larger than 12 bits?)
     Register r = allocate_register(cg);
     println(cg, "mov %s, %d", reg_to_str(r), value);
     return r;
@@ -225,23 +223,19 @@ static Register cgbitop(CodeGenerator *cg, Register a, Register b, ASTNodeType o
     return a;
 }
 
-static void addGlobal(CodeGenerator *cg, char *name) {
-    ASTObj *g = CALLOC(1, sizeof(*g));
-    g->name = stringCopy(name);
-    arrayPush(&cg->globals, g);
-}
-
-static ASTObj *getGlobal(CodeGenerator *cg, char *name) {
-    for(size_t i = 0; i < cg->globals.used; ++i) {
-        if(!strcmp(ARRAY_GET_AS(ASTObj *, &cg->globals, i)->name, name)) {
-            return ARRAY_GET_AS(ASTObj *, &cg->globals, i);
+static ASTObj *get_global(CodeGenerator *cg, char *name) {
+    for(size_t i = 0; i < cg->program->globals.used; ++i) {
+        ASTNode *global = ARRAY_GET_AS(ASTNode *, &cg->program->globals, i);
+        ASTObj *g = global->type == ND_ASSIGN ? &global->left->as.var : &global->as.var;
+        if(stringEqual(g->name, name)) {
+            return g;
         }
     }
     return NULL;
 }
 
-static Register load_glob_addr(CodeGenerator *cg, char *name, Location loc) {
-    ASTObj *var = getGlobal(cg, name);
+static Register load_global_addr(CodeGenerator *cg, char *name, Location loc) {
+    ASTObj *var = get_global(cg, name);
     if(var == NULL) {
         errorf(cg, loc, "Undeclared variable '%s'", name);
         return NOREG;
@@ -253,8 +247,8 @@ static Register load_glob_addr(CodeGenerator *cg, char *name, Location loc) {
     return reg;
 }
 
-static Register load_glob(CodeGenerator *cg, char *name, Location loc) {
-    Register address = load_glob_addr(cg, name, loc);
+static Register load_global(CodeGenerator *cg, char *name, Location loc) {
+    Register address = load_global_addr(cg, name, loc);
     if(address == NOREG) {
         return NOREG;
     }
@@ -264,6 +258,30 @@ static Register load_glob(CodeGenerator *cg, char *name, Location loc) {
     return r;
 }
 
+static ASTObj *get_local(CodeGenerator *cg, char *name) {
+    if(cg->current_fn == NULL) {
+        return NULL;
+    }
+    for(size_t i = 0; i < cg->current_fn->locals.used; ++i) {
+        ASTObj *local = ARRAY_GET_AS(ASTObj *, &cg->current_fn->locals, i);
+        if(stringEqual(local->name, name)) {
+            return local;
+        }
+    }
+    return NULL;
+}
+
+static Register load_local(CodeGenerator *cg, char *name) {
+    ASTObj *local = get_local(cg, name);
+    if(local == NULL) {
+        return NOREG;
+    }
+
+    Register reg = allocate_register(cg);
+    println(cg, "ldr %s, [fp, %d]", reg_to_str(reg), local->offset);
+    return reg;
+}
+
 // returns the register that will contain the result
 static Register gen_expr(CodeGenerator *cg, ASTNode *node) {
     switch(node->type) {
@@ -271,23 +289,23 @@ static Register gen_expr(CodeGenerator *cg, ASTNode *node) {
             return cgloadint(cg, node->as.literal.int32);
         case ND_VAR:
             if(node->as.var.type == OBJ_LOCAL) {
-                UNREACHABLE();
+                return load_local(cg, node->as.var.name);
             } else {
-                return load_glob(cg, node->as.var.name, node->loc);
+                assert(node->as.var.type == OBJ_GLOBAL);
+                return load_global(cg, node->as.var.name, node->loc);
             }
         case ND_ASSIGN: {
-            if(node->left->as.var.type == OBJ_LOCAL) {
-                UNREACHABLE();
+            ASTObj *lvalue = &node->left->as.var;
+            Register rvalue = gen_expr(cg, node->right);
+            if(lvalue->type == OBJ_LOCAL) {
+                println(cg, "str %s, [fp, %d]", reg_to_str(rvalue), lvalue->offset);
             } else {
-                Register addr = load_glob_addr(cg, node->left->as.var.name, node->loc);
-                if(addr == NOREG) {
-                    return NOREG;
-                }
-                Register rvalue = gen_expr(cg, node->right);
+                assert(lvalue->type == OBJ_GLOBAL);
+                Register addr = load_global_addr(cg, lvalue->name, node->loc);
                 println(cg, "str %s, [%s]", reg_to_str(rvalue), reg_to_str(addr));
                 free_register(cg, addr);
-                return rvalue; // assignment returns the value assigned
             }
+            return rvalue;
         }
         case ND_NEG:
             return cgneg(cg, gen_expr(cg, node->left));
@@ -367,7 +385,7 @@ static void gen_stmt(CodeGenerator *cg, ASTNode *node) {
             print(cg, ".L.end.%d:\n", c);
             break;
         }
-        case ND_RETURN:
+        case ND_RETURN: {
             if(node->left) {
                 Register val = gen_expr(cg, node->left);
                 if(val == NOREG) {
@@ -377,8 +395,9 @@ static void gen_stmt(CodeGenerator *cg, ASTNode *node) {
                 free_register(cg, val);
             }
             // no need for a default return value, it's put by default
-            println(cg, "b .L.return");
+            println(cg, "b .L.return.%s", cg->current_fn->name);
             break;
+        }
         case ND_PRINT: {
             cg->print_stmt_used = true;
             Register val = gen_expr(cg, node->left);
@@ -409,16 +428,51 @@ static void gen_stmt(CodeGenerator *cg, ASTNode *node) {
             }
             break;
         case ND_ASSIGN:
-            addGlobal(cg, node->left->as.var.name);
             free_register(cg, gen_expr(cg, node));
-            break;
-        case ND_VAR:
-            addGlobal(cg, node->as.var.name);
             break;
         default:
             UNREACHABLE();
     }
     return;
+}
+
+static int assign_local_var_offsets(Array *locals) {
+    int offset = 0;
+    for(ssize_t i = locals->used - 1; i >= 0; --i) {
+        ASTObj *obj = ARRAY_GET_AS(ASTObj *, locals, i);
+        obj->offset = -offset;
+        offset += 8;
+    }
+    return align_to(offset, 16);
+}
+
+static void emit_functions(CodeGenerator *cg) {
+    println(cg, ".text");
+    Array *fns = &cg->program->functions;
+
+    for(size_t i = 0; i < fns->used; ++i) {
+        ASTFunction *fn = ARRAY_GET_AS(ASTFunction *, fns, i);
+        int stack_frame_size = assign_local_var_offsets(&fn->locals);
+        // NOTE: assumes there are only toplevel functions.
+        cg->current_fn = fn;
+        println(cg, ".global %s\n"
+                    "%s:", fn->name, fn->name);
+        // 16 == 2 64bit registers
+        println(cg, "stp fp, lr, [sp, -16]!");
+        println(cg, "mov fp, sp");
+        println(cg, "sub sp, sp, %d", stack_frame_size);
+
+        gen_stmt(cg, fn->body);
+
+        if(stringEqual(fn->name, "main")) {
+            // main returns 0 by default
+            println(cg, "mov x0, 0");
+        }
+        print(cg, ".L.return.%s:\n", fn->name);
+        println(cg, "mov sp, fp");
+        println(cg, "ldp fp, lr, [sp], 16");
+        println(cg, "ret");
+    }
 }
 
 static void emit_data(CodeGenerator *cg) {
@@ -429,31 +483,33 @@ static void emit_data(CodeGenerator *cg) {
                     "printf_int_str:\n"
                     "\t.string \"%%d\\n\"\n");
     }
-    for(size_t i = 0; i < cg->globals.used; ++i) {
-        ASTObj *g = ARRAY_GET_AS(ASTObj *, &cg->globals, i);
+    for(size_t i = 0; i < cg->program->globals.used; ++i) {
+        ASTNode *n = ARRAY_GET_AS(ASTNode *, &cg->program->globals, i);
+        ASTObj *g = NULL;
+        if(n->type == ND_ASSIGN) {
+            g = &n->left->as.var;
+        } else {
+            g = &n->as.var;
+        }
+        // NOTE: g->type != OBJ_GLOBAL as global static variables are local.
         println(cg, ".global %s\n"
                     "%s:", g->name, g->name);
-        println(cg, ".zero 8");
+        if(n->type == ND_ASSIGN) {
+            assert(n->right->type == ND_NUM);
+            // FIXME: assumes always int32 literal
+            // dword == double word == 8 bytes
+            println(cg, ".dword %d", n->right->as.literal.int32);
+        } else {
+            println(cg, ".zero 8");
+        }
     }
 }
 
 void codegen(CodeGenerator *cg) {
-    println(cg, ".text\n"
-                "\t.global main\n"
-                "main:\n");
-    println(cg, "stp fp, lr, [sp, -16]!");
-
-    //for(int i = 0; i < (int)cg->program->declarations.used; ++i) {
-    //    gen_stmt(cg, ARRAY_GET_AS(ASTNode *, &cg->program->declarations, i));
-    //}
-    LOG_ERR("UNFINISHED!\n");
-
-    // return
-    println(cg, "mov x0, 0"); // default return value of 0
-    print(cg, ".L.return:\n");
-    println(cg, "ldp fp, lr, [sp], 16"); 
-    println(cg, "ret");
-
-    print(cg, "\n\n");
+    emit_functions(cg);
+    print(cg, "\n");
     emit_data(cg);
 }
+
+#undef error
+#undef errorf

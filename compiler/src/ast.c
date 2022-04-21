@@ -20,7 +20,6 @@ ASTFunction *newFunction(const char *name, ASTNode *body) {
     ASTFunction *fn = CALLOC(1, sizeof(*fn));
     fn->name = stringCopy(name);
     fn->body = body;
-    fn->stack_size = -1;
     initArray(&fn->locals);
     return fn;
 }

@@ -18,9 +18,9 @@ typedef struct code_generator {
     size_t buffer_size;
     FILE *buff, *out; // buff is actually the buffer, out is the real file
 
+    ASTFunction *current_fn;
     bool print_stmt_used;
     bool had_error;
-    Array globals; // Array<ASTObj *>
     int counter;
     bool free_regs[_REG_COUNT];
     int spilled_regs;

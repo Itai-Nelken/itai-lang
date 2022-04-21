@@ -85,16 +85,15 @@ char *stringDuplicate(char *s) {
 bool stringEqual(char *s1, char *s2) {
     int length1, length2;
     if(!stringIsValid(s1)) {
-        length1 = strlen(s1);
+        length1 = strlen(s1)+1; // +1 because stringLength returns the length+nul terminator
     } else {
         length1 = stringLength(s1);
     }
     if(!stringIsValid(s2)) {
-        length2 = strlen(s2);
+        length2 = strlen(s2)+1;
     } else {
         length2 = stringLength(s2);
     }
-    assert(stringIsValid(s2));
     if(length1 != length2) {
         return false;
     }

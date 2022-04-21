@@ -44,7 +44,6 @@ typedef struct ast_function {
     char *name;
     ASTNode *body;
     Array locals; // Array<ASTObj *>
-    int stack_size;
 } ASTFunction;
 
 typedef struct ast_node {
