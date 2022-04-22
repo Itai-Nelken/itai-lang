@@ -23,6 +23,7 @@ void initCodegen(CodeGenerator *cg, ASTProg *program, FILE *file) {
     cg->buff = open_memstream(&cg->buffer, &cg->buffer_size);
 
     cg->current_fn = NULL;
+    cg->call_init_globals = false;
     cg->print_stmt_used = false;
     cg->had_error = false;
     free_all_registers(cg);
@@ -462,7 +463,7 @@ static void emit_functions(CodeGenerator *cg) {
                     "%s:", fn->name, fn->name);
         // 16 == 2 64bit registers
         println(cg, "stp fp, lr, [sp, -16]!");
-        if(isMain) {
+        if(cg->call_init_globals && isMain) {
             println(cg, "// initialize globals");
             println(cg, "bl .initialize_globals");
         }
@@ -483,16 +484,27 @@ static void emit_functions(CodeGenerator *cg) {
 }
 
 static void emit_global_initializers(CodeGenerator *cg) {
-    println(cg, ".text\n"
-                "\t.local .initialize_globals\n"
-                ".initialize_globals:\n");
-    println(cg, "stp fp, lr, [sp, -16]!");
+    Array initExprs;
+    initArray(&initExprs);
     for(size_t i = 0; i < cg->program->globals.used; ++i) {
         ASTNode *g = ARRAY_GET_AS(ASTNode *, &cg->program->globals, i)->left;
         if(g->type != ND_ASSIGN || (g->type == ND_ASSIGN && g->right->type == ND_NUM)) {
             continue;
         }
-        println(cg, "// %s", g->left->as.var.name);
+        arrayPush(&initExprs, g);
+    }
+    if(initExprs.used == 0) {
+        // no globals to initialize
+        return;
+    }
+    cg->call_init_globals = true;
+
+    println(cg, ".local .initialize_globals\n"
+                ".initialize_globals:\n");
+    println(cg, "stp fp, lr, [sp, -16]!");
+    for(size_t i = 0; i < initExprs.used; ++i) {
+        ASTNode *g = ARRAY_GET_AS(ASTNode *, &initExprs, i);
+        println(cg, "// initialize global variable '%s'", g->left->as.var.name);
         free_register(cg, gen_expr(cg, g));
     }
     println(cg, "ldp fp, lr, [sp], 16");
@@ -500,6 +512,7 @@ static void emit_global_initializers(CodeGenerator *cg) {
 }
 
 void emit_text(CodeGenerator *cg) {
+    println(cg, ".text");
     emit_global_initializers(cg);
     emit_functions(cg);
 }

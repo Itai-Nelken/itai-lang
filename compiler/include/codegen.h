@@ -19,7 +19,7 @@ typedef struct code_generator {
     FILE *buff, *out; // buff is actually the buffer, out is the real file
 
     ASTFunction *current_fn;
-    bool print_stmt_used;
+    bool call_init_globals, print_stmt_used;
     bool had_error;
     int counter;
     bool free_regs[_REG_COUNT];
