@@ -432,11 +432,6 @@ static void gen_stmt(CodeGenerator *cg, ASTNode *node) {
                 gen_stmt(cg, ARRAY_GET_AS(ASTNode *, &node->as.body, i));
             }
             break;
-        // FIXME: this is a hack. they should be an expr_stmt.
-        case ND_VAR:
-        case ND_ASSIGN:
-            free_register(cg, gen_expr(cg, node));
-            break;
         default:
             UNREACHABLE();
     }

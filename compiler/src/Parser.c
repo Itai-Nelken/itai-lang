@@ -512,6 +512,9 @@ static ASTFunction *fn_decl(Parser *p) {
     return fn;
 }
 
+// FIXME: var node returned if no assignment.
+//        that means the codegen simply emits
+//        the instruction to get the value for now reason.
 static ASTNode *var_decl(Parser *p) {
     // 'var' is already consumed
     if(!consume(p, TK_IDENTIFIER, "Expected an identifier after 'var'")) {
@@ -535,6 +538,7 @@ static ASTNode *var_decl(Parser *p) {
         var = newNode(ND_ASSIGN, var, expression(p), previous(p).location);
     }
 
+    var = newUnaryNode(ND_EXPR_STMT, var, previous(p).location);
     consume(p, TK_SEMICOLON, "Expected ';' after variable declaration");
     return var;
 }
@@ -731,8 +735,6 @@ bool parse(Parser *p, ASTProg *prog) {
                 ASTFunction *fn = fn_decl(p);
                 if(fn != NULL) {
                     arrayPush(&prog->functions, fn);
-                } else {
-                    freeFunction(fn);
                 }
                 break;
             }
@@ -741,8 +743,6 @@ bool parse(Parser *p, ASTProg *prog) {
                 ASTNode *var = var_decl(p);
                 if(var != NULL) {
                     arrayPush(&prog->globals, var);
-                } else {
-                    freeAST(var);
                 }
                 break;
             }
@@ -758,5 +758,5 @@ bool parse(Parser *p, ASTProg *prog) {
         }
         p->current_expr = NULL;
     }
-    return p->had_error ? false : true;
+    return !p->had_error;
 }
