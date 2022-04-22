@@ -46,7 +46,7 @@ fn main() {
 
 }
 ```
-### Supported features
+### Implemented features (so far)
 #### Comments
 Single and multi-line. comments are ignored by the scanner (lexer).
 #### Operators:

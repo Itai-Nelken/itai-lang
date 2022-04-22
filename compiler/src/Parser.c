@@ -514,7 +514,7 @@ static ASTFunction *fn_decl(Parser *p) {
 
 // FIXME: var node returned if no assignment.
 //        that means the codegen simply emits
-//        the instruction to get the value for now reason.
+//        the instruction to get the value for no reason.
 static ASTNode *var_decl(Parser *p) {
     // 'var' is already consumed
     if(!consume(p, TK_IDENTIFIER, "Expected an identifier after 'var'")) {

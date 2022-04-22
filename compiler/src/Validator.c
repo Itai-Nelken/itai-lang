@@ -141,7 +141,6 @@ static void validate_function(void *function, void *cl) {
 //  == TODO ==
 // * check that fn main() exists
 // * check that no global variable & function names clash
-// * check that there are no undeclared globals used.
 bool validate(ASTProg *prog) {
     ValidatorState state = {
         .had_error = false,

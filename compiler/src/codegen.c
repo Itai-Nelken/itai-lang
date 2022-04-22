@@ -450,24 +450,28 @@ static int assign_local_var_offsets(Array *locals) {
 }
 
 static void emit_functions(CodeGenerator *cg) {
-    println(cg, ".text");
     Array *fns = &cg->program->functions;
 
     for(size_t i = 0; i < fns->used; ++i) {
         ASTFunction *fn = ARRAY_GET_AS(ASTFunction *, fns, i);
         int stack_frame_size = assign_local_var_offsets(&fn->locals);
+        bool isMain = stringEqual(fn->name, "main");
         // NOTE: assumes there are only toplevel functions.
         cg->current_fn = fn;
         println(cg, ".global %s\n"
                     "%s:", fn->name, fn->name);
         // 16 == 2 64bit registers
         println(cg, "stp fp, lr, [sp, -16]!");
+        if(isMain) {
+            println(cg, "// initialize globals");
+            println(cg, "bl .initialize_globals");
+        }
         println(cg, "mov fp, sp");
         println(cg, "sub sp, sp, %d", stack_frame_size);
 
         gen_stmt(cg, fn->body);
 
-        if(stringEqual(fn->name, "main")) {
+        if(isMain) {
             // main returns 0 by default
             println(cg, "mov x0, 0");
         }
@@ -486,6 +490,7 @@ static void emit_data(CodeGenerator *cg) {
                     "printf_int_str:\n"
                     "\t.string \"%%d\\n\"\n");
     }
+
     for(size_t i = 0; i < cg->program->globals.used; ++i) {
         // globals are wrapped in ND_EXPR_STMTs
         ASTNode *n = ARRAY_GET_AS(ASTNode *, &cg->program->globals, i)->left;
@@ -495,12 +500,10 @@ static void emit_data(CodeGenerator *cg) {
         } else {
             g = &n->as.var;
         }
-        // NOTE: g->type != OBJ_GLOBAL as global static variables are local.
+        // NOTE: g->type isn't neccessarily OBJ_GLOBAL as global static variables are "local".
         println(cg, ".global %s\n"
                     "%s:", g->name, g->name);
-        if(n->type == ND_ASSIGN) {
-            assert(n->right->type == ND_NUM);
-            // FIXME: assumes always int32 literal
+        if(n->type == ND_ASSIGN && n->right->type == ND_NUM) {
             // dword == double word == 8 bytes
             println(cg, ".dword %d", n->right->as.literal.int32);
         } else {
@@ -509,8 +512,30 @@ static void emit_data(CodeGenerator *cg) {
     }
 }
 
-void codegen(CodeGenerator *cg) {
+static void emit_global_initializers(CodeGenerator *cg) {
+    println(cg, ".text\n"
+                "\t.local .initialize_globals\n"
+                ".initialize_globals:\n");
+    println(cg, "stp fp, lr, [sp, -16]!");
+    for(size_t i = 0; i < cg->program->globals.used; ++i) {
+        ASTNode *g = ARRAY_GET_AS(ASTNode *, &cg->program->globals, i)->left;
+        if(g->type != ND_ASSIGN || (g->type == ND_ASSIGN && g->right->type == ND_NUM)) {
+            continue;
+        }
+        println(cg, "// %s", g->left->as.var.name);
+        free_register(cg, gen_expr(cg, g));
+    }
+    println(cg, "ldp fp, lr, [sp], 16");
+    println(cg, "ret\n");
+}
+
+void emit_text(CodeGenerator *cg) {
+    emit_global_initializers(cg);
     emit_functions(cg);
+}
+
+void codegen(CodeGenerator *cg) {
+    emit_text(cg);
     print(cg, "\n");
     emit_data(cg);
 }
