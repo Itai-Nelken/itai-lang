@@ -128,7 +128,7 @@ The Preprocessor and Compiler can be passed certain options using directives:
 | `isize` | `ssize_t` |
 | `usize` | `size_t` |
 | `char` | `char` |
-| `str` (pointer to string literal) | `char*` or `char*` |
+| `str` (pointer to string literal) | `const char *` |
 
 ### Advanced (from the standard library)
 
@@ -261,8 +261,6 @@ Hexadecimal numbers have to be prefixed with `0x` , binary numbers with `0b`, an
 
 Characters are put in between `'` (single quotes) and strings in between `"` (double quotes).<br>
 
-Multiline strings can be put in between `"""` (3 double quotes).
-
 ```rust
 // character
 'c'
@@ -329,7 +327,7 @@ split("abcd"); // "ab", "cd"
 | Operator | Description | Type |
 | ---  | --- | --- |
 | `&`  | AND | infix |
-| `|`  | OR  |
+| `\|`  | OR  |
 | `^`  | XOR | infix |
 | `~`  | Binary One's Complement | prefix |
 | `<<` | left shift | infix |
@@ -346,7 +344,7 @@ split("abcd"); // "ab", "cd"
 | `/=` | division+assignment | infix |
 | `%=` | modulus+assignment | infix |
 | `&=` | AND+assignment | infix |
-| `   | =`  | OR+assignment |
+| `\|=` | OR+assignment |
 | `^=` | XOR+assignment | infix |
 | `<<=` | left shift+assignment | infix |
 | `>>=` | right shift+assignment | infix |
@@ -461,14 +459,14 @@ while i < 10 {
 ```
 
 ```go
-for(var i = 0; i < 10; i++) {
+for var i = 0; i < 10; i++ {
     io::printfln("%d", i);
 }
 ```
 
 ## Variables
 
-Variables are declared using the `var` keyword followed by the name of the variable. a value can also be assigned by adding `=` followed by an expression that returns a value. if that is done, the compiler infers the type automatically, else you'll have to provided by adding a `:` followed by the type before the `=` (if used).<br>
+Variables are declared using the `var` keyword followed by the name of the variable. A value can also be assigned by adding `=` followed by an expression that returns a value. if that is done, the compiler infers the type automatically, else the type has to be provided by adding a `:` followed by the type before the `=` (if used).<br>
 
 Constants are the same but you have to assign a value to them at declaration (and you cannot reassign a value to them).
 
@@ -487,7 +485,7 @@ const name: type = value;
 
 ## Functions
 
-Functions are declared with the `fn` keyword followed by a pair of opening and closing parentheses (`()`) containing the paraneters.`->` followed by the return type(s) can be added if the function returns something.<br>
+Functions are declared with the `fn` keyword followed by a pair of opening and closing parentheses (`()`) containing the parameters.`->` followed by the return type(s) can be added if the function returns something.<br>
 
 A function is called by its name followed by opening and closing parentheses (`()`) containing the arguments if applicable.
 
@@ -522,9 +520,9 @@ The following api is available to access the arguments:
   
 - `va_end(ap)`
   
-- `va_arg<T>() -> T`
+- `va_arg<T>(ap) -> T`
   
-- `va_copy(from, to)`
+- `va_copy(dest, src)`
   
 
 The above functions are internal and not from the standard library.
@@ -532,22 +530,25 @@ The above functions are internal and not from the standard library.
 **example:**
 
 ```rust
+import "strconv";
+
 fn printf(format: str, ap: ...) {
     var out: String;
     va_start(ap, format);
     defer va_end(ap);
-    for(var i = 0; format[i] != '\0'; i++) {
+    for var i = 0; format[i] != '\0'; i++ {
         if format[i] == '%' {
             i++;
             switch format[i] {
                 'i' => fallthrough;
-                'd' => out.append_char(va_arg<i32>(ap));
+                'd' => out.append_char(strconv::itos(va_arg<i32>(ap));
                 'c' => out.append_char(va_arg<char>(ap));
+                's' => out.append_str(ca_arg<str>(ap));
                 '%' => out.append_char('%');
                 _ => out.append(format[i-1 : i]);
             }
         } else {
-            out.append(format[i : i+1]);
+            out.append(format[i]);
             i++;
         }
     }
@@ -603,11 +604,6 @@ ref;
 *ref = 12;
 // now number is 12
 number; // 12
-
-// read-only reference
-var ro_ref = &const number;
-*ro_ref; // 42
-// *ro_ref = 12 is a compile-time error
 ```
 
 Read only or constant references are references that can only be used to read a value, not change it.
@@ -739,7 +735,7 @@ struct Foo<T> {
     value: T;
 }
 var value = Foo<i32>{value: 12};
-var str = Foo<String>{value: String::from_str("Hello, World!")};
+var string = Foo<String>{value: String::from_str("Hello, World!")};
 
 // functions
 fn add<T>(T a, T b) -> T {
@@ -835,9 +831,11 @@ this doesn't apply when a module from a file (`import "<file>/<module>";` ) or w
 
 ## Scopes
 
-A scope is whatever is inside a pair of opening and closing braces (`{}`) (a block).
+A scope generally is whatever is inside a pair of opening and closing braces (`{}`) (a block). More specifically, each function has a scope and each for loop has a scope (so the initializer clause can be a variable declaration).
+further scopes can be added with blocks (`{ ... }`).
 
-A scope has it's own namespace that has higher precedence than it's parent scope. that means that if a scope and it's parent scope have an object with the same name, referencing it in the child scope will use the one defined in it. to use the one from the parent scope, the `::` (scope resolution) operator is used in it's prefix variant.
+Object names in the current scope have "shadow" objects with the same name in the parent scopes.
+In other words, if a child scope and its parent scope have an object with the same name, referencing the object in the child scope will use the one defined in the child scope. to use the object from the parent scope, the scope resolution operator (`::`) is used in its prefix variant.
 
 ### Namespaces
 
