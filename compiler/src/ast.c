@@ -6,12 +6,34 @@
 #include "Token.h"
 #include "ast.h"
 
+// callbacks for arrayMap()
+static void free_ast_node_callback(void *node, void *cl) {
+    UNUSED(cl);
+    ASTNode *n = (ASTNode *)node;
+    freeAST(n);
+}
+
+static void free_ast_obj_callback(void *obj, void *cl) {
+    UNUSED(cl);
+    ASTObj *o = (ASTObj *)obj;
+    //freeString(o->name); // an ASTNode most likely has free'd this
+    FREE(o);
+}
+
+static void free_ast_fn_callback(void *func, void *cl) {
+    UNUSED(cl);
+    ASTFunction *fn = (ASTFunction *)func;
+    freeFunction(fn);
+}
+
 void initASTProg(ASTProg *astp) {
     initArray(&astp->functions);
     initArray(&astp->globals);
 }
 
 void freeASTProg(ASTProg *astp) {
+    arrayMap(&astp->functions, free_ast_fn_callback, NULL);
+    arrayMap(&astp->globals, free_ast_node_callback, NULL);
     freeArray(&astp->functions);
     freeArray(&astp->globals);
 }
@@ -25,17 +47,12 @@ ASTFunction *newFunction(const char *name, Location loc, ASTNode *body) {
     return fn;
 }
 
-static void free_ast_obj_callback(void *obj, void *cl) {
-    UNUSED(cl);
-    ASTObj *o = (ASTObj *)obj;
-    freeString(o->name);
-}
-
 void freeFunction(ASTFunction *fn) {
     freeString(fn->name);
     freeAST(fn->body);
     arrayMap(&fn->locals, free_ast_obj_callback, NULL);
     freeArray(&fn->locals);
+    FREE(fn);
 }
 
 ASTNode *newNode(ASTNodeType type, ASTNode *left, ASTNode *right, Location loc) {
@@ -65,6 +82,7 @@ void freeAST(ASTNode *root) {
             for(int i = 0; i < (int)root->as.body.used; ++i) {
                 freeAST(ARRAY_GET_AS(ASTNode *, &root->as.body, i));
             }
+            freeArray(&root->as.body);
             break;
         case ND_IF:
         case ND_LOOP:

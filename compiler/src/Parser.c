@@ -23,10 +23,11 @@ void initParser(Parser *p, const char *filename, char *source) {
     initScanner(&p->scanner, filename, source);
 }
 
-static void scope_free_locals_callback(void *local, void *cl) {
+static void free_obj_callback(void *obj, void *cl) {
     UNUSED(cl);
-    ASTObj *l = (ASTObj *)local;
-    freeString(l->name);
+    ASTObj *o = (ASTObj *)obj;
+    // don't free the name as it's used in the ASTFunctions
+    FREE(o);
 }
 
 void freeParser(Parser *p) {
@@ -34,7 +35,7 @@ void freeParser(Parser *p) {
     if(p->scopes != NULL) {
         while(p->scopes != NULL) {
             Scope *previous = p->scopes->previous;
-            arrayMap(&p->scopes->locals, scope_free_locals_callback, NULL);
+            arrayMap(&p->scopes->locals, free_obj_callback, NULL);
             freeArray(&p->scopes->locals);
             FREE(p->scopes);
             p->scopes = previous;
@@ -299,21 +300,22 @@ end:
 }
 
 static void parse_identifier(Parser *p, bool canAssign) {
-    p->current_expr = newNode(ND_VAR, NULL, NULL, previous(p).location);
+    ASTNode *n = newNode(ND_VAR, NULL, NULL, previous(p).location);
     
     char *name = stringNCopy(previous(p).lexeme, previous(p).length);
-    p->current_expr->as.var.name = name;
+    n->as.var.name = name;
     
     if(p->scope_depth > 0 && find_local(p, name) != NULL) {
-        p->current_expr->as.var.type = OBJ_LOCAL;
+        n->as.var.type = OBJ_LOCAL;
     } else {
-        p->current_expr->as.var.type = OBJ_GLOBAL;
+        n->as.var.type = OBJ_GLOBAL;
     }
     
     if(canAssign && peek(p).type == TK_EQUAL) {
         advance(p);
-        p->current_expr = newNode(ND_ASSIGN, p->current_expr, expression(p), previous(p).location);
+        n = newNode(ND_ASSIGN, n, expression(p), previous(p).location);
     }
+    p->current_expr = n;
 }
 
 static void parse_call(Parser *p) {
@@ -323,6 +325,7 @@ static void parse_call(Parser *p) {
         return;
     }
     char *name = p->current_expr->as.var.name;
+    freeAST(p->current_expr); // don't need this
     p->current_expr = newNode(ND_FN_CALL, NULL, NULL, previous(p).location);
     p->current_expr->as.name = name;
 }
@@ -507,6 +510,7 @@ static ASTFunction *fn_decl(Parser *p) {
         return NULL;
     }
     ASTFunction *fn = newFunction(name, loc, NULL);
+    freeString(name); // newFunction() makes it's own copy
     // NOTE: assumes there are only toplevel functions.
     p->current_fn = fn;
     beginScope(p);

@@ -495,6 +495,7 @@ static void emit_global_initializers(CodeGenerator *cg) {
     }
     if(initExprs.used == 0) {
         // no globals to initialize
+        freeArray(&initExprs);
         return;
     }
     cg->call_init_globals = true;
@@ -509,6 +510,8 @@ static void emit_global_initializers(CodeGenerator *cg) {
     }
     println(cg, "ldp fp, lr, [sp], 16");
     println(cg, "ret\n");
+
+    freeArray(&initExprs);
 }
 
 void emit_text(CodeGenerator *cg) {
