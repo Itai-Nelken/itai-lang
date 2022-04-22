@@ -1,6 +1,8 @@
+#include <stdio.h>
 #include <string.h> // memcpy()
-#include <stdbool.h>
+#include <stdarg.h>
 #include <assert.h>
+#include <stdbool.h>
 #include "memory.h"
 #include "Strings.h"
 
@@ -55,10 +57,10 @@ char *stringResize(char *s, int newLength) {
     assert(stringIsValid(s));
     assert(newLength > 0);
     int oldLength = stringLength(s);
-    char *str = s - 4;
+    char *str = s - 5;
 
-    str = REALLOC(str, sizeof(char) * newLength + 4);
-    memset(str + 4 + oldLength, '\0', newLength - oldLength);
+    str = REALLOC(str, sizeof(char) * newLength + 5);
+    memset(str + 5 + oldLength, '\0', newLength - oldLength);
     return str + 4;
 }
 
@@ -98,4 +100,26 @@ bool stringEqual(char *s1, char *s2) {
         return false;
     }
     return memcmp(s1, s2, length1) == 0;
+}
+
+void stringAppend(char *dest, const char *s, ...) {
+    assert(stringIsValid(dest));
+    va_list ap;
+    int dest_length = stringLength(dest);
+
+    va_start(ap, s);
+    int needed_length = vsnprintf(NULL, 0, s, ap);
+    va_end(ap);
+
+    if(needed_length > dest_length) {
+        stringResize(dest, needed_length);
+    }
+
+    char *buffer = newString(needed_length+1);
+    va_start(ap, s);
+    vsnprintf(buffer, (size_t)needed_length+1, s, ap);
+    va_end(ap);
+
+    strncat(dest, buffer, stringLength(buffer)-1);
+    freeString(buffer);
 }

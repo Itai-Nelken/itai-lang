@@ -80,4 +80,13 @@ char *stringDuplicate(char *s);
  ***/
 bool stringEqual(char *s1, char *s2);
 
+/***
+ * Append s to dest (with printf-like formatting supported)
+ * NOTE: the string might be reallocated
+ *
+ * @param dest the destination string.
+ * @param s the string to append (with printf-like format specifiers supported).
+ ***/
+void stringAppend(char *dest, const char *s, ...);
+
 #endif // STRINGS_H

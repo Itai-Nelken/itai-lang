@@ -482,6 +482,28 @@ static void emit_functions(CodeGenerator *cg) {
     }
 }
 
+static void emit_global_initializers(CodeGenerator *cg) {
+    println(cg, ".text\n"
+                "\t.local .initialize_globals\n"
+                ".initialize_globals:\n");
+    println(cg, "stp fp, lr, [sp, -16]!");
+    for(size_t i = 0; i < cg->program->globals.used; ++i) {
+        ASTNode *g = ARRAY_GET_AS(ASTNode *, &cg->program->globals, i)->left;
+        if(g->type != ND_ASSIGN || (g->type == ND_ASSIGN && g->right->type == ND_NUM)) {
+            continue;
+        }
+        println(cg, "// %s", g->left->as.var.name);
+        free_register(cg, gen_expr(cg, g));
+    }
+    println(cg, "ldp fp, lr, [sp], 16");
+    println(cg, "ret\n");
+}
+
+void emit_text(CodeGenerator *cg) {
+    emit_global_initializers(cg);
+    emit_functions(cg);
+}
+
 static void emit_data(CodeGenerator *cg) {
     println(cg, ".data");
     // temporary data for builtin print statement
@@ -510,28 +532,6 @@ static void emit_data(CodeGenerator *cg) {
             println(cg, ".zero 8");
         }
     }
-}
-
-static void emit_global_initializers(CodeGenerator *cg) {
-    println(cg, ".text\n"
-                "\t.local .initialize_globals\n"
-                ".initialize_globals:\n");
-    println(cg, "stp fp, lr, [sp, -16]!");
-    for(size_t i = 0; i < cg->program->globals.used; ++i) {
-        ASTNode *g = ARRAY_GET_AS(ASTNode *, &cg->program->globals, i)->left;
-        if(g->type != ND_ASSIGN || (g->type == ND_ASSIGN && g->right->type == ND_NUM)) {
-            continue;
-        }
-        println(cg, "// %s", g->left->as.var.name);
-        free_register(cg, gen_expr(cg, g));
-    }
-    println(cg, "ldp fp, lr, [sp], 16");
-    println(cg, "ret\n");
-}
-
-void emit_text(CodeGenerator *cg) {
-    emit_global_initializers(cg);
-    emit_functions(cg);
 }
 
 void codegen(CodeGenerator *cg) {

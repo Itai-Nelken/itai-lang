@@ -92,6 +92,10 @@ static void add_local(Parser *p, char *name) {
     ASTObj *local = CALLOC(1, sizeof(*local));
     local->type = OBJ_LOCAL;
     local->name = stringIsValid(name) ? name : stringCopy(name);
+    // if the local already exists, add ".<scope_depth>" to it.
+    if(find_local(p, name) != NULL) {
+        stringAppend(local->name, ".%d", p->scope_depth);
+    }
     arrayPush(&p->scopes->locals, local); // for finding locals
     assert(p->current_fn != NULL);
     arrayPush(&p->current_fn->locals, local); // for codegeneration
