@@ -488,6 +488,7 @@ static ASTFunction *fn_decl(Parser *p) {
         return NULL;
     }
     char *name = stringNCopy(previous(p).lexeme, previous(p).length);
+    Location loc = previous(p).location;
 
     if(!consume(p, TK_LPAREN, "Expected '('")) {
         freeString(name);
@@ -505,7 +506,7 @@ static ASTFunction *fn_decl(Parser *p) {
         freeString(name);
         return NULL;
     }
-    ASTFunction *fn = newFunction(name, NULL);
+    ASTFunction *fn = newFunction(name, loc, NULL);
     // NOTE: assumes there are only toplevel functions.
     p->current_fn = fn;
     beginScope(p);

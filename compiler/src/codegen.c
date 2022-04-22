@@ -535,7 +535,7 @@ static void emit_data(CodeGenerator *cg) {
         } else {
             g = &n->as.var;
         }
-        // NOTE: g->type isn't neccessarily OBJ_GLOBAL as global static variables are "local".
+
         println(cg, ".global %s\n"
                     "%s:", g->name, g->name);
         if(n->type == ND_ASSIGN && n->right->type == ND_NUM) {

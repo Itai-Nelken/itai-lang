@@ -16,9 +16,10 @@ void freeASTProg(ASTProg *astp) {
     freeArray(&astp->globals);
 }
 
-ASTFunction *newFunction(const char *name, ASTNode *body) {
+ASTFunction *newFunction(const char *name, Location loc, ASTNode *body) {
     ASTFunction *fn = CALLOC(1, sizeof(*fn));
     fn->name = stringCopy(name);
+    fn->location = loc;
     fn->body = body;
     initArray(&fn->locals);
     return fn;

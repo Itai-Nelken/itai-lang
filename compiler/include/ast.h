@@ -43,6 +43,7 @@ typedef struct ast_obj {
 typedef struct ast_node ASTNode;
 typedef struct ast_function {
     char *name;
+    Location location;
     ASTNode *body;
     Array locals; // Array<ASTObj *>
 } ASTFunction;
@@ -73,7 +74,7 @@ typedef struct ast_program {
 void initASTProg(ASTProg *astp);
 void freeASTProg(ASTProg *astp);
 
-ASTFunction *newFunction(const char *name, ASTNode *body);
+ASTFunction *newFunction(const char *name, Location loc, ASTNode *body);
 void freeFunction(ASTFunction *fn);
 
 ASTNode *newNode(ASTNodeType type, ASTNode *left, ASTNode *right, Location loc);
