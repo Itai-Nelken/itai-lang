@@ -226,7 +226,8 @@ static Register cgbitop(CodeGenerator *cg, Register a, Register b, ASTNodeType o
 
 static ASTObj *get_global(CodeGenerator *cg, char *name) {
     for(size_t i = 0; i < cg->program->globals.used; ++i) {
-        ASTNode *global = ARRAY_GET_AS(ASTNode *, &cg->program->globals, i);
+        // because globals are wrapped in ND_EXPR_STMTs
+        ASTNode *global = ARRAY_GET_AS(ASTNode *, &cg->program->globals, i)->left;
         ASTObj *g = global->type == ND_ASSIGN ? &global->left->as.var : &global->as.var;
         if(stringEqual(g->name, name)) {
             return g;
@@ -486,7 +487,8 @@ static void emit_data(CodeGenerator *cg) {
                     "\t.string \"%%d\\n\"\n");
     }
     for(size_t i = 0; i < cg->program->globals.used; ++i) {
-        ASTNode *n = ARRAY_GET_AS(ASTNode *, &cg->program->globals, i);
+        // globals are wrapped in ND_EXPR_STMTs
+        ASTNode *n = ARRAY_GET_AS(ASTNode *, &cg->program->globals, i)->left;
         ASTObj *g = NULL;
         if(n->type == ND_ASSIGN) {
             g = &n->left->as.var;

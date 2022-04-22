@@ -1,28 +1,83 @@
+#include <stdarg.h>
+#include <stddef.h> // size_t
 #include <stdbool.h>
+#include <assert.h>
 #include "common.h"
+#include "Errors.h"
+#include "Strings.h"
+#include "Token.h" // Location
 #include "ast.h"
 #include "Validator.h"
 
+typedef struct validator_state {
+    bool had_error;
+    ASTProg *prog;
+} ValidatorState;
+
+static void error(ValidatorState *state, Location loc, const char *format, ...) {
+    state->had_error = true;
+    va_list ap;
+    va_start(ap, format);
+    vprintErrorF(ERR_ERROR, loc, format, ap);
+    va_end(ap);
+}
+
+static bool global_exists(ValidatorState *state, char *name) {
+    for(size_t i = 0; i < state->prog->globals.used; ++i) {
+        // FIXME: assumes that always is ND_EXPR_STMT (true), that is valid.
+        ASTNode *global = ARRAY_GET_AS(ASTNode *, &state->prog->globals, i)->left;
+        char *global_name;
+        if(global->type == ND_ASSIGN) {
+            global_name = global->left->as.var.name;
+        } else {
+            assert(global->type == ND_VAR);
+            global_name = global->as.var.name;
+        }
+        if(stringEqual(global_name, name)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 static void validate_global(void *global, void *cl) {
     ASTNode *g = (ASTNode *)global;
-    bool *had_error = (bool *)cl;
+    ValidatorState *state = (ValidatorState *)cl;
+
+    assert(g->type == ND_EXPR_STMT);
+    assert(g->left); // FIXME: validate_unary()
+    g = g->left;
 
     if(g->type == ND_ASSIGN && (g->left == NULL || g->right == NULL)) {
-        *had_error = true;
+        error(state, g->loc, "ND_ASSIGN with no left or right children");
         return;
     }
-    ASTObjType type = g->type == ND_ASSIGN ? g->left->as.var.type : g->as.var.type;
+    ASTObjType type;
+    char *name;
+    if(g->type == ND_ASSIGN) {
+        type = g->left->as.var.type;
+        name = g->left->as.var.name;
+    } else {
+        assert(g->type == ND_VAR);
+        type = g->as.var.type;
+        name = g->as.var.name;
+    }
+
     if(type != OBJ_GLOBAL) {
-        *had_error = true;
+        error(state, g->loc, "global variable with type that isn't OBJ_GLOBAL");
+    }
+
+    if(!global_exists(state, name)) {
+        error(state, g->loc, "Undeclared global variable '%s'", name);
     }
 }
 
 static void validate_local(void *local, void *cl) {
     ASTObj *l = (ASTObj *)local;
-    bool *had_error = (bool *)cl;
+    ValidatorState *state = (ValidatorState *)cl;
 
     if(l->type != OBJ_LOCAL) {
-        *had_error = true;
+        state->had_error = true;
     }
 }
 
@@ -77,18 +132,22 @@ static void validate_ast(ASTNode *node, bool *had_error) {
 
 static void validate_function(void *function, void *cl) {
     ASTFunction *fn = (ASTFunction *)function;
-    bool *had_error = (bool *)cl;
+    ValidatorState *state = (ValidatorState *)cl;
 
     arrayMap(&fn->locals, validate_local, cl);
-    validate_ast(fn->body, had_error);
+    validate_ast(fn->body, &state->had_error);
 }
 
 //  == TODO ==
 // * check that fn main() exists
 // * check that no global variable & function names clash
+// * check that there are no undeclared globals used.
 bool validate(ASTProg *prog) {
-    bool had_error = false;
-    arrayMap(&prog->globals, validate_global, (void *)&had_error);
-    arrayMap(&prog->functions, validate_function, (void *)&had_error);
-    return !had_error;
+    ValidatorState state = {
+        .had_error = false,
+        .prog = prog
+    };
+    arrayMap(&prog->globals, validate_global, (void *)&state);
+    arrayMap(&prog->functions, validate_function, (void *)&state.had_error);
+    return !state.had_error;
 }
