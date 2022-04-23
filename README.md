@@ -2,7 +2,7 @@
 A custom programming language based on C, Rust, and Go.
 
 ## Current progress
-An example of everything the compiler can do
+An example of everything the compiler can currently do
 ```rust
 /***
  * itai-lang example
