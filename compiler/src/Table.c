@@ -25,6 +25,7 @@ static bool compareString(char *s1, char *s2) {
 void initTable(Table *t, tableHashFn hashFn, tableCmpFn cmpFn) {
     t->capacity = 0;
     t->used = 0;
+    initArray(&t->all);
     t->items = NULL;
     t->hashFn = hashFn ? hashFn : (tableHashFn)hashString;
     t->cmpFn = cmpFn ? cmpFn : (tableCmpFn)compareString;
@@ -33,6 +34,7 @@ void initTable(Table *t, tableHashFn hashFn, tableCmpFn cmpFn) {
 void freeTable(Table *t) {
     t->capacity = 0;
     t->used = 0;
+    freeArray(&t->all);
     if(t->items != NULL) {
         FREE(t->items);
         t->items = NULL;
@@ -107,6 +109,7 @@ void tableSet(Table *t, void *key, void *value) {
 
     item->key = key;
     item->value = value;
+    arrayPush(&t->all, item);
 }
 
 Item *tableGet(Table *t, void *key) {
@@ -120,6 +123,13 @@ Item *tableGet(Table *t, void *key) {
     }
 
     return item;
+}
+
+void tableMap(Table *t, void (*callback)(Item *item, void *cl), void *cl) {
+    for(size_t i = 0; i < t->all.used; ++i) {
+        Item *item = ARRAY_GET_AS(Item *, &t->all, i);
+        callback(item, cl);
+    }
 }
 
 void tableDelete(Table *t, void *key) {

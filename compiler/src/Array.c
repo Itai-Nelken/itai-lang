@@ -14,12 +14,13 @@ void freeArray(Array *a) {
     a->used = a->capacity = 0;
 }
 
-void arrayPush(Array *a, void *value) {
+int arrayPush(Array *a, void *value) {
     if(a->used + 1 > a->capacity) {
         a->capacity *= 2;
         a->data = REALLOC(a->data, sizeof(void *) * a->capacity);
     }
     a->data[a->used++] = value;
+    return a->used - 1;
 }
 
 void *arrayPop(Array *a) {

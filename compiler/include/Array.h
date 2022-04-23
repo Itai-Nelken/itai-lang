@@ -10,7 +10,7 @@ typedef struct array {
 
 void initArray(Array *a);
 void freeArray(Array *a);
-void arrayPush(Array *a, void *value);
+int arrayPush(Array *a, void *value);
 void *arrayPop(Array *a);
 void *arrayGet(Array *a, int index);
 void arrayCopy(Array *dest, Array *src);

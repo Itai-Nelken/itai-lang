@@ -3,6 +3,7 @@
 
 #include <stddef.h> // size_t
 #include <stdbool.h>
+#include "Array.h"
 
 #define TABLE_INITIAL_CAPACITY 16
 #define TABLE_MAX_LOAD 0.75 // 75%
@@ -18,6 +19,7 @@ typedef bool (*tableCmpFn)(void *a, void *b);
 typedef struct table {
     size_t used, capacity;
     TableItem *items;
+    Array all; // Array<Item *>
     tableHashFn hashFn;
     tableCmpFn cmpFn;
 } Table;
@@ -57,6 +59,15 @@ void tableSet(Table *t, void *key, void *value);
  * @return A pointer to the item or NULL if not found.
  ***/
 TableItem *tableGet(Table *t, void *key);
+
+/***
+ * Call callback for every item in the table.
+ *
+ * @param item An item.
+ * @param callback The callback to call for every item.\
+ * @param cl user data to pass to the callback.
+ ***/
+void tableMap(Table *t, void (*callback)(TableItem *item, void *cl), void *cl);
 
 /***
  * Delete an item in a table.
