@@ -25,13 +25,14 @@ static void error(ValidatorState *state, Location loc, const char *format, ...) 
 }
 
 static bool validate_unary(ASTNode *n) {
-    if(n->left == NULL) {
+    if(AS_UNARY_NODE(n)->child == NULL) {
         return false;
     }
     return true;
 }
 
-static bool validate_binary(ASTNode *n) {
+static bool validate_binary(ASTNode *node) {
+    ASTBinaryNode *n = AS_BINARY_NODE(node);
     if(n->left == NULL || n->right == NULL) {
         return false;
     }
@@ -76,13 +77,13 @@ static void validate_ast(ASTNode *node, bool *had_error) {
 static bool global_exists(ValidatorState *state, char *name) {
     for(size_t i = 0; i < state->prog->globals.used; ++i) {
         // FIXME: assumes that the ND_EXPR_STMT is always valid.
-        ASTNode *global = ARRAY_GET_AS(ASTNode *, &state->prog->globals, i)->left;
+        ASTNode *global = AS_UNARY_NODE(ARRAY_GET_AS(ASTNode *, &state->prog->globals, i))->child;
         char *global_name;
         if(global->type == ND_ASSIGN) {
-            global_name = global->left->as.var.name;
+            global_name = AS_OBJ_NODE(AS_BINARY_NODE(global)->left)->obj.name;
         } else {
             assert(global->type == ND_VAR);
-            global_name = global->as.var.name;
+            global_name = AS_OBJ_NODE(global)->obj.name;
         }
         if(stringEqual(global_name, name)) {
             return true;
@@ -100,21 +101,21 @@ static void validate_global(void *global, void *cl) {
         error(state, g->loc, "Invalid ND_EXPR_STMT!");
         return;
     }
-    g = g->left;
+    g = AS_UNARY_NODE(g)->child;
 
-    if(g->type == ND_ASSIGN && (g->left == NULL || g->right == NULL)) {
+    if(g->type == ND_ASSIGN && (AS_BINARY_NODE(g)->left == NULL || AS_BINARY_NODE(g)->right == NULL)) {
         error(state, g->loc, "ND_ASSIGN with no left or right children");
         return;
     }
     ASTObjType type;
     char *name;
     if(g->type == ND_ASSIGN) {
-        type = g->left->as.var.type;
-        name = g->left->as.var.name;
+        type = AS_OBJ_NODE(AS_BINARY_NODE(g)->left)->obj.type;
+        name = AS_OBJ_NODE(AS_BINARY_NODE(g)->left)->obj.name;
     } else {
         assert(g->type == ND_VAR);
-        type = g->as.var.type;
-        name = g->as.var.name;
+        type = AS_OBJ_NODE(g)->obj.type;
+        name = AS_OBJ_NODE(g)->obj.name;
     }
 
     if(type != OBJ_GLOBAL) {
@@ -168,16 +169,17 @@ static void validate_global_identifiers(ValidatorState *state) {
 
     // add global variable names
     for(size_t i = 0; i < state->prog->globals.used; ++i) {
-        ASTNode *g = ARRAY_GET_AS(ASTNode *, &state->prog->globals, i)->left;
+        ASTNode *g = AS_UNARY_NODE(ARRAY_GET_AS(ASTNode *, &state->prog->globals, i))->child;
         Location loc;
         char *name;
         if(g->type == ND_ASSIGN) {
-            loc = g->left->loc;
-            name = g->left->as.var.name;
+            loc = AS_UNARY_NODE(g)->child->loc;
+            name = AS_OBJ_NODE(AS_UNARY_NODE(g)->child)->obj.name;
         } else {
             assert(g->type == ND_VAR);
             loc = g->loc;
-            name = g->as.var.name;
+            //name = g->as.var.name;
+            name = AS_OBJ_NODE(g)->obj.name;
         }
         TableItem *item = tableGet(&found, name);
         if(item != NULL) {

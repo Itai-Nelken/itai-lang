@@ -228,8 +228,8 @@ static Register cgbitop(CodeGenerator *cg, Register a, Register b, ASTNodeType o
 static ASTObj *get_global(CodeGenerator *cg, char *name) {
     for(size_t i = 0; i < cg->program->globals.used; ++i) {
         // because globals are wrapped in ND_EXPR_STMTs
-        ASTNode *global = ARRAY_GET_AS(ASTNode *, &cg->program->globals, i)->left;
-        ASTObj *g = global->type == ND_ASSIGN ? &global->left->as.var : &global->as.var;
+        ASTNode *global = ARRAY_GET_AS(ASTUnaryNode *, &cg->program->globals, i)->child;
+        ASTObj *g = global->type == ND_ASSIGN ? &AS_OBJ_NODE(AS_BINARY_NODE(global)->left)->obj : &AS_OBJ_NODE(global)->obj;
         if(stringEqual(g->name, name)) {
             return g;
         }
@@ -289,29 +289,29 @@ static Register load_local(CodeGenerator *cg, char *name) {
 static Register gen_expr(CodeGenerator *cg, ASTNode *node) {
     switch(node->type) {
         case ND_NUM:
-            return cgloadint(cg, node->as.literal.int32);
+            return cgloadint(cg, AS_LITERAL_NODE(node)->as.int32);
         case ND_NEG:
-            return cgneg(cg, gen_expr(cg, node->left));
+            return cgneg(cg, gen_expr(cg, AS_UNARY_NODE(node)->child));
         case ND_FN_CALL:
             println(cg, "mov %s, 0", reg_to_str(RETREG));
-            println(cg, "bl %s", node->as.name);
+            println(cg, "bl %s", AS_OBJ_NODE(node)->obj.name);
             return RETREG;
         case ND_VAR:
-            if(node->as.var.type == OBJ_LOCAL) {
-                return load_local(cg, node->as.var.name);
+            if(AS_OBJ_NODE(node)->obj.type == OBJ_LOCAL) {
+                return load_local(cg, AS_OBJ_NODE(node)->obj.name);
             } else {
-                assert(node->as.var.type == OBJ_GLOBAL);
-                return load_global(cg, node->as.var.name, node->loc);
+                assert(AS_OBJ_NODE(node)->obj.type == OBJ_GLOBAL);
+                return load_global(cg, AS_OBJ_NODE(node)->obj.name, node->loc);
             }
         case ND_ASSIGN: {
-            ASTObjType type = node->left->as.var.type;
-            ASTObj *lvalue = get_local(cg, node->left->as.var.name);
-            Register rvalue = gen_expr(cg, node->right);
+            ASTObjType type = AS_OBJ_NODE(AS_BINARY_NODE(node)->left)->obj.type;
+            ASTObj *lvalue = get_local(cg, AS_OBJ_NODE(AS_BINARY_NODE(node)->left)->obj.name);
+            Register rvalue = gen_expr(cg, AS_BINARY_NODE(node)->right);
             if(type == OBJ_LOCAL) {
                 println(cg, "str %s, [fp, %d]", reg_to_str(rvalue), lvalue->offset);
             } else {
                 assert(type == OBJ_GLOBAL);
-                Register addr = load_global_addr(cg, node->left->as.var.name, node->loc);
+                Register addr = load_global_addr(cg, AS_OBJ_NODE(AS_BINARY_NODE(node)->left)->obj.name, node->loc);
                 println(cg, "str %s, [%s]", reg_to_str(rvalue), reg_to_str(addr));
                 free_register(cg, addr);
             }
@@ -321,8 +321,8 @@ static Register gen_expr(CodeGenerator *cg, ASTNode *node) {
             break;
     }
     
-    Register left = gen_expr(cg, node->left);
-    Register right = gen_expr(cg, node->right);
+    Register left = gen_expr(cg, AS_BINARY_NODE(node)->left);
+    Register right = gen_expr(cg, AS_BINARY_NODE(node)->right);
     switch (node->type) {
         case ND_ADD:
             return cgadd(cg, left, right);
@@ -355,47 +355,50 @@ static Register gen_expr(CodeGenerator *cg, ASTNode *node) {
 static void gen_stmt(CodeGenerator *cg, ASTNode *node) {
     switch(node->type) {
         case ND_LOOP: {
+            ASTLoopNode *n = AS_LOOP_NODE(node);
             int c = count(cg);
             // initializer
-            if(node->as.conditional.initializer != NULL) {
-                gen_stmt(cg, node->as.conditional.initializer);
+            if(n->initializer != NULL) {
+                gen_stmt(cg, n->initializer);
             }
             print(cg, ".L.begin.%d:\n", c);
             // condition
-            if(node->as.conditional.condition != NULL) {
-                Register cond = gen_expr(cg, node->as.conditional.condition);
+            if(n->condition != NULL) {
+                Register cond = gen_expr(cg, n->condition);
                 println(cg, "cmp %s, 0", reg_to_str(cond));
                 println(cg, "beq .L.end.%d", c);
                 free_register(cg, cond);
             }
             // body
-            gen_stmt(cg, node->as.conditional.then);
+            gen_stmt(cg, n->body);
             // increment
-            if(node->as.conditional.increment != NULL) {
-                free_register(cg, gen_expr(cg, node->as.conditional.increment));
+            if(n->increment != NULL) {
+                free_register(cg, gen_expr(cg, n->increment));
             }
             println(cg, "b .L.begin.%d", c);
             print(cg, ".L.end.%d:\n", c);
             break;
         }
         case ND_IF: {
+            ASTConditionalNode *n = AS_CONDITIONAL_NODE(node);
             int c = count(cg);
-            Register cond = gen_expr(cg, node->as.conditional.condition);
+            Register cond = gen_expr(cg, n->condition);
             println(cg, "cmp %s, 0", reg_to_str(cond));
             println(cg, "beq .L.else.%d", c);
             free_register(cg, cond);
-            gen_stmt(cg, node->as.conditional.then);
+            gen_stmt(cg, n->then);
             println(cg, "b .L.end.%d", c);
             print(cg, ".L.else.%d:\n", c);
-            if(node->as.conditional.els) {
-                gen_stmt(cg, node->as.conditional.els);
+            if(n->else_) {
+                gen_stmt(cg, n->else_);
             }
             print(cg, ".L.end.%d:\n", c);
             break;
         }
         case ND_RETURN: {
-            if(node->left) {
-                Register val = gen_expr(cg, node->left);
+            ASTUnaryNode *n = AS_UNARY_NODE(node);
+            if(n->child) {
+                Register val = gen_expr(cg, n->child);
                 if(val == NOREG) {
                     return;
                 }
@@ -407,7 +410,7 @@ static void gen_stmt(CodeGenerator *cg, ASTNode *node) {
         }
         case ND_PRINT: {
             cg->print_stmt_used = true;
-            Register val = gen_expr(cg, node->left);
+            Register val = gen_expr(cg, AS_UNARY_NODE(node)->child);
             if(val == NOREG) {
                 return;
             }
@@ -427,11 +430,11 @@ static void gen_stmt(CodeGenerator *cg, ASTNode *node) {
             break;
         }
         case ND_EXPR_STMT:
-            free_register(cg, gen_expr(cg, node->left));
+            free_register(cg, gen_expr(cg, AS_UNARY_NODE(node)->child));
             break;
         case ND_BLOCK:
-            for(int i = 0; i < (int)node->as.body.used; ++i) {
-                gen_stmt(cg, ARRAY_GET_AS(ASTNode *, &node->as.body, i));
+            for(int i = 0; i < (int)AS_BLOCK_NODE(node)->body.used; ++i) {
+                gen_stmt(cg, ARRAY_GET_AS(ASTNode *, &AS_BLOCK_NODE(node)->body, i));
             }
             break;
         default:
@@ -487,8 +490,8 @@ static void emit_global_initializers(CodeGenerator *cg) {
     Array initExprs;
     initArray(&initExprs);
     for(size_t i = 0; i < cg->program->globals.used; ++i) {
-        ASTNode *g = ARRAY_GET_AS(ASTNode *, &cg->program->globals, i)->left;
-        if(g->type != ND_ASSIGN || (g->type == ND_ASSIGN && g->right->type == ND_NUM)) {
+        ASTNode *g = ARRAY_GET_AS(ASTUnaryNode *, &cg->program->globals, i)->child;
+        if(g->type != ND_ASSIGN || (g->type == ND_ASSIGN && AS_BINARY_NODE(g)->right->type == ND_NUM)) {
             continue;
         }
         arrayPush(&initExprs, g);
@@ -504,9 +507,9 @@ static void emit_global_initializers(CodeGenerator *cg) {
                 ".initialize_globals:\n");
     println(cg, "stp fp, lr, [sp, -16]!");
     for(size_t i = 0; i < initExprs.used; ++i) {
-        ASTNode *g = ARRAY_GET_AS(ASTNode *, &initExprs, i);
-        println(cg, "// initialize global variable '%s'", g->left->as.var.name);
-        free_register(cg, gen_expr(cg, g));
+        ASTBinaryNode *g = ARRAY_GET_AS(ASTBinaryNode *, &initExprs, i);
+        println(cg, "// initialize global variable '%s'", AS_OBJ_NODE(g->left)->obj.name);
+        free_register(cg, gen_expr(cg, AS_NODE(g)));
     }
     println(cg, "ldp fp, lr, [sp], 16");
     println(cg, "ret\n");
@@ -531,19 +534,19 @@ static void emit_data(CodeGenerator *cg) {
 
     for(size_t i = 0; i < cg->program->globals.used; ++i) {
         // globals are wrapped in ND_EXPR_STMTs
-        ASTNode *n = ARRAY_GET_AS(ASTNode *, &cg->program->globals, i)->left;
+        ASTNode *n = ARRAY_GET_AS(ASTUnaryNode *, &cg->program->globals, i)->child;
         ASTObj *g = NULL;
         if(n->type == ND_ASSIGN) {
-            g = &n->left->as.var;
+            g = &AS_OBJ_NODE(AS_BINARY_NODE(n)->left)->obj;
         } else {
-            g = &n->as.var;
+            g = &AS_OBJ_NODE(n)->obj;
         }
 
         println(cg, ".global %s\n"
                     "%s:", g->name, g->name);
-        if(n->type == ND_ASSIGN && n->right->type == ND_NUM) {
+        if(n->type == ND_ASSIGN && AS_BINARY_NODE(n)->right->type == ND_NUM) {
             // dword == double word == 8 bytes
-            println(cg, ".dword %d", n->right->as.literal.int32);
+            println(cg, ".dword %d", AS_LITERAL_NODE(AS_BINARY_NODE(n)->right)->as.int32);
         } else {
             println(cg, ".zero 8");
         }

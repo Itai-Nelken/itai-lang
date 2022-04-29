@@ -300,20 +300,26 @@ end:
 }
 
 static void parse_identifier(Parser *p, bool canAssign) {
-    ASTNode *n = newNode(ND_VAR, NULL, NULL, previous(p).location);
-    
+    //ASTNode *n = newNode(ND_VAR, NULL, NULL, previous(p).location);
+    Location loc = previous(p).location;
+
     char *name = stringNCopy(previous(p).lexeme, previous(p).length);
-    n->as.var.name = name;
+    //n->as.var.name = name;
     
+    ASTObjType obj_type;
     if(p->scope_depth > 0 && find_local(p, name) != NULL) {
-        n->as.var.type = OBJ_LOCAL;
+        //n->as.var.type = OBJ_LOCAL;
+        obj_type = OBJ_LOCAL;
     } else {
-        n->as.var.type = OBJ_GLOBAL;
+        //n->as.var.type = OBJ_GLOBAL;
+        obj_type = OBJ_GLOBAL;
     }
     
+    ASTNode *n = newObjNode(ND_VAR, loc, (ASTObj){.name = name, .type = obj_type});
     if(canAssign && peek(p).type == TK_EQUAL) {
         advance(p);
-        n = newNode(ND_ASSIGN, n, expression(p), previous(p).location);
+        //n = newNode(ND_ASSIGN, n, expression(p), previous(p).location);
+        n = newBinaryNode(ND_ASSIGN, previous(p).location, n, expression(p));
     }
     p->current_expr = n;
 }
@@ -324,10 +330,12 @@ static void parse_call(Parser *p) {
         p->current_expr = NULL;
         return;
     }
-    char *name = p->current_expr->as.var.name;
+    //char *name = p->current_expr->as.var.name;
+    char *name = AS_OBJ_NODE(p->current_expr)->obj.name;
     freeAST(p->current_expr); // don't need this
-    p->current_expr = newNode(ND_FN_CALL, NULL, NULL, previous(p).location);
-    p->current_expr->as.name = name;
+    //p->current_expr = newNode(ND_FN_CALL, NULL, NULL, previous(p).location);
+    //p->current_expr->as.name = name;
+    p->current_expr = newObjNode(ND_FN_CALL, previous(p).location, (ASTObj){.name = name});
 }
 
 static void parse_grouping(Parser *p, bool canAssign) {
@@ -342,7 +350,7 @@ static void parse_unary(Parser *p, bool canAssign) {
     parsePrecedence(p, PREC_UNARY);
     switch(operatorType) {
         case TK_MINUS:
-            p->current_expr = newUnaryNode(ND_NEG, p->current_expr, previous(p).location);
+            p->current_expr = newUnaryNode(ND_NEG, previous(p).location, p->current_expr);
             break;
         case TK_PLUS:
             // nothing, leave the operand
@@ -361,58 +369,76 @@ static void parse_binary(Parser *p) {
     parsePrecedence(p, rule->precedence + 1);
     switch(operatorType) {
         case TK_PIPE:
-            p->current_expr = newNode(ND_BIT_OR, left, p->current_expr, previous(p).location);
+            //p->current_expr = newNode(ND_BIT_OR, left, p->current_expr, previous(p).location);
+            p->current_expr = newBinaryNode(ND_BIT_OR, previous(p).location, left, p->current_expr);
             break;
         case TK_XOR:
-            p->current_expr = newNode(ND_XOR, left, p->current_expr, previous(p).location);
+            //p->current_expr = newNode(ND_XOR, left, p->current_expr, previous(p).location);
+            p->current_expr = newBinaryNode(ND_XOR, previous(p).location, left, p->current_expr);
             break;
         case TK_AMPERSAND:
-            p->current_expr = newNode(ND_BIT_AND, left, p->current_expr, previous(p).location);
+            //p->current_expr = newNode(ND_BIT_AND, left, p->current_expr, previous(p).location);
+            p->current_expr = newBinaryNode(ND_BIT_AND, previous(p).location, left, p->current_expr);
             break;
         case TK_RSHIFT:
-            p->current_expr = newNode(ND_BIT_RSHIFT, left, p->current_expr, previous(p).location);
+            //p->current_expr = newNode(ND_BIT_RSHIFT, left, p->current_expr, previous(p).location);
+            p->current_expr = newBinaryNode(ND_BIT_RSHIFT, previous(p).location, left, p->current_expr);
             break;
         case TK_LSHIFT:
-            p->current_expr = newNode(ND_BIT_LSHIFT, left, p->current_expr, previous(p).location);
+            //p->current_expr = newNode(ND_BIT_LSHIFT, left, p->current_expr, previous(p).location);
+            p->current_expr = newBinaryNode(ND_BIT_LSHIFT, previous(p).location, left, p->current_expr);
             break;
         case TK_EQUAL_EQUAL:
-            p->current_expr = newNode(ND_EQ, left, p->current_expr, previous(p).location);
+            //p->current_expr = newNode(ND_EQ, left, p->current_expr, previous(p).location);
+            p->current_expr = newBinaryNode(ND_EQ, previous(p).location, left, p->current_expr);
             break;
         case TK_BANG_EQUAL:
-            p->current_expr = newNode(ND_NE, left, p->current_expr, previous(p).location);
+            //p->current_expr = newNode(ND_NE, left, p->current_expr, previous(p).location);
+            p->current_expr = newBinaryNode(ND_NE, previous(p).location, left, p->current_expr);
             break;
         case TK_GREATER:
-            p->current_expr = newNode(ND_GT, left, p->current_expr, previous(p).location);
+            //p->current_expr = newNode(ND_GT, left, p->current_expr, previous(p).location);
+            p->current_expr = newBinaryNode(ND_GT, previous(p).location, left, p->current_expr);
             break;
         case TK_GREATER_EQUAL:
-            p->current_expr = newNode(ND_GE, left, p->current_expr, previous(p).location);
+            //p->current_expr = newNode(ND_GE, left, p->current_expr, previous(p).location);
+            p->current_expr = newBinaryNode(ND_GE, previous(p).location, left, p->current_expr);
             break;
         case TK_LESS:
-            p->current_expr = newNode(ND_LT, left, p->current_expr, previous(p).location);
+            //p->current_expr = newNode(ND_LT, left, p->current_expr, previous(p).location);
+            p->current_expr = newBinaryNode(ND_LT, previous(p).location, left, p->current_expr);
             break;
         case TK_LESS_EQUAL:
-            p->current_expr = newNode(ND_LE, left, p->current_expr, previous(p).location);
+            //p->current_expr = newNode(ND_LE, left, p->current_expr, previous(p).location);
+            p->current_expr = newBinaryNode(ND_LE, previous(p).location, left, p->current_expr);
             break;
         case TK_PLUS:
-            p->current_expr = newNode(ND_ADD, left, p->current_expr, previous(p).location);
+            //p->current_expr = newNode(ND_ADD, left, p->current_expr, previous(p).location);
+            p->current_expr = newBinaryNode(ND_ADD, previous(p).location, left, p->current_expr);
             break;
         case TK_MINUS:
-            p->current_expr = newNode(ND_SUB, left, p->current_expr, previous(p).location);
+            //p->current_expr = newNode(ND_SUB, left, p->current_expr, previous(p).location);
+            p->current_expr = newBinaryNode(ND_SUB, previous(p).location, left, p->current_expr);
             break;
         case TK_STAR:
-            p->current_expr = newNode(ND_MUL, left, p->current_expr, previous(p).location);
+            //p->current_expr = newNode(ND_MUL, left, p->current_expr, previous(p).location);
+            p->current_expr = newBinaryNode(ND_MUL, previous(p).location, left, p->current_expr);
             break;
         case TK_SLASH:
-            if(p->current_expr->type == ND_NUM && p->current_expr->as.literal.int32 == 0) {
+            //if(p->current_expr->type == ND_NUM && p->current_expr->as.literal.int32 == 0) {
+            if(p->current_expr->type == ND_NUM && AS_LITERAL_NODE(p->current_expr)->as.int32 == 0) {
                 warning(previous(p), "division by 0");
             }
-            p->current_expr = newNode(ND_DIV, left, p->current_expr, previous(p).location);
+            //p->current_expr = newNode(ND_DIV, left, p->current_expr, previous(p).location);
+            p->current_expr = newBinaryNode(ND_DIV, previous(p).location, left, p->current_expr);
             break;
         case TK_PERCENT:
-            if(p->current_expr->type == ND_NUM && p->current_expr->as.literal.int32 == 0) {
+            //if(p->current_expr->type == ND_NUM && p->current_expr->as.literal.int32 == 0) {
+            if(p->current_expr->type == ND_NUM && AS_LITERAL_NODE(p->current_expr)->as.int32 == 0) {
                 warning(previous(p), "causes division by 0");
             }
-            p->current_expr = newNode(ND_REM, left, p->current_expr, previous(p).location);
+            //p->current_expr = newNode(ND_REM, left, p->current_expr, previous(p).location);
+            p->current_expr = newBinaryNode(ND_REM, previous(p).location, left, p->current_expr);
             break;
         default:
             UNREACHABLE();
@@ -533,21 +559,33 @@ static ASTNode *var_decl(Parser *p) {
     
     // TODO: check for types
     
-    ASTNode *var = newNode(ND_VAR, NULL, NULL, previous(p).location);
-    var->as.var.name = name;
+    //ASTNode *var = newNode(ND_VAR, NULL, NULL, previous(p).location);
+    //var->as.var.name = name;
+    Location loc = previous(p).location;
+    ASTObj obj = {
+        .name = name
+    };
     if(p->scope_depth > 0) {
         add_local(p, name);
-        var->as.var.type = OBJ_LOCAL;
+        //var->as.var.type = OBJ_LOCAL;
+        obj.type = OBJ_LOCAL;
     } else {
-        var->as.var.type = OBJ_GLOBAL;
+        //var->as.var.type = OBJ_GLOBAL;
+        obj.type = OBJ_GLOBAL;
     }
 
+    ASTNode *var = newObjNode(ND_VAR, loc, obj);
     if(peek(p).type == TK_EQUAL) {
         advance(p);
-        var = newNode(ND_ASSIGN, var, expression(p), previous(p).location);
+        loc = previous(p).location;
+        //var = newNode(ND_ASSIGN, var, expression(p), previous(p).location);
+        var = newBinaryNode(ND_ASSIGN, loc, var, expression(p));
     }
 
-    var = newUnaryNode(ND_EXPR_STMT, var, previous(p).location);
+    // assignment and variable referencing are expressions, but they
+    // are also statements (declarations). so wrap the ndoe in en expression
+    // statement so it can be walked as an expression.
+    var = newUnaryNode(ND_EXPR_STMT, loc, var);
     consume(p, TK_SEMICOLON, "Expected ';' after variable declaration");
     return var;
 }
@@ -555,10 +593,13 @@ static ASTNode *var_decl(Parser *p) {
 static ASTNode *declaration(Parser *p);
 
 static ASTNode *block(Parser *p) {
-    ASTNode *n = newNode(ND_BLOCK, NULL, NULL, previous(p).location);
-    initArray(&n->as.body);
+    //ASTNode *n = newNode(ND_BLOCK, NULL, NULL, previous(p).location);
+    ASTNode *n = newBlockNode(previous(p).location);
+    Array *body = &AS_BLOCK_NODE(n)->body;
+    //initArray(&n->as.body);
     while(peek(p).type != TK_RBRACE && peek(p).type != TK_EOF) {
-        arrayPush(&n->as.body, declaration(p));
+        //arrayPush(&n->as.body, declaration(p));
+        arrayPush(body, declaration(p));
     }
     consume(p, TK_RBRACE, "Expected '}' after block");
     return n;
@@ -566,7 +607,7 @@ static ASTNode *block(Parser *p) {
 
 /*** statements ***/
 static ASTNode *expr_stmt(Parser *p) {
-    ASTNode *n = newUnaryNode(ND_EXPR_STMT, expression(p), previous(p).location);
+    ASTNode *n = newUnaryNode(ND_EXPR_STMT, previous(p).location, expression(p));
     consume(p, TK_SEMICOLON, "Expected ';' after expression");
     return n;
 }
@@ -574,76 +615,94 @@ static ASTNode *expr_stmt(Parser *p) {
 static ASTNode *return_stmt(Parser *p) {
     ASTNode *n = NULL;
     if(peek(p).type != TK_SEMICOLON) {
-        n = newUnaryNode(ND_RETURN, expression(p), previous(p).location);
+        n = newUnaryNode(ND_RETURN, previous(p).location, expression(p));
     } else {
-        n = newUnaryNode(ND_RETURN, NULL, previous(p).location);
+        n = newUnaryNode(ND_RETURN, previous(p).location, NULL);
     }
     consume(p, TK_SEMICOLON, "Expected ';' after 'return' statement");
     return n;
 }
 
 static ASTNode *if_stmt(Parser *p) {
-    ASTNode *n = newNode(ND_IF, NULL, NULL, previous(p).location);
-    n->as.conditional.condition = expression(p);
+    //ASTNode *n = newNode(ND_IF, NULL, NULL, previous(p).location);
+    //n->as.conditional.condition = expression(p);
+    Location loc = previous(p).location;
+    ASTNode *condition = expression(p);
     consume(p, TK_LBRACE, "Expected '{'");
-    n->as.conditional.then = block(p);
+    //n->as.conditional.then = block(p);
+    ASTNode *then = block(p);
+    ASTNode *else_;
     if(peek(p).type == TK_ELSE) {
         advance(p);
         consume(p, TK_LBRACE, "Expected '{'");
-        n->as.conditional.els = block(p);
+        //n->as.conditional.els = block(p);
+        else_ = block(p);
     } else {
-        n->as.conditional.els = NULL;
+        //n->as.conditional.els = NULL;
+        else_ = NULL;
     }
-    return n;
+    return newConditionalNode(ND_IF, loc, condition, then, else_);
 }
 
 static ASTNode *while_stmt(Parser *p) {
-    ASTNode *n = newNode(ND_LOOP, NULL, NULL, previous(p).location);
+    //ASTNode *n = newNode(ND_LOOP, NULL, NULL, previous(p).location);
+    Location loc = previous(p).location;
     // condition
-    n->as.conditional.condition = expression(p);
+    //n->as.conditional.condition = expression(p);
+    ASTNode *condition = expression(p);
     // body
     consume(p, TK_LBRACE, "Expected '{'");
-    n->as.conditional.then = block(p);
-    return n;
+    //n->as.conditional.then = block(p);
+    return newLoopNode(loc, NULL, condition, NULL, block(p));
 }
 
 static ASTNode *for_stmt(Parser *p) {
-    ASTNode *n = newNode(ND_LOOP, NULL, NULL, previous(p).location);
+    //ASTNode *n = newNode(ND_LOOP, NULL, NULL, previous(p).location);
+    Location loc = previous(p).location;
+    ASTNode *init, *cond, *inc, *body;
     beginScope(p);
 
     // initializer clause
     if(peek(p).type == TK_SEMICOLON) {
         advance(p);
-        n->as.conditional.initializer = NULL;
+        //n->as.conditional.initializer = NULL;
+        init = NULL;
     } else if(peek(p).type == TK_VAR) {
         advance(p);
-        n->as.conditional.initializer = var_decl(p);
+        //n->as.conditional.initializer = var_decl(p);
+        init = var_decl(p);
     } else {
         // expr_stmt consumes the ';'
-        n->as.conditional.initializer = expr_stmt(p);
+        //n->as.conditional.initializer = expr_stmt(p);
+        init = expr_stmt(p);
     }
 
     // condition clause
     if(peek(p).type != TK_SEMICOLON) {
-        n->as.conditional.condition = expression(p);
+        //n->as.conditional.condition = expression(p);
+        cond = expression(p);
     } else {
-        n->as.conditional.condition = NULL;
+        //n->as.conditional.condition = NULL;
+        cond = NULL;
     }
     consume(p, TK_SEMICOLON, "Expected ';'");
 
     // increment clause
     if(peek(p).type != TK_LBRACE) {
-        n->as.conditional.increment = expression(p);
+        //n->as.conditional.increment = expression(p);
+        inc = expression(p);
     } else {
-        n->as.conditional.increment = NULL;
+        //n->as.conditional.increment = NULL;
+        inc = NULL;
     }
 
     // body
     consume(p, TK_LBRACE, "Expected '{'");
-    n->as.conditional.then = block(p);
+    //n->as.conditional.then = block(p);
+    body = block(p);
 
     endScope(p);
-    return n;
+    return newLoopNode(loc, init, cond, inc, body);
 }
 
 // === GRAMMAR ===
@@ -692,7 +751,7 @@ static ASTNode *statement(Parser *p) {
     switch(peek(p).type) {
         case TK_PRINT:
             advance(p);
-            n = newUnaryNode(ND_PRINT, expression(p), previous(p).location);
+            n = newUnaryNode(ND_PRINT, previous(p).location, expression(p));
             consume(p, TK_SEMICOLON, "Expected ';' after 'print' statement");
             break;
         case TK_WHILE:

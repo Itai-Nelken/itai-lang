@@ -55,6 +55,7 @@ void freeFunction(ASTFunction *fn) {
     FREE(fn);
 }
 
+/*
 ASTNode *newNode(ASTNodeType type, ASTNode *left, ASTNode *right, Location loc) {
     ASTNode *n = CALLOC(1, sizeof(*n));
     n->type = type;
@@ -64,33 +65,81 @@ ASTNode *newNode(ASTNodeType type, ASTNode *left, ASTNode *right, Location loc) 
 
     return n;
 }
+*/
+
+ASTNode newNode(ASTNodeType type, Location loc) {
+    ASTNode n = {type, loc};
+    return n;
+} 
 
 void freeAST(ASTNode *root) {
     if(root == NULL) {
         return;
     }
-    freeAST(root->left);
-    freeAST(root->right);
+    //freeAST(root->left);
+    //freeAST(root->right);
     switch(root->type) {
-        case ND_FN_CALL:
-            freeString(root->as.name);
+        // all unary nodes
+        case ND_NUM:
+        case ND_NEG:
+        case ND_PRINT:
+        case ND_RETURN:
+        case ND_EXPR_STMT:
+            freeAST(AS_UNARY_NODE(root)->child);
             break;
+        // all binary nodes
+        case ND_ASSIGN:
+        case ND_ADD:
+        case ND_SUB:
+        case ND_MUL:
+        case ND_DIV:
+        case ND_REM:
+        case ND_EQ:
+        case ND_NE:
+        case ND_GT:
+        case ND_GE:
+        case ND_LT:
+        case ND_LE:
+        case ND_BIT_OR:
+        case ND_XOR:
+        case ND_BIT_AND:
+        case ND_BIT_RSHIFT:
+        case ND_BIT_LSHIFT:
+            freeAST(AS_BINARY_NODE(root)->left);
+            freeAST(AS_BINARY_NODE(root)->right);
+            break;
+        // everything else
+        case ND_FN_CALL:
+            //freeString(root->as.name);
+            //break;
         case ND_VAR:
-            freeString(root->as.var.name);
+            //freeString(root->as.var.name);
+            freeString(AS_OBJ_NODE(root)->obj.name);
             break;
         case ND_BLOCK:
-            for(int i = 0; i < (int)root->as.body.used; ++i) {
-                freeAST(ARRAY_GET_AS(ASTNode *, &root->as.body, i));
+            //for(int i = 0; i < (int)root->as.body.used; ++i) {
+            for(int i = 0; i < (int)AS_BLOCK_NODE(root)->body.used; ++i) {
+                //freeAST(ARRAY_GET_AS(ASTNode *, &root->as.body, i));
+                freeAST(ARRAY_GET_AS(ASTNode *, &AS_BLOCK_NODE(root)->body, i));
             }
-            freeArray(&root->as.body);
+            //freeArray(&root->as.body);
+            freeArray(&AS_BLOCK_NODE(root)->body);
             break;
         case ND_IF:
+            freeAST(AS_CONDITIONAL_NODE(root)->condition);
+            freeAST(AS_CONDITIONAL_NODE(root)->then);
+            freeAST(AS_CONDITIONAL_NODE(root)->else_);
+            break;
         case ND_LOOP:
-            freeAST(root->as.conditional.initializer);
-            freeAST(root->as.conditional.increment);
-            freeAST(root->as.conditional.condition);
-            freeAST(root->as.conditional.then);
-            freeAST(root->as.conditional.els);
+            //freeAST(root->as.conditional.initializer);
+            //freeAST(root->as.conditional.increment);
+            //freeAST(root->as.conditional.condition);
+            //freeAST(root->as.conditional.then);
+            //freeAST(root->as.conditional.els);
+            freeAST(AS_LOOP_NODE(root)->initializer);
+            freeAST(AS_LOOP_NODE(root)->condition);
+            freeAST(AS_LOOP_NODE(root)->increment);
+            freeAST(AS_LOOP_NODE(root)->body);
             break;
         default:
             break;
@@ -98,6 +147,7 @@ void freeAST(ASTNode *root) {
     FREE(root);
 }
 
+/*
 ASTNode *newNumberNode(int value, Location loc) {
     ASTNode *n = newNode(ND_NUM, NULL, NULL, loc);
     n->as.literal.int32 = value;
@@ -106,4 +156,63 @@ ASTNode *newNumberNode(int value, Location loc) {
 
 ASTNode *newUnaryNode(ASTNodeType type, ASTNode *left, Location loc) {
     return newNode(type, left, NULL, loc);
+}
+*/
+
+// TODO: single newNode(type, loc, ...) function for
+//        new nodes that decides the node's type according
+//        to the node type.
+ASTNode *newNumberNode(i32 value, Location loc) {
+    ASTLiteralNode *n = CALLOC(1, sizeof(*n));
+    n->header = newNode(ND_NUM, loc);
+    n->as.int32 = value;
+    return AS_NODE(n);
+}
+
+ASTNode *newUnaryNode(ASTNodeType type, Location loc, ASTNode *child) {
+    ASTUnaryNode *n = CALLOC(1, sizeof(*n));
+    n->header = newNode(type, loc);
+    n->child = child;
+    return AS_NODE(n);
+}
+
+ASTNode *newBinaryNode(ASTNodeType type, Location loc, ASTNode *left, ASTNode *right) {
+    ASTBinaryNode *n = CALLOC(1, sizeof(*n));
+    n->header = newNode(type, loc);
+    n->left = left;
+    n->right = right;
+    return AS_NODE(n);
+}
+
+ASTNode *newObjNode(ASTNodeType type, Location loc, ASTObj obj) {
+    ASTObjNode *n = CALLOC(1, sizeof(*n));
+    n->header = newNode(type, loc);
+    n->obj = obj;
+    return AS_NODE(n);
+}
+
+ASTNode *newBlockNode(Location loc) {
+    ASTBlockNode *n = CALLOC(1, sizeof(*n));
+    n->header = newNode(ND_BLOCK, loc);
+    initArray(&n->body);
+    return AS_NODE(n);
+}
+
+ASTNode *newConditionalNode(ASTNodeType type, Location loc, ASTNode *condition, ASTNode *then, ASTNode *else_) {
+    ASTConditionalNode *n = CALLOC(1, sizeof(*n));
+    n->header = newNode(type, loc);
+    n->condition = condition;
+    n->then = then;
+    n->else_ = else_;
+    return AS_NODE(n);
+}
+
+ASTNode *newLoopNode(Location loc, ASTNode *initializer, ASTNode *condition, ASTNode *increment, ASTNode *body) {
+    ASTLoopNode *n = CALLOC(1, sizeof(*n));
+    n->header = newNode(ND_LOOP, loc);
+    n->initializer = initializer;
+    n->condition = condition;
+    n->increment = increment;
+    n->body = body;
+    return AS_NODE(n);
 }
