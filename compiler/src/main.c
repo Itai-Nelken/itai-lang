@@ -6,6 +6,10 @@
 #include "Validator.h"
 #include "codegen.h"
 
+// NOTE: ASTProgs have to be freed before the parser
+//       as the parser also frees the scanner which makes
+//       the Locations in the AST nodes invalid causing segfaults.
+
 int main(int argc, char **argv) {
 	if(argc < 2) {
         fprintf(stderr, "\x1b[1mUSAGE:\x1b[0m %s [stmt]\n", argv[0]);
@@ -24,8 +28,8 @@ int main(int argc, char **argv) {
 	// this is also the first pass of error and warning reporting
 	if(!parse(&p, &program)) {
 		fputs("Parsing failed!\n", stderr);
-		freeParser(&p);
 		freeASTProg(&program);
+		freeParser(&p);
 		return 1;
 	}
 
@@ -33,8 +37,8 @@ int main(int argc, char **argv) {
 	// this is the 2nd pass
 	if(!validate(&program)) {
 		fputs("Validating failed!\n", stderr);
-		freeParser(&p);
 		freeASTProg(&program);
+		freeParser(&p);
 		return 1;
 	}
 	
