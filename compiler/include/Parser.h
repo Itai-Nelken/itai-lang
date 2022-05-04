@@ -9,7 +9,7 @@
 
 typedef struct scope {
     struct scope *previous;
-    Array locals; // Array<ASTObj *>
+    Array locals; // Array<char *>
     int depth;
 } Scope;
 

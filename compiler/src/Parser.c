@@ -23,19 +23,12 @@ void initParser(Parser *p, const char *filename, char *source) {
     initScanner(&p->scanner, filename, source);
 }
 
-static void free_obj_callback(void *obj, void *cl) {
-    UNUSED(cl);
-    ASTObj *o = (ASTObj *)obj;
-    // don't free the name as it's used in the ASTFunctions
-    FREE(o);
-}
-
 void freeParser(Parser *p) {
     freeScanner(&p->scanner);
     if(p->scopes != NULL) {
         while(p->scopes != NULL) {
             Scope *previous = p->scopes->previous;
-            arrayMap(&p->scopes->locals, free_obj_callback, NULL);
+            // don't free the names as they are also in the ASTFunctions
             freeArray(&p->scopes->locals);
             FREE(p->scopes);
             p->scopes = previous;
@@ -75,18 +68,18 @@ static inline Scope *currentScope(Parser *p) {
     return p->scopes;
 }
 
-static ASTObj *find_local(Parser *p, char *name) {
+static bool local_exists(Parser *p, char *name) {
     Scope *sc = p->scopes;
     while(sc != NULL) {
         for(int i = 0; i < (int)sc->locals.used; ++i) {
-            ASTObj *l = ARRAY_GET_AS(ASTObj *, &sc->locals, i);
-            if(stringEqual(l->name, name)) {
-                return l;
+            char *l = ARRAY_GET_AS(char *, &sc->locals, i);
+            if(stringEqual(l, name)) {
+                return true;
             }
         }
         sc = sc->previous;
     }
-    return NULL;
+    return false;
 }
 
 static void add_local(Parser *p, char *name) {
@@ -94,12 +87,12 @@ static void add_local(Parser *p, char *name) {
     local->type = OBJ_LOCAL;
     local->name = stringIsValid(name) ? name : stringCopy(name);
     // if the local already exists, add ".<scope_depth>" to it.
-    if(find_local(p, name) != NULL) {
+    if(local_exists(p, name)) {
         stringAppend(local->name, ".%d", p->scope_depth);
     }
-    arrayPush(&p->scopes->locals, local); // for finding locals
+    arrayPush(&p->scopes->locals, local->name); // for finding locals
     assert(p->current_fn != NULL);
-    arrayPush(&p->current_fn->locals, local); // for codegeneration
+    arrayPush(&p->current_fn->locals, local); // for code generation
 }
 
 static void error(Parser *p, Token tok, const char *format, ...) {
@@ -300,25 +293,20 @@ end:
 }
 
 static void parse_identifier(Parser *p, bool canAssign) {
-    //ASTNode *n = newNode(ND_VAR, NULL, NULL, previous(p).location);
     Location loc = previous(p).location;
 
     char *name = stringNCopy(previous(p).lexeme, previous(p).length);
-    //n->as.var.name = name;
     
     ASTObjType obj_type;
-    if(p->scope_depth > 0 && find_local(p, name) != NULL) {
-        //n->as.var.type = OBJ_LOCAL;
+    if(p->scope_depth > 0 && local_exists(p, name)) {
         obj_type = OBJ_LOCAL;
     } else {
-        //n->as.var.type = OBJ_GLOBAL;
         obj_type = OBJ_GLOBAL;
     }
     
     ASTNode *n = newObjNode(ND_VAR, loc, (ASTObj){.name = name, .type = obj_type});
     if(canAssign && peek(p).type == TK_EQUAL) {
         advance(p);
-        //n = newNode(ND_ASSIGN, n, expression(p), previous(p).location);
         n = newBinaryNode(ND_ASSIGN, previous(p).location, n, expression(p));
     }
     p->current_expr = n;
@@ -330,11 +318,8 @@ static void parse_call(Parser *p) {
         p->current_expr = NULL;
         return;
     }
-    //char *name = p->current_expr->as.var.name;
     char *name = AS_OBJ_NODE(p->current_expr)->obj.name;
     freeAST(p->current_expr); // don't need this
-    //p->current_expr = newNode(ND_FN_CALL, NULL, NULL, previous(p).location);
-    //p->current_expr->as.name = name;
     p->current_expr = newObjNode(ND_FN_CALL, previous(p).location, (ASTObj){.name = name});
 }
 

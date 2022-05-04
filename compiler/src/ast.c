@@ -55,18 +55,6 @@ void freeFunction(ASTFunction *fn) {
     FREE(fn);
 }
 
-/*
-ASTNode *newNode(ASTNodeType type, ASTNode *left, ASTNode *right, Location loc) {
-    ASTNode *n = CALLOC(1, sizeof(*n));
-    n->type = type;
-    n->left = left;
-    n->right = right;
-    n->loc = loc;
-
-    return n;
-}
-*/
-
 ASTNode newNode(ASTNodeType type, Location loc) {
     ASTNode n = {type, loc};
     return n;
@@ -76,11 +64,8 @@ void freeAST(ASTNode *root) {
     if(root == NULL) {
         return;
     }
-    //freeAST(root->left);
-    //freeAST(root->right);
     switch(root->type) {
         // all unary nodes
-        case ND_NUM:
         case ND_NEG:
         case ND_PRINT:
         case ND_RETURN:
@@ -109,20 +94,16 @@ void freeAST(ASTNode *root) {
             freeAST(AS_BINARY_NODE(root)->right);
             break;
         // everything else
+        case ND_NUM:
+            break;
         case ND_FN_CALL:
-            //freeString(root->as.name);
-            //break;
         case ND_VAR:
-            //freeString(root->as.var.name);
             freeString(AS_OBJ_NODE(root)->obj.name);
             break;
         case ND_BLOCK:
-            //for(int i = 0; i < (int)root->as.body.used; ++i) {
             for(int i = 0; i < (int)AS_BLOCK_NODE(root)->body.used; ++i) {
-                //freeAST(ARRAY_GET_AS(ASTNode *, &root->as.body, i));
                 freeAST(ARRAY_GET_AS(ASTNode *, &AS_BLOCK_NODE(root)->body, i));
             }
-            //freeArray(&root->as.body);
             freeArray(&AS_BLOCK_NODE(root)->body);
             break;
         case ND_IF:
@@ -131,11 +112,6 @@ void freeAST(ASTNode *root) {
             freeAST(AS_CONDITIONAL_NODE(root)->else_);
             break;
         case ND_LOOP:
-            //freeAST(root->as.conditional.initializer);
-            //freeAST(root->as.conditional.increment);
-            //freeAST(root->as.conditional.condition);
-            //freeAST(root->as.conditional.then);
-            //freeAST(root->as.conditional.els);
             freeAST(AS_LOOP_NODE(root)->initializer);
             freeAST(AS_LOOP_NODE(root)->condition);
             freeAST(AS_LOOP_NODE(root)->increment);
@@ -146,18 +122,6 @@ void freeAST(ASTNode *root) {
     }
     FREE(root);
 }
-
-/*
-ASTNode *newNumberNode(int value, Location loc) {
-    ASTNode *n = newNode(ND_NUM, NULL, NULL, loc);
-    n->as.literal.int32 = value;
-    return n;
-}
-
-ASTNode *newUnaryNode(ASTNodeType type, ASTNode *left, Location loc) {
-    return newNode(type, left, NULL, loc);
-}
-*/
 
 // TODO: single newNode(type, loc, ...) function for
 //        new nodes that decides the node's type according
