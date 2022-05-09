@@ -318,8 +318,9 @@ static void parse_call(Parser *p) {
         p->current_expr = NULL;
         return;
     }
-    char *name = AS_OBJ_NODE(p->current_expr)->obj.name;
-    freeAST(p->current_expr); // don't need this
+    // copy the string as freeAST() below frees the copy in the node.
+    char *name = stringCopy(AS_OBJ_NODE(p->current_expr)->obj.name);
+    freeAST(p->current_expr); // don't need the identifier node.
     p->current_expr = newObjNode(ND_FN_CALL, previous(p).location, (ASTObj){.name = name});
 }
 
