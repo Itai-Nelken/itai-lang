@@ -17,6 +17,7 @@ Token newErrorToken(Location loc, char *lexeme, int length, const char *message)
     return t;
 }
 
+// TODO: print token.errmsg for TK_ERROR
 void printToken(Token t) {
     printf("Token{\x1b[1mtype:\x1b[33m %s\x1b[0m, "
            "\x1b[34;1mlocation\x1b[0m{\x1b[1mfile: \x1b[0;33m'%s'\x1b[0m, "
