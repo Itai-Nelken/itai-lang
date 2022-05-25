@@ -1,0 +1,5 @@
+AST format
+==========
+ND_ASSIGN:
+left: ASTIdentifier
+right: expression
