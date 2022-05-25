@@ -9,7 +9,6 @@
 
 typedef struct parser {
     ASTProg *prog;
-
     Scanner *scanner;
     Token current_token, previous_token;
     bool had_error, panic_mode;

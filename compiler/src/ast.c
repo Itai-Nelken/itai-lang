@@ -7,9 +7,28 @@
 #include "Token.h"
 #include "ast.h"
 
+ASTIdentifier *newIdentifier(char *str, int length) {
+    ASTIdentifier *identifier = CALLOC(1, sizeof(*identifier));
+    identifier->text = stringNCopy(str, length);
+    identifier->length = length;
+    return identifier;
+}
+
+void freeIdentifier(ASTIdentifier *identifier) {
+    freeString(identifier->text);
+    identifier->text = NULL;
+    identifier->length = 0;
+    FREE(identifier);
+}
+
+static void free_identifier_callback(void *identifier, void *cl) {
+    UNUSED(cl);
+    freeIdentifier((ASTIdentifier *)identifier);
+}
+
 void initASTProg(ASTProg *astp) {
     // NOTE: add free callback if values are added (not only keys)
-    initSymTable(&astp->globals, SYM_GLOBAL, NULL, NULL);
+    initSymTable(&astp->globals, SYM_GLOBAL, free_identifier_callback, NULL);
     initArray(&astp->statements);
 }
 
@@ -54,9 +73,9 @@ ASTNode *newBinaryNode(ASTNodeType type, Location loc, ASTNode *left, ASTNode *r
     return AS_NODE(n);
 }
 
-ASTNode *newVarNode(Location loc, int id) {
-    ASTVarNode *n = CALLOC(1, sizeof(*n));
-    n->header = newNode(ND_VAR, loc);
+ASTNode *newIdentifierNode(Location loc, int id) {
+    ASTIdentifierNode *n = CALLOC(1, sizeof(*n));
+    n->header = newNode(ND_IDENTIFIER, loc);
     n->id = id;
     return AS_NODE(n);
 }
@@ -95,7 +114,7 @@ void freeAST(ASTNode *root) {
             freeAST(AS_BINARY_NODE(root)->right);
             break;
         // everything else
-        case ND_VAR:
+        case ND_IDENTIFIER:
         case ND_NUM:
             // nothing
             break;

@@ -8,7 +8,7 @@
 #include "Symbols.h"
 
 typedef enum ast_type {
-    ND_VAR, // variable
+    ND_IDENTIFIER, // identifier
     ND_ASSIGN, // assignment (infix =)
     ND_EXPR_STMT, // expression statement
     ND_ADD, ND_SUB, // infix +, -
@@ -47,16 +47,24 @@ typedef struct ast_binary_node {
     ASTNode *left, *right;
 } ASTBinaryNode;
 
-typedef struct ast_variable_node {
+typedef struct ast_identifier_node {
     ASTNode header;
     int id;
-} ASTVarNode;
+} ASTIdentifierNode;
 
 #define AS_NODE(node) ((ASTNode *)node)
 #define AS_LITERAL_NODE(node) ((ASTLiteralNode *)node)
 #define AS_UNARY_NODE(node) ((ASTUnaryNode *)node)
 #define AS_BINARY_NODE(node) ((ASTBinaryNode *)node)
-#define AS_VAR_NODE(node) ((ASTVarNode *)node)
+#define AS_IDENTIFIER_NODE(node) ((ASTIdentifierNode *)node)
+
+typedef struct ast_identifier {
+    char *text; // owned by the instance.
+    int length;
+} ASTIdentifier;
+
+ASTIdentifier *newIdentifier(char *str, int length);
+void freeIdentifier(ASTIdentifier *identifier);
 
 typedef struct ast_program {
     SymTable globals;
@@ -71,7 +79,8 @@ ASTNode newNode(ASTNodeType type, Location loc);
 ASTNode *newNumberNode(int value, Location loc);
 ASTNode *newUnaryNode(ASTNodeType type, Location loc, ASTNode *child);
 ASTNode *newBinaryNode(ASTNodeType type, Location loc, ASTNode *left, ASTNode *right);
-ASTNode *newVarNode(Location loc, int id);
+ASTNode *newIdentifierNode(Location loc, int id);
+ASTNode *newVarNode(Location loc, ASTIdentifierNode *identifier);
 
 void freeAST(ASTNode *root);
 

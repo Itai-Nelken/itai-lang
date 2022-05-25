@@ -206,15 +206,13 @@ static ASTNode *parsePrecedence(Parser *p, Precedence precedence);
 static ASTNode *expression(Parser *p);
 
 static ASTNode *parse_identifier(Parser *p) {
-    // FIXME: this function currently creates a variable node,
-    //        make it crate a proper identifier, maybe ASTIdentifier.
+    ASTIdentifier *i = newIdentifier(previous(p).lexeme, previous(p).length);
 
-    char *name = stringNCopy(previous(p).lexeme, previous(p).length);
-    int id = symbolExists(&p->prog->globals, name)   ?
-             getIdFromName(&p->prog->globals, name)  :
-             addSymbol(&p->prog->globals, name, NULL);
-    freeString(name);
-    return newVarNode(previous(p).location, id);
+    int id = symbolExists(&p->prog->globals, i->text)  ?
+             getIdFromName(&p->prog->globals, i->text) :
+             addSymbol(&p->prog->globals, i->text, i)  ;
+
+    return newIdentifierNode(previous(p).location, id);
 }
 
 static ASTNode *parse_number(Parser *p) {
@@ -242,11 +240,13 @@ static ASTNode *parse_number(Parser *p) {
 end:
     return newNumberNode((int)strtol(lexeme, NULL, base), previous(p).location);
 }
+
 static ASTNode *parse_grouping(Parser *p) {
     ASTNode *expr = expression(p);
     consume(p, TK_RPAREN, "expected ')' after expression");
     return expr;
 }
+
 static ASTNode *parse_unary(Parser *p) {
     TokenType operatorType = previous(p).type;
     Location operatorLoc = previous(p).location;
@@ -421,10 +421,8 @@ static ASTNode *var_decl(Parser *p) {
     if(!consume(p, TK_IDENTIFIER, "Expected identifier after 'var'")) {
         return NULL;
     }
-    char *name = stringNCopy(previous(p).lexeme, previous(p).length);
-    int id = addSymbol(&p->prog->globals, name, NULL);
-    freeString(name); // FIXME: find a better way to get the identifier string.
-    ASTNode *n = newVarNode(var_loc, id);
+    ASTNode *n = parse_identifier(p);
+    n->loc = var_loc;
 
     if(match(p, TK_EQUAL)) {
         n = newBinaryNode(ND_ASSIGN, previous(p).location, n, expression(p));
