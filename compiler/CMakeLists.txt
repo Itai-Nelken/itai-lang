@@ -16,6 +16,7 @@ set(sources
     src/Table.c
     src/Strings.c
     src/Array.c
+    src/Symbols.c
 )
 
 add_executable(ilc ${sources})

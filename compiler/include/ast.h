@@ -5,8 +5,11 @@
 #include "types.h"
 #include "Token.h"
 #include "Array.h"
+#include "Symbols.h"
 
 typedef enum ast_type {
+    ND_VAR, // variable
+    ND_ASSIGN, // assignment (infix =)
     ND_EXPR_STMT, // expression statement
     ND_ADD, ND_SUB, // infix +, -
     ND_MUL, ND_DIV, // infix *, /
@@ -44,12 +47,19 @@ typedef struct ast_binary_node {
     ASTNode *left, *right;
 } ASTBinaryNode;
 
+typedef struct ast_variable_node {
+    ASTNode header;
+    int id;
+} ASTVarNode;
+
 #define AS_NODE(node) ((ASTNode *)node)
 #define AS_LITERAL_NODE(node) ((ASTLiteralNode *)node)
 #define AS_UNARY_NODE(node) ((ASTUnaryNode *)node)
 #define AS_BINARY_NODE(node) ((ASTBinaryNode *)node)
+#define AS_VAR_NODE(node) ((ASTVarNode *)node)
 
 typedef struct ast_program {
+    SymTable globals;
     Array statements;
 } ASTProg;
 
@@ -61,6 +71,7 @@ ASTNode newNode(ASTNodeType type, Location loc);
 ASTNode *newNumberNode(int value, Location loc);
 ASTNode *newUnaryNode(ASTNodeType type, Location loc, ASTNode *child);
 ASTNode *newBinaryNode(ASTNodeType type, Location loc, ASTNode *left, ASTNode *right);
+ASTNode *newVarNode(Location loc, int id);
 
 void freeAST(ASTNode *root);
 

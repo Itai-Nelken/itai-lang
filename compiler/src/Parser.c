@@ -3,20 +3,26 @@
 #include "common.h"
 #include "Errors.h"
 #include "Array.h"
+#include "Strings.h"
+#include "Symbols.h"
 #include "Token.h"
 #include "Scanner.h"
 #include "ast.h"
 #include "Parser.h"
 
-void initParser(Parser *p, Scanner *s) {
-    assert(p && s);
+void initParser(Parser *p, Scanner *s, ASTProg *prog) {
+    assert(p && s && prog);
+    p->prog = prog;
     p->scanner = s;
     p->had_error = false;
     p->panic_mode = false;
 }
 
 void freeParser(Parser *p) {
+    p->prog = NULL;
     p->scanner = NULL;
+    p->had_error = false;
+    p->panic_mode = false;
 }
 
 /*** utilities ***/
@@ -95,6 +101,7 @@ typedef struct parse_rule {
     Precedence precedence;
 } ParseRule;
 
+static ASTNode *parse_identifier(Parser *p);
 static ASTNode *parse_number(Parser *p);
 static ASTNode *parse_grouping(Parser *p);
 static ASTNode *parse_unary(Parser *p);
@@ -103,6 +110,7 @@ static ASTNode *parse_factor(Parser *p, ASTNode *left);
 static ASTNode *parse_equality(Parser *p, ASTNode *left);
 static ASTNode *parse_comparison(Parser *p, ASTNode *left);
 static ASTNode *parse_bitwise(Parser *p, ASTNode *left);
+static ASTNode *parse_assignment(Parser *p, ASTNode *lvalue);
 
 static const ParseRule rules[TK__COUNT] = {
     [TK_LPAREN]          = {parse_grouping, NULL, PREC_NONE},
@@ -125,7 +133,7 @@ static const ParseRule rules[TK__COUNT] = {
     [TK_STAR_EQUAL]      = {NULL, NULL, PREC_NONE},
     [TK_BANG]            = {NULL, NULL, PREC_NONE},
     [TK_BANG_EQUAL]      = {NULL, parse_equality, PREC_EQUALITY},
-    [TK_EQUAL]           = {NULL, NULL, PREC_NONE},
+    [TK_EQUAL]           = {NULL, parse_assignment, PREC_ASSIGNMENT},
     [TK_EQUAL_EQUAL]     = {NULL, parse_equality, PREC_EQUALITY},
     [TK_PERCENT]         = {NULL, parse_factor, PREC_FACTOR},
     [TK_PERCENT_EQUAL]   = {NULL, NULL, PREC_NONE},
@@ -149,7 +157,7 @@ static const ParseRule rules[TK__COUNT] = {
     [TK_CHARLIT]         = {NULL, NULL, PREC_NONE},
     [TK_NUMLIT]          = {parse_number, NULL, PREC_NONE},
     [TK_FLOATLIT]        = {NULL, NULL, PREC_NONE},
-    [TK_IDENTIFIER]      = {NULL, NULL, PREC_NONE},
+    [TK_IDENTIFIER]      = {parse_identifier, NULL, PREC_NONE},
     [TK_I8]              = {NULL, NULL, PREC_NONE},
     [TK_I16]             = {NULL, NULL, PREC_NONE},
     [TK_I32]             = {NULL, NULL, PREC_NONE},
@@ -196,6 +204,19 @@ static inline const ParseRule *getRule(TokenType type) {
 
 static ASTNode *parsePrecedence(Parser *p, Precedence precedence);
 static ASTNode *expression(Parser *p);
+
+static ASTNode *parse_identifier(Parser *p) {
+    // FIXME: this function currently creates a variable node,
+    //        make it crate a proper identifier, maybe ASTIdentifier.
+
+    char *name = stringNCopy(previous(p).lexeme, previous(p).length);
+    int id = symbolExists(&p->prog->globals, name)   ?
+             getIdFromName(&p->prog->globals, name)  :
+             addSymbol(&p->prog->globals, name, NULL);
+    freeString(name);
+    return newVarNode(previous(p).location, id);
+}
+
 static ASTNode *parse_number(Parser *p) {
     Token tok = previous(p);
     int base = 10;
@@ -228,13 +249,14 @@ static ASTNode *parse_grouping(Parser *p) {
 }
 static ASTNode *parse_unary(Parser *p) {
     TokenType operatorType = previous(p).type;
+    Location operatorLoc = previous(p).location;
     ASTNode *operand = parsePrecedence(p, PREC_UNARY);
     switch(operatorType) {
         case TK_PLUS:
             // nothing, leave the operand alone.
             break;
         case TK_MINUS:
-            operand = newUnaryNode(ND_NEG, previous(p).location, operand);
+            operand = newUnaryNode(ND_NEG, operatorLoc, operand);
             break;
         default:
             UNREACHABLE();
@@ -243,16 +265,16 @@ static ASTNode *parse_unary(Parser *p) {
 }
 static ASTNode *parse_term(Parser *p, ASTNode *left) {
     TokenType operatorType = previous(p).type;
+    Location operatorLoc = previous(p).location;
     Precedence prec = getRule(operatorType)->precedence;
     ASTNode *right = parsePrecedence(p, (Precedence)prec + 1);
 
-    // TODO: previous(p) or peek(p) below?
     switch(operatorType) {
         case TK_PLUS:
-            left = newBinaryNode(ND_ADD, previous(p).location, left, right);
+            left = newBinaryNode(ND_ADD, operatorLoc, left, right);
             break;
         case TK_MINUS:
-            left = newBinaryNode(ND_SUB, previous(p).location, left, right);
+            left = newBinaryNode(ND_SUB, operatorLoc, left, right);
             break;
         default:
             UNREACHABLE();
@@ -261,19 +283,19 @@ static ASTNode *parse_term(Parser *p, ASTNode *left) {
 }
 static ASTNode *parse_factor(Parser *p, ASTNode *left) {
     TokenType operatorType = previous(p).type;
+    Location operatorLoc = previous(p).location;
     Precedence prec = getRule(operatorType)->precedence;
     ASTNode *right = parsePrecedence(p, (Precedence)prec + 1);
 
-    // TODO: previous(p) or peek(p) below?
     switch(operatorType) {
         case TK_STAR:
-            left = newBinaryNode(ND_MUL, previous(p).location, left, right);
+            left = newBinaryNode(ND_MUL, operatorLoc, left, right);
             break;
         case TK_SLASH:
-            left = newBinaryNode(ND_DIV, previous(p).location, left, right);
+            left = newBinaryNode(ND_DIV, operatorLoc, left, right);
             break;
         case TK_PERCENT:
-            left = newBinaryNode(ND_REM, previous(p).location, left, right);
+            left = newBinaryNode(ND_REM, operatorLoc, left, right);
             break;
         default:
             UNREACHABLE();
@@ -282,16 +304,16 @@ static ASTNode *parse_factor(Parser *p, ASTNode *left) {
 }
 static ASTNode *parse_equality(Parser *p, ASTNode *left) {
     TokenType operatorType = previous(p).type;
+    Location operatorLoc = previous(p).location;
     Precedence prec = getRule(operatorType)->precedence;
     ASTNode *right = parsePrecedence(p, (Precedence)prec + 1);
 
-    // TODO: previous(p) or peek(p) below?
     switch(operatorType) {
         case TK_EQUAL_EQUAL:
-            left = newBinaryNode(ND_EQ, previous(p).location, left, right);
+            left = newBinaryNode(ND_EQ, operatorLoc, left, right);
             break;
         case TK_BANG_EQUAL:
-            left = newBinaryNode(ND_NE, previous(p).location, left, right);
+            left = newBinaryNode(ND_NE, operatorLoc, left, right);
             break;
         default:
             UNREACHABLE();
@@ -300,22 +322,22 @@ static ASTNode *parse_equality(Parser *p, ASTNode *left) {
 }
 static ASTNode *parse_comparison(Parser *p, ASTNode *left) {
     TokenType operatorType = previous(p).type;
+    Location operatorLoc = previous(p).location;
     Precedence prec = getRule(operatorType)->precedence;
     ASTNode *right = parsePrecedence(p, (Precedence)prec + 1);
 
-    // TODO: previous(p) or peek(p) below?
     switch(operatorType) {
         case TK_GREATER:
-            left = newBinaryNode(ND_GT, previous(p).location, left, right);
+            left = newBinaryNode(ND_GT, operatorLoc, left, right);
             break;
         case TK_GREATER_EQUAL:
-            left = newBinaryNode(ND_GE, previous(p).location, left, right);
+            left = newBinaryNode(ND_GE, operatorLoc, left, right);
             break;
         case TK_LESS:
-            left = newBinaryNode(ND_LT, previous(p).location, left, right);
+            left = newBinaryNode(ND_LT, operatorLoc, left, right);
             break;
         case TK_LESS_EQUAL:
-            left = newBinaryNode(ND_LE, previous(p).location, left, right);
+            left = newBinaryNode(ND_LE, operatorLoc, left, right);
             break;
         default:
             UNREACHABLE();
@@ -324,30 +346,36 @@ static ASTNode *parse_comparison(Parser *p, ASTNode *left) {
 }
 static ASTNode *parse_bitwise(Parser *p, ASTNode *left) {
     TokenType operatorType = previous(p).type;
+    Location operatorLoc = previous(p).location;
     Precedence prec = getRule(operatorType)->precedence;
     ASTNode *right = parsePrecedence(p, (Precedence)prec + 1);
 
-    // TODO: previous(p) or peek(p) below?
     switch(operatorType) {
         case TK_XOR:
-            left = newBinaryNode(ND_XOR, previous(p).location, left, right);
+            left = newBinaryNode(ND_XOR, operatorLoc, left, right);
             break;
         case TK_PIPE:
-            left = newBinaryNode(ND_BIT_OR, previous(p).location, left, right);
+            left = newBinaryNode(ND_BIT_OR, operatorLoc, left, right);
             break;
         case TK_AMPERSAND:
-            left = newBinaryNode(ND_BIT_AND, previous(p).location, left, right);
+            left = newBinaryNode(ND_BIT_AND, operatorLoc, left, right);
             break;
         case TK_RSHIFT:
-            left = newBinaryNode(ND_BIT_RSHIFT, previous(p).location, left, right);
+            left = newBinaryNode(ND_BIT_RSHIFT, operatorLoc, left, right);
             break;
         case TK_LSHIFT:
-            left = newBinaryNode(ND_BIT_LSHIFT, previous(p).location, left, right);
+            left = newBinaryNode(ND_BIT_LSHIFT, operatorLoc, left, right);
             break;
         default:
             UNREACHABLE();
     }
     return left;
+}
+
+static ASTNode *parse_assignment(Parser *p, ASTNode *lvalue) {
+    Location equalsLoc = previous(p).location;
+    ASTNode *rvalue = expression(p);
+    return newBinaryNode(ND_ASSIGN, equalsLoc, lvalue, rvalue);
 }
 
 static ASTNode *parsePrecedence(Parser *p, Precedence precedence) {
@@ -384,9 +412,39 @@ static ASTNode *expr_stmt(Parser *p) {
 static ASTNode *statement(Parser *p) {
     return expr_stmt(p);
 }
+
 // declarations
+static ASTNode *var_decl(Parser *p) {
+    // assumes var keyword already consumed
+    // save the location of the 'var' keyword.
+    Location var_loc = previous(p).location;
+    if(!consume(p, TK_IDENTIFIER, "Expected identifier after 'var'")) {
+        return NULL;
+    }
+    char *name = stringNCopy(previous(p).lexeme, previous(p).length);
+    int id = addSymbol(&p->prog->globals, name, NULL);
+    freeString(name); // FIXME: find a better way to get the identifier string.
+    ASTNode *n = newVarNode(var_loc, id);
+
+    if(match(p, TK_EQUAL)) {
+        n = newBinaryNode(ND_ASSIGN, previous(p).location, n, expression(p));
+    }
+
+    if(!consume(p, TK_SEMICOLON, "Expected ';' after variable declaration")) {
+        freeAST(n);
+        return NULL;
+    }
+    return n;
+}
+
 static ASTNode *declaration(Parser *p) {
-    return statement(p);
+    ASTNode *n = NULL;
+    if(match(p, TK_VAR)) {
+        n = var_decl(p);
+    } else {
+        n = statement(p);
+    }
+    return n;
 }
 
 static void synchronize(Parser *p) {
@@ -461,13 +519,12 @@ static void synchronize(Parser *p) {
 // declaration   -> var_decl
 //                | statement
 // program       -> (fn_decl | var_decl)* EOF
-bool parserParse(Parser *p, ASTProg *prog) {
+bool parserParse(Parser *p) {
     advance(p);
     while(peek(p).type != TK_EOF) {
-        advance(p);
         ASTNode *node = declaration(p);
         if(node) {
-            arrayPush(&prog->statements, node);
+            arrayPush(&p->prog->statements, node);
         }
 
         // reset the parser state
@@ -475,6 +532,7 @@ bool parserParse(Parser *p, ASTProg *prog) {
             p->panic_mode = false;
             synchronize(p);
         }
+        advance(p);
     }
     return !p->had_error;
 }

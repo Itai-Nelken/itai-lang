@@ -3,15 +3,25 @@
 #include "memory.h"
 #include "Strings.h"
 #include "Array.h"
+#include "Symbols.h"
 #include "Token.h"
 #include "ast.h"
 
 void initASTProg(ASTProg *astp) {
+    // NOTE: add free callback if values are added (not only keys)
+    initSymTable(&astp->globals, SYM_GLOBAL, NULL, NULL);
     initArray(&astp->statements);
 }
 
+static void free_ast_callback(void *node, void *cl) {
+    UNUSED(cl);
+    freeAST((ASTNode *)node);
+}
+
 void freeASTProg(ASTProg *astp) {
+    arrayMap(&astp->statements, free_ast_callback, NULL);
     freeArray(&astp->statements);
+    freeSymTable(&astp->globals);
 }
 
 ASTNode newNode(ASTNodeType type, Location loc) {
@@ -44,16 +54,27 @@ ASTNode *newBinaryNode(ASTNodeType type, Location loc, ASTNode *left, ASTNode *r
     return AS_NODE(n);
 }
 
+ASTNode *newVarNode(Location loc, int id) {
+    ASTVarNode *n = CALLOC(1, sizeof(*n));
+    n->header = newNode(ND_VAR, loc);
+    n->id = id;
+    return AS_NODE(n);
+}
+
 void freeAST(ASTNode *root) {
     if(root == NULL) {
         return;
     }
     switch(root->type) {
-        // all nodes
+        // unary nodes
+        case ND_EXPR_STMT:
+            freeAST(AS_UNARY_NODE(root)->child);
+            break;
         case ND_NEG:
             freeAST(AS_UNARY_NODE(root)->child);
             break;
         // binary nodes
+        case ND_ASSIGN:
         case ND_ADD:
         case ND_SUB:
         case ND_MUL:
@@ -74,6 +95,7 @@ void freeAST(ASTNode *root) {
             freeAST(AS_BINARY_NODE(root)->right);
             break;
         // everything else
+        case ND_VAR:
         case ND_NUM:
             // nothing
             break;

@@ -19,10 +19,10 @@ int main(int argc, char **argv) {
 	Scanner s;
 	Parser p;
 	ASTProg prog;
-	initScanner(&s, "Test", argv[1]);
-	initParser(&p, &s);
 	initASTProg(&prog);
-	if(!parserParse(&p, &prog)) {
+	initScanner(&s, "Test", argv[1]);
+	initParser(&p, &s, &prog);
+	if(!parserParse(&p)) {
 		fputs("Parsing failed!\n", stderr);
 		return 1;
 	}
@@ -31,6 +31,8 @@ int main(int argc, char **argv) {
 		fputs("Validating failed!\n", stderr);
 		goto end;
 	}
+
+	printf("OK\n");
 
 end:
 	freeASTProg(&prog);
