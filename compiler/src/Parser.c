@@ -530,7 +530,6 @@ bool parserParse(Parser *p) {
             p->panic_mode = false;
             synchronize(p);
         }
-        advance(p);
     }
     return !p->had_error;
 }
