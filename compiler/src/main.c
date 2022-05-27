@@ -8,7 +8,7 @@
 
 // NOTE: ASTProgs have to be freed before the parser
 //       as the parser also frees the scanner which makes
-//       the Locations in the AST nodes invalid causing segfaults.
+//       the Locations in the AST nodes invalid which may cause weird things to happen.
 
 int main(int argc, char **argv) {
 	if(argc < 2) {
@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
 	initParser(&p, &s, &prog);
 	if(!parserParse(&p)) {
 		fputs("Parsing failed!\n", stderr);
-		return 1;
+		goto end;
 	}
 	
 	if(!validate(&prog)) {

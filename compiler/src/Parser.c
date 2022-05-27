@@ -1,6 +1,8 @@
 #include <assert.h>
 #include <stdbool.h>
+#include <stdint.h> // intptr_t
 #include "common.h"
+#include "memory.h"
 #include "Errors.h"
 #include "Array.h"
 #include "Strings.h"
@@ -10,19 +12,79 @@
 #include "ast.h"
 #include "Parser.h"
 
+static Scope *newScope(Scope *previous) {
+    Scope *sc;
+    NEW0(sc);
+    initArray(&sc->ids);
+    sc->previous = previous;
+    return sc;
+}
+
+static void freeScope(Scope *sc) {
+    freeArray(&sc->ids);
+    sc->previous = NULL;
+    FREE(sc);
+}
+
 void initParser(Parser *p, Scanner *s, ASTProg *prog) {
     assert(p && s && prog);
     p->prog = prog;
+    p->current_id_table = &prog->identifiers;
     p->scanner = s;
     p->had_error = false;
     p->panic_mode = false;
+    p->scopes = NULL;
+    p->scope_depth = 0;
 }
 
 void freeParser(Parser *p) {
     p->prog = NULL;
+    p->current_id_table = NULL;
     p->scanner = NULL;
     p->had_error = false;
     p->panic_mode = false;
+    while(p->scopes != NULL) {
+        Scope *previous = p->scopes->previous;
+        freeScope(p->scopes);
+        p->scopes = previous;
+    }
+    p->scopes = NULL;
+    p->scope_depth = 0;
+}
+
+/*** Scope management ***/
+static inline void beginScope(Parser *p) {
+    newScope(p->scopes);
+    p->scope_depth++;
+}
+
+static inline void endScope(Parser *p) {
+    Scope *sc = p->scopes;
+    assert(p->scope_depth > 0);
+    p->scopes = sc->previous;
+    freeScope(sc);
+    p->scope_depth--;
+}
+
+/*** variables ***/
+// globals
+// locals
+void registerLocal(Parser *p, int id) {
+    assert(p->scope_depth > 0);
+    arrayPush(&p->scopes->ids, (void *)(intptr_t)id);
+}
+
+bool localExists(Parser *p, int id) {
+    assert(p->scope_depth > 0);
+    Scope *sc = p->scopes;
+    while(sc != NULL) {
+        for(size_t i = 0; i < sc->ids.used; ++i) {
+            if((int)ARRAY_GET_AS(intptr_t, &sc->ids, i) == id) {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 /*** utilities ***/
@@ -206,13 +268,16 @@ static ASTNode *parsePrecedence(Parser *p, Precedence precedence);
 static ASTNode *expression(Parser *p);
 
 static ASTNode *parse_identifier(Parser *p) {
-    ASTIdentifier *i = newIdentifier(previous(p).lexeme, previous(p).length);
+    ASTIdentifier *id = newIdentifier(previous(p).lexeme, previous(p).length);
+    int id_idx = -1;
+    if(symbolExists(p->current_id_table, id->text)) {
+        id_idx = getIdFromName(p->current_id_table, id->text);
+        freeIdentifier(id);
+    } else {
+        id_idx = addSymbol(p->current_id_table, id->text, id);
+    }
 
-    int id = symbolExists(&p->prog->globals, i->text)  ?
-             getIdFromName(&p->prog->globals, i->text) :
-             addSymbol(&p->prog->globals, i->text, i)  ;
-
-    return newIdentifierNode(previous(p).location, id);
+    return newIdentifierNode(previous(p).location, id_idx);
 }
 
 static ASTNode *parse_number(Parser *p) {
@@ -246,7 +311,6 @@ static ASTNode *parse_grouping(Parser *p) {
     consume(p, TK_RPAREN, "expected ')' after expression");
     return expr;
 }
-
 static ASTNode *parse_unary(Parser *p) {
     TokenType operatorType = previous(p).type;
     Location operatorLoc = previous(p).location;
@@ -402,7 +466,32 @@ static ASTNode *expression(Parser *p) {
 }
 
 /*** statement parser ***/
+static ASTNode *declaration(Parser *p);
 // statements
+static ASTNode *block(Parser *p) {
+    // assumes TK_RBRACE (}) was already consumed
+    ASTNode *n = newBlockNode(previous(p).location);
+    if(!consume(p, TK_LBRACE, "Expected '{'")) {
+        freeAST(n);
+        return NULL;
+    }
+    Array *body = &AS_BLOCK_NODE(n)->body;
+    int i = 0;
+    while(i <= MAX_DECLS_IN_BLOCK && peek(p).type != TK_RBRACE) {
+        ASTNode *decl = declaration(p);
+        if(decl) {
+            arrayPush(body, (void *)decl);
+        }
+        i++;
+    }
+    assert(i < MAX_DECLS_IN_BLOCK);
+    if(!consume(p, TK_RBRACE, "Expected '}'")) {
+        freeAST(n);
+        return NULL;
+    }
+    return n;
+}
+
 static ASTNode *expr_stmt(Parser *p) {
     ASTNode *n = newUnaryNode(ND_EXPR_STMT, previous(p).location, expression(p));
     consume(p, TK_SEMICOLON, "expected ';' after expression");
@@ -414,10 +503,44 @@ static ASTNode *statement(Parser *p) {
 }
 
 // declarations
+static ASTFunction *fn_decl(Parser *p) {
+    // assumes fn keyword already consumed
+
+    if(!consume(p, TK_IDENTIFIER, "Expected identifier after 'fn'")) {
+        return NULL;
+    }
+    ASTIdentifierNode *name = AS_IDENTIFIER_NODE(parse_identifier(p));
+
+    if(!consume(p, TK_LPAREN, "Expected '('")) {
+        freeAST(AS_NODE(name));
+        return NULL;
+    }
+    // TODO: parameters
+    if(!consume(p, TK_RPAREN, "Expected ')'")) {
+        freeAST(AS_NODE(name));
+        return NULL;
+    }
+    // TODO: return type
+
+    ASTFunction *fn = newFunction(name);
+    // NOTE: this only works if only toplevel functions are allowed.
+    p->current_fn = fn;
+    SymTable *old = p->current_id_table;
+    p->current_id_table = &fn->identifiers;
+    beginScope(p);
+    fn->body = AS_BLOCK_NODE(block(p));
+    endScope(p);
+    p->current_id_table = old;
+    p->current_fn = NULL;
+    return fn;
+}
+
 static ASTNode *var_decl(Parser *p) {
     // assumes var keyword already consumed
+
     // save the location of the 'var' keyword.
     Location var_loc = previous(p).location;
+
     if(!consume(p, TK_IDENTIFIER, "Expected identifier after 'var'")) {
         return NULL;
     }
@@ -432,6 +555,12 @@ static ASTNode *var_decl(Parser *p) {
         freeAST(n);
         return NULL;
     }
+
+    if(p->current_fn) {
+        arrayPush(&p->current_fn->locals, (void *)n);
+        n = NULL;
+    }
+
     return n;
 }
 
@@ -520,9 +649,18 @@ static void synchronize(Parser *p) {
 bool parserParse(Parser *p) {
     advance(p);
     while(peek(p).type != TK_EOF) {
-        ASTNode *node = declaration(p);
-        if(node) {
-            arrayPush(&p->prog->statements, node);
+        if(match(p, TK_FN)) {
+            ASTFunction *fn = fn_decl(p);
+            if(fn) {
+                arrayPush(&p->prog->functions, (void *)fn);
+            }
+        } else if(match(p, TK_VAR)) {
+            ASTNode *n = var_decl(p);
+            if(n) {
+                arrayPush(&p->prog->globals, (void *)n);
+            }
+        } else {
+            error(p, peek(p), "Only ['fn', 'var'] allowed in global scope");
         }
 
         // reset the parser state

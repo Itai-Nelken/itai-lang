@@ -7,8 +7,25 @@
 #include "Token.h"
 #include "ast.h"
 
+/*** callbacks ***/
+static void free_ast_callback(void *node, void *cl) {
+    UNUSED(cl);
+    freeAST((ASTNode *)node);
+}
+
+static void free_function_callback(void *fn, void *cl) {
+    UNUSED(cl);
+    freeFunction((ASTFunction *)fn);
+}
+
+static void free_identifier_callback(void *identifier, void *cl) {
+    UNUSED(cl);
+    freeIdentifier((ASTIdentifier *)identifier);
+}
+
 ASTIdentifier *newIdentifier(char *str, int length) {
-    ASTIdentifier *identifier = CALLOC(1, sizeof(*identifier));
+    ASTIdentifier *identifier;
+    NEW0(identifier);
     identifier->text = stringNCopy(str, length);
     identifier->length = length;
     return identifier;
@@ -21,26 +38,40 @@ void freeIdentifier(ASTIdentifier *identifier) {
     FREE(identifier);
 }
 
-static void free_identifier_callback(void *identifier, void *cl) {
-    UNUSED(cl);
-    freeIdentifier((ASTIdentifier *)identifier);
+ASTFunction *newFunction(ASTIdentifierNode *name) {
+    assert(name);
+    ASTFunction *fn;
+    NEW0(fn);
+    fn->name = name;
+    initSymTable(&fn->identifiers, SYM_LOCAL, free_identifier_callback, NULL);
+    initArray(&fn->locals);
+    fn->body = NULL;
+    return fn;
+}
+
+void freeFunction(ASTFunction *fn) {
+    freeAST(AS_NODE(fn->name));
+    freeSymTable(&fn->identifiers);
+    arrayMap(&fn->locals, free_ast_callback, NULL);
+    freeArray(&fn->locals);
+    if(fn->body) {
+        freeAST(AS_NODE(fn->body));
+    }
+    FREE(fn);
 }
 
 void initASTProg(ASTProg *astp) {
-    // NOTE: add free callback if values are added (not only keys)
-    initSymTable(&astp->globals, SYM_GLOBAL, free_identifier_callback, NULL);
-    initArray(&astp->statements);
-}
-
-static void free_ast_callback(void *node, void *cl) {
-    UNUSED(cl);
-    freeAST((ASTNode *)node);
+    initSymTable(&astp->identifiers, SYM_GLOBAL, free_identifier_callback, NULL);
+    initArray(&astp->globals);
+    initArray(&astp->functions);
 }
 
 void freeASTProg(ASTProg *astp) {
-    arrayMap(&astp->statements, free_ast_callback, NULL);
-    freeArray(&astp->statements);
-    freeSymTable(&astp->globals);
+    freeSymTable(&astp->identifiers);
+    arrayMap(&astp->globals, free_ast_callback, NULL);
+    freeArray(&astp->globals);
+    arrayMap(&astp->functions, free_function_callback, NULL);
+    freeArray(&astp->functions);
 }
 
 ASTNode newNode(ASTNodeType type, Location loc) {
@@ -52,21 +83,24 @@ ASTNode newNode(ASTNodeType type, Location loc) {
 //        new nodes that decides the node's type according
 //        to the node type.
 ASTNode *newNumberNode(i32 value, Location loc) {
-    ASTLiteralNode *n = CALLOC(1, sizeof(*n));
+    ASTLiteralNode *n;
+    NEW0(n);
     n->header = newNode(ND_NUM, loc);
     n->as.int32 = value;
     return AS_NODE(n);
 }
 
 ASTNode *newUnaryNode(ASTNodeType type, Location loc, ASTNode *child) {
-    ASTUnaryNode *n = CALLOC(1, sizeof(*n));
+    ASTUnaryNode *n;
+    NEW0(n);
     n->header = newNode(type, loc);
     n->child = child;
     return AS_NODE(n);
 }
 
 ASTNode *newBinaryNode(ASTNodeType type, Location loc, ASTNode *left, ASTNode *right) {
-    ASTBinaryNode *n = CALLOC(1, sizeof(*n));
+    ASTBinaryNode *n;
+    NEW0(n);
     n->header = newNode(type, loc);
     n->left = left;
     n->right = right;
@@ -74,9 +108,18 @@ ASTNode *newBinaryNode(ASTNodeType type, Location loc, ASTNode *left, ASTNode *r
 }
 
 ASTNode *newIdentifierNode(Location loc, int id) {
-    ASTIdentifierNode *n = CALLOC(1, sizeof(*n));
+    ASTIdentifierNode *n;
+    NEW0(n);
     n->header = newNode(ND_IDENTIFIER, loc);
     n->id = id;
+    return AS_NODE(n);
+}
+
+ASTNode *newBlockNode(Location loc) {
+    ASTBlockNode *n;
+    NEW0(n);
+    n->header = newNode(ND_BLOCK, loc);
+    initArray(&n->body);
     return AS_NODE(n);
 }
 
@@ -114,6 +157,10 @@ void freeAST(ASTNode *root) {
             freeAST(AS_BINARY_NODE(root)->right);
             break;
         // everything else
+        case ND_BLOCK:
+            arrayMap(&AS_BLOCK_NODE(root)->body, free_ast_callback, NULL);
+            freeArray(&AS_BLOCK_NODE(root)->body);
+            break;
         case ND_IDENTIFIER:
         case ND_NUM:
             // nothing

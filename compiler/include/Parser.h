@@ -7,11 +7,23 @@
 #include "ast.h"
 #include "Symbols.h"
 
+#define MAX_DECLS_IN_BLOCK 100
+#define MAX_SCOPE_DEPTH 10
+
+typedef struct scope {
+    Array ids; // Array<int>
+    struct scope *previous;
+} Scope;
+
 typedef struct parser {
     ASTProg *prog;
+    SymTable *current_id_table;
     Scanner *scanner;
     Token current_token, previous_token;
     bool had_error, panic_mode;
+    Scope *scopes;
+    int scope_depth;
+    ASTFunction *current_fn;
 } Parser;
 
 /***

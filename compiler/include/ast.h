@@ -6,8 +6,10 @@
 #include "Token.h"
 #include "Array.h"
 #include "Symbols.h"
+#include "Arena.h"
 
 typedef enum ast_type {
+    ND_BLOCK, // block ({ ... })
     ND_IDENTIFIER, // identifier
     ND_ASSIGN, // assignment (infix =)
     ND_EXPR_STMT, // expression statement
@@ -52,11 +54,17 @@ typedef struct ast_identifier_node {
     int id;
 } ASTIdentifierNode;
 
+typedef struct ast_block_node {
+    ASTNode header;
+    Array body; // Array<ASTNode *>
+} ASTBlockNode;
+
 #define AS_NODE(node) ((ASTNode *)node)
 #define AS_LITERAL_NODE(node) ((ASTLiteralNode *)node)
 #define AS_UNARY_NODE(node) ((ASTUnaryNode *)node)
 #define AS_BINARY_NODE(node) ((ASTBinaryNode *)node)
 #define AS_IDENTIFIER_NODE(node) ((ASTIdentifierNode *)node)
+#define AS_BLOCK_NODE(node) ((ASTBlockNode *)node)
 
 typedef struct ast_identifier {
     char *text; // owned by the instance.
@@ -66,9 +74,21 @@ typedef struct ast_identifier {
 ASTIdentifier *newIdentifier(char *str, int length);
 void freeIdentifier(ASTIdentifier *identifier);
 
+typedef struct ast_function {
+    ASTIdentifierNode *name;
+    SymTable identifiers;
+    Array locals; // Array<ASTNode *>
+    ASTBlockNode *body;
+} ASTFunction;
+
+// initializes the body to NULL
+ASTFunction *newFunction(ASTIdentifierNode *name);
+void freeFunction(ASTFunction *fn);
+
 typedef struct ast_program {
-    SymTable globals;
-    Array statements;
+    SymTable identifiers; // global identifiers
+    Array globals; // Array<ASTNode *>
+    Array functions; // Array<ASTFunction *>
 } ASTProg;
 
 void initASTProg(ASTProg *astp);
@@ -80,7 +100,8 @@ ASTNode *newNumberNode(int value, Location loc);
 ASTNode *newUnaryNode(ASTNodeType type, Location loc, ASTNode *child);
 ASTNode *newBinaryNode(ASTNodeType type, Location loc, ASTNode *left, ASTNode *right);
 ASTNode *newIdentifierNode(Location loc, int id);
-ASTNode *newVarNode(Location loc, ASTIdentifierNode *identifier);
+// initializes with empty body
+ASTNode *newBlockNode(Location loc);
 
 void freeAST(ASTNode *root);
 
