@@ -54,7 +54,7 @@ void freeParser(Parser *p) {
 
 /*** Scope management ***/
 static inline void beginScope(Parser *p) {
-    newScope(p->scopes);
+    p->scopes = newScope(p->scopes);
     p->scope_depth++;
 }
 
@@ -67,14 +67,10 @@ static inline void endScope(Parser *p) {
 }
 
 /*** variables ***/
+static void error(Parser *p, Location loc, const char *format, ...);
 // globals
 // locals
-void registerLocal(Parser *p, int id) {
-    assert(p->scope_depth > 0);
-    arrayPush(&p->scopes->ids, (void *)(intptr_t)id);
-}
-
-bool localExists(Parser *p, int id) {
+static bool localExists(Parser *p, int id) {
     assert(p->scope_depth > 0);
     Scope *sc = p->scopes;
     while(sc != NULL) {
@@ -87,8 +83,21 @@ bool localExists(Parser *p, int id) {
     return false;
 }
 
+static bool registerLocal(Parser *p, Location loc, int id) {
+    assert(p->scope_depth > 0);
+    // if a local with the same id exists in the current scope, error.
+    for(size_t i = 0; i < p->scopes->ids.used; ++i) {
+        if((int)ARRAY_GET_AS(intptr_t, &p->scopes->ids, i) == id) {
+            error(p, loc, "Redefinition of local variable '%s' in same scope", GET_SYMBOL_AS(ASTIdentifier, p->current_id_table, id)->text);
+            return false;
+        }
+    }
+    arrayPush(&p->scopes->ids, (void *)(intptr_t)id);
+    return true;
+}
+
 /*** utilities ***/
-static void error(Parser *p, Token tok, const char *format, ...) {
+static void error(Parser *p, Location loc, const char *format, ...) {
     // suppress any errors that may be caused by previous errors
     if(p->panic_mode) {
         return;
@@ -98,14 +107,14 @@ static void error(Parser *p, Token tok, const char *format, ...) {
 
     va_list ap;
     va_start(ap, format);
-    vprintErrorF(ERR_ERROR, tok.location, format, ap);
+    vprintErrorF(ERR_ERROR, loc, format, ap);
     va_end(ap);
 }
 
 static Token advance(Parser *p) {
     Token tok;
     while((tok = nextToken(p->scanner)).type == TK_ERROR) {
-        error(p, tok, tok.errmsg);
+        error(p, tok.location, tok.errmsg);
     }
     p->previous_token = p->current_token;
     p->current_token = tok;
@@ -122,7 +131,7 @@ static inline Token previous(Parser *p) {
 
 static bool consume(Parser *p, TokenType expected, const char *message) {
     if(peek(p).type != expected) {
-        error(p, peek(p), message);
+        error(p, peek(p).location, message);
         return false;
     }
     advance(p);
@@ -446,7 +455,7 @@ static ASTNode *parsePrecedence(Parser *p, Precedence precedence) {
     advance(p);
     PrefixParseFn prefix = getRule(previous(p).type)->prefix;
     if(prefix == NULL) {
-        error(p, previous(p), "expected an expression");
+        error(p, previous(p).location, "expected an expression");
         return NULL;
     }
     ASTNode *left = prefix(p);
@@ -469,12 +478,8 @@ static ASTNode *expression(Parser *p) {
 static ASTNode *declaration(Parser *p);
 // statements
 static ASTNode *block(Parser *p) {
-    // assumes TK_RBRACE (}) was already consumed
+    // assumes TK_LBRACE ({) was already consumed
     ASTNode *n = newBlockNode(previous(p).location);
-    if(!consume(p, TK_LBRACE, "Expected '{'")) {
-        freeAST(n);
-        return NULL;
-    }
     Array *body = &AS_BLOCK_NODE(n)->body;
     int i = 0;
     while(i <= MAX_DECLS_IN_BLOCK && peek(p).type != TK_RBRACE) {
@@ -499,7 +504,15 @@ static ASTNode *expr_stmt(Parser *p) {
 }
 
 static ASTNode *statement(Parser *p) {
-    return expr_stmt(p);
+    ASTNode *n = NULL;
+    if(match(p, TK_LBRACE)) {
+        beginScope(p);
+        n = block(p);
+        endScope(p);
+    } else {
+        n = expr_stmt(p);
+    }
+    return n;
 }
 
 // declarations
@@ -521,6 +534,11 @@ static ASTFunction *fn_decl(Parser *p) {
         return NULL;
     }
     // TODO: return type
+
+    if(!consume(p, TK_LBRACE, "Expected '{'")) {
+        freeAST(AS_NODE(name));
+        return NULL;
+    }
 
     ASTFunction *fn = newFunction(name);
     // NOTE: this only works if only toplevel functions are allowed.
@@ -545,6 +563,7 @@ static ASTNode *var_decl(Parser *p) {
         return NULL;
     }
     ASTNode *n = parse_identifier(p);
+    Location id_loc = n->loc;
     n->loc = var_loc;
 
     if(match(p, TK_EQUAL)) {
@@ -558,6 +577,7 @@ static ASTNode *var_decl(Parser *p) {
 
     if(p->current_fn) {
         arrayPush(&p->current_fn->locals, (void *)n);
+        registerLocal(p, id_loc, n->type == ND_ASSIGN ? AS_IDENTIFIER_NODE(AS_UNARY_NODE(n)->child)->id : AS_IDENTIFIER_NODE(n)->id);
         n = NULL;
     }
 
@@ -660,7 +680,7 @@ bool parserParse(Parser *p) {
                 arrayPush(&p->prog->globals, (void *)n);
             }
         } else {
-            error(p, peek(p), "Only ['fn', 'var'] allowed in global scope");
+            error(p, peek(p).location, "Only ['fn', 'var'] allowed in global scope");
         }
 
         // reset the parser state
