@@ -6,7 +6,6 @@
 #include "Token.h"
 #include "Array.h"
 #include "Symbols.h"
-#include "Arena.h"
 
 typedef enum ast_type {
     ND_BLOCK, // block ({ ... })
