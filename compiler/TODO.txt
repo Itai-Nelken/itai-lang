@@ -1,2 +1,2 @@
-all statements other than expr_stmt
-remaining expressions: identifier, assignment, call
+- Validator
+- Codegen (C transpiler first maybe?)
