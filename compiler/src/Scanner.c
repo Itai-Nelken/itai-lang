@@ -385,7 +385,15 @@ Token nextToken(Scanner *s) {
         case '/': return makeToken(s, match(s, '=') ? TK_SLASH_EQUAL : TK_SLASH);
         case '*': return makeToken(s, match(s, '=') ? TK_STAR_EQUAL : TK_STAR);
         case '!': return makeToken(s, match(s, '=') ? TK_BANG_EQUAL : TK_BANG);
-        case '=': return makeToken(s, match(s, '=') ? TK_EQUAL_EQUAL : TK_EQUAL);
+        case '=': {
+            if(match(s, '=')) {
+                return makeToken(s, TK_EQUAL_EQUAL);
+            } else if(match(s, '>')) {
+                return makeToken(s, TK_BIG_ARROW);
+            } else {
+                return makeToken(s, TK_EQUAL);
+            }
+        }
         case '%': return makeToken(s, match(s, '=') ? TK_PERCENT_EQUAL : TK_PERCENT);
         case '^': return makeToken(s, match(s, '=') ? TK_XOR_EQUAL : TK_XOR);
         case '|': return makeToken(s, match(s, '=') ? TK_PIPE_EQUAL : TK_PIPE);

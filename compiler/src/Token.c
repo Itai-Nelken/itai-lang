@@ -64,6 +64,7 @@ static const char *tokentype_str_lut[] = {
     [TK_BANG_EQUAL]      = "TK_BANG_EQUAL",
     [TK_EQUAL]           = "TK_EQUAL",
     [TK_EQUAL_EQUAL]     = "TK_EQUAL_EQUAL",
+    [TK_BIG_ARROW]       = "TK_BIG_ARROW",
     [TK_PERCENT]         = "TK_PERCENT",
     [TK_PERCENT_EQUAL]   = "TK_PERCENT_EQUAL",
     [TK_XOR]             = "TK_XOR",
