@@ -81,7 +81,7 @@ An example of a typical usage:
 ./ilc 'fn main() { print 40 + 2; }' > print42.s
 gcc print42.s -o print42
 ./print42
-````
+```
 The output of the above will be `42`.
 
 ## Full language spec
@@ -91,6 +91,6 @@ It isn't final yet.
 ## TODO
 - [ ] types.
 - [ ] references.
-- [ ] if-else if statements.
+- [ ] if-else-if statements.
 - [ ] switch statement.
 - [ ] constants (`const name = value;`).

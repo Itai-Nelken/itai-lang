@@ -652,14 +652,12 @@ static void synchronize(Parser *p) {
 // fn_decl       -> 'fn' IDENTIFIER '(' ')' ('->' TYPE)? block
 // var_decl      -> 'var' IDENTIFIER (':' TYPE)? ('=' expression)? ';'
 // expr_stmt     -> expression ';'
-// print_stmt    -> 'print' expression ';'
 // return_stmt   -> 'return' expression? ';'
 // if_stmt       -> 'if' expression block ('else' block)?
 // for_stmt      -> 'for' (var_decl | expr_stmt | ';') expression? ';' expression? block
 // while_stmt    -> 'while' expression block
 // block         -> '{' declaration* '}'
-// statement     -> print_stmt
-//                | if_stmt
+// statement     -> if_stmt
 //                | for_stmt
 //                | while_stmt
 //                | return_stmt
