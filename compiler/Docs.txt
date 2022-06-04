@@ -3,3 +3,6 @@ AST format
 ND_ASSIGN:
 left: ASTIdentifier
 right: expression
+
+ND_CALL:
+child: ASTIdentifier
