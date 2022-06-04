@@ -35,6 +35,7 @@ void initParser(Parser *p, Scanner *s, ASTProg *prog) {
     p->panic_mode = false;
     p->scopes = NULL;
     p->scope_depth = 0;
+    p->current_fn = NULL;
 }
 
 void freeParser(Parser *p) {
@@ -576,8 +577,9 @@ static ASTNode *var_decl(Parser *p) {
     }
 
     if(p->current_fn) {
+        ASTIdentifierNode *id_node = n->type == ND_ASSIGN ? AS_IDENTIFIER_NODE(AS_UNARY_NODE(n)->child) : AS_IDENTIFIER_NODE(n);
         arrayPush(&p->current_fn->locals, (void *)n);
-        registerLocal(p, id_loc, n->type == ND_ASSIGN ? AS_IDENTIFIER_NODE(AS_UNARY_NODE(n)->child)->id : AS_IDENTIFIER_NODE(n)->id);
+        registerLocal(p, id_loc, id_node->id);
         n = NULL;
     }
 
