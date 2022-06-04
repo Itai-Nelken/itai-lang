@@ -184,9 +184,10 @@ static ASTNode *parse_equality(Parser *p, ASTNode *left);
 static ASTNode *parse_comparison(Parser *p, ASTNode *left);
 static ASTNode *parse_bitwise(Parser *p, ASTNode *left);
 static ASTNode *parse_assignment(Parser *p, ASTNode *lvalue);
+static ASTNode *parse_call(Parser *p, ASTNode *callee);
 
 static const ParseRule rules[TK__COUNT] = {
-    [TK_LPAREN]          = {parse_grouping, NULL, PREC_NONE},
+    [TK_LPAREN]          = {parse_grouping, parse_call, PREC_CALL},
     [TK_RPAREN]          = {NULL, NULL, PREC_NONE},
     [TK_LBRACKET]        = {NULL, NULL, PREC_NONE},
     [TK_RBRACKET]        = {NULL, NULL, PREC_NONE},
@@ -453,6 +454,15 @@ static ASTNode *parse_assignment(Parser *p, ASTNode *lvalue) {
     return newBinaryNode(ND_ASSIGN, equalsLoc, lvalue, rvalue);
 }
 
+static ASTNode *parse_call(Parser *p, ASTNode *callee) {
+    // TODO: arguments
+    if(!consume(p, TK_RPAREN, "Expected ')'")) {
+        freeAST(callee);
+        return NULL;
+    }
+    return newUnaryNode(ND_CALL, previous(p).location, callee);
+}
+
 static ASTNode *parsePrecedence(Parser *p, Precedence precedence) {
     advance(p);
     PrefixParseFn prefix = getRule(previous(p).type)->prefix;
@@ -501,13 +511,27 @@ static ASTNode *block(Parser *p) {
 
 static ASTNode *expr_stmt(Parser *p) {
     ASTNode *n = newUnaryNode(ND_EXPR_STMT, previous(p).location, expression(p));
-    consume(p, TK_SEMICOLON, "expected ';' after expression");
+    if(!consume(p, TK_SEMICOLON, "expected ';' after expression")) {
+        freeAST(n);
+        return NULL;
+    }
+    return n;
+}
+
+static ASTNode *return_stmt(Parser *p) {
+    ASTNode *n = newUnaryNode(ND_RETURN, previous(p).location, expression(p));
+    if(!consume(p, TK_SEMICOLON, "expected ';' after expression")) {
+        freeAST(n);
+        return NULL;
+    }
     return n;
 }
 
 static ASTNode *statement(Parser *p) {
     ASTNode *n = NULL;
-    if(match(p, TK_LBRACE)) {
+    if(match(p, TK_RETURN)) {
+        n = return_stmt(p);
+    } else if(match(p, TK_LBRACE)) {
         beginScope(p);
         n = block(p);
         endScope(p);

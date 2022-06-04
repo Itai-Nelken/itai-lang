@@ -9,8 +9,10 @@
 
 // NOTE: when adding a new node type, also add it
 //       as a string to 'ast_node_type_str' and nodeName() in ast.c,
-//       freeAST(), and printAST()
+//       freeAST(), printAST(), and node_name() (all in ast.c).
 typedef enum ast_node_type {
+    ND_CALL, // call
+    ND_RETURN, // return statement
     ND_BLOCK, // block ({ ... })
     ND_IDENTIFIER, // identifier
     ND_ASSIGN, // assignment (infix =)

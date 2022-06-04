@@ -130,9 +130,9 @@ void freeAST(ASTNode *root) {
     switch(root->type) {
         // unary nodes
         case ND_EXPR_STMT:
-            freeAST(AS_UNARY_NODE(root)->child);
-            break;
         case ND_NEG:
+        case ND_RETURN:
+        case ND_CALL:
             freeAST(AS_UNARY_NODE(root)->child);
             break;
         // binary nodes
@@ -172,6 +172,8 @@ void freeAST(ASTNode *root) {
 }
 
 static const char *ast_node_type_str[] = {
+    [ND_CALL] = "ND_CALL",
+    [ND_RETURN] = "ND_RETURN",
     [ND_BLOCK] = "ND_BLOCK",
     [ND_IDENTIFIER] = "ND_IDENTIFIER",
     [ND_ASSIGN] = "ND_ASSIGN",
@@ -201,6 +203,8 @@ static const char *node_name(ASTNodeType type) {
         // unary nodes
         case ND_EXPR_STMT:
         case ND_NEG:
+        case ND_RETURN:
+        case ND_CALL:
             return "ASTUnaryNode";
         // binary nodes
         case ND_ASSIGN:
@@ -246,6 +250,8 @@ void printAST(ASTNode *root) {
         // unary nodes
         case ND_EXPR_STMT:
         case ND_NEG:
+        case ND_RETURN:
+        case ND_CALL:
             printf("\x1b[1mchild:\x1b[0m ");
             printAST(AS_UNARY_NODE(root)->child);
             putchar(' ');
