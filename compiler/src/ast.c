@@ -170,3 +170,131 @@ void freeAST(ASTNode *root) {
     }
     FREE(root);
 }
+
+static const char *ast_node_type_str[] = {
+    [ND_BLOCK] = "ND_BLOCK",
+    [ND_IDENTIFIER] = "ND_IDENTIFIER",
+    [ND_ASSIGN] = "ND_ASSIGN",
+    [ND_EXPR_STMT] = "ND_EXPR_STMT",
+    [ND_ADD] = "ND_ADD",
+    [ND_SUB] = "ND_SUB",
+    [ND_MUL] = "ND_MUL",
+    [ND_DIV] = "ND_DIV",
+    [ND_REM] = "ND_REM",
+    [ND_EQ] = "ND_EQ",
+    [ND_NE] = "ND_NE",
+    [ND_GT] = "ND_GT",
+    [ND_GE] = "ND_GE",
+    [ND_LT] = "ND_LT",
+    [ND_LE] = "ND_LE",
+    [ND_BIT_OR] = "ND_BIT_OR",
+    [ND_XOR] = "ND_XOR",
+    [ND_BIT_AND] = "ND_BIT_AND",
+    [ND_BIT_RSHIFT] = "ND_RSHIFT",
+    [ND_BIT_LSHIFT] = "ND_LSHIFT",
+    [ND_NEG] = "ND_NEG",
+    [ND_NUM] = "ND_NUM"
+};
+
+static const char *node_name(ASTNodeType type) {
+    switch(type) {
+        // unary nodes
+        case ND_EXPR_STMT:
+        case ND_NEG:
+            return "ASTUnaryNode";
+        // binary nodes
+        case ND_ASSIGN:
+        case ND_ADD:
+        case ND_SUB:
+        case ND_MUL:
+        case ND_DIV:
+        case ND_REM:
+        case ND_EQ:
+        case ND_NE:
+        case ND_GT:
+        case ND_GE:
+        case ND_LT:
+        case ND_LE:
+        case ND_BIT_OR:
+        case ND_XOR:
+        case ND_BIT_AND:
+        case ND_BIT_RSHIFT:
+        case ND_BIT_LSHIFT:
+            return "ASTBinaryNode";
+        // everything else
+        case ND_BLOCK:
+            return "ASTBlockNode";
+        case ND_IDENTIFIER:
+            return "ASTIdentifierNode";
+        case ND_NUM:
+            return "ASTLiteralNode";
+        default:
+            break;
+    }
+    UNREACHABLE();
+}
+
+void printAST(ASTNode *root) {
+#define TYPE(type) (ast_node_type_str[type])
+    if(root == NULL) {
+        return;
+    }
+
+    printf("%s {", node_name(root->type));
+    printf("\x1b[1mtype:\x1b[0;33m %s\x1b[0m, ", TYPE(root->type));
+    switch(root->type) {
+        // unary nodes
+        case ND_EXPR_STMT:
+        case ND_NEG:
+            printf("\x1b[1mchild:\x1b[0m ");
+            printAST(AS_UNARY_NODE(root)->child);
+            putchar(' ');
+            break;
+        // binary nodes
+        case ND_ASSIGN:
+        case ND_ADD:
+        case ND_SUB:
+        case ND_MUL:
+        case ND_DIV:
+        case ND_REM:
+        case ND_EQ:
+        case ND_NE:
+        case ND_GT:
+        case ND_GE:
+        case ND_LT:
+        case ND_LE:
+        case ND_BIT_OR:
+        case ND_XOR:
+        case ND_BIT_AND:
+        case ND_BIT_RSHIFT:
+        case ND_BIT_LSHIFT:
+            printf("\x1b[1mleft:\x1b[0m ");
+            printAST(AS_BINARY_NODE(root)->left);
+            printf(", \x1b[1mright:\x1b[0m ");
+            printAST(AS_BINARY_NODE(root)->right);
+            putchar(' ');
+            break;
+        // everything else
+        case ND_BLOCK:
+            printf("\x1b[1mbody:\x1b[0m [");
+            for(size_t i = 0; i < AS_BLOCK_NODE(root)->body.used; ++i) {
+                printAST(ARRAY_GET_AS(ASTNode *, &AS_BLOCK_NODE(root)->body, i));
+            }
+            printf(" ] ");
+            break;
+        case ND_IDENTIFIER:
+            printf("\x1b[1mid:\x1b[0;36m %d\x1b[0m", AS_IDENTIFIER_NODE(root)->id);
+            break;
+        case ND_NUM:
+            // FIXME: handle all literals
+            printf("\x1b[1mas.int32:\x1b[0;36m %d\x1b[0m", AS_LITERAL_NODE(root)->as.int32);
+            break;
+        default:
+            UNREACHABLE();
+            break;
+    }
+
+    putchar('}');
+
+#undef TYPE
+}

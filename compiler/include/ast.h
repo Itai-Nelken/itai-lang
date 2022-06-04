@@ -7,7 +7,10 @@
 #include "Array.h"
 #include "Symbols.h"
 
-typedef enum ast_type {
+// NOTE: when adding a new node type, also add it
+//       as a string to 'ast_node_type_str' and nodeName() in ast.c,
+//       freeAST(), and printAST()
+typedef enum ast_node_type {
     ND_BLOCK, // block ({ ... })
     ND_IDENTIFIER, // identifier
     ND_ASSIGN, // assignment (infix =)
@@ -103,5 +106,7 @@ ASTNode *newIdentifierNode(Location loc, int id);
 ASTNode *newBlockNode(Location loc);
 
 void freeAST(ASTNode *root);
+
+void printAST(ASTNode *root);
 
 #endif // AST_H

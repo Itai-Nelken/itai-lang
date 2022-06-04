@@ -51,6 +51,7 @@ void freeParser(Parser *p) {
     }
     p->scopes = NULL;
     p->scope_depth = 0;
+    p->current_fn = NULL;
 }
 
 /*** Scope management ***/
