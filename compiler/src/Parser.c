@@ -501,7 +501,7 @@ static ASTNode *block(Parser *p) {
         }
         i++;
     }
-    assert(i < MAX_DECLS_IN_BLOCK);
+
     if(!consume(p, TK_RBRACE, "Expected '}'")) {
         freeAST(n);
         return NULL;
@@ -576,6 +576,11 @@ static ASTFunction *fn_decl(Parser *p) {
     endScope(p);
     p->current_id_table = old;
     p->current_fn = NULL;
+
+    if(fn->body == NULL) {
+        freeFunction(fn);
+        fn = NULL;
+    }
     return fn;
 }
 
