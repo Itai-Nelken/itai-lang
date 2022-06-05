@@ -12,7 +12,7 @@
 
 int main(int argc, char **argv) {
 	if(argc < 2) {
-        fprintf(stderr, "\x1b[1mUSAGE:\x1b[0m %s [stmt]\n", argv[0]);
+        fprintf(stderr, "\x1b[1mUSAGE:\x1b[0m %s [code]\n", argv[0]);
         return 1;
     }
 

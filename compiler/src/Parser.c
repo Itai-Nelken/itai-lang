@@ -705,7 +705,9 @@ bool parserParse(Parser *p) {
                 arrayPush(&p->prog->globals, (void *)n);
             }
         } else {
-            error(p, peek(p).location, "Only ['fn', 'var'] allowed in global scope");
+            error(p, peek(p).location, "Only ['fn', 'var'] are allowed in the global scope");
+            // advance so we don't get stuck in an infinite loop with the same token.
+            advance(p);
         }
 
         // reset the parser state
