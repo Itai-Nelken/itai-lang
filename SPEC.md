@@ -411,20 +411,7 @@ switch a {
 }
 ```
 
-A switch can be exited with the `break` keyword. it is also possible to add labels to cases and `break` to them:
-
-```go
-var a = 42;
-switch a {
-    42 : answer => {
-        io::println("The answer!");
-    }
-    _ => {
-       io::println("Wrong!\nGuess you deserve the prize after all...");
-        break answer;
-    }
-}
-```
+A switch can be exited with the `break` keyword.
 
 The braces aren't needed for single expressions:
 
@@ -436,13 +423,12 @@ switch a {
 }
 ```
 
-Cases can fallthrough using the `fallthrough` keyword:
+Cases can't fallthrough, but each case can match multiple values:
 
 ```go
 var a = 24;
 switch a {
-    24 => fallthrough;
-    42 => io::println("The answer (or not)");
+    24 | 42 => io::println("The answer (or not)");
 }
 ```
 
