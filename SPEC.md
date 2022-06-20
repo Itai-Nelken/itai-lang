@@ -167,17 +167,17 @@ The table bellow shows what `null` is for every built-in type:
 | function types | `panic()` built in function (with appropriate error message) |
 | All references | 0x0 (an invalid address) |
 
-### Function types
+### Function type
 
-Function types are the type of function literals. they can also be used to store pointers/references to functions.
+The function type is the type of function literals. it can also be used to store references to regular functions.
 
 ```rust
-fn(<types>) -> T
+fn<T>(<types>)
 ```
 
 The `<types>` is the argument types, and it can be empty.
 
-`T` is the return type. it also can be multiple types in parentheses or none (if none, than the `->` isn't needed).
+`T` is the return type. it also can be multiple types in parentheses or none (if none, than the `<T>` isn't needed).
 
 ### Example
 
@@ -195,7 +195,7 @@ func2();
 The following function type is used when referencing a function type in this document:
 
 ```rust
-fn(...) -> T
+fn<T>(...)
 ```
 
 ### Reference and Array types
@@ -205,10 +205,10 @@ Each type has reference and array variants of itself.
 In the table bellow, one type from each group is shown.
 
 | Type | Reference variant | Array variant |
-| --- | --- | --- |
+| ---  |        ---        |      ---      |
 | `u8` | `&u8`, `&const u8` | `u8[]` |
 | `Vector<T>` | `&Vector<T>`, `&const Vector<T>` | `Vector<T>[]` |
-| `fn(...)T` | `&fn(...) -> T`, `&const fn(...) -> T` | `fn(...)T[]` |
+| `fn<T>(...)` | `&fn<T>(...)`, `&const fn<T>(...)` | `fn<T>(...)[]` |
 
 The array variant can be mixed with the reference ones, for example:
 
@@ -307,12 +307,12 @@ var instance = Foo{a: 20, b: 2};
 Function literals are simply `fn` followed by the argument list inside parentheses, `->` and the return types (inside parentheses if necessary).
 
 ```go
-var add = fn(a: i32, b: i32) -> i32 { return a + b; };
+var add = fn(a: i32, b: i32) -> i32 { return a + b; }; // type is fn<i32>(i32, i32)
 add(1, 2); // returns 3
 var split = fn(s: String) -> (String, String) {
     var len = s.length()/2;
     return s.substring(0, len), s.substring(len, s.length());
-}
+}; // type is fn<String, String>(String)
 split("abcd"); // "ab", "cd"
 ```
 
@@ -496,8 +496,7 @@ A function can return more than one value, this is done by putting the return ty
 
 ```rust
 fn divide(a: i32, b: i32) -> (i32, i32) {
-    var remainder = a % b;
-    return a / b, remainder;
+    return a / b, a % b;
 }
 
 var result, remainder = divide(10, 2); // 5, 0
@@ -761,6 +760,14 @@ add_num<i32>(40, 2); // compiles fine
 add_num<char>('a', 'b'); // compilation error!
 add_num("a", "b"); // str inferred, compilation error!
 ```
+**Note:** in function literals, a generic function is defined by not giving a type to the arguments and/or return type:
+```go
+var add = fn(a, b) { return a + b; };
+
+add(1, 2); // i32 inferred
+add(1.5, 1.5); // f32 inferred
+```
+Note that generics in function literals are more limited (no type limiting, no name for the type), that is because function literals should be used mostly for callbacks where the types are most likely known/easy to infer.
 
 ## The `defer` statement
 
