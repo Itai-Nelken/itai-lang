@@ -221,7 +221,16 @@ static TokenType identifierType(Scanner *s) {
         case 'm': return checkKeyword(s, 1, "odule", TK_MODULE);
         case 'n': return checkKeyword(s, 1, "ull", TK_NULL);
         // TODO: remove builtin print fn
-        case 'p': return checkKeyword(s, 1, "rint", TK_PRINT);
+        case 'p':
+            if(s->current - s->start > 1) {
+                switch(s->start[1]) {
+                    case 'r': return checkKeyword(s, 2, "int", TK_PRINT);
+                    case 'u': return checkKeyword(s, 2, "blic", TK_PUBLIC);
+                    default:
+                        break;
+                }
+            }
+            break;
         case 'r': return checkKeyword(s, 1, "eturn", TK_RETURN);
         case 's':
             if(s->current - s->start > 1) {
@@ -229,7 +238,6 @@ static TokenType identifierType(Scanner *s) {
                     case 't':
                         if(s->current - s->start > 2) {
                             switch(s->start[2]) {
-                                case 'a': return checkKeyword(s, 3, "tic", TK_STATIC);
                                 case 'r':
                                     if(checkKeyword(s, 3, "uct", TK_STRUCT) == TK_IDENTIFIER) {
                                         return TK_STR;

@@ -66,7 +66,7 @@ typedef enum token_type {
     TK_PRINT,
     TK_VAR,
     TK_CONST,
-    TK_STATIC,
+    TK_PUBLIC,
     TK_FN,
     TK_RETURN,
     TK_ENUM,    

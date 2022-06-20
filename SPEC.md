@@ -626,11 +626,13 @@ var ref = &const number;
 ## Structs
 
 Structs are used to group a bunch of related variables (and functions) together.
+Fields are private by default meaning that only the enclosing module can access them. To make a field available to everyone, the `public` keyword can be added before the field declaration.
 
 ```cpp
 struct name {
     field: type;
     field2: type2;
+    public field3: type3;
 }
 ```
 
@@ -859,6 +861,7 @@ The global namespace holds module names and global function and variable (and co
 | `if` | if statement |
 | `else` | if statement |
 | `switch` | switch statement |
+| `public` | make a variable/field/function/enum/struct accessible from outside the current module |
 | `module` | declare a module |
 | `export` | export an object in a module |
 | `import` | import a module (or parts of it) |
