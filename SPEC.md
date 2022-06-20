@@ -9,57 +9,65 @@ import "os";
 import "strings";
 import "types";
 
-module Stack {
+module Collections {
 using arrays::{make, grow};
+
+const INITIAL_SIZE = 16;
 
 export struct Stack<T> {
     data: T[];
     sp: i32;
     size: usize;
-}
 
-const INITIAL_SIZE = 16;
-export fn [static Stack]new<T>(initial_size: usize) -> Stack<T> {
-    if initial_size == 0 {
-        initial_size = INITIAL_SIZE;
+    public fn new<T>(initial_size: usize) -> This<T> {
+        return This<T>{
+            data: make<T>(initial_size == 0 ? INITIAL_SIZE : initial_size),
+            sp: 0,
+            size: initial_size
+        };
     }
-    return Stack<T>{data: make<T>(initial_size), sp: 0, size: initial_size};
-}
 
-fn [this &const Stack]isFull() -> bool {
-    return this.sp == this.size-1 ? true : false;
-}
-
-export fn [this &const Stack]isEmpty() -> bool {
-    return this.sp == 0 ? true : false;
-}
-
-fn [this &Stack]grow() {
-    this.size *= 2;
-    ::grow(&this.data, this.size);
-}
-
-export fn [this &Stack]push(data: T) {
-    if this.isFull() {
-        this.grow();
+    public fn getSize(&const this) -> usize {
+        return .size;
     }
-    this.data[this.sp] = data;
-    this.sp++;
-}
 
-export fn [this &Stack]pop() -> T {
-    if this.isEmpty() {
-        io::printerrln("ERROR: stack is empty!");
+    public fn isFull(&const this) -> bool {
+        return .sp == .size-1;
     }
-    this.sp--;
-    return this.data[this.sp];
-}
 
-export fn [this &const Stack]peek() -> T {
-    return this.data[this.sp-1];
-}
-} // module Stack
+    public fn isEmpty(&const this) -> bool {
+        return .sp == 0;
+    }
 
+    fn grow(&this) {
+        .size *= 2;
+        ::grow(&.data, .size);
+    }
+
+    public fn push(*this, data: T) {
+        if .isFull() {
+            .grow();
+        }
+        .data[.sp] = data;
+        .sp++;
+    }
+
+    public fn pop(&this) -> T {
+        if .isEmpty() {
+            io::printerrln("ERROR: stack is empty!");
+            return null;
+        }
+        .sp--;
+        return .data[.sp];
+    }
+
+    public fn peek(&const this) -> T {
+        return .data[.sp-1];
+    }
+} // struct Stack<T>
+} // module Collections
+
+using Collections::Stack;
 fn main() {
     if arrays::len(os::args) < 2 {
         io::printerrfln("USAGE: %s [numbers]", os::args[0]);
@@ -102,7 +110,7 @@ The Preprocessor and Compiler can be passed certain options using directives:
 ```rust
 #[directive(value)]
 // examples
-#[wuninitialized(true)] // turn on warnings for uninitialized variables
+#[warn_uninitialized(true)] // turn on warnings for uninitialized variables
 ```
 
 ## Types
@@ -132,12 +140,10 @@ The Preprocessor and Compiler can be passed certain options using directives:
 
 ### Advanced (from the standard library)
 
-Those aren't primitive types, but they are pretty basic in modern programming languages.
-
-They are automatically imported and put in the global scope.
+These aren't primitive types, but they are pretty basic in modern programming languages, so they are automatically imported and put in the global scope.
 
 | Type | Description |
-| --- | --- |
+| ---  |     ---     |
 | `String` | Mutable string with advanced features (using bound functions) |
 | `Vector<T>` | A vector for any type (using generics). has advanced features (using bound functions) |
 
@@ -697,23 +703,23 @@ Enums can also capture values.
 ```rust
 // declaring
 enum states {
-    NONE,
-    ON,
-    OFF
+    None,
+    On,
+    Off
 }
 
 enum types {
-    INT(i32),
-    FLOAT(f32),
-    STRING(String),
-    ALL(i32, f32, String)
+    Int(i32),
+    Float(f32),
+    String(String),
+    All(i32, f32, String)
 }
 
 // using
-var state = states::NONE;
-var number = types::INT(42);
+var state = states::None;
+var number = types::Int(42);
 var answer = number.0; // answer == 42
-var all = types::ALL(42, 3.14, "What are the numbers?");
+var all = types::All(42, 3.14, "What are the numbers?");
 all.0; // 42
 all.1; // 3.14
 all.2; // "What are the numbers?"
