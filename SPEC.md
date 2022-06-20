@@ -642,36 +642,42 @@ ref.a + ref.b; // 42
 // *(ref).a + *(ref).b;
 ```
 
-### Binding functions to structs
+### Binding functions to structs and enums
 
 There are associated functions and bound functions.
+ * associated functions "belong" to the struct itself, not instances of it.
+ * bound functions "belong" to instances of the struct, and cannot be called without an instance.
 
-associated functions "belong" to the struct itself, not instances of it.
+Both associated and bound functions hav e to be defined inside the struct/enum to which they belong. to be visible outside of the enclosing module, they have to be made public by adding the `public` keyword before defining them.
 
-bound functions "belong" to instances of the struct, and cannot be called without an instance.
+Bound functions most have `&this` or `&const this` as the first parameter. this is a shortcut for `this: &This`/`this: &const This`.
+the `This` type is defined automatically to the type of the enclosing struct or enum.
+
+As bound functions are likely to access members/call other bound functions, writing `.member` instead of `this.member` is allowed.
 
 ```rust
 struct Person {
     name: String;
     age: i32;
-}
 
-// associated function
-fn [static Person]new(String name, i32 age) -> Person {
-    return Person{name: name, age: age};
-}
+    // associated function
+    public fn new(name: String, age: i32) -> This {
+        return This{name, age};
+    }
 
-// bound functions
-fn [this &const Person]getName() -> String {
-    return this.name;
-}
+    // bound functions
+    public fn getName(&const this) -> String {
+        // .name is the same as this.name
+        return .name
+    }
 
-fn [this &Person]changeName(String name) {
-    this.name = name;
-}
+    public fn changeName(&this, name: String) {
+        .name = name;
+    }
 
-fn [this &const Person]getAge() -> i32 {
-    return this.age;
+    public fn getAge(&const this) -> i32 {
+        return .age;
+    }
 }
 
 // usage
