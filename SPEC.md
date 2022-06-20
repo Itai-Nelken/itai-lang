@@ -411,7 +411,7 @@ switch a {
         io::println("The answer");
     }
     // will catch anything that isn't handled
-    _ => {
+    else => {
         io::println("Wrong!");
     }    
 }
@@ -425,7 +425,7 @@ The braces aren't needed for single expressions:
 var a = 42;
 switch a {
     42 => io::println("The answer!");
-    _ => io::println("Wrong answer!");
+    else => io::println("Wrong answer!");
 }
 ```
 
@@ -435,6 +435,7 @@ Cases can't fallthrough, but each case can match multiple values:
 var a = 24;
 switch a {
     24 | 42 => io::println("The answer (or not)");
+    else => io::println("Wrong answer!");
 }
 ```
 
@@ -537,7 +538,7 @@ fn printf(format: str, ap: ...) {
                 'c' => out.append_char(va_arg<char>(ap));
                 's' => out.append_str(ca_arg<str>(ap));
                 '%' => out.append_char('%');
-                _ => out.append(format[i-1 : i]);
+                else => out.append(format[i-1 : i]);
             }
         } else {
             out.append(format[i]);
