@@ -722,6 +722,7 @@ all.2; // "What are the numbers?"
 ## Generics
 
 Generics allow a type in a function or struct to be any type the user provides.
+In a function, the generic type can be infered in the call.
 
 ```rust
 // structs
@@ -737,6 +738,9 @@ fn add<T>(T a, T b) -> T {
 }
 add<i32>(40, 2); // 42
 add<f32>(41.5, 0.5); // 42
+
+add(20, 22); // i32 inferred
+add(21.5, 20.5) // f32 inferred
 ```
 
 A generic type can be limited to be only a few types:
@@ -748,6 +752,7 @@ fn add_num<T(i32, f32)>(T a, T b) -> T {
 
 add_num<i32>(40, 2); // compiles fine
 add_num<char>('a', 'b'); // compilation error!
+add_num("a", "b"); // str inferred, compilation error!
 ```
 
 ## The `defer` statement
@@ -866,7 +871,7 @@ The user can't define custom namespaces, but each module has it's own namespace.
 | `if` | if statement |
 | `else` | if statement |
 | `switch` | switch statement |
-| `public` | make a variable/field/function/enum/struct accessible from outside the current module |
+| `public` | make a variable/field/function/enum/struct accessible from outside the current module. |
 | `module` | declare a module |
 | `export` | export an object in a module |
 | `import` | import a module (or parts of it) |
