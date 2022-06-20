@@ -280,7 +280,7 @@ Array elements are put as a comma separated list inside `[]` (brackets).
 ['a', 'b', 'c']
 ["s1", "s2", "s3"]
 // nested arrays
-[1, [2, 3, [4, 5, 6], 7], 8]
+[[1, 2, 3], [4, 5, 6]] // type is i32[3][2]
 ```
 
 ### Structs
