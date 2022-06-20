@@ -828,14 +828,27 @@ this doesn't apply when a module from a file (`import "<file>/<module>";` ) or w
 A scope generally is whatever is inside a pair of opening and closing braces (`{}`) (a block). More specifically, each function has a scope and each for loop has a scope (so the initializer clause can be a variable declaration).
 further scopes can be added with blocks (`{ ... }`).
 
-Object names in the current scope have "shadow" objects with the same name in the parent scopes.
+Object names in the current scope "shadow" objects with the same name in the parent scopes.
 In other words, if a child scope and its parent scope have an object with the same name, referencing the object in the child scope will use the one defined in the child scope. to use the object from the parent scope, the scope resolution operator (`::`) is used in its prefix variant.
+**Example:**<br>
+```rust
+fn main() {
+    var a = 42;
+    {
+        var a = 50;
+        a; // 50
+    }
+    a; // 42
+}
+
+```
 
 ### Namespaces
 
-Each function, enum, struct, module, and scope has it's own namespace.
+A namespace is like a scope but for identifiers.
+Function and global variable names, enum names, and struct names live in the global namespace (unless defined inside a module).
 
-The global namespace holds module names and global function and variable (and constant) names.
+The user can't define custom namespaces, but each module has it's own namespace.
 
 ## Keywords
 
