@@ -650,10 +650,16 @@ static ASTNode *var_decl(Parser *p) {
     }
 
     if(p->current_fn) {
-        ASTIdentifierNode *id_node = n->type == ND_ASSIGN ? AS_IDENTIFIER_NODE(AS_UNARY_NODE(n)->child) : AS_IDENTIFIER_NODE(n);
+        ASTIdentifierNode *id_node = n->type == ND_ASSIGN ? AS_IDENTIFIER_NODE(AS_BINARY_NODE(n)->left) : AS_IDENTIFIER_NODE(n);
         arrayPush(&p->current_fn->locals, (void *)n);
         registerLocal(p, id_loc, id_node->id);
-        n = NULL;
+        if(n->type == ND_ASSIGN) {
+            // FIXME: We need to make a copy of the node so it isn't freed 2 times
+            // (once by freeFunction(), and once by freeASTProg()
+            n = NULL;
+        } else {
+            n = NULL;
+        }
     }
 
     return n;
