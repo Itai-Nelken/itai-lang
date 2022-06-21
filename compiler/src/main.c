@@ -46,7 +46,7 @@ int main(int argc, char **argv) {
 		printf("\x1b[32m%s\x1b[0m:\n", name->text);
 
 		printf("locals:\n");
-		for(size_t i = 0; i < prog.globals.used; ++i) {
+		for(size_t i = 0; i < fn->locals.used; ++i) {
 			ASTNode *l = ARRAY_GET_AS(ASTNode *, &fn->locals, i);
 			int id = (l->type == ND_ASSIGN ? AS_IDENTIFIER_NODE(AS_BINARY_NODE(l)->left) : AS_IDENTIFIER_NODE(l))->id;
 			printf("* '%s'\n", GET_SYMBOL_AS(ASTIdentifier, &fn->identifiers, id)->text);
