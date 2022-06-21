@@ -11,6 +11,7 @@
 //       as a string to 'ast_node_type_str' and nodeName() in ast.c,
 //       freeAST(), printAST(), and node_name() (all in ast.c).
 typedef enum ast_node_type {
+    ND_IF, // if statement
     ND_CALL, // call
     ND_RETURN, // return statement
     ND_BLOCK, // block ({ ... })

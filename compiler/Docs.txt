@@ -1,8 +1,12 @@
 AST format
 ==========
 ND_ASSIGN:
-left: ASTIdentifier
-right: expression
+left: lvalue (ASTIdentifier *)
+right: rvalue (expression, ASTNode *)
 
 ND_CALL:
-child: ASTIdentifier
+child: callee (ASTIdentifier *)
+
+ND_IF:
+left: condition (ASTNode *)
+right: body (ASTNode *)

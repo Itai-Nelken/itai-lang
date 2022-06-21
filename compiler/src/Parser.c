@@ -487,6 +487,7 @@ static ASTNode *expression(Parser *p) {
 }
 
 /*** statement parser ***/
+static ASTNode *statement(Parser *p);
 static ASTNode *declaration(Parser *p);
 // statements
 static ASTNode *block(Parser *p) {
@@ -527,10 +528,28 @@ static ASTNode *return_stmt(Parser *p) {
     return n;
 }
 
+static ASTNode *if_stmt(Parser *p) {
+    // The 'if' keyword is already consumed.
+    Location loc = previous(p).location;
+    ASTNode *condition = expression(p);
+    if(condition == NULL) {
+        return NULL;
+    }
+    ASTNode *body = statement(p);
+    if(body == NULL) {
+        freeAST(condition);
+        return NULL;
+    }
+
+    return newBinaryNode(ND_IF, loc, condition, body);
+}
+
 static ASTNode *statement(Parser *p) {
     ASTNode *n = NULL;
     if(match(p, TK_RETURN)) {
         n = return_stmt(p);
+    } else if(match(p, TK_IF)) {
+        n = if_stmt(p);
     } else if(match(p, TK_LBRACE)) {
         beginScope(p);
         n = block(p);
