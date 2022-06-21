@@ -28,7 +28,7 @@ typedef enum ast_node_type {
     ND_BIT_AND, // infix &
     ND_BIT_RSHIFT, ND_BIT_LSHIFT, // infix >> <<
     ND_NEG, // unary -
-    ND_NUM  // numbers
+    ND_NUM // numbers
 } ASTNodeType;
 
 typedef struct ast_node {

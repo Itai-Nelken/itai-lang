@@ -7,6 +7,14 @@
 #include "Token.h"
 #include "Errors.h"
 
+Error newError(ErrorType type, Location loc, char *message) {
+    return (Error){
+        .type = type,
+        .loc = loc,
+        .message = message
+    };
+}
+
 static void indentLine(Location *const loc) {
     int line = loc->line;
     short indent = 0;
@@ -34,7 +42,7 @@ static void printLocation(Location *const loc) {
 
 static const char *errortypes[] = {"\x1b[35mwarning", "\x1b[31merror"};
 
-void printError(ErrorType type, Location loc, const char *message) {
+void printErrorStr(ErrorType type, Location loc, const char *message) {
     fprintf(stderr, "\x1b[1m%s:%d:%d: ", loc.file, loc.line, loc.at + 1);
     fprintf(stderr, "%s:\x1b[0m\n", errortypes[type]);
     printLocation(&loc);
@@ -63,7 +71,7 @@ int vprintErrorF(ErrorType type, Location loc, const char *format, va_list ap) {
     length = vsnprintf(buffer, (size_t)length + 1, format, copy);
     va_end(copy);
 
-    printError(type, loc, buffer);
+    printErrorStr(type, loc, buffer);
     freeString(buffer);
     return length;
 }
@@ -79,4 +87,9 @@ int printErrorF(ErrorType type, Location loc, const char *format, ...) {
     va_end(ap);
 
     return length;
+}
+
+void printError(Error err) {
+    assert(err.message);
+    printErrorStr(err.type, err.loc, err.message);
 }
