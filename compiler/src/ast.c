@@ -123,6 +123,16 @@ ASTNode *newBlockNode(Location loc) {
     return AS_NODE(n);
 }
 
+ASTNode *newConditionalNode(ASTNodeType type, Location loc, ASTNode *condition, ASTNode *body, ASTNode *else_) {
+    ASTConditionalNode *n;
+    NEW0(n);
+    n->header = newNode(type, loc);
+    n->condition = condition;
+    n->body = body;
+    n->else_ = else_;
+    return AS_NODE(n);
+}
+
 void freeAST(ASTNode *root) {
     if(root == NULL) {
         return;
@@ -136,7 +146,6 @@ void freeAST(ASTNode *root) {
             freeAST(AS_UNARY_NODE(root)->child);
             break;
         // binary nodes
-        case ND_IF:
         case ND_ASSIGN:
         case ND_ADD:
         case ND_SUB:
@@ -161,6 +170,11 @@ void freeAST(ASTNode *root) {
         case ND_BLOCK:
             arrayMap(&AS_BLOCK_NODE(root)->body, free_ast_callback, NULL);
             freeArray(&AS_BLOCK_NODE(root)->body);
+            break;
+        case ND_IF:
+            freeAST(AS_CONDITIONAL_NODE(root)->condition);
+            freeAST(AS_CONDITIONAL_NODE(root)->body);
+            freeAST(AS_CONDITIONAL_NODE(root)->else_);
             break;
         case ND_IDENTIFIER:
         case ND_NUM:
@@ -209,7 +223,6 @@ static const char *node_name(ASTNodeType type) {
         case ND_CALL:
             return "ASTUnaryNode";
         // binary nodes
-        case ND_IF:
         case ND_ASSIGN:
         case ND_ADD:
         case ND_SUB:
@@ -235,6 +248,8 @@ static const char *node_name(ASTNodeType type) {
             return "ASTIdentifierNode";
         case ND_NUM:
             return "ASTLiteralNode";
+        case ND_IF:
+            return "ASTConditionalNode";
         default:
             break;
     }
@@ -260,7 +275,6 @@ void printAST(ASTNode *root) {
             putchar(' ');
             break;
         // binary nodes
-        case ND_IF:
         case ND_ASSIGN:
         case ND_ADD:
         case ND_SUB:
@@ -298,6 +312,16 @@ void printAST(ASTNode *root) {
         case ND_NUM:
             // FIXME: handle all literals
             printf("\x1b[1mas.int32:\x1b[0;36m %d\x1b[0m", AS_LITERAL_NODE(root)->as.int32);
+            break;
+        case ND_IF:
+            printf("\x1b[1mcondition:\x1b[0m ");
+            printAST(AS_CONDITIONAL_NODE(root)->condition);
+            printf(", \x1b[1mbody:\x1b[0m ");
+            printAST(AS_CONDITIONAL_NODE(root)->body);
+            putchar(' ');
+            printf("\x1b[1melse_:\x1b[0m ");
+            printAST(AS_CONDITIONAL_NODE(root)->else_);
+            putchar(' ');
             break;
         default:
             UNREACHABLE();

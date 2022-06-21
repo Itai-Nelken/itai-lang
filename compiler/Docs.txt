@@ -1,12 +1,15 @@
+? == optional
+
 AST format
 ==========
-ND_ASSIGN:
+ND_ASSIGN: ASTBinaryNode
 left: lvalue (ASTIdentifier *)
 right: rvalue (expression, ASTNode *)
 
-ND_CALL:
+ND_CALL: ASTUnaryNode
 child: callee (ASTIdentifier *)
 
-ND_IF:
-left: condition (ASTNode *)
-right: body (ASTNode *)
+ND_IF: ASTConditionalNode
+condition: condition (ASTNode *)
+body: body (ASTNode *)
+else_: else? (ASTNode *)

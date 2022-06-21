@@ -535,13 +535,37 @@ static ASTNode *if_stmt(Parser *p) {
     if(condition == NULL) {
         return NULL;
     }
-    ASTNode *body = statement(p);
+
+    if(!consume(p, TK_LBRACE, "Expected '{' after expression in if statement.")) {
+        freeAST(condition);
+        return NULL;
+    }
+
+    beginScope(p);
+    ASTNode *body = block(p);
+    endScope(p);
     if(body == NULL) {
         freeAST(condition);
         return NULL;
     }
 
-    return newBinaryNode(ND_IF, loc, condition, body);
+    ASTNode *else_ = NULL;
+    if(!match(p, TK_ELSE)) {
+       goto end;
+    }
+    if(match(p, TK_IF)) {
+        else_ = if_stmt(p);
+    } else {
+        if(!consume(p, TK_LBRACE, "Expected block after 'else'.")) {
+            else_ = NULL;
+        } else {
+            beginScope(p);
+            else_ = block(p);
+            endScope(p);
+        }
+    }
+end:
+    return newConditionalNode(ND_IF, loc, condition, body, else_);
 }
 
 static ASTNode *statement(Parser *p) {

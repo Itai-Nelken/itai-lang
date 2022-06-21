@@ -64,12 +64,19 @@ typedef struct ast_block_node {
     Array body; // Array<ASTNode *>
 } ASTBlockNode;
 
+// if-else, loops, switch
+typedef struct ast_conditional_node {
+    ASTNode header;
+    ASTNode *condition, *body, *else_;
+} ASTConditionalNode;
+
 #define AS_NODE(node) ((ASTNode *)node)
 #define AS_LITERAL_NODE(node) ((ASTLiteralNode *)node)
 #define AS_UNARY_NODE(node) ((ASTUnaryNode *)node)
 #define AS_BINARY_NODE(node) ((ASTBinaryNode *)node)
 #define AS_IDENTIFIER_NODE(node) ((ASTIdentifierNode *)node)
 #define AS_BLOCK_NODE(node) ((ASTBlockNode *)node)
+#define AS_CONDITIONAL_NODE(node) ((ASTConditionalNode *)node)
 
 typedef struct ast_identifier {
     char *text; // owned by the instance.
@@ -107,6 +114,7 @@ ASTNode *newBinaryNode(ASTNodeType type, Location loc, ASTNode *left, ASTNode *r
 ASTNode *newIdentifierNode(Location loc, int id);
 // initializes with empty body
 ASTNode *newBlockNode(Location loc);
+ASTNode *newConditionalNode(ASTNodeType type, Location loc, ASTNode *condition, ASTNode *body, ASTNode *else_);
 
 void freeAST(ASTNode *root);
 
