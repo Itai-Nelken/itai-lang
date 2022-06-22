@@ -1,2 +1,3 @@
+- Local variable initializing (At correct place, FIXME in code).
 - Validator
-- Codegen (C transpiler first maybe?)
+- Codegen (C transpiler first maybe?) (Global variable initializing).

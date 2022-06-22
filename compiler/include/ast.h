@@ -2,7 +2,7 @@
 #define AST_H
 
 #include <stdbool.h>
-#include "types.h"
+#include "common.h"
 #include "Token.h"
 #include "Array.h"
 #include "Symbols.h"

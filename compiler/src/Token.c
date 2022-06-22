@@ -93,25 +93,6 @@ static const char *tokentype_str_lut[] = {
     [TK_FLOATLIT]        = "TK_FLOATLIT",
     [TK_IDENTIFIER]      = "TK_IDENTIFIER",
 
-    // types
-    [TK_I8]              = "TK_I8",
-    [TK_I16]             = "TK_I16",
-    [TK_I32]             = "TK_I32",
-    [TK_I64]             = "TK_I64",
-    [TK_I128]            = "TK_I128",
-    [TK_U8]              = "TK_U8",
-    [TK_U16]             = "TK_U16",
-    [TK_U32]             = "TK_U32",
-    [TK_U64]             = "TK_U64",
-    [TK_U128]            = "TK_U128",
-    [TK_F32]             = "TK_F32",
-    [TK_F64]             = "TK_F64",
-    [TK_ISIZE]           = "TK_ISIZE",
-    [TK_USIZE]           = "TK_USIZE",
-    [TK_CHAR]            = "TK_CHAR",
-    [TK_STR]             = "TK_STR",
-    [TK_BOOL]            = "TK_BOOL",
-
     // keywords
     [TK_PRINT]           = "TK_PRINT",
     [TK_VAR]             = "TK_VAR",

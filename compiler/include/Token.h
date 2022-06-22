@@ -43,25 +43,6 @@ typedef enum token_type {
     TK_FLOATLIT, // example: 1.23
     TK_IDENTIFIER,
 
-    // types
-    TK_I8,
-    TK_I16,
-    TK_I32,
-    TK_I64,
-    TK_I128,
-    TK_U8,
-    TK_U16,
-    TK_U32,
-    TK_U64,
-    TK_U128,
-    TK_F32,
-    TK_F64,
-    TK_ISIZE,
-    TK_USIZE,
-    TK_CHAR,
-    TK_STR,
-    TK_BOOL,
-
     // keywords
     TK_PRINT,
     TK_VAR,
