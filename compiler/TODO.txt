@@ -1,3 +1,5 @@
+- BUG: segfault in freeString():stringIsValid() because of corruption. happens when using 13+ globals/locals.
 - Local variable initializing (At correct place, FIXME in code).
+- Typechecker
 - Validator
 - Codegen (C transpiler first maybe?) (Global variable initializing).

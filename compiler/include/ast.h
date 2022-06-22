@@ -3,8 +3,9 @@
 
 #include <stdbool.h>
 #include "common.h"
-#include "Token.h"
 #include "Array.h"
+#include "Token.h"
+#include "Types.h"
 #include "Symbols.h"
 
 // NOTE: when adding a new node type, also add it
@@ -58,6 +59,7 @@ typedef struct ast_binary_node {
 typedef struct ast_identifier_node {
     ASTNode header;
     int id;
+    Type type; // for variables.
 } ASTIdentifierNode;
 
 typedef struct ast_block_node {

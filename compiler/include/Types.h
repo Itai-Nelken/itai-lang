@@ -21,7 +21,8 @@ typedef enum type_type {
     TY_CHAR,
     TY_STR,
     TY_BOOL,
-    TY_CUSTOM
+    TY_CUSTOM,
+    TY_NONE
 } TypeType;
 
 typedef struct type {
@@ -30,5 +31,6 @@ typedef struct type {
 } Type;
 
 Type newType(TypeType type, Location loc);
+Type parseBuiltinTypeFromToken(Token tok);
 
 #endif // TYPES_H

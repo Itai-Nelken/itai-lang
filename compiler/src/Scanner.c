@@ -168,7 +168,12 @@ static TokenType checkKeyword(Scanner *s, int start, const char *rest, TokenType
 static TokenType identifierType(Scanner *s) {
     switch(s->start[0]) {
         case 'a': return ((s->current - s->start > 1) && s->start[1] == 's') ? TK_AS : TK_IDENTIFIER;
-        case 'c': return checkKeyword(s, 1, "onst", TK_CONST);
+        case 'b': return checkKeyword(s, 1, "ool", TK_BOOL);
+        case 'c':
+            if(checkKeyword(s, 1, "onst", TK_CONST) == TK_IDENTIFIER) {
+                return checkKeyword(s, 1, "har", TK_CHAR);
+            }
+            return TK_CONST;
         case 'e':
             if(s->current - s->start > 1) {
                 switch(s->start[1]) {
@@ -185,6 +190,9 @@ static TokenType identifierType(Scanner *s) {
                 switch(s->start[1]) {
                     case 'n': return TK_FN;
                     case 'o': return checkKeyword(s, 2, "r", TK_FOR);
+                    // types
+                    case '3': return checkKeyword(s, 2, "2", TK_F32);
+                    case '6': return checkKeyword(s, 2, "4", TK_F64);
                     default:
                         break;
                 }
@@ -195,6 +203,16 @@ static TokenType identifierType(Scanner *s) {
                 switch(s->start[1]) {
                     case 'f': return TK_IF;
                     case 'm': return checkKeyword(s, 2, "port", TK_IMPORT);
+                    // types
+                    case 's': return checkKeyword(s, 2, "ize", TK_ISIZE);
+                    case '8': return TK_I8;
+                    case '1':
+                        if(checkKeyword(s, 2, "28", TK_I128) == TK_IDENTIFIER) {
+                            return TK_I16;
+                        }
+                        return TK_I128;
+                    case '3': return checkKeyword(s, 2, "2", TK_I32);
+                    case '6': return checkKeyword(s, 2, "4", TK_I64);
                     default:
                         break;
                 }
@@ -214,13 +232,54 @@ static TokenType identifierType(Scanner *s) {
             }
             break;
         case 'r': return checkKeyword(s, 1, "eturn", TK_RETURN);
-        case 's': return checkKeyword(s, 1, "truct", TK_STRUCT);
+        case 's':
+            if(s->current - s->start > 1) {
+                switch(s->start[1]) {
+                    case 't':
+                        if(s->current - s->start > 2) {
+                            switch(s->start[2]) {
+                                case 'r':
+                                    if(checkKeyword(s, 3, "uct", TK_STRUCT) == TK_IDENTIFIER) {
+                                        return TK_STR;
+                                    }
+                                    return TK_STRUCT;
+                                default:
+                                    break;
+                            }
+                        }
+                        break;
+                    case 'w': return checkKeyword(s, 2, "itch", TK_SWITCH);
+                    default:
+                        break;
+                }
+            }
+            break;
         case 't':
             if(checkKeyword(s, 1, "ypeof", TK_TYPEOF) == TK_IDENTIFIER) {
                 return checkKeyword(s, 1, "ype", TK_TYPE);
             }
             return TK_TYPEOF;
-        case 'u': return checkKeyword(s, 1, "sing", TK_USING);
+        case 'u':
+            if(s->current - s->start > 1) {
+                switch(s->start[1]) {
+                    case 's':
+                        if(checkKeyword(s, 2, "ing", TK_USING) == TK_IDENTIFIER) {
+                            return TK_USIZE;
+                        }
+                        return TK_USING;
+                    case '8': return TK_U8;
+                    case '1':
+                        if(checkKeyword(s, 2, "28", TK_U128) == TK_IDENTIFIER) {
+                            return TK_U16;
+                        }
+                        return TK_U128;
+                    case '3': return checkKeyword(s, 2, "2", TK_U32);
+                    case '6': return checkKeyword(s, 2, "4", TK_U64);
+                    default:
+                        break;
+                }
+            }
+            break;
         case 'v': return checkKeyword(s, 1, "ar", TK_VAR);
         case 'w': return checkKeyword(s, 1, "hile", TK_WHILE);
         default:

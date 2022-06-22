@@ -7,6 +7,7 @@
 #include "Array.h"
 #include "Strings.h"
 #include "Symbols.h"
+#include "Types.h"
 #include "Token.h"
 #include "Scanner.h"
 #include "ast.h"
@@ -174,7 +175,7 @@ typedef struct parse_rule {
     Precedence precedence;
 } ParseRule;
 
-static ASTNode *parse_identifier(Parser *p);
+static ASTNode *parse_identifier_node(Parser *p);
 static ASTNode *parse_number(Parser *p);
 static ASTNode *parse_grouping(Parser *p);
 static ASTNode *parse_unary(Parser *p);
@@ -231,7 +232,7 @@ static const ParseRule rules[TK__COUNT] = {
     [TK_CHARLIT]         = {NULL, NULL, PREC_NONE},
     [TK_NUMLIT]          = {parse_number, NULL, PREC_NONE},
     [TK_FLOATLIT]        = {NULL, NULL, PREC_NONE},
-    [TK_IDENTIFIER]      = {parse_identifier, NULL, PREC_NONE},
+    [TK_IDENTIFIER]      = {parse_identifier_node, NULL, PREC_NONE},
     [TK_VAR]             = {NULL, NULL, PREC_NONE},
     [TK_CONST]           = {NULL, NULL, PREC_NONE},
     [TK_PUBLIC]          = {NULL, NULL, PREC_NONE},
@@ -263,7 +264,9 @@ static inline const ParseRule *getRule(TokenType type) {
 static ASTNode *parsePrecedence(Parser *p, Precedence precedence);
 static ASTNode *expression(Parser *p);
 
-static ASTNode *parse_identifier(Parser *p) {
+// FIXME: specify what ID table to use.
+//        for example type id's should be stored in the global id table.
+static int parse_identifier(Parser *p) {
     ASTIdentifier *id = newIdentifier(previous(p).lexeme, previous(p).length);
     int id_idx = -1;
     if(symbolExists(p->current_id_table, id->text)) {
@@ -272,8 +275,14 @@ static ASTNode *parse_identifier(Parser *p) {
     } else {
         id_idx = addSymbol(p->current_id_table, id->text, id);
     }
+    return id_idx;
+}
+static inline ASTNode *parse_identifier_node(Parser *p) {
+    return newIdentifierNode(previous(p).location, parse_identifier(p));
+}
 
-    return newIdentifierNode(previous(p).location, id_idx);
+static inline ASTIdentifier *parse_id(Parser *p) {
+    return GET_SYMBOL_AS(ASTIdentifier, p->current_id_table, parse_identifier(p));
 }
 
 static ASTNode *parse_number(Parser *p) {
@@ -451,7 +460,7 @@ static ASTNode *parsePrecedence(Parser *p, Precedence precedence) {
     advance(p);
     PrefixParseFn prefix = getRule(previous(p).type)->prefix;
     if(prefix == NULL) {
-        error(p, previous(p).location, "expected an expression");
+        error(p, previous(p).location, "Expected an expression");
         return NULL;
     }
     ASTNode *left = prefix(p);
@@ -468,6 +477,23 @@ static ASTNode *expression(Parser *p) {
     ASTNode *expr = parsePrecedence(p, PREC_ASSIGNMENT);
     // prevent uninitialized nodes from being returned
     return p->had_error ? NULL : expr;
+}
+
+/*** type parser ***/
+static Type parse_type(Parser *p) {
+    // 1. check if the current token is a type.
+    //    * if it is, excellent.
+    //    * if it's not, check if it is an identifier.
+    //      - if it is, return TY_CUSTOM and add the type to the type table.
+    //      - if it's not, return TY_NONE.
+    advance(p);
+    Type type = parseBuiltinTypeFromToken(previous(p));
+    if(type.type != TY_NONE || peek(p).type != TK_IDENTIFIER) {
+        return type;
+    }
+    // TODO: add type to type table, save id in type.
+    type.type = TY_CUSTOM;
+    return type;
 }
 
 /*** statement parser ***/
@@ -592,7 +618,7 @@ static ASTFunction *fn_decl(Parser *p) {
     if(!consume(p, TK_IDENTIFIER, "Expected identifier after 'fn'")) {
         return NULL;
     }
-    ASTIdentifierNode *name = AS_IDENTIFIER_NODE(parse_identifier(p));
+    ASTIdentifierNode *name = AS_IDENTIFIER_NODE(parse_identifier_node(p));
 
     if(!consume(p, TK_LPAREN, "Expected '('")) {
         freeAST(AS_NODE(name));
@@ -634,13 +660,28 @@ static ASTNode *var_decl(Parser *p) {
     // save the location of the 'var' keyword.
     Location var_loc = previous(p).location;
 
+    // Parse the name.
     if(!consume(p, TK_IDENTIFIER, "Expected identifier after 'var'")) {
         return NULL;
     }
-    ASTNode *n = parse_identifier(p);
+    ASTNode *n = parse_identifier_node(p);
     Location id_loc = n->loc;
     n->loc = var_loc;
 
+    // Parse the type (if exists).
+    Type type;
+    if(match(p, TK_COLON)) {
+        type = parse_type(p);
+        if(type.type == TY_NONE) {
+            error(p, peek(p).location, "Invalid type");
+            freeAST(n);
+            return NULL;
+        }
+    } else {
+        type = newType(TY_NONE, peek(p).location);
+    }
+
+    // Parse the initializer (if exists).
     if(match(p, TK_EQUAL)) {
         n = newBinaryNode(ND_ASSIGN, previous(p).location, n, expression(p));
     }
