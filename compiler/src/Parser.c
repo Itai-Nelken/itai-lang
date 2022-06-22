@@ -568,12 +568,29 @@ end:
     return newConditionalNode(ND_IF, loc, condition, body, else_);
 }
 
+static ASTNode *while_stmt(Parser *p) {
+    // The 'while' keyword is already consumed.
+    Location loc = previous(p).location;
+    ASTNode *condition = expression(p);
+    if(!consume(p, TK_LBRACE, "Expected block after condition.")) {
+        freeAST(condition);
+        return NULL;
+    }
+    beginScope(p);
+    ASTNode *body = block(p);
+    endScope(p);
+
+    return newWhileLoopNode(loc, condition, body);
+}
+
 static ASTNode *statement(Parser *p) {
     ASTNode *n = NULL;
     if(match(p, TK_RETURN)) {
         n = return_stmt(p);
     } else if(match(p, TK_IF)) {
         n = if_stmt(p);
+    } else if(match(p, TK_WHILE)) {
+        n = while_stmt(p);
     } else if(match(p, TK_LBRACE)) {
         beginScope(p);
         n = block(p);

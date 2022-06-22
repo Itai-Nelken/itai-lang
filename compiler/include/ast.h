@@ -11,6 +11,7 @@
 //       as a string to 'ast_node_type_str' and nodeName() in ast.c,
 //       freeAST(), printAST(), and node_name() (all in ast.c).
 typedef enum ast_node_type {
+    ND_LOOP, // for, while
     ND_IF, // if statement
     ND_CALL, // call
     ND_RETURN, // return statement
@@ -64,11 +65,16 @@ typedef struct ast_block_node {
     Array body; // Array<ASTNode *>
 } ASTBlockNode;
 
-// if-else, loops, switch
+// if-else, ternary
 typedef struct ast_conditional_node {
     ASTNode header;
     ASTNode *condition, *body, *else_;
 } ASTConditionalNode;
+
+typedef struct ast_loop_node {
+    ASTNode header;
+    ASTNode *init, *condition, *increment, *body;
+} ASTLoopNode;
 
 #define AS_NODE(node) ((ASTNode *)node)
 #define AS_LITERAL_NODE(node) ((ASTLiteralNode *)node)
@@ -77,6 +83,7 @@ typedef struct ast_conditional_node {
 #define AS_IDENTIFIER_NODE(node) ((ASTIdentifierNode *)node)
 #define AS_BLOCK_NODE(node) ((ASTBlockNode *)node)
 #define AS_CONDITIONAL_NODE(node) ((ASTConditionalNode *)node)
+#define AS_LOOP_NODE(node) ((ASTLoopNode *)node)
 
 typedef struct ast_identifier {
     char *text; // owned by the instance.
@@ -115,6 +122,8 @@ ASTNode *newIdentifierNode(Location loc, int id);
 // initializes with empty body
 ASTNode *newBlockNode(Location loc);
 ASTNode *newConditionalNode(ASTNodeType type, Location loc, ASTNode *condition, ASTNode *body, ASTNode *else_);
+ASTNode *newLoopNode(ASTNodeType type, Location loc, ASTNode *init, ASTNode *condition, ASTNode *increment, ASTNode *body);
+#define newWhileLoopNode(location, condition, body) newLoopNode(ND_LOOP, (location), NULL, (condition), NULL, (body))
 
 void freeAST(ASTNode *root);
 

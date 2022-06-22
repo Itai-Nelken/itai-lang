@@ -133,6 +133,17 @@ ASTNode *newConditionalNode(ASTNodeType type, Location loc, ASTNode *condition, 
     return AS_NODE(n);
 }
 
+ASTNode *newLoopNode(ASTNodeType type, Location loc, ASTNode *init, ASTNode *condition, ASTNode *increment, ASTNode *body) {
+    ASTLoopNode *n;
+    NEW0(n);
+    n->header = newNode(type, loc);
+    n->init = init;
+    n->condition = condition;
+    n->increment = increment;
+    n->body = body;
+    return AS_NODE(n);
+}
+
 void freeAST(ASTNode *root) {
     if(root == NULL) {
         return;
@@ -176,6 +187,12 @@ void freeAST(ASTNode *root) {
             freeAST(AS_CONDITIONAL_NODE(root)->body);
             freeAST(AS_CONDITIONAL_NODE(root)->else_);
             break;
+        case ND_LOOP:
+            freeAST(AS_LOOP_NODE(root)->init);
+            freeAST(AS_LOOP_NODE(root)->condition);
+            freeAST(AS_LOOP_NODE(root)->increment);
+            freeAST(AS_LOOP_NODE(root)->body);
+            break;
         case ND_IDENTIFIER:
         case ND_NUM:
             // nothing
@@ -187,6 +204,7 @@ void freeAST(ASTNode *root) {
 }
 
 static const char *ast_node_type_str[] = {
+    [ND_LOOP] = "ND_LOOP",
     [ND_IF] = "ND_IF",
     [ND_CALL] = "ND_CALL",
     [ND_RETURN] = "ND_RETURN",
@@ -250,6 +268,8 @@ static const char *node_name(ASTNodeType type) {
             return "ASTLiteralNode";
         case ND_IF:
             return "ASTConditionalNode";
+        case ND_LOOP:
+            return "ASTLoopNode";
         default:
             break;
     }
@@ -321,6 +341,33 @@ void printAST(ASTNode *root) {
             putchar(' ');
             printf("\x1b[1melse_:\x1b[0m ");
             printAST(AS_CONDITIONAL_NODE(root)->else_);
+            putchar(' ');
+            break;
+        case ND_LOOP:
+            printf("\x1b[1minit:\x1b[0m ");
+            if(!AS_LOOP_NODE(root)->init) {
+                printf("(null)");
+            } else {
+                printAST(AS_LOOP_NODE(root)->init);
+            }
+            printf(", \x1b[1mcondition:\x1b[0m ");
+            if(!AS_LOOP_NODE(root)->condition) {
+                printf("(null)");
+            } else {
+                printAST(AS_LOOP_NODE(root)->condition);
+            }
+            printf(", \x1b[1mincrement:\x1b[0m ");
+            if(!AS_LOOP_NODE(root)->increment) {
+                printf("(null)");
+            } else {
+                printAST(AS_LOOP_NODE(root)->increment);
+            }
+            printf(", \x1b[1mbody:\x1b[0m ");
+            if(!AS_LOOP_NODE(root)->body) {
+                printf("(null)");
+            } else {
+                printAST(AS_LOOP_NODE(root)->body);
+            }
             putchar(' ');
             break;
         default:
