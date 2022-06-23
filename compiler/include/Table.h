@@ -3,7 +3,6 @@
 
 #include <stddef.h> // size_t
 #include <stdbool.h>
-#include "Array.h"
 
 #define TABLE_INITIAL_CAPACITY 16
 #define TABLE_MAX_LOAD 0.75 // 75%
@@ -19,7 +18,6 @@ typedef bool (*tableCmpFn)(void *a, void *b);
 typedef struct table {
     size_t used, capacity;
     TableItem *items;
-    Array all; // Array<Item *>
     tableHashFn hashFn;
     tableCmpFn cmpFn;
 } Table;
