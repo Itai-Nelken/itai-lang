@@ -69,8 +69,15 @@ static inline void endScope(Parser *p) {
     p->scope_depth--;
 }
 
-/*** variables ***/
 static void error(Parser *p, Location loc, const char *format, ...);
+/*** variables ***/
+// types
+static int addType(Parser *p, int name_id) {
+    // TODO: write.
+    UNUSED(p);
+    LOG_ERR("\x1b[33;1mTODO:\x1b[0m addType()");
+    UNREACHABLE();
+}
 // globals
 // locals
 static bool localExists(Parser *p, int id) {
@@ -264,25 +271,23 @@ static inline const ParseRule *getRule(TokenType type) {
 static ASTNode *parsePrecedence(Parser *p, Precedence precedence);
 static ASTNode *expression(Parser *p);
 
-// FIXME: specify what ID table to use.
-//        for example type id's should be stored in the global id table.
-static int parse_identifier(Parser *p) {
-    ASTIdentifier *id = newIdentifier(previous(p).lexeme, previous(p).length);
+static int parse_identifier(Token tok, SymTable *id_table) {
+    ASTIdentifier *id = newIdentifier(tok.lexeme, tok.length);
     int id_idx = -1;
-    if(symbolExists(p->current_id_table, id->text)) {
-        id_idx = getIdFromName(p->current_id_table, id->text);
+    if(symbolExists(id_table, id->text)) {
+        id_idx = getIdFromName(id_table, id->text);
         freeIdentifier(id);
     } else {
-        id_idx = addSymbol(p->current_id_table, id->text, id);
+        id_idx = addSymbol(id_table, id->text, id);
     }
     return id_idx;
 }
 static inline ASTNode *parse_identifier_node(Parser *p) {
-    return newIdentifierNode(previous(p).location, parse_identifier(p));
+    return newIdentifierNode(previous(p).location, parse_identifier(previous(p), p->current_id_table));
 }
 
 static inline ASTIdentifier *parse_id(Parser *p) {
-    return GET_SYMBOL_AS(ASTIdentifier, p->current_id_table, parse_identifier(p));
+    return GET_SYMBOL_AS(ASTIdentifier, p->current_id_table, parse_identifier(previous(p), p->current_id_table));
 }
 
 static ASTNode *parse_number(Parser *p) {
@@ -482,17 +487,23 @@ static ASTNode *expression(Parser *p) {
 /*** type parser ***/
 static Type parse_type(Parser *p) {
     // 1. check if the current token is a type.
-    //    * if it is, excellent.
+    //    * if it is, create a Type using it.
     //    * if it's not, check if it is an identifier.
     //      - if it is, return TY_CUSTOM and add the type to the type table.
     //      - if it's not, return TY_NONE.
-    advance(p);
-    Type type = parseBuiltinTypeFromToken(previous(p));
-    if(type.type != TY_NONE || peek(p).type != TK_IDENTIFIER) {
+
+    Type type = parseBuiltinTypeFromToken(peek(p));
+    if(type.type != TY_NONE) {
         return type;
     }
     // TODO: add type to type table, save id in type.
+    if(!consume(p, TK_IDENTIFIER, "Invalid type (expected identifier)")) {
+        return type; // TY_NONE
+    }
+    // type identifiers are stored in the global identifier table.
+    int name = parse_identifier(previous(p), &p->prog->identifiers);
     type.type = TY_CUSTOM;
+    type.id = addType(p, name);
     return type;
 }
 
@@ -673,12 +684,11 @@ static ASTNode *var_decl(Parser *p) {
     if(match(p, TK_COLON)) {
         type = parse_type(p);
         if(type.type == TY_NONE) {
-            error(p, peek(p).location, "Invalid type");
             freeAST(n);
             return NULL;
         }
     } else {
-        type = newType(TY_NONE, peek(p).location);
+        type = newPrimitiveType(TY_NONE, peek(p).location);
     }
 
     // Parse the initializer (if exists).

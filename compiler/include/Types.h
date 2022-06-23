@@ -27,10 +27,12 @@ typedef enum type_type {
 
 typedef struct type {
     TypeType type;
+    int id;
     Location location; 
 } Type;
 
-Type newType(TypeType type, Location loc);
+Type newType(TypeType type, int id, Location loc);
+Type newPrimitiveType(TypeType type, Location loc);
 Type parseBuiltinTypeFromToken(Token tok);
 
 #endif // TYPES_H
