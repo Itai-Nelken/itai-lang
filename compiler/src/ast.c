@@ -323,6 +323,10 @@ void printAST(ASTNode *root) {
             printf("\x1b[1mbody:\x1b[0m [");
             for(size_t i = 0; i < AS_BLOCK_NODE(root)->body.used; ++i) {
                 printAST(ARRAY_GET_AS(ASTNode *, &AS_BLOCK_NODE(root)->body, i));
+		// if not last element, print a comma and a space.
+		if(i + 1 < AS_BLOCK_NODE(root)->body.used) {
+			printf(", ");
+		}
             }
             printf(" ] ");
             break;
