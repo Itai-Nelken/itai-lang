@@ -179,7 +179,6 @@ static TokenType identifierType(Scanner *s) {
                 switch(s->start[1]) {
                     case 'n': return checkKeyword(s, 2, "um", TK_ENUM);
                     case 'l': return checkKeyword(s, 2, "se", TK_ELSE);
-                    case 'x': return checkKeyword(s, 2, "port", TK_EXPORT);
                     default:
                         break;
                 }

@@ -251,7 +251,6 @@ static const ParseRule rules[TK__COUNT] = {
     [TK_ELSE]            = {NULL, NULL, PREC_NONE},
     [TK_SWITCH]          = {NULL, NULL, PREC_NONE},
     [TK_MODULE]          = {NULL, NULL, PREC_NONE},
-    [TK_EXPORT]          = {NULL, NULL, PREC_NONE},
     [TK_IMPORT]          = {NULL, NULL, PREC_NONE},
     [TK_AS]              = {NULL, NULL, PREC_NONE},
     [TK_USING]           = {NULL, NULL, PREC_NONE},
@@ -737,7 +736,7 @@ static void synchronize(Parser *p) {
         }
         switch(peek(p).type) {
             case TK_MODULE:
-            case TK_EXPORT:
+            case TK_PUBLIC:
             case TK_IMPORT:
             case TK_USING:
             case TK_TYPE:

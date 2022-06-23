@@ -75,7 +75,6 @@ typedef enum token_type {
     TK_ELSE,
     TK_SWITCH,
     TK_MODULE,
-    TK_EXPORT,
     TK_IMPORT,
     TK_AS,
     TK_USING,

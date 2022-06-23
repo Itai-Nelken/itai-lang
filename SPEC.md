@@ -14,7 +14,7 @@ using arrays::{make, grow};
 
 const INITIAL_SIZE = 16;
 
-export struct Stack<T> {
+public struct Stack<T> {
     data: T[];
     sp: i32;
     size: usize;
@@ -779,12 +779,12 @@ The deferred call's arguments are evaluated immediately, but the function call i
 
 A module is used to group together a bunch of types, variables, constants, enums, structs, and functions that do a single thing. each module has its own namespace.<br>
 
-Anything in a module is private by default - that means the code importing it can't see anything inside the module. stuff can be made public by adding the `export` keyword before declaring it.
+Anything in a module is private by default - that means the code importing it can't see anything inside the module. stuff can be made public by adding the `public` keyword before declaring it.
 
 ```cpp
 // declaring
 module The {
-    export const answer = 42;
+    public const answer = 42;
 }
 
 // using
@@ -803,7 +803,7 @@ for example:
 module answers;
 
 const answer = 42;
-export fn TheAnswer() -> i32 {
+public fn TheAnswer() -> i32 {
     return answer;
 }
 ```
@@ -875,7 +875,6 @@ The user can't define custom namespaces, but each module has it's own namespace.
 | --- | --- |
 | `var` | declare a variable |
 | `const` | declare a constant/make a reference constant |
-| `static` |     |
 | `fn` | declaring functions |
 | `return` | return from a function |
 | all the default types | N/A |
@@ -887,7 +886,6 @@ The user can't define custom namespaces, but each module has it's own namespace.
 | `switch` | switch statement |
 | `public` | make a variable/field/function/enum/struct accessible from outside the current module. |
 | `module` | declare a module |
-| `export` | export an object in a module |
 | `import` | import a module (or parts of it) |
 | `as` | change the name of an imported module |
 | `using` | bring the namespace of a module into the current scope. |

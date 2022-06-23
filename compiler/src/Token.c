@@ -125,7 +125,6 @@ static const char *tokentype_str_lut[] = {
     [TK_ELSE]            = "TK_ELSE",
     [TK_SWITCH]          = "TK_SWITCH",
     [TK_MODULE]          = "TK_MODULE",
-    [TK_EXPORT]          = "TK_EXPORT",
     [TK_IMPORT]          = "TK_IMPORT",
     [TK_AS]              = "TK_AS",
     [TK_USING]           = "TK_USING",
