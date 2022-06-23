@@ -494,6 +494,7 @@ static Type parse_type(Parser *p) {
 
     Type type = parseBuiltinTypeFromToken(peek(p));
     if(type.type != TY_NONE) {
+        advance(p); // Consume the type token.
         return type;
     }
     // TODO: add type to type table, save id in type.
@@ -707,7 +708,8 @@ static ASTNode *var_decl(Parser *p) {
         registerLocal(p, id_loc, id_node->id);
         if(n->type == ND_ASSIGN) {
             // FIXME: We need to make a copy of the node so it isn't freed 2 times
-            // (once by freeFunction(), and once by freeASTProg()
+            // (once by freeFunction(), and once by freeASTProg().
+            //  freeASTProg() when the variable has an initializer.
             n = NULL;
         } else {
             n = NULL;
