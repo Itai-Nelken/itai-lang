@@ -100,6 +100,7 @@ static bool local_exists(Parser *p, int id) {
                 return true;
             }
         }
+        sc = sc->previous;
     }
     return false;
 }

@@ -327,14 +327,15 @@ void printAST(ASTNode *root) {
             printf("\x1b[1mbody:\x1b[0m [");
             for(size_t i = 0; i < AS_BLOCK_NODE(root)->body.used; ++i) {
                 printAST(ARRAY_GET_AS(ASTNode *, &AS_BLOCK_NODE(root)->body, i));
-		// if not last element, print a comma and a space.
-		if(i + 1 < AS_BLOCK_NODE(root)->body.used) {
-			printf(", ");
-		}
+		        // if not last element, print a comma and a space.
+		        if(i + 1 < AS_BLOCK_NODE(root)->body.used) {
+                    printf(", ");
+		        }
             }
             printf(" ] ");
             break;
         case ND_IDENTIFIER:
+            printf("\x1b[1mis_global:\x1b[0;34m %s\x1b[0m, ", (AS_IDENTIFIER_NODE(root)->is_global ? "true" : "false"));
             printf("\x1b[1mid:\x1b[0;36m %d\x1b[0m, ", AS_IDENTIFIER_NODE(root)->id);
             printf("\x1b[1mtype:\x1b[0m {");
             printType(AS_IDENTIFIER_NODE(root)->type);
@@ -346,12 +347,23 @@ void printAST(ASTNode *root) {
             break;
         case ND_IF:
             printf("\x1b[1mcondition:\x1b[0m ");
-            printAST(AS_CONDITIONAL_NODE(root)->condition);
+            if(!AS_CONDITIONAL_NODE(root)->condition) {
+                printf("(null)");
+            } else {
+                printAST(AS_CONDITIONAL_NODE(root)->condition);
+            }
             printf(", \x1b[1mbody:\x1b[0m ");
-            printAST(AS_CONDITIONAL_NODE(root)->body);
-            putchar(' ');
-            printf("\x1b[1melse_:\x1b[0m ");
-            printAST(AS_CONDITIONAL_NODE(root)->else_);
+            if(!AS_CONDITIONAL_NODE(root)->body) {
+                printf("(null)");
+            } else {
+                printAST(AS_CONDITIONAL_NODE(root)->body);
+            }
+            printf(", \x1b[1melse_:\x1b[0m ");
+            if(!AS_CONDITIONAL_NODE(root)->else_) {
+                printf("(null)");
+            } else {
+                printAST(AS_CONDITIONAL_NODE(root)->else_);
+            }
             putchar(' ');
             break;
         case ND_LOOP:
