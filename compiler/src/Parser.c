@@ -659,7 +659,7 @@ static ASTFunction *fn_decl(Parser *p) {
             return NULL;
         }
     } else {
-        return_type = newPrimitiveType(TY_NONE, peek(p).location);
+        return_type = newEmptyType(peek(p).location);
     }
 
     if(!consume(p, TK_LBRACE, "Expected '{'")) {
@@ -708,7 +708,7 @@ static ASTNode *var_decl(Parser *p) {
             return NULL;
         }
     } else {
-        *type = newPrimitiveType(TY_NONE, peek(p).location);
+        *type = newEmptyType(peek(p).location);
     }
 
     // Parse the initializer (if exists).
