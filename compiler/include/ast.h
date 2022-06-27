@@ -108,6 +108,7 @@ void freeFunction(ASTFunction *fn);
 
 typedef struct ast_program {
     SymTable identifiers; // global identifiers
+    Array types; // Array<int>
     Array globals; // Array<ASTNode *>
     Array functions; // Array<ASTFunction *>
 } ASTProg;

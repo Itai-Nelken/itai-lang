@@ -62,12 +62,14 @@ void freeFunction(ASTFunction *fn) {
 
 void initASTProg(ASTProg *astp) {
     initSymTable(&astp->identifiers, SYM_GLOBAL, free_identifier_callback, NULL);
+    initArray(&astp->types);
     initArray(&astp->globals);
     initArray(&astp->functions);
 }
 
 void freeASTProg(ASTProg *astp) {
     freeSymTable(&astp->identifiers);
+    freeArray(&astp->types);
     arrayMap(&astp->globals, free_ast_callback, NULL);
     freeArray(&astp->globals);
     arrayMap(&astp->functions, free_function_callback, NULL);

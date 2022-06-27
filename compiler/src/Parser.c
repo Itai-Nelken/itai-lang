@@ -72,15 +72,26 @@ static inline void endScope(Parser *p) {
 static void error(Parser *p, Location loc, const char *format, ...);
 /*** variables ***/
 // types
-static int addType(Parser *p, int name_id) {
-    // TODO: write.
-    UNUSED(p);
-    LOG_ERR("\x1b[33;1mTODO:\x1b[0m addType()");
-    UNREACHABLE();
+static int type_exists(Parser *p, int name_id) {
+    for(size_t i = 0; i < p->prog->types.used; ++i) {
+        int id = (int)ARRAY_GET_AS(long, &p->prog->types, i);
+        if(id == name_id) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+static int add_type(Parser *p, int name_id) {
+    int result = type_exists(p, name_id);
+    if(result != -1) {
+        return result;
+    }
+    return arrayPush(&p->prog->types, (void *)(long)name_id);
 }
 // globals
 // locals
-static bool localExists(Parser *p, int id) {
+static bool local_exists(Parser *p, int id) {
     assert(p->scope_depth > 0);
     Scope *sc = p->scopes;
     while(sc != NULL) {
@@ -93,7 +104,7 @@ static bool localExists(Parser *p, int id) {
     return false;
 }
 
-static bool registerLocal(Parser *p, Location loc, int id) {
+static bool register_local(Parser *p, Location loc, int id) {
     assert(p->scope_depth > 0);
     // if a local with the same id exists in the current scope, error.
     for(size_t i = 0; i < p->scopes->ids.used; ++i) {
@@ -496,14 +507,13 @@ static Type parse_type(Parser *p) {
         advance(p); // Consume the type token.
         return type;
     }
-    // TODO: add type to type table, save id in type.
     if(!consume(p, TK_IDENTIFIER, "Invalid type (expected identifier)")) {
         return type; // TY_NONE
     }
     // type identifiers are stored in the global identifier table.
     int name = parse_identifier(previous(p), &p->prog->identifiers);
     type.type = TY_CUSTOM;
-    type.id = addType(p, name);
+    type.id = add_type(p, name);
     return type;
 }
 
@@ -690,6 +700,7 @@ static ASTNode *var_decl(Parser *p) {
     } else {
         type = newPrimitiveType(TY_NONE, peek(p).location);
     }
+    // TODO: save the type in the variable.
 
     // Parse the initializer (if exists).
     if(match(p, TK_EQUAL)) {
@@ -704,7 +715,7 @@ static ASTNode *var_decl(Parser *p) {
     if(p->current_fn) {
         ASTIdentifierNode *id_node = n->type == ND_ASSIGN ? AS_IDENTIFIER_NODE(AS_BINARY_NODE(n)->left) : AS_IDENTIFIER_NODE(n);
         arrayPush(&p->current_fn->locals, (void *)n);
-        registerLocal(p, id_loc, id_node->id);
+        register_local(p, id_loc, id_node->id);
         if(n->type == ND_ASSIGN) {
             // FIXME: We need to make a copy of the node so it isn't freed 2 times
             // (once by freeFunction(), and once by freeASTProg().
