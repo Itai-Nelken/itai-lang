@@ -38,11 +38,12 @@ void freeIdentifier(ASTIdentifier *identifier) {
     FREE(identifier);
 }
 
-ASTFunction *newFunction(ASTIdentifierNode *name) {
+ASTFunction *newFunction(ASTIdentifierNode *name, Type return_type) {
     assert(name);
     ASTFunction *fn;
     NEW0(fn);
     fn->name = name;
+    fn->return_type = return_type;
     initSymTable(&fn->identifiers, SYM_LOCAL, free_identifier_callback, NULL);
     initArray(&fn->locals);
     fn->body = NULL;
@@ -135,10 +136,10 @@ ASTNode *newConditionalNode(ASTNodeType type, Location loc, ASTNode *condition, 
     return AS_NODE(n);
 }
 
-ASTNode *newLoopNode(ASTNodeType type, Location loc, ASTNode *init, ASTNode *condition, ASTNode *increment, ASTNode *body) {
+ASTNode *newLoopNode(Location loc, ASTNode *init, ASTNode *condition, ASTNode *increment, ASTNode *body) {
     ASTLoopNode *n;
     NEW0(n);
-    n->header = newNode(type, loc);
+    n->header = newNode(ND_LOOP, loc);
     n->init = init;
     n->condition = condition;
     n->increment = increment;

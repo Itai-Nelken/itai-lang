@@ -97,13 +97,14 @@ void freeIdentifier(ASTIdentifier *identifier);
 
 typedef struct ast_function {
     ASTIdentifierNode *name;
+    Type return_type;
     SymTable identifiers;
     Array locals; // Array<ASTNode *>
     ASTBlockNode *body;
 } ASTFunction;
 
 // initializes the body to NULL
-ASTFunction *newFunction(ASTIdentifierNode *name);
+ASTFunction *newFunction(ASTIdentifierNode *name, Type return_type);
 void freeFunction(ASTFunction *fn);
 
 typedef struct ast_program {
@@ -125,8 +126,8 @@ ASTNode *newIdentifierNode(Location loc, int id);
 // initializes with empty body
 ASTNode *newBlockNode(Location loc);
 ASTNode *newConditionalNode(ASTNodeType type, Location loc, ASTNode *condition, ASTNode *body, ASTNode *else_);
-ASTNode *newLoopNode(ASTNodeType type, Location loc, ASTNode *init, ASTNode *condition, ASTNode *increment, ASTNode *body);
-#define newWhileLoopNode(location, condition, body) newLoopNode(ND_LOOP, (location), NULL, (condition), NULL, (body))
+ASTNode *newLoopNode(Location loc, ASTNode *init, ASTNode *condition, ASTNode *increment, ASTNode *body);
+#define newWhileLoopNode(location, condition, body) newLoopNode((location), NULL, (condition), NULL, (body))
 
 void freeAST(ASTNode *root);
 

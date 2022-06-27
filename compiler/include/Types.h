@@ -22,7 +22,8 @@ typedef enum type_type {
     TY_STR,
     TY_BOOL,
     TY_CUSTOM,
-    TY_NONE
+    TY_NONE,
+    TY_COUNT
 } TypeType;
 
 typedef struct type {
@@ -34,5 +35,6 @@ typedef struct type {
 Type newType(TypeType type, int id, Location loc);
 Type newPrimitiveType(TypeType type, Location loc);
 Type parseBuiltinTypeFromToken(Token tok);
+void printType(Type ty);
 
 #endif // TYPES_H

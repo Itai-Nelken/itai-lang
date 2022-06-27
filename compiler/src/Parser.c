@@ -650,14 +650,24 @@ static ASTFunction *fn_decl(Parser *p) {
         freeAST(AS_NODE(name));
         return NULL;
     }
-    // TODO: return type
+    // Parse the return type (if exists).
+    Type return_type;
+    if(match(p, TK_ARROW)) {
+        return_type = parse_type(p);
+        if(return_type.type == TY_NONE) {
+            freeAST(AS_NODE(name));
+            return NULL;
+        }
+    } else {
+        return_type = newPrimitiveType(TY_NONE, peek(p).location);
+    }
 
     if(!consume(p, TK_LBRACE, "Expected '{'")) {
         freeAST(AS_NODE(name));
         return NULL;
     }
 
-    ASTFunction *fn = newFunction(name);
+    ASTFunction *fn = newFunction(name, return_type);
     // NOTE: this only works if only toplevel functions are allowed.
     p->current_fn = fn;
     SymTable *old = p->current_id_table;
