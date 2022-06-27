@@ -17,7 +17,6 @@ typedef struct scope {
 
 typedef struct parser {
     ASTProg *prog;
-    SymTable *current_id_table;
     Scanner *scanner;
     Token current_token, previous_token;
     bool had_error, panic_mode;

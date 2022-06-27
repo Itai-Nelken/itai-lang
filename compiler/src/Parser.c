@@ -30,7 +30,6 @@ static void freeScope(Scope *sc) {
 void initParser(Parser *p, Scanner *s, ASTProg *prog) {
     assert(p && s && prog);
     p->prog = prog;
-    p->current_id_table = &prog->identifiers;
     p->scanner = s;
     p->had_error = false;
     p->panic_mode = false;
@@ -41,7 +40,6 @@ void initParser(Parser *p, Scanner *s, ASTProg *prog) {
 
 void freeParser(Parser *p) {
     p->prog = NULL;
-    p->current_id_table = NULL;
     p->scanner = NULL;
     p->had_error = false;
     p->panic_mode = false;
@@ -110,7 +108,7 @@ static bool register_local(Parser *p, Location loc, int id) {
     // if a local with the same id exists in the current scope, error.
     for(size_t i = 0; i < p->scopes->ids.used; ++i) {
         if((int)ARRAY_GET_AS(intptr_t, &p->scopes->ids, i) == id) {
-            error(p, loc, "Redefinition of local variable '%s' in same scope", GET_SYMBOL_AS(ASTIdentifier, p->current_id_table, id)->text);
+            error(p, loc, "Redefinition of local variable '%s' in same scope", GET_SYMBOL_AS(ASTIdentifier, &p->prog->identifiers, id)->text);
             return false;
         }
     }
@@ -294,11 +292,11 @@ static int parse_identifier(Token tok, SymTable *id_table) {
     return id_idx;
 }
 static inline ASTNode *parse_identifier_node(Parser *p) {
-    return newIdentifierNode(previous(p).location, parse_identifier(previous(p), p->current_id_table), newEmptyType(previous(p).location));
+    return newIdentifierNode(previous(p).location, parse_identifier(previous(p), &p->prog->identifiers), newEmptyType(previous(p).location));
 }
 
 static inline ASTIdentifier *parse_id(Parser *p) {
-    return GET_SYMBOL_AS(ASTIdentifier, p->current_id_table, parse_identifier(previous(p), p->current_id_table));
+    return GET_SYMBOL_AS(ASTIdentifier, &p->prog->identifiers, parse_identifier(previous(p), &p->prog->identifiers));
 }
 
 static ASTNode *parse_number(Parser *p) {
@@ -671,12 +669,9 @@ static ASTFunction *fn_decl(Parser *p) {
     ASTFunction *fn = newFunction(name, return_type);
     // NOTE: this only works if only toplevel functions are allowed.
     p->current_fn = fn;
-    SymTable *old = p->current_id_table;
-    p->current_id_table = &fn->identifiers;
     beginScope(p);
     fn->body = AS_BLOCK_NODE(block(p));
     endScope(p);
-    p->current_id_table = old;
     p->current_fn = NULL;
 
     if(fn->body == NULL) {

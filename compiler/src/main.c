@@ -48,7 +48,7 @@ int main(int argc, char **argv) {
 		for(size_t i = 0; i < fn->locals.used; ++i) {
 			ASTNode *l = ARRAY_GET_AS(ASTNode *, &fn->locals, i);
 			ASTIdentifierNode *id_node = l->type == ND_ASSIGN ? AS_IDENTIFIER_NODE(AS_BINARY_NODE(l)->left) : AS_IDENTIFIER_NODE(l);
-			printf("%d) name: '%s', type: {", id_node->id, GET_SYMBOL_AS(ASTIdentifier, &fn->identifiers, id_node->id)->text);
+			printf("%d) name: '%s', type: {", id_node->id, GET_SYMBOL_AS(ASTIdentifier, &prog.identifiers, id_node->id)->text);
 			printType(id_node->type);
 			puts("}");
 		}

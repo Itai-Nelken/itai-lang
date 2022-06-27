@@ -44,7 +44,6 @@ ASTFunction *newFunction(ASTIdentifierNode *name, Type return_type) {
     NEW0(fn);
     fn->name = name;
     fn->return_type = return_type;
-    initSymTable(&fn->identifiers, SYM_LOCAL, free_identifier_callback, NULL);
     initArray(&fn->locals);
     fn->body = NULL;
     return fn;
@@ -52,7 +51,6 @@ ASTFunction *newFunction(ASTIdentifierNode *name, Type return_type) {
 
 void freeFunction(ASTFunction *fn) {
     freeAST(AS_NODE(fn->name));
-    freeSymTable(&fn->identifiers);
     arrayMap(&fn->locals, free_ast_callback, NULL);
     freeArray(&fn->locals);
     if(fn->body) {
@@ -335,7 +333,6 @@ void printAST(ASTNode *root) {
             printf(" ] ");
             break;
         case ND_IDENTIFIER:
-            printf("\x1b[1mis_global:\x1b[0;34m %s\x1b[0m, ", (AS_IDENTIFIER_NODE(root)->is_global ? "true" : "false"));
             printf("\x1b[1mid:\x1b[0;36m %d\x1b[0m, ", AS_IDENTIFIER_NODE(root)->id);
             printf("\x1b[1mtype:\x1b[0m {");
             printType(AS_IDENTIFIER_NODE(root)->type);

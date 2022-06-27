@@ -98,7 +98,6 @@ void freeIdentifier(ASTIdentifier *identifier);
 typedef struct ast_function {
     ASTIdentifierNode *name;
     Type return_type;
-    SymTable identifiers;
     Array locals; // Array<ASTNode *>
     ASTBlockNode *body;
 } ASTFunction;
