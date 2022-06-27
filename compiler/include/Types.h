@@ -34,6 +34,7 @@ typedef struct type {
 
 Type newType(TypeType type, int id, Location loc);
 Type newPrimitiveType(TypeType type, Location loc);
+Type newEmptyType(Location loc);
 Type parseBuiltinTypeFromToken(Token tok);
 void printType(Type ty);
 

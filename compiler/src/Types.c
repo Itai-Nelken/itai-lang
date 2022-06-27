@@ -16,6 +16,14 @@ Type newPrimitiveType(TypeType type, Location loc) {
     return newType(type, -1, loc);
 }
 
+Type newEmptyType(Location loc) {
+    return (Type){
+        .type = TY_NONE,
+        .id = -1,
+        .location = loc
+    };
+}
+
 // returns TY_NONE if not a builtin type
 Type parseBuiltinTypeFromToken(Token tok) {
     switch (tok.type) {
@@ -65,9 +73,5 @@ static const char *type_name_str[TY_COUNT] = {
 };
 
 void printType(Type ty) {
-    if(ty.type == TY_CUSTOM) {
-        printf("%s: type_id: %d\n", type_name_str[TY_CUSTOM], ty.id);
-        return;
-    }
-    printf("%s\n", type_name_str[ty.type]);
+    printf("\x1b[1mtype: \x1b[0;32m%s\x1b[0m, \x1b[1mtype_id: \x1b[0;36m%d\x1b[0m", type_name_str[ty.type], ty.id);
 }

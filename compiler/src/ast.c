@@ -110,11 +110,12 @@ ASTNode *newBinaryNode(ASTNodeType type, Location loc, ASTNode *left, ASTNode *r
     return AS_NODE(n);
 }
 
-ASTNode *newIdentifierNode(Location loc, int id) {
+ASTNode *newIdentifierNode(Location loc, int id, Type ty) {
     ASTIdentifierNode *n;
     NEW0(n);
     n->header = newNode(ND_IDENTIFIER, loc);
     n->id = id;
+    n->type = ty;
     return AS_NODE(n);
 }
 
@@ -334,7 +335,10 @@ void printAST(ASTNode *root) {
             printf(" ] ");
             break;
         case ND_IDENTIFIER:
-            printf("\x1b[1mid:\x1b[0;36m %d\x1b[0m", AS_IDENTIFIER_NODE(root)->id);
+            printf("\x1b[1mid:\x1b[0;36m %d\x1b[0m, ", AS_IDENTIFIER_NODE(root)->id);
+            printf("\x1b[1mtype:\x1b[0m {");
+            printType(AS_IDENTIFIER_NODE(root)->type);
+            putchar('}');
             break;
         case ND_NUM:
             // FIXME: handle all literals

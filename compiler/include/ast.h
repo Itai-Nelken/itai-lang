@@ -122,7 +122,7 @@ ASTNode newNode(ASTNodeType type, Location loc);
 ASTNode *newNumberNode(int value, Location loc);
 ASTNode *newUnaryNode(ASTNodeType type, Location loc, ASTNode *child);
 ASTNode *newBinaryNode(ASTNodeType type, Location loc, ASTNode *left, ASTNode *right);
-ASTNode *newIdentifierNode(Location loc, int id);
+ASTNode *newIdentifierNode(Location loc, int id, Type ty);
 // initializes with empty body
 ASTNode *newBlockNode(Location loc);
 ASTNode *newConditionalNode(ASTNodeType type, Location loc, ASTNode *condition, ASTNode *body, ASTNode *else_);

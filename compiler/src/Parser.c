@@ -293,7 +293,7 @@ static int parse_identifier(Token tok, SymTable *id_table) {
     return id_idx;
 }
 static inline ASTNode *parse_identifier_node(Parser *p) {
-    return newIdentifierNode(previous(p).location, parse_identifier(previous(p), p->current_id_table));
+    return newIdentifierNode(previous(p).location, parse_identifier(previous(p), p->current_id_table), newEmptyType(previous(p).location));
 }
 
 static inline ASTIdentifier *parse_id(Parser *p) {
@@ -814,7 +814,6 @@ static void synchronize(Parser *p) {
 //                | return_stmt
 //                | block
 //                | expr_stmt
-// TODO: support closures by fn_decl inside block or only fn literal?
 // declaration   -> var_decl
 //                | statement
 // program       -> (fn_decl | var_decl)* EOF
