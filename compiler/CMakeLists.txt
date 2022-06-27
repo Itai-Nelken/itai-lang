@@ -5,7 +5,6 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 add_compile_options(-Wall -Wextra)
 
 set(sources
-    src/main.c
     src/utilities.c
     src/ast.c
     src/Token.c
@@ -19,4 +18,9 @@ set(sources
     src/Symbols.c
 )
 
-add_executable(ilc ${sources})
+add_library(compiler ${sources})
+
+add_executable(ilc src/main.c)
+target_link_libraries(ilc compiler)
+add_executable(tests tests.c)
+target_link_libraries(tests compiler)

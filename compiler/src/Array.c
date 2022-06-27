@@ -4,7 +4,7 @@
 
 void initArray(Array *a) {
     a->used = 0;
-    a->capacity = 8;
+    a->capacity = ARRAY_INITIAL_CAPACITY;
     a->data = CALLOC(a->capacity, sizeof(void *));
 }
 

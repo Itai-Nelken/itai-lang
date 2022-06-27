@@ -3,6 +3,8 @@
 
 #include <stddef.h> // size_t
 
+#define ARRAY_INITIAL_CAPACITY 8
+
 typedef struct array {
     void **data;
     size_t used, capacity;
