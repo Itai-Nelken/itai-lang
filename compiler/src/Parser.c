@@ -690,17 +690,16 @@ static ASTNode *var_decl(Parser *p) {
     n->loc = var_loc;
 
     // Parse the type (if exists).
-    Type type;
+    Type *type = &AS_IDENTIFIER_NODE(n)->type;
     if(match(p, TK_COLON)) {
-        type = parse_type(p);
-        if(type.type == TY_NONE) {
+        *type = parse_type(p);
+        if(type->type == TY_NONE) {
             freeAST(n);
             return NULL;
         }
     } else {
-        type = newPrimitiveType(TY_NONE, peek(p).location);
+        *type = newPrimitiveType(TY_NONE, peek(p).location);
     }
-    // TODO: save the type in the variable.
 
     // Parse the initializer (if exists).
     if(match(p, TK_EQUAL)) {
