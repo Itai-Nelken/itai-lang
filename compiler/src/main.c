@@ -35,9 +35,9 @@ int main(int argc, char **argv) {
 	printf("\x1b[1mglobals:\x1b[0m\n=======\n");
 	for(size_t i = 0; i < prog.globals.used; ++i) {
 		ASTNode *g = ARRAY_GET_AS(ASTNode *, &prog.globals, i);
-		int id = (g->type == ND_ASSIGN ? AS_IDENTIFIER_NODE(AS_BINARY_NODE(g)->left) : AS_IDENTIFIER_NODE(g))->id;
-		printf("%d) name: '%s', type: ", id, GET_SYMBOL_AS(ASTIdentifier, &prog.identifiers, id)->text);
-		printType(AS_IDENTIFIER_NODE(g)->type);
+		ASTIdentifierNode *id_node = g->type == ND_ASSIGN ? AS_IDENTIFIER_NODE(AS_BINARY_NODE(g)->left) : AS_IDENTIFIER_NODE(g);
+		printf("%d) name: '%s', type: ", id_node->id, GET_SYMBOL_AS(ASTIdentifier, &prog.identifiers, id_node->id)->text);
+		printType(id_node->type);
 	}
 
 	printf("\x1b[1mfunctions:\x1b[0m\n=========\n");
@@ -51,9 +51,9 @@ int main(int argc, char **argv) {
 		printf("locals:\n");
 		for(size_t i = 0; i < fn->locals.used; ++i) {
 			ASTNode *l = ARRAY_GET_AS(ASTNode *, &fn->locals, i);
-			int id = (l->type == ND_ASSIGN ? AS_IDENTIFIER_NODE(AS_BINARY_NODE(l)->left) : AS_IDENTIFIER_NODE(l))->id;
-			printf("%d) name: '%s', type: ", id, GET_SYMBOL_AS(ASTIdentifier, &fn->identifiers, id)->text);
-			printType(AS_IDENTIFIER_NODE(l)->type);
+			ASTIdentifierNode *id_node = l->type == ND_ASSIGN ? AS_IDENTIFIER_NODE(AS_BINARY_NODE(l)->left) : AS_IDENTIFIER_NODE(l);
+			printf("%d) name: '%s', type: ", id_node->id, GET_SYMBOL_AS(ASTIdentifier, &fn->identifiers, id_node->id)->text);
+			printType(id_node->type);
 		}
 
 		printf("body:\n");
