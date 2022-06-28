@@ -1,6 +1,7 @@
 #ifndef STRINGS_H
 #define STRINGS_H
 
+#include <stddef.h> // size_t
 #include <stdbool.h>
 
 /***
@@ -10,7 +11,7 @@
  * @param length The length of the new string.
  * @return A pointer to a new heap allocated string.
  ***/
-char *newString(int length);
+char *newString(size_t length);
 
 /***
  * Free a string created by stringNew() or stringCopy();
@@ -33,17 +34,17 @@ bool stringIsValid(char *s);
  * @param s A string allocated by stringNew() or stringCopy().
  * @return The length of the string.
  ***/
-int stringLength(char *s);
+size_t stringLength(char *s);
 
 /***
  * Resize a string allocated by stringNew() or stringCopy().
- * NOTE: if 'newSize' is smaller than the curren't length, data will be lost!
+ * NOTE: if 'newSize' is smaller than the current length, data will be lost!
  *
  * @param s A string allocated by stringNew() or stringCopy().
  * @param newLength The new length. can't be 0.
  * @return A new string of length 'newLength'.
  ***/
-char *stringResize(char *s, int newLength);
+char *stringResize(char *s, size_t newLength);
 
 /***
  * Copy 'length' characters from 's' into a new string.
@@ -81,12 +82,12 @@ char *stringDuplicate(char *s);
 bool stringEqual(char *s1, char *s2);
 
 /***
- * Append s to dest (with printf-like formatting supported)
+ * Append format to dest (printf-like formatting supported)
  * NOTE: the string might be reallocated
  *
  * @param dest the destination string.
- * @param s the string to append (with printf-like format specifiers supported).
+ * @param format the string to append (printf-like format specifiers supported).
  ***/
-void stringAppend(char *dest, const char *s, ...);
+void stringAppend(char *dest, const char *format, ...);
 
 #endif // STRINGS_H
