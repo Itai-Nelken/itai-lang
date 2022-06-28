@@ -27,7 +27,7 @@ void *arrayPop(Array *a) {
     if(a->used <= 0) {
         return NULL;
     }
-    return a->data[a->used--];
+    return a->data[--a->used];
 }
 
 void *arrayGet(Array *a, int index) {
@@ -38,8 +38,7 @@ void *arrayGet(Array *a, int index) {
 }
 
 void arrayCopy(Array *dest, Array *src) {
-    // ssize_t to make gcc happy (unsigned value >= 0 is always true)
-    for(ssize_t i = src->used-1; i >= 0; --i) {
+    for(size_t i = 0; i < src->used; ++i) {
         arrayPush(dest, arrayGet(src, i));
     }
 }
