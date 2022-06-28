@@ -6,7 +6,10 @@
 #include "Strings.h"
 #include "Array.h"
 #include "Table.h"
+#include "Token.h"
 #include "Scanner.h"
+#include "ast.h"
+#include "Parser.h"
 
 typedef struct test {
     const char *name;
@@ -329,7 +332,41 @@ static bool test_scanner_keywords() {
     return true;
 }
 
-// TODO: Symbols, Parser
+static bool test_parser_unary_expressions() {
+    ASTNodeType expected[] = {
+        ND_NUM, ND_NEG, ND_RETURN, ND_CALL
+    };
+    Scanner s;
+    ASTProg prog;
+    Parser p;
+    initScanner(&s, "Test (expressions)", "fn main() {42; -2; return 3; call();}");
+    initASTProg(&prog);
+    initParser(&p, &s, &prog);
+
+    CHECK(parserParse(&p));
+    ASTFunction *main = (ASTFunction *)prog.functions.data[0];
+    CHECK(main->body->body.used == 4);
+    for(size_t i = 0; i < main->body->body.used; ++i) {
+        ASTNode *n = ARRAY_GET_AS(ASTNode *, &main->body->body, i);
+        switch(n->type) {
+            case ND_EXPR_STMT:
+                CHECK(AS_UNARY_NODE(n)->child->type == expected[i]);
+                break;
+            case ND_RETURN:
+                CHECK(AS_UNARY_NODE(n)->child->type == ND_NUM);
+                break;
+            default:
+                UNREACHABLE();
+        }
+    }
+
+    freeParser(&p);
+    freeASTProg(&prog);
+    freeScanner(&s);
+    return true;
+}
+
+// TODO: Symbols, Parser (finish)
 Test tests[] = {
     {"Strings", test_strings},
     {"Array", test_array},
@@ -338,7 +375,8 @@ Test tests[] = {
     {"Scanner (1 or 2 character)", test_scanner_1_2char},
     {"Scanner (1, 2 or 3 character)", test_scanner_1_2_3char},
     {"Scanner (literals)", test_scanner_literals},
-    {"Scanner (keywords)", test_scanner_keywords}
+    {"Scanner (keywords)", test_scanner_keywords},
+    {"Parser (unary expressions)", test_parser_unary_expressions},
 };
 
 int main(void) {
