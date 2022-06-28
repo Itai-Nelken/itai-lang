@@ -709,7 +709,7 @@ static ASTNode *var_decl(Parser *p) {
 
     // Parse the initializer (if exists).
     if(match(p, TK_EQUAL)) {
-        n = newBinaryNode(ND_ASSIGN, previous(p).location, n, expression(p));
+        n = newUnaryNode(ND_EXPR_STMT, previous(p).location, newBinaryNode(ND_ASSIGN, previous(p).location, n, expression(p)));
     }
 
     if(!consume(p, TK_SEMICOLON, "Expected ';' after variable declaration")) {
@@ -729,6 +729,7 @@ static ASTNode *var_decl(Parser *p) {
             NEW0(id_node_copy);
             *id_node_copy = *id_node;
             arrayPush(&p->current_fn->locals, (void *)id_node_copy);
+            n = newUnaryNode(ND_EXPR_STMT, n->loc, n);
         } else {
             arrayPush(&p->current_fn->locals, (void *)n);
             n = NULL;
