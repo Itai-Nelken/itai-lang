@@ -32,6 +32,7 @@ typedef struct test_suit {
 static TestSuit __data;
 
 static void _print_test_summary() {
+    // current_test_number + 1 so the index starts at 1 (1/X) -> (X/X) instead of 0 (0/X) -> (X-1/X)
     printf("(%d/%d) %s: ", __data.current_test_number + 1, __data.total_test_count, __data.current_test->name);
     if(__data.failure_count > 0) {
         printf("\x1b[1;31mFailed\x1b[0m\n");
@@ -81,7 +82,7 @@ void _log(const char *format, ...) {
     putchar('\n');
 }
 
-int _run_tests(Test testlist[]) {
+int _run_test_suit(Test testlist[]) {
     _init();
     _count_tests(testlist);
     bool had_failure = false;
@@ -93,10 +94,10 @@ int _run_tests(Test testlist[]) {
             had_failure = true;
             if(__data.current_end_fn) {
                 __data.current_end_fn(__data.current_end_fn_arg);
-                __data.current_end_fn = NULL;
-                __data.current_end_fn_arg = NULL;
             }
         }
+        __data.current_end_fn = NULL;
+        __data.current_end_fn_arg = NULL;
         _print_test_summary();
     }
     return had_failure ? 1 : 0;
@@ -107,7 +108,7 @@ int _run_tests(Test testlist[]) {
  * 
  * @param testlist An array of Test structs.
  ***/
-#define RUN_TESTS(testlist) (_run_tests((testlist)))
+#define RUN_SUIT(testlist) (_run_test_suit((testlist)))
 /***
  * Check an expression (evaluates to true or false).
  * 
@@ -469,7 +470,7 @@ static void test_parser_unary_expressions(void *a) {
         ND_NUM, ND_NEG, ND_RETURN, ND_CALL
     };
     struct test_parser t;
-    initScanner(&t.s, "Test (expressions)", "fn main() {42; -2; return 3; call();}");
+    initScanner(&t.s, "Test (unary expressions)", "fn main() {42; -2; return 3; call();}");
     initASTProg(&t.prog);
     initParser(&t.p, &t.s, &t.prog);
     SET_END_FN(test_parser_end, &t);
@@ -495,6 +496,44 @@ static void test_parser_unary_expressions(void *a) {
     freeASTProg(&t.prog);
     freeScanner(&t.s);
 }
+static void test_parser_binary_expressions(void *a) {
+    UNUSED(a);
+    ASTNodeType expected[] = {
+        ND_ASSIGN,
+        ND_ADD, ND_SUB, ND_MUL, ND_DIV, ND_REM,
+        ND_EQ, ND_NE,
+        ND_GT, ND_GE,
+        ND_LT, ND_LE,
+        ND_BIT_OR,
+        ND_XOR,
+        ND_BIT_AND,
+        ND_BIT_RSHIFT, ND_BIT_LSHIFT,
+    };
+    struct test_parser t;
+    initScanner(&t.s, "Test (binary expressions)", "fn main() {var a = 42; 2 + 2; 4 - 2; 2 * 2; 4 / 2; 4 % 2; a == 42; a != 42; a > 2; a >= 42; a < 50; a <= 42; a | 2; a ^ 2; a & 2; a >> 2; a << 2;}");
+    initASTProg(&t.prog);
+    initParser(&t.p, &t.s, &t.prog);
+    SET_END_FN(test_parser_end, &t);
+
+    CHECK(parserParse(&t.p));
+    ASTFunction *main = (ASTFunction *)t.prog.functions.data[0];
+    CHECK(main->body->body.used == 17);
+    for(size_t i = 0; i < main->body->body.used; ++i) {
+        ASTNode *n = ARRAY_GET_AS(ASTNode *, &main->body->body, i);
+        switch(n->type) {
+            case ND_EXPR_STMT:
+                CHECK(AS_UNARY_NODE(n)->child->type == expected[i]);
+                break;
+            default:
+                LOG_F("type: %d", n->type);
+                UNREACHABLE();
+        }
+    }
+
+    freeParser(&t.p);
+    freeASTProg(&t.prog);
+    freeScanner(&t.s);
+}
 
 // TODO: Symbols, Parser (finish)
 Test tests[] = {
@@ -507,9 +546,10 @@ Test tests[] = {
     {"Scanner (literals)", test_scanner_literals, NULL},
     {"Scanner (keywords)", test_scanner_keywords, NULL},
     {"Parser (unary expressions)", test_parser_unary_expressions, NULL},
+    {"Parser (binary expressions)", test_parser_binary_expressions, NULL},
     {NULL, NULL, NULL}
 };
 
 int main(void) {
-    return RUN_TESTS(tests);
+    return RUN_SUIT(tests);
 }
