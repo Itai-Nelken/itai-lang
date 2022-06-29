@@ -138,7 +138,6 @@ int _run_test_suit(Test testlist[]) {
 
 
 
-
 struct string_test {
     char *s1, *s2, *s3;
 };
@@ -467,17 +466,17 @@ static void test_parser_end(void *data) {
 static void test_parser_unary_expressions(void *a) {
     UNUSED(a);
     ASTNodeType expected[] = {
-        ND_NUM, ND_NEG, ND_RETURN, ND_CALL
+        ND_NUM, ND_IDENTIFIER, ND_NEG, ND_RETURN, ND_CALL
     };
     struct test_parser t;
-    initScanner(&t.s, "Test (unary expressions)", "fn main() {42; -2; return 3; call();}");
+    initScanner(&t.s, "Test (unary expressions)", "var a; fn main() {42; a; -2; return 3; call();}");
     initASTProg(&t.prog);
     initParser(&t.p, &t.s, &t.prog);
     SET_END_FN(test_parser_end, &t);
 
     CHECK(parserParse(&t.p));
     ASTFunction *main = (ASTFunction *)t.prog.functions.data[0];
-    CHECK(main->body->body.used == 4);
+    CHECK(main->body->body.used == 5);
     for(size_t i = 0; i < main->body->body.used; ++i) {
         ASTNode *n = ARRAY_GET_AS(ASTNode *, &main->body->body, i);
         switch(n->type) {
@@ -520,22 +519,41 @@ static void test_parser_binary_expressions(void *a) {
     CHECK(main->body->body.used == 17);
     for(size_t i = 0; i < main->body->body.used; ++i) {
         ASTNode *n = ARRAY_GET_AS(ASTNode *, &main->body->body, i);
-        switch(n->type) {
-            case ND_EXPR_STMT:
-                CHECK(AS_UNARY_NODE(n)->child->type == expected[i]);
-                break;
-            default:
-                LOG_F("type: %d", n->type);
-                UNREACHABLE();
-        }
+        CHECK(AS_UNARY_NODE(n)->child->type == expected[i]);
     }
 
     freeParser(&t.p);
     freeASTProg(&t.prog);
     freeScanner(&t.s);
 }
+static void test_parser_other(void *a) {
+    UNUSED(a);
+    ASTNodeType expected[] = {
+        ND_BLOCK,
+        ND_IF,
+        ND_LOOP
+    };
+    Scanner s;
+    ASTProg prog;
+    Parser p;
+    initScanner(&s, "Test (other)", "fn main() {{} if 1 {} else if 1 {} else {} while 1 {}}");
+    initASTProg(&prog);
+    initParser(&p, &s, &prog);
 
-// TODO: Symbols, Parser (finish)
+    CHECK(parserParse(&p));
+    ASTFunction *main = (ASTFunction *)prog.functions.data[0];
+    CHECK(main->body->body.used == 3);
+    for(size_t i = 0; i < main->body->body.used; ++i) {
+        ASTNode *n = ARRAY_GET_AS(ASTNode *, &main->body->body, i);
+        CHECK( n->type == expected[i]);
+    }
+
+    freeParser(&p);
+    freeASTProg(&prog);
+    freeScanner(&s);
+}
+
+// TODO: Symbols
 Test tests[] = {
     {"Strings", test_strings, NULL},
     {"Array", test_array, NULL},
@@ -547,6 +565,7 @@ Test tests[] = {
     {"Scanner (keywords)", test_scanner_keywords, NULL},
     {"Parser (unary expressions)", test_parser_unary_expressions, NULL},
     {"Parser (binary expressions)", test_parser_binary_expressions, NULL},
+    {"Parser (other)", test_parser_other, NULL},
     {NULL, NULL, NULL}
 };
 
