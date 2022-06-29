@@ -80,8 +80,6 @@ int printErrorF(ErrorType type, Location loc, const char *format, ...) {
     int length = 0;
     va_list ap;
 
-    // determine how much space is needed for the final string
-    // copied from 'man 3 printf'
     va_start(ap, format);
     vprintErrorF(type, loc, format, ap);
     va_end(ap);
