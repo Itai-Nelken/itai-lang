@@ -719,9 +719,10 @@ static ASTNode *var_decl(Parser *p) {
 
     // Register locals if we are inside a function.
     if(p->current_fn) {
-        ASTIdentifierNode *id_node = n->type == ND_ASSIGN ? AS_IDENTIFIER_NODE(AS_BINARY_NODE(n)->left) : AS_IDENTIFIER_NODE(n);
+        // if ND_EXPR_STMT, there is an initializer.
+        ASTIdentifierNode *id_node = n->type == ND_EXPR_STMT ? AS_IDENTIFIER_NODE(AS_BINARY_NODE(AS_UNARY_NODE(n)->child)->left) : AS_IDENTIFIER_NODE(n);
         register_local(p, id_loc, id_node->id);
-        if(n->type == ND_ASSIGN) {
+        if(n->type == ND_EXPR_STMT) { // if ND_EXPR_STMT there is an initializer.
             // If the declaration includes an initializer (so assignment),
             // we need to copy the identifier node and push it to the locals array alone
             // so we can return the assignment node.
@@ -729,7 +730,6 @@ static ASTNode *var_decl(Parser *p) {
             NEW0(id_node_copy);
             *id_node_copy = *id_node;
             arrayPush(&p->current_fn->locals, (void *)id_node_copy);
-            n = newUnaryNode(ND_EXPR_STMT, n->loc, n);
         } else {
             arrayPush(&p->current_fn->locals, (void *)n);
             n = NULL;
