@@ -20,16 +20,16 @@ typedef struct test {
     void *arg;
 } Test;
 
-typedef struct test_suit {
+typedef struct test_list_data {
     Test *current_test;
     int total_test_count, current_test_number;
     const char *failure_texts[MAX_FAILURES_IN_TEST];
     int failure_count;
     void (*current_end_fn)(void *);
     void *current_end_fn_arg;
-} TestSuit;
+} TestListData;
 
-static TestSuit __data;
+static TestListData __data;
 
 static void _print_test_summary() {
     // current_test_number + 1 so the index starts at 1 (1/X) -> (X/X) instead of 0 (0/X) -> (X-1/X)
@@ -82,7 +82,7 @@ void _log(const char *format, ...) {
     putchar('\n');
 }
 
-int _run_test_suit(Test testlist[]) {
+int _run_test_list(Test testlist[]) {
     _init();
     _count_tests(testlist);
     bool had_failure = false;
@@ -108,7 +108,7 @@ int _run_test_suit(Test testlist[]) {
  * 
  * @param testlist An array of Test structs.
  ***/
-#define RUN_SUIT(testlist) (_run_test_suit((testlist)))
+#define RUN_TESTS(testlist) (_run_test_list((testlist)))
 /***
  * Check an expression (evaluates to true or false).
  * 
@@ -570,5 +570,5 @@ Test tests[] = {
 };
 
 int main(void) {
-    return RUN_SUIT(tests);
+    return RUN_TESTS(tests);
 }
