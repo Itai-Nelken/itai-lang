@@ -99,6 +99,8 @@ void stringAppend(char *dest, const char *format, ...) {
     assert(stringIsValid(dest));
     va_list ap;
 
+    // Get the total length of the formatted string.
+    // see man 3 printf.
     va_start(ap, format);
     int needed_length = vsnprintf(NULL, 0, format, ap);
     va_end(ap);

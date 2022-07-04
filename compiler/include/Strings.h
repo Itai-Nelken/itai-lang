@@ -21,7 +21,7 @@ char *newString(size_t length);
 void freeString(char *s);
 
 /***
- * Check if a string is a valid string.
+ * Check if a string was created by stringNew(), stringCopy(), or stringDuplicate().
  *
  * @param s A string.
  * @return true if valid, false if not.
@@ -83,7 +83,7 @@ bool stringEqual(char *s1, char *s2);
 
 /***
  * Append format to dest (printf-like formatting supported)
- * NOTE: the string might be reallocated
+ * NOTE: the string might be reallocated.
  *
  * @param dest the destination string.
  * @param format the string to append (printf-like format specifiers supported).

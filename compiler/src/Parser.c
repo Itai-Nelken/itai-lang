@@ -532,6 +532,7 @@ static ASTNode *block(Parser *p) {
         }
         i++;
     }
+    assert(i <= MAX_DECLS_IN_BLOCK);
 
     if(!consume(p, TK_RBRACE, "Expected '}'")) {
         freeAST(n);
