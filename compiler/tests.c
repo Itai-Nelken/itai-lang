@@ -553,6 +553,7 @@ static void test_parser_other(void *a) {
     freeScanner(&s);
 }
 
+// FIXME: end_fn isn't a good idea as CHECK() doesn't return from the function.
 // TODO: Symbols
 Test tests[] = {
     {"Strings", test_strings, NULL},
