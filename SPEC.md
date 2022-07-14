@@ -44,7 +44,7 @@ public struct Stack<T> {
         ::grow(&.data, .size);
     }
 
-    public fn push(*this, data: T) {
+    public fn push(&this, data: T) {
         if .isFull() {
             .grow();
         }
