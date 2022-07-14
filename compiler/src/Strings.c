@@ -18,10 +18,10 @@
 //
 
 enum slots {
-    CAPACITY = 0,
-    LENGTH   = 1,
-    MAGIC    = 2,
-    SLOT_COUNT     = 3
+    CAPACITY   = 0,
+    LENGTH     = 1,
+    MAGIC      = 2,
+    SLOT_COUNT = 3
 };
 
 static inline size_t *from_str(char *s) {
@@ -123,5 +123,5 @@ void stringAppend(char *dest, const char *format, ...) {
     strncat(dest, buffer, needed_length);
     // dest is zeroed by stringNew() & stringResize(), so no need to terminate the string.
     freeString(buffer);
-    from_str(dest)[1] = needed_length;
+    from_str(dest)[LENGTH] = needed_length;
 }

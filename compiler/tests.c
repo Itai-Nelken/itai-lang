@@ -154,10 +154,11 @@ static void test_strings(void *a) {
     t.s1 = newString(5);
     stringAppend(t.s1, "Hello, %s!", "World");
     CHECK(stringIsValid(t.s1));
+    CHECK(stringLength(t.s1) == 13);
     CHECK(!strcmp(t.s1, "Hello, World!"));
     CHECK(stringEqual(t.s1, "Hello, World!"));
 
-    // stringDUplicate() & stringCopy() use stringNCopy(), so it's also tested.
+    // stringDuplicate() & stringCopy() use stringNCopy(), so it's also tested.
     t.s2 = stringDuplicate(t.s1);
     t.s3 = stringCopy("Hello, World!");
     CHECK(stringEqual(t.s2, t.s3));
