@@ -29,7 +29,7 @@ int main(int argc, char **argv) {
 	printf("\x1b[1mglobals:\x1b[0m\n=======\n");
 	for(size_t i = 0; i < prog.globals.used; ++i) {
 		ASTNode *g = ARRAY_GET_AS(ASTNode *, &prog.globals, i);
-		ASTIdentifierNode *id_node = g->type == ND_ASSIGN ? AS_IDENTIFIER_NODE(AS_BINARY_NODE(g)->left) : AS_IDENTIFIER_NODE(g);
+		ASTIdentifierNode *id_node = g->type == ND_EXPR_STMT ? AS_IDENTIFIER_NODE(AS_BINARY_NODE(AS_UNARY_NODE(g)->child)->left) : AS_IDENTIFIER_NODE(g);
 		printf("(id: %d) name: '%s', type: {", id_node->id, GET_SYMBOL_AS(ASTIdentifier, &prog.identifiers, id_node->id)->text);
 		printType(id_node->type);
 		puts("}");
