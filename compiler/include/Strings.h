@@ -4,6 +4,15 @@
 #include <stddef.h> // size_t
 #include <stdbool.h>
 
+// NOTES
+// =====
+// The 'String' type is equivalent to a C string ('char *'), and therefore can
+// be used with the regular C string functions.
+// In this API, the String type is used when a string created by this library is expected,
+// and 'char *' is used when both types can be used.
+
+typedef char *String;
+
 /***
  * Create a new empty string 'length' long
  * NOTE: strings returned by stringNew() can ONLY be freed with stringFree()
@@ -11,14 +20,14 @@
  * @param length The length of the new string.
  * @return A pointer to a new heap allocated string.
  ***/
-char *newString(size_t length);
+String stringNew(size_t length);
 
 /***
  * Free a string created by stringNew() or stringCopy();
  *
  * @param s A string created with stringNew() or stringCopy().
  ***/
-void freeString(char *s);
+void stringFree(String s);
 
 /***
  * Check if a string was created by stringNew(), stringCopy(), or stringDuplicate().
@@ -26,7 +35,7 @@ void freeString(char *s);
  * @param s A string.
  * @return true if valid, false if not.
  ***/
-bool stringIsValid(char *s);
+bool stringIsValid(String s);
 
 /***
  * Return the length of a string allocated with stringNew() or stringCopy().
@@ -34,7 +43,7 @@ bool stringIsValid(char *s);
  * @param s A string allocated by stringNew() or stringCopy().
  * @return The length of the string.
  ***/
-size_t stringLength(char *s);
+size_t stringLength(String s);
 
 /***
  * Resize a string allocated by stringNew() or stringCopy().
@@ -44,7 +53,7 @@ size_t stringLength(char *s);
  * @param newLength The new length. can't be 0.
  * @return A new string of length 'newLength'.
  ***/
-char *stringResize(char *s, size_t newLength);
+String stringResize(String s, size_t newLength);
 
 /***
  * Copy 'length' characters from 's' into a new string.
@@ -53,7 +62,7 @@ char *stringResize(char *s, size_t newLength);
  * @param length How much characters to copy.
  * @return A new copy of 'length' characters of 's'.
  ***/
-char *stringNCopy(const char *s, int length);
+String stringNCopy(const char *s, int length);
 
 /***
  * Copy a string into a new string.
@@ -61,7 +70,7 @@ char *stringNCopy(const char *s, int length);
  * @param s A string to copy.
  * @return A new copy of the string.
  ***/
-char *stringCopy(const char *s);
+String stringCopy(const char *s);
 
 /***
  * Duplicate a string allocated with stringNew() or stringCopy().
@@ -69,7 +78,7 @@ char *stringCopy(const char *s);
  * @param s A string allocated by stringNew() or stringCopy().
  * @return A new copy of the string.
  ***/
-char *stringDuplicate(char *s);
+String stringDuplicate(String s);
 
 /***
  * Check if 2 strings are equal.
@@ -88,6 +97,6 @@ bool stringEqual(char *s1, char *s2);
  * @param dest the destination string.
  * @param format the string to append (printf-like format specifiers supported).
  ***/
-void stringAppend(char *dest, const char *format, ...);
+void stringAppend(String dest, const char *format, ...);
 
 #endif // STRINGS_H

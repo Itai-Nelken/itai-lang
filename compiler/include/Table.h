@@ -29,14 +29,14 @@ typedef struct table {
  * @param hashFn A hash function or NULL for strings.
  * @param cmpFn A comparing function or NULL for strings.
  ***/
-void initTable(Table *t, tableHashFn hashFn, tableCmpFn cmpFn);
+void tableInit(Table *t, tableHashFn hashFn, tableCmpFn cmpFn);
 
 /***
  * Free an initialized table.
  * 
  * @param t A table to free.
  ***/
-void freeTable(Table *t);
+void tableFree(Table *t);
 
 /***
  * Insert a value to a table.

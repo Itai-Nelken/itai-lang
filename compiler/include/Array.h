@@ -10,8 +10,8 @@ typedef struct array {
     size_t used, capacity;
 } Array;
 
-void initArray(Array *a);
-void freeArray(Array *a);
+void arrayInit(Array *a);
+void arrayFree(Array *a);
 int arrayPush(Array *a, void *value);
 void *arrayPop(Array *a);
 void *arrayGet(Array *a, int index);

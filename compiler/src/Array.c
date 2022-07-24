@@ -2,13 +2,13 @@
 #include "memory.h"
 #include "Array.h"
 
-void initArray(Array *a) {
+void arrayInit(Array *a) {
     a->used = 0;
     a->capacity = ARRAY_INITIAL_CAPACITY;
     a->data = CALLOC(a->capacity, sizeof(void *));
 }
 
-void freeArray(Array *a) {
+void arrayFree(Array *a) {
     FREE(a->data);
     a->data = NULL;
     a->used = a->capacity = 0;

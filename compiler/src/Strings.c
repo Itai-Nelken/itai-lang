@@ -32,7 +32,7 @@ static inline char *to_str(size_t *ptr) {
     return (char *)(ptr + SLOT_COUNT);
 }
 
-char *newString(size_t capacity) {
+String stringNew(size_t capacity) {
     assert(capacity > 0);
     size_t *ptr = ALLOC(sizeof(size_t) * SLOT_COUNT + sizeof(char) * (capacity + 1));
     memset(ptr, 0, capacity + 1);
@@ -42,22 +42,22 @@ char *newString(size_t capacity) {
     return to_str(ptr);
 }
 
-void freeString(char *s) {
+void freeString(String s) {
     assert(stringIsValid(s));
     // Remove the magic number in case the string is used again accidentally.
     from_str(s)[MAGIC] = 0;
     FREE(from_str(s));
 }
 
-bool stringIsValid(char *s) {
+bool stringIsValid(String s) {
     return from_str(s)[MAGIC] == 0xDEADC0DE;
 }
 
-size_t stringLength(char *s) {
+size_t stringLength(String s) {
     return from_str(s)[LENGTH];
 }
 
-char *stringResize(char *s, size_t newCapacity) {
+String stringResize(String s, size_t newCapacity) {
     assert(newCapacity > 0);
     size_t *ptr = from_str(s);
     size_t oldCap = ptr[CAPACITY];
@@ -67,18 +67,18 @@ char *stringResize(char *s, size_t newCapacity) {
     return to_str(ptr);
 }
 
-char *stringNCopy(const char *s, int length) {
-    char *str = newString(length);
+String stringNCopy(const char *s, int length) {
+    String str = newString(length);
     memcpy(str, s, length);
     from_str(str)[LENGTH] = length;
     return str;
 }
 
-char *stringCopy(const char *s) {
+String stringCopy(const char *s) {
     return stringNCopy(s, strlen(s));
 }
 
-char *stringDuplicate(char *s) {
+String stringDuplicate(String s) {
     assert(stringIsValid(s));
     return stringNCopy((const char *)s, stringLength(s));
 }
@@ -102,7 +102,7 @@ bool stringEqual(char *s1, char *s2) {
     return memcmp(s1, s2, length1) == 0;
 }
 
-void stringAppend(char *dest, const char *format, ...) {
+void stringAppend(String dest, const char *format, ...) {
     assert(stringIsValid(dest));
     va_list ap;
 
@@ -112,7 +112,7 @@ void stringAppend(char *dest, const char *format, ...) {
     int needed_length = vsnprintf(NULL, 0, format, ap);
     va_end(ap);
 
-    char *buffer = newString(needed_length + 1);
+    String buffer = newString(needed_length + 1);
     va_start(ap, format);
     vsnprintf(buffer, needed_length + 1, format, ap);
     va_end(ap);
