@@ -118,10 +118,10 @@ void stringAppend(char *dest, const char *format, ...) {
     va_end(ap);
 
     if((size_t)(needed_length + 1) > from_str(dest)[CAPACITY]) {
-        stringResize(dest, needed_length + 1);
+        stringResize(dest, stringLength(dest) + needed_length + 1);
     }
     strncat(dest, buffer, needed_length);
     // dest is zeroed by stringNew() & stringResize(), so no need to terminate the string.
     freeString(buffer);
-    from_str(dest)[LENGTH] = needed_length;
+    from_str(dest)[LENGTH] += needed_length;
 }

@@ -152,7 +152,9 @@ static void test_strings(void *a) {
     struct string_test t = {NULL, NULL, NULL};
     SET_END_FN(test_strings_end, &t);
     t.s1 = newString(5);
-    stringAppend(t.s1, "Hello, %s!", "World");
+    stringAppend(t.s1, "Hello,");
+    CHECK(stringIsValid(t.s1));
+    stringAppend(t.s1, " %s!", "World");
     CHECK(stringIsValid(t.s1));
     CHECK(stringLength(t.s1) == 13);
     CHECK(!strcmp(t.s1, "Hello, World!"));
