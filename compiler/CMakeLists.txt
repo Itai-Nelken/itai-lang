@@ -6,17 +6,9 @@ add_compile_options(-Wall -Wextra)
 
 set(sources
     src/utilities.c
-    src/ast.c
-    src/Token.c
-    src/Types.c
-    src/Errors.c
-    src/Scanner.c
-    src/Parser.c
-    src/Codegen.c
     src/Table.c
     src/Strings.c
     src/Array.c
-    src/Symbols.c
 )
 
 add_library(compiler ${sources})
