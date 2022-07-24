@@ -9,6 +9,9 @@ set(sources
     src/Table.c
     src/Strings.c
     src/Array.c
+    src/Token.c
+    src/Error.c
+    src/Compiler.c
 )
 
 add_library(compiler ${sources})
