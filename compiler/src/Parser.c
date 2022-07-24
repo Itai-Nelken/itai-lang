@@ -551,7 +551,10 @@ static ASTNode *expr_stmt(Parser *p) {
 }
 
 static ASTNode *return_stmt(Parser *p) {
-    ASTNode *n = newUnaryNode(ND_RETURN, previous(p).location, expression(p));
+    ASTNode *n = newUnaryNode(ND_RETURN, previous(p).location, NULL);
+    if(peek(p).type != TK_SEMICOLON) {
+        AS_UNARY_NODE(n)->child = expression(p);
+    }
     if(!consume(p, TK_SEMICOLON, "expected ';' after expression")) {
         freeAST(n);
         return NULL;
@@ -722,6 +725,11 @@ static ASTNode *var_decl(Parser *p) {
     if(p->current_fn) {
         // if ND_EXPR_STMT, there is an initializer.
         ASTIdentifierNode *id_node = n->type == ND_EXPR_STMT ? AS_IDENTIFIER_NODE(AS_BINARY_NODE(AS_UNARY_NODE(n)->child)->left) : AS_IDENTIFIER_NODE(n);
+        if(local_exists(p, id_node->id)) {
+            error(p, id_loc, "Redefinition of local variable '%s'!", GET_SYMBOL_AS(ASTIdentifier *, &p->prog->identifiers, id_node->id)->text);
+            freeAST(n);
+            return NULL;
+        }
         register_local(p, id_loc, id_node->id);
         if(n->type == ND_EXPR_STMT) { // if ND_EXPR_STMT there is an initializer.
             // If the declaration includes an initializer (so assignment),
@@ -750,6 +758,7 @@ static ASTNode *declaration(Parser *p) {
     return n;
 }
 
+// TODO: synchronize to function end ('}').
 static void synchronize(Parser *p) {
     // synchronize to statement boundaries
     while(peek(p).type != TK_EOF) {

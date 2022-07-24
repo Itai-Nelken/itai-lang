@@ -43,10 +43,36 @@ static void pretty_print(ASTProg *prog) {
 		printAST(AS_NODE(fn->body));
 		putchar('\n');
 	}
+}
+
+int main(int argc, char **argv) {
+	if(argc < 2) {
+		fprintf(stderr, "\x1b[1mUSAGE:\x1b[0m %s [code]\n", argv[0]);
+        return 1;
+    }
+
+	Scanner s;
+	Parser p;
+	Codegenerator cg;
+	ASTProg prog;
+	initASTProg(&prog);
+	initScanner(&s, "Test", argv[1]);
+	initParser(&p, &s, &prog);
+	initCodegen(&cg, &prog);
+	if(!parserParse(&p)) {
+		fputs("Parsing failed!\n", stderr);
+		goto end;
+	}
+
+	//pretty_print(&prog);
+	if(!codegen(&cg)) {
+		fputs("Codegen failed!", stderr);
+	}
 
 end:
 	freeASTProg(&prog);
 	freeParser(&p);
 	freeScanner(&s);
+	freeCodegen(&cg);
     return 0;
 }
