@@ -22,7 +22,7 @@ static bool compareString(char *s1, char *s2) {
     return strcmp(s1, s2) == 0;
 }
 
-void initTable(Table *t, tableHashFn hashFn, tableCmpFn cmpFn) {
+void tableInit(Table *t, tableHashFn hashFn, tableCmpFn cmpFn) {
     t->capacity = 0;
     t->used = 0;
     t->items = NULL;
@@ -30,7 +30,7 @@ void initTable(Table *t, tableHashFn hashFn, tableCmpFn cmpFn) {
     t->cmpFn = cmpFn ? cmpFn : (tableCmpFn)compareString;
 }
 
-void freeTable(Table *t) {
+void tableFree(Table *t) {
     t->capacity = 0;
     t->used = 0;
     if(t->items != NULL) {

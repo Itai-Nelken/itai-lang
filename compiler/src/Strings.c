@@ -42,7 +42,7 @@ String stringNew(size_t capacity) {
     return to_str(ptr);
 }
 
-void freeString(String s) {
+void stringFree(String s) {
     assert(stringIsValid(s));
     // Remove the magic number in case the string is used again accidentally.
     from_str(s)[MAGIC] = 0;
@@ -68,7 +68,7 @@ String stringResize(String s, size_t newCapacity) {
 }
 
 String stringNCopy(const char *s, int length) {
-    String str = newString(length);
+    String str = stringNew(length);
     memcpy(str, s, length);
     from_str(str)[LENGTH] = length;
     return str;
@@ -112,7 +112,7 @@ void stringAppend(String dest, const char *format, ...) {
     int needed_length = vsnprintf(NULL, 0, format, ap);
     va_end(ap);
 
-    String buffer = newString(needed_length + 1);
+    String buffer = stringNew(needed_length + 1);
     va_start(ap, format);
     vsnprintf(buffer, needed_length + 1, format, ap);
     va_end(ap);
@@ -122,6 +122,6 @@ void stringAppend(String dest, const char *format, ...) {
     }
     strncat(dest, buffer, needed_length);
     // dest is zeroed by stringNew() & stringResize(), so no need to terminate the string.
-    freeString(buffer);
+    stringFree(buffer);
     from_str(dest)[LENGTH] += needed_length;
 }

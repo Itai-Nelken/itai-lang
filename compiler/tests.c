@@ -115,7 +115,7 @@ int _run_test_list(Test testlist[]) {
 static void test_strings(void *a) {
     UNUSED(a);
     char *s1 = NULL, *s2 = NULL, *s3 = NULL;
-    s1 = newString(5);
+    s1 = stringNew(5);
     stringAppend(s1, "Hello,");
     CHECK(stringIsValid(s1));
     stringAppend(s1, " %s!", "World");
@@ -129,9 +129,9 @@ static void test_strings(void *a) {
     s3 = stringCopy("Hello, World!");
     CHECK(stringEqual(s2, s3));
 
-    freeString(s2);
-    freeString(s3);
-    freeString(s1);
+    stringFree(s2);
+    stringFree(s3);
+    stringFree(s1);
 }
 
 static void test_array_callback(void *item, void *cl) {
@@ -145,7 +145,7 @@ static void test_array(void *a) {
     long expected[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
     const size_t expected_size = sizeof(expected) / sizeof(expected[0]);
     Array array, copy;
-    initArray(&array);
+    arrayInit(&array);
 
     for(int i = 0; i < ARRAY_INITIAL_CAPACITY + 2; ++i) {
         arrayPush(&array, (void *)expected[i]);
@@ -155,7 +155,7 @@ static void test_array(void *a) {
         CHECK(((long)arrayGet(&array, i)) == expected[i]);
     }
 
-    initArray(&copy);
+    arrayInit(&copy);
     arrayCopy(&copy, &array);
     for(int i = 0; i < ARRAY_INITIAL_CAPACITY + 2; ++i) {
         CHECK(((long)arrayPop(&copy)) == expected[expected_size-1 - i]);
@@ -163,8 +163,8 @@ static void test_array(void *a) {
 
     arrayMap(&array, test_array_callback, NULL);
 
-    freeArray(&copy);
-    freeArray(&array);
+    arrayFree(&copy);
+    arrayFree(&array);
 }
 
 struct table_test_expected {
@@ -213,7 +213,7 @@ static void test_table(void *a) {
         .expected = expected,
         .expected_length = sizeof(expected)/sizeof(expected[0])
     };
-    initTable(&t.t, NULL, NULL);
+    tableInit(&t.t, NULL, NULL);
 
     for(int i = 0; i < (int)(sizeof(expected)/sizeof(expected[0])); ++i) {
         tableSet(&t.t, (void *)expected[i].s, (void *)expected[i].i);
@@ -226,7 +226,7 @@ static void test_table(void *a) {
 
     tableMap(&t.t, test_table_callback, (void *)&t);
 
-    freeTable(&t.t);
+    tableFree(&t.t);
 }
 
 Test tests[] = {
