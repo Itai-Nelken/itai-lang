@@ -108,7 +108,7 @@ static bool register_local(Parser *p, Location loc, int id) {
     // if a local with the same id exists in the current scope, error.
     for(size_t i = 0; i < p->scopes->ids.used; ++i) {
         if((int)ARRAY_GET_AS(intptr_t, &p->scopes->ids, i) == id) {
-            error(p, loc, "Redefinition of local variable '%s' in same scope", GET_SYMBOL_AS(ASTIdentifier, &p->prog->identifiers, id)->text);
+            error(p, loc, "Redefinition of local variable '%s' in same scope", GET_SYMBOL_AS(ASTIdentifier *, &p->prog->identifiers, id)->text);
             return false;
         }
     }
@@ -296,7 +296,7 @@ static inline ASTNode *parse_identifier_node(Parser *p) {
 }
 
 static inline ASTIdentifier *parse_id(Parser *p) {
-    return GET_SYMBOL_AS(ASTIdentifier, &p->prog->identifiers, parse_identifier(previous(p), &p->prog->identifiers));
+    return GET_SYMBOL_AS(ASTIdentifier *, &p->prog->identifiers, parse_identifier(previous(p), &p->prog->identifiers));
 }
 
 static ASTNode *parse_number(Parser *p) {

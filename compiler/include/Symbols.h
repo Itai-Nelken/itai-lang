@@ -39,7 +39,7 @@ void *getSymbol(SymTable *t, int id);
 
 int getIdFromName(SymTable *t, char *name);
 
-#define GET_SYMBOL_AS(type, table, id) ((type *)getSymbol(table, id))
-#define GET_SYMBOL_FROM_NAME_AS(type, table, name) ((type *)getSymbolFromName(table, name))
+#define GET_SYMBOL_AS(type, table, id) ((type)getSymbol(table, id))
+#define GET_SYMBOL_FROM_NAME_AS(type, table, name) ((type)getSymbolFromName(table, name))
 
 #endif // SYMBOLS_H
