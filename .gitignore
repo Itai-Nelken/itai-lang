@@ -1,3 +1,4 @@
 compiler/build/**
 compiler/.vscode/**
+compiler/.cache/**
 

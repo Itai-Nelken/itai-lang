@@ -5,18 +5,23 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 add_compile_options(-Wall -Wextra)
 
 set(sources
-    src/main.c
     src/utilities.c
     src/ast.c
     src/Token.c
+    src/Types.c
     src/Errors.c
     src/Scanner.c
     src/Parser.c
-    src/Validator.c
-    src/codegen.c
+    src/Codegen.c
     src/Table.c
     src/Strings.c
     src/Array.c
+    src/Symbols.c
 )
 
-add_executable(ilc ${sources})
+add_library(compiler ${sources})
+
+add_executable(ilc src/main.c)
+target_link_libraries(ilc compiler)
+add_executable(tests tests.c)
+target_link_libraries(tests compiler)

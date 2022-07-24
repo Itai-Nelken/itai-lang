@@ -25,7 +25,6 @@ static bool compareString(char *s1, char *s2) {
 void initTable(Table *t, tableHashFn hashFn, tableCmpFn cmpFn) {
     t->capacity = 0;
     t->used = 0;
-    initArray(&t->all);
     t->items = NULL;
     t->hashFn = hashFn ? hashFn : (tableHashFn)hashString;
     t->cmpFn = cmpFn ? cmpFn : (tableCmpFn)compareString;
@@ -34,7 +33,6 @@ void initTable(Table *t, tableHashFn hashFn, tableCmpFn cmpFn) {
 void freeTable(Table *t) {
     t->capacity = 0;
     t->used = 0;
-    freeArray(&t->all);
     if(t->items != NULL) {
         FREE(t->items);
         t->items = NULL;
@@ -69,12 +67,14 @@ static Item *findItem(tableCmpFn cmp, Item *items, size_t capacity, void *key, u
 }
 
 static void adjustCapacity(Table *t, size_t newCapacity) {
+    // initialize a new empty Item array.
     Item *items = CALLOC(newCapacity, sizeof(Item));
     for(size_t i = 0; i < newCapacity; ++i) {
         items[i].key = NULL;
         items[i].value = NULL;
     }
 
+    // copy the old array to the new array.
     t->used = 0;
     for(size_t i = 0; i < t->capacity; ++i) {
         Item *item = &t->items[i];
@@ -88,10 +88,13 @@ static void adjustCapacity(Table *t, size_t newCapacity) {
         t->used++;
     }
 
+    // free the old array.
     if(t->items != NULL) {
         FREE(t->items);
     }
+    // set the table's item array to the new one.
     t->items = items;
+    // update the capacity to the new one.
     t->capacity = newCapacity;
 }
 
@@ -109,7 +112,6 @@ void tableSet(Table *t, void *key, void *value) {
 
     item->key = key;
     item->value = value;
-    arrayPush(&t->all, item);
 }
 
 Item *tableGet(Table *t, void *key) {
@@ -126,8 +128,11 @@ Item *tableGet(Table *t, void *key) {
 }
 
 void tableMap(Table *t, void (*callback)(Item *item, void *cl), void *cl) {
-    for(size_t i = 0; i < t->all.used; ++i) {
-        Item *item = ARRAY_GET_AS(Item *, &t->all, i);
+    for(size_t i = 0; i < t->capacity; ++i) {
+        Item *item = &t->items[i];
+        if(item->key == NULL) {
+            continue;
+        }
         callback(item, cl);
     }
 }

@@ -2,18 +2,23 @@
 #define AST_H
 
 #include <stdbool.h>
-#include "types.h"
-#include "Token.h"
+#include "common.h"
 #include "Array.h"
+#include "Token.h"
+#include "Types.h"
+#include "Symbols.h"
 
-typedef enum ast_type {
-    ND_PRINT, // temporary print function
-    ND_FN_CALL, // function call
+// NOTE: when adding a new node type, also add it
+//       as a string to 'ast_node_type_str' and nodeName() in ast.c,
+//       freeAST(), printAST(), and node_name() (all in ast.c).
+typedef enum ast_node_type {
+    ND_LOOP, // for, while
     ND_IF, // if statement
-    ND_LOOP, // for statement
+    ND_CALL, // call
     ND_RETURN, // return statement
-    ND_BLOCK, // { ... }
-    ND_VAR, ND_ASSIGN, // variable, assignment
+    ND_BLOCK, // block ({ ... })
+    ND_IDENTIFIER, // identifier
+    ND_ASSIGN, // assignment (infix =)
     ND_EXPR_STMT, // expression statement
     ND_ADD, ND_SUB, // infix +, -
     ND_MUL, ND_DIV, // infix *, /
@@ -26,45 +31,8 @@ typedef enum ast_type {
     ND_BIT_AND, // infix &
     ND_BIT_RSHIFT, ND_BIT_LSHIFT, // infix >> <<
     ND_NEG, // unary -
-    ND_NUM  // numbers
+    ND_NUM // numbers
 } ASTNodeType;
-
-typedef enum ast_obj_type {
-    OBJ_GLOBAL,
-    OBJ_LOCAL
-} ASTObjType;
-
-typedef struct ast_obj {
-    ASTObjType type;
-    char *name;
-    int offset; // for OBJ_LOCAL
-} ASTObj;
-
-typedef struct ast_node ASTNode;
-typedef struct ast_function {
-    char *name;
-    Location location;
-    ASTNode *body;
-    Array locals; // Array<ASTObj *>
-} ASTFunction;
-
-//typedef struct ast_node {
-//    ASTNodeType type;
-//    struct ast_node *left, *right;
-//    Location loc; // for error reporting
-//    union {
-//        union {
-//            i32 int32;
-//        } literal; // ND_NUM
-//        ASTObj var; // ND_VAR
-//        Array body; // ND_BLOCK
-//        char *name; // ND_FN_CALL
-//        struct {
-//            struct ast_node *condition, *then, *els;
-//            struct ast_node *initializer, *increment;
-//        } conditional; // ND_IF, ND_LOOP
-//    } as;
-//} ASTNode;
 
 typedef struct ast_node {
     ASTNodeType type;
@@ -88,58 +56,80 @@ typedef struct ast_binary_node {
     ASTNode *left, *right;
 } ASTBinaryNode;
 
+typedef struct ast_identifier_node {
+    ASTNode header;
+    int id;
+    Type type; // for variables.
+} ASTIdentifierNode;
+
 typedef struct ast_block_node {
     ASTNode header;
-    Array body;
+    Array body; // Array<ASTNode *>
 } ASTBlockNode;
 
-typedef struct ast_obj_node {
-    ASTNode header;
-    ASTObj obj;
-} ASTObjNode;
-
+// if-else, ternary
 typedef struct ast_conditional_node {
     ASTNode header;
-    ASTNode *condition, *then, *else_;
+    ASTNode *condition, *body, *else_;
 } ASTConditionalNode;
 
 typedef struct ast_loop_node {
     ASTNode header;
-    ASTNode *initializer, *condition, *increment, *body;
+    ASTNode *init, *condition, *increment, *body;
 } ASTLoopNode;
 
 #define AS_NODE(node) ((ASTNode *)node)
 #define AS_LITERAL_NODE(node) ((ASTLiteralNode *)node)
 #define AS_UNARY_NODE(node) ((ASTUnaryNode *)node)
 #define AS_BINARY_NODE(node) ((ASTBinaryNode *)node)
+#define AS_IDENTIFIER_NODE(node) ((ASTIdentifierNode *)node)
 #define AS_BLOCK_NODE(node) ((ASTBlockNode *)node)
-#define AS_OBJ_NODE(node) ((ASTObjNode *)node)
 #define AS_CONDITIONAL_NODE(node) ((ASTConditionalNode *)node)
 #define AS_LOOP_NODE(node) ((ASTLoopNode *)node)
 
+typedef struct ast_identifier {
+    char *text; // owned by the instance.
+    int length;
+} ASTIdentifier;
+
+ASTIdentifier *newIdentifier(char *str, int length);
+void freeIdentifier(ASTIdentifier *identifier);
+
+typedef struct ast_function {
+    ASTIdentifierNode *name;
+    Type return_type;
+    Array locals; // Array<ASTNode *>
+    ASTBlockNode *body;
+} ASTFunction;
+
+// initializes the body to NULL
+ASTFunction *newFunction(ASTIdentifierNode *name, Type return_type);
+void freeFunction(ASTFunction *fn);
+
 typedef struct ast_program {
-    Array functions; // Array<ASTFunction *>
+    SymTable identifiers; // global identifiers
+    Array types; // Array<int>
     Array globals; // Array<ASTNode *>
+    Array functions; // Array<ASTFunction *>
 } ASTProg;
 
 void initASTProg(ASTProg *astp);
 void freeASTProg(ASTProg *astp);
 
-ASTFunction *newFunction(const char *name, Location loc, ASTNode *body);
-void freeFunction(ASTFunction *fn);
-
-//ASTNode *newNode(ASTNodeType type, ASTNode *left, ASTNode *right, Location loc);
 ASTNode newNode(ASTNodeType type, Location loc);
-
-void freeAST(ASTNode *root);
 
 ASTNode *newNumberNode(int value, Location loc);
 ASTNode *newUnaryNode(ASTNodeType type, Location loc, ASTNode *child);
-
 ASTNode *newBinaryNode(ASTNodeType type, Location loc, ASTNode *left, ASTNode *right);
-ASTNode *newObjNode(ASTNodeType type, Location loc, ASTObj obj);
+ASTNode *newIdentifierNode(Location loc, int id, Type ty);
+// initializes with empty body
 ASTNode *newBlockNode(Location loc);
-ASTNode *newConditionalNode(ASTNodeType type, Location loc, ASTNode *condition, ASTNode *then, ASTNode *else_);
-ASTNode *newLoopNode(Location loc, ASTNode *initializer, ASTNode *condition, ASTNode *increment, ASTNode *body);
+ASTNode *newConditionalNode(ASTNodeType type, Location loc, ASTNode *condition, ASTNode *body, ASTNode *else_);
+ASTNode *newLoopNode(Location loc, ASTNode *init, ASTNode *condition, ASTNode *increment, ASTNode *body);
+#define newWhileLoopNode(location, condition, body) newLoopNode((location), NULL, (condition), NULL, (body))
+
+void freeAST(ASTNode *root);
+
+void printAST(ASTNode *root);
 
 #endif // AST_H

@@ -1,73 +1,76 @@
 #include <stdio.h>
 #include <string.h> // memcpy()
 #include <stdarg.h>
+#include <math.h> // abs()
 #include <assert.h>
 #include <stdbool.h>
 #include "memory.h"
 #include "Strings.h"
 
-// The first 4 bytes of the strings are used for storing the length.
-// The next byte is used to store a magic number so the string functions
-// can know if the string is a valid one, and the rest of the bytes are used for the actual string.
-// l = length
-// m = magic
-// d = data
-// __________________________________________
-// |      |      |      |      |      |      |
-// |  l   |  l   |  l   |  l   |  m   |  d   |
-// |______|______|______|______|______|______|
+// C = capacity
+// L = length
+// M = magic number
+// D = data
+// ________________________
+// |   |   |   |   |   |   | ...
+// | C | L | M | D | D | D | ...
+// |___|___|___|___|___|___| ...
+//
 
-static_assert(sizeof(int) == 4);
+enum slots {
+    CAPACITY   = 0,
+    LENGTH     = 1,
+    MAGIC      = 2,
+    SLOT_COUNT = 3
+};
 
-char *newString(int length) {
-    assert(length > 0);
-    // + 4 for the length bytes
-    char *s = CALLOC(length + 5, sizeof(char));
+static inline size_t *from_str(char *s) {
+    return ((size_t *)s) - SLOT_COUNT;
+}
 
-    // destructure the length int into it's 4 bytes
-    s[0] = (length >> 24) & 0xff;
-    s[1] = (length >> 16) & 0xff;
-    s[2] = (length >> 8) & 0xff;
-    s[3] = length & 0xff;
+static inline char *to_str(size_t *ptr) {
+    return (char *)(ptr + SLOT_COUNT);
+}
 
-    // set the magic number
-    s[4] = 255; // out of the range of the regular ascii table
-
-    return s + 5;
+char *newString(size_t capacity) {
+    assert(capacity > 0);
+    size_t *ptr = ALLOC(sizeof(size_t) * SLOT_COUNT + sizeof(char) * (capacity + 1));
+    memset(ptr, 0, capacity + 1);
+    ptr[CAPACITY] = capacity + 1; // capacity
+    ptr[LENGTH] = 0; // length
+    ptr[MAGIC] = 0xDEADC0DE; // magic
+    return to_str(ptr);
 }
 
 void freeString(char *s) {
     assert(stringIsValid(s));
-    char *str = s - 5;
-    FREE(str);
+    // Remove the magic number in case the string is used again accidentally.
+    from_str(s)[MAGIC] = 0;
+    FREE(from_str(s));
 }
 
 bool stringIsValid(char *s) {
-    return s[-1] == 255;
+    return from_str(s)[MAGIC] == 0xDEADC0DE;
 }
 
-int stringLength(char *s) {
-    assert(stringIsValid(s));
-    // restructure the first 4 bytes into the length int
-    char bytes[4] = {s[-2], s[-3], s[-4], s[-5]};
-    return *((int *)bytes);
+size_t stringLength(char *s) {
+    return from_str(s)[LENGTH];
 }
 
-char *stringResize(char *s, int newLength) {
-    assert(stringIsValid(s));
-    assert(newLength > 0);
-    int oldLength = stringLength(s);
-    char *str = s - 5;
-
-    str = REALLOC(str, sizeof(char) * newLength + 5);
-    memset(str + 5 + oldLength, '\0', newLength - oldLength);
-    return str + 4;
+char *stringResize(char *s, size_t newCapacity) {
+    assert(newCapacity > 0);
+    size_t *ptr = from_str(s);
+    size_t oldCap = ptr[CAPACITY];
+    ptr = REALLOC(ptr, newCapacity);
+    memset(ptr + oldCap, 0, labs(((ssize_t)oldCap) - ((ssize_t)newCapacity)));
+    ptr[CAPACITY] = newCapacity;
+    return to_str(ptr);
 }
 
 char *stringNCopy(const char *s, int length) {
-    char *str = newString(length + 1);
+    char *str = newString(length);
     memcpy(str, s, length);
-    str[length] = '\0';
+    from_str(str)[LENGTH] = length;
     return str;
 }
 
@@ -77,49 +80,48 @@ char *stringCopy(const char *s) {
 
 char *stringDuplicate(char *s) {
     assert(stringIsValid(s));
-    int length = stringLength(s);
-    char *str = newString(length+1);
-    memcpy(str, s, length);
-    str[length] = '\0';
-    return str;
+    return stringNCopy((const char *)s, stringLength(s));
 }
 
 bool stringEqual(char *s1, char *s2) {
-    int length1, length2;
-    if(!stringIsValid(s1)) {
-        length1 = strlen(s1)+1; // +1 because stringLength returns the length+nul terminator
-    } else {
+    size_t length1, length2;
+    if(stringIsValid(s1)) {
         length1 = stringLength(s1);
-    }
-    if(!stringIsValid(s2)) {
-        length2 = strlen(s2)+1;
     } else {
-        length2 = stringLength(s2);
+        length1 = strlen(s1);
     }
+    if(stringIsValid(s2)) {
+        length2 = stringLength(s2);
+    } else {
+        length2 = strlen(s2);
+    }
+
     if(length1 != length2) {
         return false;
     }
     return memcmp(s1, s2, length1) == 0;
 }
 
-void stringAppend(char *dest, const char *s, ...) {
+void stringAppend(char *dest, const char *format, ...) {
     assert(stringIsValid(dest));
     va_list ap;
-    int dest_length = stringLength(dest);
 
-    va_start(ap, s);
-    int needed_length = vsnprintf(NULL, 0, s, ap);
+    // Get the total length of the formatted string.
+    // see man 3 printf.
+    va_start(ap, format);
+    int needed_length = vsnprintf(NULL, 0, format, ap);
     va_end(ap);
 
-    if(needed_length > dest_length) {
-        stringResize(dest, needed_length);
+    char *buffer = newString(needed_length + 1);
+    va_start(ap, format);
+    vsnprintf(buffer, needed_length + 1, format, ap);
+    va_end(ap);
+
+    if((size_t)(needed_length + 1) > from_str(dest)[CAPACITY]) {
+        stringResize(dest, stringLength(dest) + needed_length + 1);
     }
-
-    char *buffer = newString(needed_length+1);
-    va_start(ap, s);
-    vsnprintf(buffer, (size_t)needed_length+1, s, ap);
-    va_end(ap);
-
-    strncat(dest, buffer, stringLength(buffer)-1);
+    strncat(dest, buffer, needed_length);
+    // dest is zeroed by stringNew() & stringResize(), so no need to terminate the string.
     freeString(buffer);
+    from_str(dest)[LENGTH] += needed_length;
 }

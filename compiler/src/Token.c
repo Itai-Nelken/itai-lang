@@ -17,6 +17,7 @@ Token newErrorToken(Location loc, char *lexeme, int length, const char *message)
     return t;
 }
 
+// TODO: print token.errmsg for TK_ERROR
 void printToken(Token t) {
     printf("Token{\x1b[1mtype:\x1b[33m %s\x1b[0m, "
            "\x1b[34;1mlocation\x1b[0m{\x1b[1mfile: \x1b[0;33m'%s'\x1b[0m, "
@@ -63,6 +64,7 @@ static const char *tokentype_str_lut[] = {
     [TK_BANG_EQUAL]      = "TK_BANG_EQUAL",
     [TK_EQUAL]           = "TK_EQUAL",
     [TK_EQUAL_EQUAL]     = "TK_EQUAL_EQUAL",
+    [TK_BIG_ARROW]       = "TK_BIG_ARROW",
     [TK_PERCENT]         = "TK_PERCENT",
     [TK_PERCENT_EQUAL]   = "TK_PERCENT_EQUAL",
     [TK_XOR]             = "TK_XOR",
@@ -114,7 +116,7 @@ static const char *tokentype_str_lut[] = {
     [TK_PRINT]           = "TK_PRINT",
     [TK_VAR]             = "TK_VAR",
     [TK_CONST]           = "TK_CONST",
-    [TK_STATIC]          = "TK_STATIC",
+    [TK_PUBLIC]          = "TK_PUBLIC",
     [TK_FN]              = "TK_FN",
     [TK_RETURN]          = "TK_RETURN",
     [TK_ENUM]            = "TK_ENUM",
@@ -123,7 +125,6 @@ static const char *tokentype_str_lut[] = {
     [TK_ELSE]            = "TK_ELSE",
     [TK_SWITCH]          = "TK_SWITCH",
     [TK_MODULE]          = "TK_MODULE",
-    [TK_EXPORT]          = "TK_EXPORT",
     [TK_IMPORT]          = "TK_IMPORT",
     [TK_AS]              = "TK_AS",
     [TK_USING]           = "TK_USING",

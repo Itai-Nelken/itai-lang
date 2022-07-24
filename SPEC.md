@@ -9,57 +9,65 @@ import "os";
 import "strings";
 import "types";
 
-module Stack {
+module Collections {
 using arrays::{make, grow};
 
-export struct Stack<T> {
+const INITIAL_SIZE = 16;
+
+public struct Stack<T> {
     data: T[];
     sp: i32;
     size: usize;
-}
 
-const INITIAL_SIZE = 16;
-export fn [static Stack]new<T>(initial_size: usize) -> Stack<T> {
-    if initial_size == 0 {
-        initial_size = INITIAL_SIZE;
+    public fn new<T>(initial_size: usize) -> This<T> {
+        return This<T>{
+            data: make<T>(initial_size == 0 ? INITIAL_SIZE : initial_size),
+            sp: 0,
+            size: initial_size
+        };
     }
-    return Stack<T>{data: make<T>(initial_size), sp: 0, size: initial_size};
-}
 
-fn [this &const Stack]isFull() -> bool {
-    return this.sp == this.size-1 ? true : false;
-}
-
-export fn [this &const Stack]isEmpty() -> bool {
-    return this.sp == 0 ? true : false;
-}
-
-fn [this &Stack]grow() {
-    this.size *= 2;
-    ::grow(&this.data, this.size);
-}
-
-export fn [this &Stack]push(data: T) {
-    if this.isFull() {
-        this.grow();
+    public fn getSize(&const this) -> usize {
+        return .size;
     }
-    this.data[this.sp] = data;
-    this.sp++;
-}
 
-export fn [this &Stack]pop() -> T {
-    if this.isEmpty() {
-        io::printerrln("ERROR: stack is empty!");
+    public fn isFull(&const this) -> bool {
+        return .sp == .size-1;
     }
-    this.sp--;
-    return this.data[this.sp];
-}
 
-export fn [this &const Stack]peek() -> T {
-    return this.data[this.sp-1];
-}
-} // module Stack
+    public fn isEmpty(&const this) -> bool {
+        return .sp == 0;
+    }
 
+    fn grow(&this) {
+        .size *= 2;
+        ::grow(&.data, .size);
+    }
+
+    public fn push(&this, data: T) {
+        if .isFull() {
+            .grow();
+        }
+        .data[.sp] = data;
+        .sp++;
+    }
+
+    public fn pop(&this) -> T {
+        if .isEmpty() {
+            io::printerrln("ERROR: stack is empty!");
+            return null;
+        }
+        .sp--;
+        return .data[.sp];
+    }
+
+    public fn peek(&const this) -> T {
+        return .data[.sp-1];
+    }
+} // struct Stack<T>
+} // module Collections
+
+using Collections::Stack;
 fn main() {
     if arrays::len(os::args) < 2 {
         io::printerrfln("USAGE: %s [numbers]", os::args[0]);
@@ -102,7 +110,7 @@ The Preprocessor and Compiler can be passed certain options using directives:
 ```rust
 #[directive(value)]
 // examples
-#[wuninitialized(true)] // turn on warnings for uninitialized variables
+#[warn_uninitialized(true)] // turn on warnings for uninitialized variables
 ```
 
 ## Types
@@ -132,12 +140,10 @@ The Preprocessor and Compiler can be passed certain options using directives:
 
 ### Advanced (from the standard library)
 
-Those aren't primitive types, but they are pretty basic in modern programming languages.
-
-They are automatically imported and put in the global scope.
+These aren't primitive types, but they are pretty basic in modern programming languages, so they are automatically imported and put in the global scope.
 
 | Type | Description |
-| --- | --- |
+| ---  |     ---     |
 | `String` | Mutable string with advanced features (using bound functions) |
 | `Vector<T>` | A vector for any type (using generics). has advanced features (using bound functions) |
 
@@ -161,17 +167,17 @@ The table bellow shows what `null` is for every built-in type:
 | function types | `panic()` built in function (with appropriate error message) |
 | All references | 0x0 (an invalid address) |
 
-### Function types
+### Function type
 
-Function types are the type of function literals. they can also be used to store pointers/references to functions.
+The function type is the type of function literals. it can also be used to store references to regular functions.
 
 ```rust
-fn(<types>) -> T
+fn<T>(<types>)
 ```
 
 The `<types>` is the argument types, and it can be empty.
 
-`T` is the return type. it also can be multiple types in parentheses or none (if none, than the `->` isn't needed).
+`T` is the return type. it also can be multiple types in parentheses or none (if none, than the `<T>` isn't needed).
 
 ### Example
 
@@ -189,7 +195,7 @@ func2();
 The following function type is used when referencing a function type in this document:
 
 ```rust
-fn(...) -> T
+fn<T>(...)
 ```
 
 ### Reference and Array types
@@ -199,10 +205,10 @@ Each type has reference and array variants of itself.
 In the table bellow, one type from each group is shown.
 
 | Type | Reference variant | Array variant |
-| --- | --- | --- |
+| ---  |        ---        |      ---      |
 | `u8` | `&u8`, `&const u8` | `u8[]` |
 | `Vector<T>` | `&Vector<T>`, `&const Vector<T>` | `Vector<T>[]` |
-| `fn(...)T` | `&fn(...) -> T`, `&const fn(...) -> T` | `fn(...)T[]` |
+| `fn<T>(...)` | `&fn<T>(...)`, `&const fn<T>(...)` | `fn<T>(...)[]` |
 
 The array variant can be mixed with the reference ones, for example:
 
@@ -280,7 +286,7 @@ Array elements are put as a comma separated list inside `[]` (brackets).
 ['a', 'b', 'c']
 ["s1", "s2", "s3"]
 // nested arrays
-[1, [2, 3, [4, 5, 6], 7], 8]
+[[1, 2, 3], [4, 5, 6]] // type is i32[3][2]
 ```
 
 ### Structs
@@ -301,12 +307,12 @@ var instance = Foo{a: 20, b: 2};
 Function literals are simply `fn` followed by the argument list inside parentheses, `->` and the return types (inside parentheses if necessary).
 
 ```go
-var add = fn(a: i32, b: i32) -> i32 { return a + b; };
+var add = fn(a: i32, b: i32) -> i32 { return a + b; }; // type is fn<i32>(i32, i32)
 add(1, 2); // returns 3
 var split = fn(s: String) -> (String, String) {
     var len = s.length()/2;
     return s.substring(0, len), s.substring(len, s.length());
-}
+}; // type is fn<String, String>(String)
 split("abcd"); // "ab", "cd"
 ```
 
@@ -405,26 +411,13 @@ switch a {
         io::println("The answer");
     }
     // will catch anything that isn't handled
-    _ => {
+    else => {
         io::println("Wrong!");
     }    
 }
 ```
 
-A switch can be exited with the `break` keyword. it is also possible to add labels to cases and `break` to them:
-
-```go
-var a = 42;
-switch a {
-    42 : answer => {
-        io::println("The answer!");
-    }
-    _ => {
-       io::println("Wrong!\nGuess you deserve the prize after all...");
-        break answer;
-    }
-}
-```
+A switch can be exited with the `break` keyword.
 
 The braces aren't needed for single expressions:
 
@@ -432,17 +425,17 @@ The braces aren't needed for single expressions:
 var a = 42;
 switch a {
     42 => io::println("The answer!");
-    _ => io::println("Wrong answer!");
+    else => io::println("Wrong answer!");
 }
 ```
 
-Cases can fallthrough using the `fallthrough` keyword:
+Cases can't fallthrough, but each case can match multiple values:
 
 ```go
 var a = 24;
 switch a {
-    24 => fallthrough;
-    42 => io::println("The answer (or not)");
+    24 | 42 => io::println("The answer (or not)");
+    else => io::println("Wrong answer!");
 }
 ```
 
@@ -503,8 +496,7 @@ A function can return more than one value, this is done by putting the return ty
 
 ```rust
 fn divide(a: i32, b: i32) -> (i32, i32) {
-    var remainder = a % b;
-    return a / b, remainder;
+    return a / b, a % b;
 }
 
 var result, remainder = divide(10, 2); // 5, 0
@@ -545,7 +537,7 @@ fn printf(format: str, ap: ...) {
                 'c' => out.append_char(va_arg<char>(ap));
                 's' => out.append_str(ca_arg<str>(ap));
                 '%' => out.append_char('%');
-                _ => out.append(format[i-1 : i]);
+                else => out.append(format[i-1 : i]);
             }
         } else {
             out.append(format[i]);
@@ -626,11 +618,13 @@ var ref = &const number;
 ## Structs
 
 Structs are used to group a bunch of related variables (and functions) together.
+Fields are private by default meaning that only the enclosing module can access them. To make a field available to everyone, the `public` keyword can be added before the field declaration.
 
 ```cpp
 struct name {
     field: type;
     field2: type2;
+    public field3: type3;
 }
 ```
 
@@ -654,36 +648,42 @@ ref.a + ref.b; // 42
 // *(ref).a + *(ref).b;
 ```
 
-### Binding functions to structs
+### Binding functions to structs and enums
 
 There are associated functions and bound functions.
+ * associated functions "belong" to the struct itself, not instances of it.
+ * bound functions "belong" to instances of the struct, and cannot be called without an instance.
 
-associated functions "belong" to the struct itself, not instances of it.
+Both associated and bound functions hav e to be defined inside the struct/enum to which they belong. to be visible outside of the enclosing module, they have to be made public by adding the `public` keyword before defining them.
 
-bound functions "belong" to instances of the struct, and cannot be called without an instance.
+Bound functions most have `&this` or `&const this` as the first parameter. this is a shortcut for `this: &This`/`this: &const This`.
+the `This` type is defined automatically to the type of the enclosing struct or enum.
+
+As bound functions are likely to access members/call other bound functions, writing `.member` instead of `this.member` is allowed.
 
 ```rust
 struct Person {
     name: String;
     age: i32;
-}
 
-// associated function
-fn [static Person]new(String name, i32 age) -> Person {
-    return Person{name: name, age: age};
-}
+    // associated function
+    public fn new(name: String, age: i32) -> This {
+        return This{name, age};
+    }
 
-// bound functions
-fn [this &const Person]getName() -> String {
-    return this.name;
-}
+    // bound functions
+    public fn getName(&const this) -> String {
+        // .name is the same as this.name
+        return .name
+    }
 
-fn [this &Person]changeName(String name) {
-    this.name = name;
-}
+    public fn changeName(&this, name: String) {
+        .name = name;
+    }
 
-fn [this &const Person]getAge() -> i32 {
-    return this.age;
+    public fn getAge(&const this) -> i32 {
+        return .age;
+    }
 }
 
 // usage
@@ -703,23 +703,23 @@ Enums can also capture values.
 ```rust
 // declaring
 enum states {
-    NONE,
-    ON,
-    OFF
+    None,
+    On,
+    Off
 }
 
 enum types {
-    INT(i32),
-    FLOAT(f32),
-    STRING(String),
-    ALL(i32, f32, String)
+    Int(i32),
+    Float(f32),
+    String(String),
+    All(i32, f32, String)
 }
 
 // using
-var state = states::NONE;
-var number = types::INT(42);
+var state = states::None;
+var number = types::Int(42);
 var answer = number.0; // answer == 42
-var all = types::ALL(42, 3.14, "What are the numbers?");
+var all = types::All(42, 3.14, "What are the numbers?");
 all.0; // 42
 all.1; // 3.14
 all.2; // "What are the numbers?"
@@ -728,6 +728,7 @@ all.2; // "What are the numbers?"
 ## Generics
 
 Generics allow a type in a function or struct to be any type the user provides.
+In a function, the generic type can be infered in the call.
 
 ```rust
 // structs
@@ -743,6 +744,9 @@ fn add<T>(T a, T b) -> T {
 }
 add<i32>(40, 2); // 42
 add<f32>(41.5, 0.5); // 42
+
+add(20, 22); // i32 inferred
+add(21.5, 20.5) // f32 inferred
 ```
 
 A generic type can be limited to be only a few types:
@@ -754,7 +758,16 @@ fn add_num<T(i32, f32)>(T a, T b) -> T {
 
 add_num<i32>(40, 2); // compiles fine
 add_num<char>('a', 'b'); // compilation error!
+add_num("a", "b"); // str inferred, compilation error!
 ```
+**Note:** in function literals, a generic function is defined by not giving a type to the arguments and/or return type:
+```go
+var add = fn(a, b) { return a + b; };
+
+add(1, 2); // i32 inferred
+add(1.5, 1.5); // f32 inferred
+```
+Note that generics in function literals are more limited (no type limiting, no name for the type), that is because function literals should be used mostly for callbacks where the types are most likely known/easy to infer.
 
 ## The `defer` statement
 
@@ -766,12 +779,12 @@ The deferred call's arguments are evaluated immediately, but the function call i
 
 A module is used to group together a bunch of types, variables, constants, enums, structs, and functions that do a single thing. each module has its own namespace.<br>
 
-Anything in a module is private by default - that means the code importing it can't see anything inside the module. stuff can be made public by adding the `export` keyword before declaring it.
+Anything in a module is private by default - that means the code importing it can't see anything inside the module. stuff can be made public by adding the `public` keyword before declaring it.
 
 ```cpp
 // declaring
 module The {
-    export const answer = 42;
+    public const answer = 42;
 }
 
 // using
@@ -790,7 +803,7 @@ for example:
 module answers;
 
 const answer = 42;
-export fn TheAnswer() -> i32 {
+public fn TheAnswer() -> i32 {
     return answer;
 }
 ```
@@ -834,14 +847,27 @@ this doesn't apply when a module from a file (`import "<file>/<module>";` ) or w
 A scope generally is whatever is inside a pair of opening and closing braces (`{}`) (a block). More specifically, each function has a scope and each for loop has a scope (so the initializer clause can be a variable declaration).
 further scopes can be added with blocks (`{ ... }`).
 
-Object names in the current scope have "shadow" objects with the same name in the parent scopes.
+Object names in the current scope "shadow" objects with the same name in the parent scopes.
 In other words, if a child scope and its parent scope have an object with the same name, referencing the object in the child scope will use the one defined in the child scope. to use the object from the parent scope, the scope resolution operator (`::`) is used in its prefix variant.
+**Example:**<br>
+```rust
+fn main() {
+    var a = 42;
+    {
+        var a = 50;
+        a; // 50
+    }
+    a; // 42
+}
+
+```
 
 ### Namespaces
 
-Each function, enum, struct, module, and scope has it's own namespace.
+A namespace is like a scope but for identifiers.
+Function and global variable names, enum names, and struct names live in the global namespace (unless defined inside a module).
 
-The global namespace holds module names and global function and variable (and constant) names.
+The user can't define custom namespaces, but each module has it's own namespace.
 
 ## Keywords
 
@@ -849,7 +875,6 @@ The global namespace holds module names and global function and variable (and co
 | --- | --- |
 | `var` | declare a variable |
 | `const` | declare a constant/make a reference constant |
-| `static` |     |
 | `fn` | declaring functions |
 | `return` | return from a function |
 | all the default types | N/A |
@@ -859,8 +884,8 @@ The global namespace holds module names and global function and variable (and co
 | `if` | if statement |
 | `else` | if statement |
 | `switch` | switch statement |
+| `public` | make a variable/field/function/enum/struct accessible from outside the current module. |
 | `module` | declare a module |
-| `export` | export an object in a module |
 | `import` | import a module (or parts of it) |
 | `as` | change the name of an imported module |
 | `using` | bring the namespace of a module into the current scope. |

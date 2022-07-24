@@ -179,7 +179,6 @@ static TokenType identifierType(Scanner *s) {
                 switch(s->start[1]) {
                     case 'n': return checkKeyword(s, 2, "um", TK_ENUM);
                     case 'l': return checkKeyword(s, 2, "se", TK_ELSE);
-                    case 'x': return checkKeyword(s, 2, "port", TK_EXPORT);
                     default:
                         break;
                 }
@@ -221,7 +220,16 @@ static TokenType identifierType(Scanner *s) {
         case 'm': return checkKeyword(s, 1, "odule", TK_MODULE);
         case 'n': return checkKeyword(s, 1, "ull", TK_NULL);
         // TODO: remove builtin print fn
-        case 'p': return checkKeyword(s, 1, "rint", TK_PRINT);
+        case 'p':
+            if(s->current - s->start > 1) {
+                switch(s->start[1]) {
+                    case 'r': return checkKeyword(s, 2, "int", TK_PRINT);
+                    case 'u': return checkKeyword(s, 2, "blic", TK_PUBLIC);
+                    default:
+                        break;
+                }
+            }
+            break;
         case 'r': return checkKeyword(s, 1, "eturn", TK_RETURN);
         case 's':
             if(s->current - s->start > 1) {
@@ -229,7 +237,6 @@ static TokenType identifierType(Scanner *s) {
                     case 't':
                         if(s->current - s->start > 2) {
                             switch(s->start[2]) {
-                                case 'a': return checkKeyword(s, 3, "tic", TK_STATIC);
                                 case 'r':
                                     if(checkKeyword(s, 3, "uct", TK_STRUCT) == TK_IDENTIFIER) {
                                         return TK_STR;
@@ -385,7 +392,15 @@ Token nextToken(Scanner *s) {
         case '/': return makeToken(s, match(s, '=') ? TK_SLASH_EQUAL : TK_SLASH);
         case '*': return makeToken(s, match(s, '=') ? TK_STAR_EQUAL : TK_STAR);
         case '!': return makeToken(s, match(s, '=') ? TK_BANG_EQUAL : TK_BANG);
-        case '=': return makeToken(s, match(s, '=') ? TK_EQUAL_EQUAL : TK_EQUAL);
+        case '=': {
+            if(match(s, '=')) {
+                return makeToken(s, TK_EQUAL_EQUAL);
+            } else if(match(s, '>')) {
+                return makeToken(s, TK_BIG_ARROW);
+            } else {
+                return makeToken(s, TK_EQUAL);
+            }
+        }
         case '%': return makeToken(s, match(s, '=') ? TK_PERCENT_EQUAL : TK_PERCENT);
         case '^': return makeToken(s, match(s, '=') ? TK_XOR_EQUAL : TK_XOR);
         case '|': return makeToken(s, match(s, '=') ? TK_PIPE_EQUAL : TK_PIPE);
