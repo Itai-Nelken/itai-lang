@@ -2,15 +2,12 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <assert.h>
 
 #include "common.h"
 #include "Strings.h"
 #include "Array.h"
 #include "Table.h"
-#include "Token.h"
-#include "Scanner.h"
-#include "ast.h"
-#include "Parser.h"
 
 #define MAX_FAILURES_IN_TEST 20
 
@@ -25,8 +22,6 @@ typedef struct test_list_data {
     int total_test_count, current_test_number;
     const char *failure_texts[MAX_FAILURES_IN_TEST];
     int failure_count;
-    void (*current_end_fn)(void *);
-    void *current_end_fn_arg;
 } TestListData;
 
 static TestListData __data;
@@ -50,8 +45,6 @@ static void _init() {
     __data.current_test = NULL;
     __data.total_test_count = __data.current_test_number = 0;
     __data.failure_count = 0;
-    __data.current_end_fn = NULL;
-    __data.current_end_fn_arg = NULL;
 }
 
 static void _count_tests(Test testlist[]) {
@@ -65,11 +58,6 @@ void _check(bool result, const char *expr) {
     }
     assert(__data.failure_count < MAX_FAILURES_IN_TEST);
     __data.failure_texts[__data.failure_count++] = expr;
-}
-
-void _set_end_fn(void (*fn)(void *), void *arg) {
-    __data.current_end_fn = fn;
-    __data.current_end_fn_arg = arg;
 }
 
 void _log(const char *format, ...) {
@@ -92,12 +80,7 @@ int _run_test_list(Test testlist[]) {
         __data.current_test->fn(__data.current_test->arg);
         if(__data.failure_count > 0) {
             had_failure = true;
-            if(__data.current_end_fn) {
-                __data.current_end_fn(__data.current_end_fn_arg);
-            }
         }
-        __data.current_end_fn = NULL;
-        __data.current_end_fn_arg = NULL;
         _print_test_summary();
     }
     return had_failure ? 1 : 0;
@@ -116,13 +99,6 @@ int _run_test_list(Test testlist[]) {
  ***/
 #define CHECK(expr) (_check((expr), #expr))
 /***
- * Set a callback that will be called if the current test fails.
- * 
- * @param fn A function pointer of type void (*)(void *).
- * @param arg An argument that will be passed to the callback. It will be casted to void *.
- ***/
-#define SET_END_FN(fn, arg) (_set_end_fn((fn), (void *)(arg)))
-/***
  * Print a message that will look nice with the rest of the output.
  * 
  * @param txt The message.
@@ -136,51 +112,28 @@ int _run_test_list(Test testlist[]) {
  ***/
 #define LOG_F(fmt, ...) (_log((fmt), __VA_ARGS__))
 
-
-
-struct string_test {
-    char *s1, *s2, *s3;
-};
-static void test_strings_end(void *strings) {
-    struct string_test *t = (struct string_test *)strings;
-    freeString(t->s1);
-    freeString(t->s2);
-    freeString(t->s3);
-}
 static void test_strings(void *a) {
     UNUSED(a);
-    struct string_test t = {NULL, NULL, NULL};
-    SET_END_FN(test_strings_end, &t);
-    t.s1 = newString(5);
-    stringAppend(t.s1, "Hello,");
-    CHECK(stringIsValid(t.s1));
-    stringAppend(t.s1, " %s!", "World");
-    CHECK(stringIsValid(t.s1));
-    CHECK(stringLength(t.s1) == 13);
-    CHECK(!strcmp(t.s1, "Hello, World!"));
-    CHECK(stringEqual(t.s1, "Hello, World!"));
+    char *s1 = NULL, *s2 = NULL, *s3 = NULL;
+    s1 = newString(5);
+    stringAppend(s1, "Hello,");
+    CHECK(stringIsValid(s1));
+    stringAppend(s1, " %s!", "World");
+    CHECK(stringIsValid(s1));
+    CHECK(stringLength(s1) == 13);
+    CHECK(!strcmp(s1, "Hello, World!"));
+    CHECK(stringEqual(s1, "Hello, World!"));
 
     // stringDuplicate() & stringCopy() use stringNCopy(), so it's also tested.
-    t.s2 = stringDuplicate(t.s1);
-    t.s3 = stringCopy("Hello, World!");
-    CHECK(stringEqual(t.s2, t.s3));
+    s2 = stringDuplicate(s1);
+    s3 = stringCopy("Hello, World!");
+    CHECK(stringEqual(s2, s3));
 
-    freeString(t.s2);
-    freeString(t.s3);
-    freeString(t.s1);
+    freeString(s2);
+    freeString(s3);
+    freeString(s1);
 }
 
-struct array_test {
-    Array a, copy;
-    bool copy_used;
-};
-static void test_array_end(void *arrays) {
-    struct array_test *t = (struct array_test *)arrays;
-    freeArray(&t->a);
-    if(t->copy_used) {
-        freeArray(&t->copy);
-    }
-}
 static void test_array_callback(void *item, void *cl) {
     UNUSED(cl);
     static long i = 1;
@@ -191,29 +144,27 @@ static void test_array(void *a) {
     UNUSED(a);
     long expected[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
     const size_t expected_size = sizeof(expected) / sizeof(expected[0]);
-    struct array_test t = {.copy_used = false};
-    initArray(&t.a);
-    SET_END_FN(test_array_end, &t);
+    Array array, copy;
+    initArray(&array);
 
     for(int i = 0; i < ARRAY_INITIAL_CAPACITY + 2; ++i) {
-        arrayPush(&t.a, (void *)expected[i]);
+        arrayPush(&array, (void *)expected[i]);
     }
 
     for(int i = 0; i < ARRAY_INITIAL_CAPACITY + 2; ++i) {
-        CHECK(((long)arrayGet(&t.a, i)) == expected[i]);
+        CHECK(((long)arrayGet(&array, i)) == expected[i]);
     }
 
-    initArray(&t.copy);
-    t.copy_used = true;
-    arrayCopy(&t.copy, &t.a);
+    initArray(&copy);
+    arrayCopy(&copy, &array);
     for(int i = 0; i < ARRAY_INITIAL_CAPACITY + 2; ++i) {
-        CHECK(((long)arrayPop(&t.copy)) == expected[expected_size-1 - i]);
+        CHECK(((long)arrayPop(&copy)) == expected[expected_size-1 - i]);
     }
 
-    arrayMap(&t.a, test_array_callback, NULL);
+    arrayMap(&array, test_array_callback, NULL);
 
-    freeArray(&t.copy);
-    freeArray(&t.a);
+    freeArray(&copy);
+    freeArray(&array);
 }
 
 struct table_test_expected {
@@ -278,298 +229,10 @@ static void test_table(void *a) {
     freeTable(&t.t);
 }
 
-static void test_scanner_end(void *s) {
-    freeScanner((Scanner *)s);
-}
-static void test_scanner_1char(void *a) {
-    UNUSED(a);
-    TokenType expected[] = {
-        TK_LPAREN, TK_RPAREN,
-        TK_LBRACKET, TK_RBRACKET,
-        TK_LBRACE, TK_RBRACE,
-        TK_COMMA, TK_SEMICOLON, TK_COLON, TK_TILDE
-    };
-    Scanner s;
-    initScanner(&s, "Test (1 char)", "()[]{},;:~");
-    SET_END_FN(test_scanner_end, &s);
-
-    Token tk = nextToken(&s);
-    for(int idx = 0; idx < (int)(sizeof(expected)/sizeof(expected[0])); ++idx) {
-        CHECK(tk.type != TK_EOF || tk.type != TK_ERROR);
-        CHECK(tk.type == expected[idx]);
-        tk = nextToken(&s);
-    }
-
-    freeScanner(&s);
-}
-static void test_scanner_1_2char(void *a) {
-    UNUSED(a);
-    TokenType expected[] = {
-        TK_MINUS, TK_MINUS_EQUAL, TK_ARROW,
-        TK_PLUS, TK_PLUS_EQUAL,
-        TK_SLASH_EQUAL, TK_SLASH,
-        TK_STAR, TK_STAR_EQUAL,
-        TK_BANG, TK_BANG_EQUAL,
-        TK_EQUAL_EQUAL, TK_BIG_ARROW, TK_EQUAL,
-        TK_PERCENT, TK_PERCENT_EQUAL,
-        TK_XOR, TK_XOR_EQUAL,
-        TK_PIPE, TK_PIPE_EQUAL,
-        TK_AMPERSAND, TK_AMPERSAND_EQUAL
-    };
-    Scanner s;
-    // the order of the symbols matters.
-    // for example: = ==
-    // will be: TK_EQUAL_EQUAL, TK_EQUAL
-    // instead of the other way round.
-    initScanner(&s, "Test (1 or 2 char)", "- -= -> + += /= / * *= ! != == => = % %= ^ ^= | |= & &=");
-    SET_END_FN(test_scanner_end, &s);
-
-    Token tk = nextToken(&s);
-    for(int idx = 0; idx < (int)(sizeof(expected)/sizeof(expected[0])); ++idx) {
-        CHECK(tk.type != TK_EOF || tk.type != TK_ERROR);
-        CHECK(tk.type == expected[idx]);
-        tk = nextToken(&s);
-    }
-
-    freeScanner(&s);
-}
-static void test_scanner_1_2_3char(void *a) {
-    UNUSED(a);
-    TokenType expected[] = {
-        TK_GREATER, TK_GREATER_EQUAL, TK_RSHIFT, TK_RSHIFT_EQUAL,
-        TK_LESS, TK_LESS_EQUAL, TK_LSHIFT, TK_LSHIFT_EQUAL,
-        TK_ELIPSIS, TK_DOT, // elipsis before dot becase '. ...' => TK_ELIPSIS, TK_DOT
-    };
-    Scanner s;
-    initScanner(&s, "Test (1, 2 or 3 char)", "> >= >> >>= < <= << <<= ... .");
-    SET_END_FN(test_scanner_end, &s);
-
-    Token tk = nextToken(&s);
-    for(int idx = 0; idx < (int)(sizeof(expected)/sizeof(expected[0])); ++idx) {
-        CHECK(tk.type != TK_EOF || tk.type != TK_ERROR);
-        CHECK(tk.type == expected[idx]);
-        tk = nextToken(&s);
-    }
-
-    freeScanner(&s);
-}
-static void test_scanner_literals(void *a) {
-    UNUSED(a);
-    TokenType expected[] = {
-        TK_STRLIT,
-        TK_CHARLIT,
-        TK_NUMLIT,
-        TK_FLOATLIT,
-        TK_IDENTIFIER
-    };
-    Scanner s;
-    // TODO: hex, binary, and octal number literals
-    initScanner(&s, "Test (literals)", "\"string\" 'c' 123 1.23 identifier");
-    SET_END_FN(test_scanner_end, &s);
-
-    Token tk = nextToken(&s);
-    for(int idx = 0; idx < (int)(sizeof(expected)/sizeof(expected[0])); ++idx) {
-        CHECK(tk.type != TK_EOF || tk.type != TK_ERROR);
-        CHECK(tk.type == expected[idx]);
-        switch(tk.type) {
-            case TK_STRLIT:
-                CHECK(strncmp(tk.lexeme, "\"string\"", tk.length) == 0);
-                break;
-            case TK_CHARLIT:
-                // 3 == ' <char> '
-                CHECK(tk.length == 3);
-                CHECK(tk.lexeme[1] == 'c');
-                break;
-            case TK_NUMLIT:
-                CHECK(strtol(tk.lexeme, NULL, 10) == 123l);
-                break;
-            case TK_FLOATLIT:
-                CHECK(strtod(tk.lexeme, NULL) == 1.23);
-                break;
-            case TK_IDENTIFIER:
-                CHECK(strncmp(tk.lexeme, "identifier", tk.length) == 0);
-                break;
-            default:
-                UNREACHABLE();
-        }
-        tk = nextToken(&s);
-    }
-
-    freeScanner(&s);
-}
-static void test_scanner_keywords(void *a) {
-    UNUSED(a);
-    TokenType expected[] = {
-        // types
-        TK_I8,
-        TK_I16,
-        TK_I32,
-        TK_I64,
-        TK_I128,
-        TK_U8,
-        TK_U16,
-        TK_U32,
-        TK_U64,
-        TK_U128,
-        TK_F32,
-        TK_F64,
-        TK_ISIZE,
-        TK_USIZE,
-        TK_CHAR,
-        TK_STR,
-        TK_BOOL,
-
-        // keywords
-        TK_PRINT,
-        TK_VAR,
-        TK_CONST,
-        TK_PUBLIC,
-        TK_FN,
-        TK_RETURN,
-        TK_ENUM,    
-        TK_STRUCT,
-        TK_IF,
-        TK_ELSE,
-        TK_SWITCH,
-        TK_MODULE,
-        TK_IMPORT,
-        TK_AS,
-        TK_USING,
-        TK_WHILE,
-        TK_FOR,
-        TK_TYPE,
-        TK_NULL,
-        TK_TYPEOF
-    };
-    Scanner s;
-    initScanner(&s, "Test (literals)", "i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 isize usize char str bool print var const public fn return enum struct if else switch module import as using while for type null typeof");
-    SET_END_FN(test_scanner_end, &s);
-
-    Token tk = nextToken(&s);
-    for(int idx = 0; idx < (int)(sizeof(expected)/sizeof(expected[0])); ++idx) {
-        CHECK(tk.type != TK_EOF || tk.type != TK_ERROR);
-        CHECK(tk.type == expected[idx]);
-        tk = nextToken(&s);
-    }
-
-    freeScanner(&s);
-}
-
-struct test_parser {
-    Scanner s;
-    ASTProg prog;
-    Parser p;
-};
-static void test_parser_end(void *data) {
-    struct test_parser *t = (struct test_parser *)data;
-    freeParser(&t->p);
-    freeASTProg(&t->prog);
-    freeScanner(&t->s);
-}
-static void test_parser_unary_expressions(void *a) {
-    UNUSED(a);
-    ASTNodeType expected[] = {
-        ND_NUM, ND_IDENTIFIER, ND_NEG, ND_RETURN, ND_CALL
-    };
-    struct test_parser t;
-    initScanner(&t.s, "Test (unary expressions)", "var a; fn main() {42; a; -2; return 3; call();}");
-    initASTProg(&t.prog);
-    initParser(&t.p, &t.s, &t.prog);
-    SET_END_FN(test_parser_end, &t);
-
-    CHECK(parserParse(&t.p));
-    ASTFunction *main = (ASTFunction *)t.prog.functions.data[0];
-    CHECK(main->body->body.used == 5);
-    for(size_t i = 0; i < main->body->body.used; ++i) {
-        ASTNode *n = ARRAY_GET_AS(ASTNode *, &main->body->body, i);
-        switch(n->type) {
-            case ND_EXPR_STMT:
-                CHECK(AS_UNARY_NODE(n)->child->type == expected[i]);
-                break;
-            case ND_RETURN:
-                CHECK(AS_UNARY_NODE(n)->child->type == ND_NUM);
-                break;
-            default:
-                UNREACHABLE();
-        }
-    }
-
-    freeParser(&t.p);
-    freeASTProg(&t.prog);
-    freeScanner(&t.s);
-}
-static void test_parser_binary_expressions(void *a) {
-    UNUSED(a);
-    ASTNodeType expected[] = {
-        ND_ASSIGN,
-        ND_ADD, ND_SUB, ND_MUL, ND_DIV, ND_REM,
-        ND_EQ, ND_NE,
-        ND_GT, ND_GE,
-        ND_LT, ND_LE,
-        ND_BIT_OR,
-        ND_XOR,
-        ND_BIT_AND,
-        ND_BIT_RSHIFT, ND_BIT_LSHIFT,
-    };
-    struct test_parser t;
-    initScanner(&t.s, "Test (binary expressions)", "fn main() {var a = 42; 2 + 2; 4 - 2; 2 * 2; 4 / 2; 4 % 2; a == 42; a != 42; a > 2; a >= 42; a < 50; a <= 42; a | 2; a ^ 2; a & 2; a >> 2; a << 2;}");
-    initASTProg(&t.prog);
-    initParser(&t.p, &t.s, &t.prog);
-    SET_END_FN(test_parser_end, &t);
-
-    CHECK(parserParse(&t.p));
-    ASTFunction *main = (ASTFunction *)t.prog.functions.data[0];
-    CHECK(main->body->body.used == 17);
-    for(size_t i = 0; i < main->body->body.used; ++i) {
-        ASTNode *n = ARRAY_GET_AS(ASTNode *, &main->body->body, i);
-        CHECK(AS_UNARY_NODE(n)->child->type == expected[i]);
-    }
-
-    freeParser(&t.p);
-    freeASTProg(&t.prog);
-    freeScanner(&t.s);
-}
-static void test_parser_other(void *a) {
-    UNUSED(a);
-    ASTNodeType expected[] = {
-        ND_BLOCK,
-        ND_IF,
-        ND_LOOP
-    };
-    Scanner s;
-    ASTProg prog;
-    Parser p;
-    initScanner(&s, "Test (other)", "fn main() {{} if 1 {} else if 1 {} else {} while 1 {}}");
-    initASTProg(&prog);
-    initParser(&p, &s, &prog);
-
-    CHECK(parserParse(&p));
-    ASTFunction *main = (ASTFunction *)prog.functions.data[0];
-    CHECK(main->body->body.used == 3);
-    for(size_t i = 0; i < main->body->body.used; ++i) {
-        ASTNode *n = ARRAY_GET_AS(ASTNode *, &main->body->body, i);
-        CHECK( n->type == expected[i]);
-    }
-
-    freeParser(&p);
-    freeASTProg(&prog);
-    freeScanner(&s);
-}
-
-// FIXME: end_fn isn't a good idea as CHECK() doesn't return from the function.
-// TODO: Symbols
 Test tests[] = {
     {"Strings", test_strings, NULL},
     {"Array", test_array, NULL},
     {"Table", test_table, NULL},
-    {"Scanner (1 character)", test_scanner_1char, NULL},
-    {"Scanner (1 or 2 character)", test_scanner_1_2char, NULL},
-    {"Scanner (1, 2 or 3 character)", test_scanner_1_2_3char, NULL},
-    {"Scanner (literals)", test_scanner_literals, NULL},
-    {"Scanner (keywords)", test_scanner_keywords, NULL},
-    {"Parser (unary expressions)", test_parser_unary_expressions, NULL},
-    {"Parser (binary expressions)", test_parser_binary_expressions, NULL},
-    {"Parser (other)", test_parser_other, NULL},
     {NULL, NULL, NULL}
 };
 
