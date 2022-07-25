@@ -76,11 +76,7 @@ static const char *token_name(TokenType type) {
     return "Token";
 }
 
-static void print_location(FILE *to, Location loc) {
-    fprintf(to, "Location{\x1b[1mstart:\x1b[0;34m %ld\x1b[0m, \x1b[1mend:\x1b[0;34m %ld\x1b[0m, \x1b[1mfile:\x1b[0;34m %zu\x1b[0m}", loc.start, loc.end, loc.file);
-}
-
-static void print_number_constant(FILE *to, NumberConstant value) {
+void printNumberConstant(FILE *to, NumberConstant value) {
     fprintf(to, "NumberConstant{");
     switch(value.type) {
         case NUM_I64:
@@ -92,17 +88,35 @@ static void print_number_constant(FILE *to, NumberConstant value) {
     fprintf(to, "}");
 }
 
+void printLocation(FILE *to, Location loc) {
+    fprintf(to, "Location{\x1b[1mstart:\x1b[0;34m %ld\x1b[0m, \x1b[1mend:\x1b[0;34m %ld\x1b[0m, \x1b[1mfile:\x1b[0;34m %zu\x1b[0m}", loc.start, loc.end, loc.file);
+}
+
 void tokenPrint(FILE *to, Token *t) {
     assert(t);
     fprintf(to, "%s{\x1b[1mtype:\x1b[0;33m %s\x1b[0m, \x1b[1mlocation:\x1b[0m ", token_name(t->type), token_type_name(t->type));
-    print_location(to, t->location);
+    printLocation(to, t->location);
     // handle special tokens
     switch(t->type) {
         case TK_NUMBER:
             fprintf(to, ", \x1b[1mvalue:\x1b[0m ");
-            print_number_constant(to, AS_NUMBER_CONSTANT_TOKEN(t)->value);
+            printNumberConstant(to, AS_NUMBER_CONSTANT_TOKEN(t)->value);
         default:
             break;
     }
     fprintf(to, "}");
+}
+
+const char *tokenTypeString(TokenType type) {
+    static const char *strings[] = {
+        [TK_LPAREN] = "(",
+        [TK_RPAREN] = ")",
+        [TK_PLUS]   = "+",
+        [TK_MINUS]  = "-",
+        [TK_STAR]   = "*",
+        [TK_SLASH]  = "/",
+        [TK_NUMBER] = "<number>",
+        [TK_EOF]    = "<eof>"
+    };
+    return strings[(i32)type];
 }

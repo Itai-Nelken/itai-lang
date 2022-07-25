@@ -12,7 +12,7 @@ typedef struct location {
 
 Location locationNew(u64 start, u64 end, FileID file);
 
-// Update token_name() and token_type_name() in Token.c when adding new token types.
+// Update tokenFree(), tokenPrint(), tokenTypeString(), token_name() and token_type_name() in Token.c when adding new token types.
 typedef enum token_type {
     // One character tokens
     TK_LPAREN, TK_RPAREN,
@@ -93,11 +93,35 @@ Token *tokenNewNumberConstant(Location location, NumberConstant value);
 void tokenFree(Token *t);
 
 /***
+ * Print a number constant.
+ *
+ * @param to The stream to print to.
+ * @param value The number constant to print.
+ ***/
+void printNumberConstant(FILE *to, NumberConstant value);
+
+/***
+ * Print a Location.
+ *
+ * @param to The stream to print to.
+ * @param loc The Location to print.
+ ***/
+void printLocation(FILE *to, Location loc);
+
+/***
  * Print a Token.
  *
  * @param to The stream to print to.
  * @param t The Token to print.
  ***/
 void tokenPrint(FILE *to, Token *t);
+
+/***
+ * Return the equivalent of a TokenType as a string.
+ *
+ * @param type A TokenType.
+ * @return The equivalent of the TokenType as a string.
+ ***/
+const char *tokenTypeString(TokenType type);
 
 #endif // TOKEN_H
