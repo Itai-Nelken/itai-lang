@@ -1,4 +1,6 @@
 compiler/build/**
 compiler/.vscode/**
 compiler/.cache/**
+compiler/src/ilc
+compiler/tests
 
