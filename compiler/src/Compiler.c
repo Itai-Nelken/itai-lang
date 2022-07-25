@@ -45,7 +45,9 @@ String fileRead(File *f) {
         return NULL;
     }
     fclose(fp);
-    f->contents = stringDuplicate(buffer);
+    // can't use stringDuplicate because 'buffer' has no length set,
+    // and stringNew() is misbehaving here for some reason.
+    f->contents = stringNCopy((const char *)buffer, length);
     stringFree(buffer);
     return f->contents;
 }
