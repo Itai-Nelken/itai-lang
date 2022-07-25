@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 #include "memory.h"
 #include "Strings.h"
 #include "Error.h"
@@ -44,8 +45,8 @@ String fileRead(File *f) {
         return NULL;
     }
     fclose(fp);
-    f->contents = stringNew(length + 1);
-    stringAppend(f->contents, "%s", buffer);
+    f->contents = stringDuplicate(buffer);
+    stringFree(buffer);
     return f->contents;
 }
 
@@ -88,20 +89,42 @@ FileID compilerAddFile(Compiler *c, const char *path) {
     return (FileID)arrayPush(&c->files, (void *)f);
 }
 
+bool compilerHasNextFile(Compiler *c) {
+    // If the current file is known, check that there is one after it,
+    // otherwise check if there are any files at all.
+    if(c->current_file_initialized) {
+        return c->current_file + 1 < c->files.used;
+    } else {
+        return c->files.used > 0;
+    }
+}
+
+FileID compilerNextFile(Compiler *c) {
+    assert(compilerHasNextFile(c));
+    if(!c->current_file) {
+        c->current_file_initialized = true;
+        return c->current_file;
+    }
+    c->current_file = (FileID)(c->current_file + 1);
+    return c->current_file;
+}
+
 File *compilerGetFile(Compiler *c, FileID id) {
     // arrayGet() will return NULL if the index is out of the array bounds.
     return ARRAY_GET_AS(File *, &c->files, (int)id);
 }
 
-File *compilerGetCurrentFile(Compiler *c) {
-    if(!c->current_file_initialized) {
-        return NULL;
-    }
-    return compilerGetFile(c, c->current_file);
+FileID compilerGetCurrentFileID(Compiler *c) {
+    assert(c->current_file_initialized);
+    return c->current_file;
 }
 
 void compilerAddError(Compiler *c, Error *err) {
     arrayPush(&c->errors, (void *)err);
+}
+
+bool compilerHadError(Compiler *c) {
+    return c->errors.used > 0;
 }
 
 void compilerPrintErrors(Compiler *c) {
