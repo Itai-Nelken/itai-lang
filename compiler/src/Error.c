@@ -147,8 +147,8 @@ void errorPrint(Error *err, Compiler *c, FILE *to) {
     // pad the line for " <line> | "
     fprintf(to, " %*c   ", largest_width, ' ');
     // if 'start' is larger than 0, pad until the offending character - 1.
-    if(err->location.start > 0 && err->location.start != current.start) {
-        fprintf(to, "%*c", (u32)(current.start - err->location.start - 1), ' ');
+    for(u64 i = current.start; i < err->location.start; ++i) {
+        fputc(' ', to);
     }
     // print the '^' under the first offending character
     // followed by '~' for the rest (if they exist).
