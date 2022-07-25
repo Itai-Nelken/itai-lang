@@ -12,6 +12,7 @@ set(sources
     src/Token.c
     src/Error.c
     src/Compiler.c
+    src/Scanner.c
 )
 
 add_library(compiler ${sources})

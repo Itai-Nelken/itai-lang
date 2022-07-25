@@ -1,6 +1,6 @@
-- Redo Locations
-- Check local scopes.
-- Validator (including checking that all referenced globals & functions are declared).
-- Typechecker (including type infering)
-- Codegen (C transpiler first maybe?) (Global variable initializing).
-- Divide by 0 warning
+- New testing framework that checks stdout/stderr etc.
+- Parser
+- Validator (parser pass 2)
+- Typechecker
+- Codegenerator
+
