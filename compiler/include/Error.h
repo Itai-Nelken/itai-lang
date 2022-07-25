@@ -6,7 +6,7 @@
 #include "Strings.h"
 #include "Token.h"
 
-// add new types to error_type_to_string() in Error.c
+// add new types to error_type_to_string(), error_type_color() in Error.c
 typedef enum error_type {
     ERR_ERROR,
 } ErrorType;

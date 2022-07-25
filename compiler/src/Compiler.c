@@ -20,17 +20,8 @@ void fileFree(File *f) {
 }
 
 const char *fileBasename(File *f) {
-    if(!strstr(f->path, "/")) {
-        return f->path;
-    }
-    char *p = f->path + stringLength(f->path) - 1;
-    while(p != f->path) {
-        if(*p == '/') {
-            return (const char *)(p + 1);
-        }
-        p--;
-    }
-    return NULL;
+    char *p = strrchr(f->path, '/');
+    return (const char *)(p ? p + 1 : p);
 }
 
 String fileRead(File *f) {
