@@ -1,7 +1,6 @@
 #include <stdio.h>
-#include <string.h> // memcpy()
+#include <string.h> // memcpy(), memset()
 #include <stdarg.h>
-#include <math.h> // abs()
 #include <assert.h>
 #include <stdbool.h>
 #include "memory.h"
@@ -62,7 +61,7 @@ String stringResize(String s, size_t newCapacity) {
     size_t *ptr = from_str(s);
     size_t oldCap = ptr[CAPACITY];
     ptr = REALLOC(ptr, newCapacity);
-    memset(ptr + oldCap, 0, labs(((ssize_t)oldCap) - ((ssize_t)newCapacity)));
+    memset(to_str(ptr) + oldCap, 0, labs(((ssize_t)oldCap) - ((ssize_t)newCapacity)));
     ptr[CAPACITY] = newCapacity;
     return to_str(ptr);
 }
@@ -102,26 +101,42 @@ bool stringEqual(char *s1, char *s2) {
     return memcmp(s1, s2, length1) == 0;
 }
 
-void stringAppend(String dest, const char *format, ...) {
-    assert(stringIsValid(dest));
-    va_list ap;
-
+static String vformat(const char *format, va_list ap) {
+    va_list copy;
+    va_copy(copy, ap);
     // Get the total length of the formatted string.
     // see man 3 printf.
+    int needed_length = vsnprintf(NULL, 0, format, copy);
+    va_end(copy);
+
+    String s = stringNew(needed_length + 1);
+    vsnprintf(s, needed_length + 1, format, ap);
+    from_str(s)[LENGTH] = needed_length;
+    return s;
+}
+
+String stringFormat(const char *format, ...) {
+    va_list ap;
+
     va_start(ap, format);
-    int needed_length = vsnprintf(NULL, 0, format, ap);
+    String s = vformat(format, ap);
+    va_end(ap);
+    return s;
+}
+
+void stringAppend(String *dest, const char *format, ...) {
+    assert(stringIsValid(*dest));
+    va_list ap;
+
+    va_start(ap, format);
+    String buffer = vformat(format, ap);
     va_end(ap);
 
-    String buffer = stringNew(needed_length + 1);
-    va_start(ap, format);
-    vsnprintf(buffer, needed_length + 1, format, ap);
-    va_end(ap);
-
-    if((size_t)(needed_length + 1) > from_str(dest)[CAPACITY]) {
-        stringResize(dest, stringLength(dest) + needed_length + 1);
+    if((size_t)(stringLength(buffer) + 1) > from_str(*dest)[CAPACITY]) {
+        *dest = stringResize(*dest, stringLength(*dest) + stringLength(buffer) + 1);
     }
-    strncat(dest, buffer, needed_length);
-    // dest is zeroed by stringNew() & stringResize(), so no need to terminate the string.
+    strncat(*dest, buffer, stringLength(buffer));
+    // *dest is zeroed by stringNew() & stringResize(), so no need to terminate the string.
+    from_str(*dest)[LENGTH] += stringLength(buffer);
     stringFree(buffer);
-    from_str(dest)[LENGTH] += needed_length;
 }

@@ -10,6 +10,7 @@
 // be used with the regular C string functions.
 // In this API, the String type is used when a string created by this library is expected,
 // and 'char *' is used when both types can be used.
+// 'const char *' is used when ONLY C strings are expected.
 
 typedef char *String;
 
@@ -91,12 +92,20 @@ String stringDuplicate(String s);
 bool stringEqual(char *s1, char *s2);
 
 /***
+ * Format a string (using printf-like format specifiers) and return it.
+ *
+ * @param format The format string.
+ * @return A new String containing the formatted format string.
+ ***/
+String stringFormat(const char *format, ...);
+
+/***
  * Append format to dest (printf-like formatting supported)
  * NOTE: the string might be reallocated.
  *
  * @param dest the destination string.
  * @param format the string to append (printf-like format specifiers supported).
  ***/
-void stringAppend(String dest, const char *format, ...);
+void stringAppend(String *dest, const char *format, ...);
 
 #endif // STRINGS_H

@@ -116,9 +116,9 @@ static void test_strings(void *a) {
     UNUSED(a);
     char *s1 = NULL, *s2 = NULL, *s3 = NULL;
     s1 = stringNew(5);
-    stringAppend(s1, "Hello,");
+    stringAppend(&s1, "Hello,");
     CHECK(stringIsValid(s1));
-    stringAppend(s1, " %s!", "World");
+    stringAppend(&s1, " %s!", "World");
     CHECK(stringIsValid(s1));
     CHECK(stringLength(s1) == 13);
     CHECK(!strcmp(s1, "Hello, World!"));
