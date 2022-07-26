@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdbool.h>
 #include "common.h"
 #include "memory.h"
 #include "Array.h"
@@ -148,11 +149,15 @@ static inline Token *previous(Parser *p) {
     return p->current_token == 0 ? NULL : ARRAY_GET_AS(Token *, p->tokens, p->current_token - 1);
 }
 
-static void error(Parser *p, const char *message) {
+// if a valid String is provided as message, it will be freed.
+static void error(Parser *p, char *message) {
     Error *err;
     NEW0(err);
     errorInit(err, ERR_ERROR, previous(p)->location, message);
     compilerAddError(p->compiler, err);
+    if(stringIsValid(message)) {
+        stringFree(message);
+    }
 }
 
 typedef struct binding_power {
@@ -227,6 +232,11 @@ static ASTNodeType prefix_token_to_node_type(TokenType type) {
 static ASTNode *expr_bp(Parser *p, u8 min_bp);
 
 static ASTNode *primary(Parser *p) {
+    bool was_eof = false;
+    if(is_eof(p)) {
+        was_eof = true;
+        goto end;
+    }
     switch(advance(p)->type) {
         case TK_NUMBER:
             return newNumberNode(previous(p)->location, AS_NUMBER_CONSTANT_TOKEN(previous(p))->value);
@@ -247,7 +257,8 @@ static ASTNode *primary(Parser *p) {
         default:
             break;
     }
-    error(p, "Expected [<number>, '+', '-']!");
+end:
+    error(p, stringFormat("Expected one of [<number>, '+', '-'] but got '%s'!", (was_eof ? "<eof>" : tokenTypeString(previous(p)->type))));
     return NULL;
 }
 
