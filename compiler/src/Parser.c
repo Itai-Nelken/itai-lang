@@ -98,7 +98,9 @@ void astPrint(FILE *to, ASTNode *node) {
             break;
         // binary nodes
         case ND_ADD:
+        case ND_SUB:
         case ND_MUL:
+        case ND_DIV:
             fprintf(to, ", \x1b[1mleft:\x1b[0m ");
             astPrint(to, AS_BINARY_NODE(node)->left);
             fprintf(to, ", \x1b[1mright:\x1b[0m ");
@@ -119,7 +121,9 @@ void astFree(ASTNode *node) {
     switch(node->type) {
         // binary nodes
         case ND_ADD:
+        case ND_SUB:
         case ND_MUL:
+        case ND_DIV:
             astFree(AS_BINARY_NODE(node)->left);
             astFree(AS_BINARY_NODE(node)->right);
             break;
@@ -160,6 +164,15 @@ static void error(Parser *p, char *message) {
     }
 }
 
+static bool consume(Parser *p, TokenType expected) {
+    if(next(p)->type != expected) {
+        error(p, stringFormat("Expected '%s' but got '%s'!", tokenTypeString(expected), tokenTypeString(next(p)->type)));
+        return false;
+    }
+    advance(p);
+    return true;
+}
+
 typedef struct binding_power {
     u8 left, right;
 } BP;
@@ -177,23 +190,22 @@ static u8 prefix_binding_power(TokenType op) {
     return r_bp;
 }
 
-static BP infix_binding_power(TokenType op) {
-    BP bp = {0, 0};
+static bool infix_binding_power(BP *bp, TokenType op) {
     switch(op) {
         case TK_PLUS:
         case TK_MINUS:
-            bp.left = 1;
-            bp.right = 2;
-            break;
+            bp->left = 1;
+            bp->right = 2;
+            return true;
         case TK_STAR:
         case TK_SLASH:
-            bp.left = 3;
-            bp.right = 4;
-            break;
+            bp->left = 3;
+            bp->right = 4;
+            return true;
         default:
-            UNREACHABLE();
+            break;
     }
-    return bp;
+    return false;
 }
 
 static ASTNodeType infix_token_to_node_type(TokenType type) {
@@ -246,14 +258,21 @@ static ASTNode *primary(Parser *p) {
             Token *operator = previous(p);
             ASTNode *operand = expr_bp(p, r_bp);
             if(!operand) {
+                astFree(operand);
                 return NULL;
             }
             if(operator->type == TK_PLUS) {
                 return operand;
             }
-            return astNewUnaryNode(prefix_token_to_node_type(operator->type), operator->location, operand);
-            break;
+            return astNewUnaryNode(prefix_token_to_node_type(operator->type), locationMerge(operator->location, operand->location), operand);
         }
+        case TK_LPAREN:
+            ASTNode *expr = expr_bp(p, 0);
+            if(!consume(p, TK_RPAREN)) {
+                astFree(expr);
+                return NULL;
+            }
+            return expr;
         default:
             break;
     }
@@ -262,21 +281,7 @@ end:
     return NULL;
 }
 
-static Token *operator(Parser *p) {
-    switch(next(p)->type) {
-        case TK_PLUS:
-        case TK_STAR:
-            return next(p);
-        default:
-            break;
-    }
-    
-    error(p, "Expected ['+', '*']!");
-    return NULL;
-}
-
-// expression parser based on the example
-// here: https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
+// expression parser based on the example here: https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
 static ASTNode *expr_bp(Parser *p, u8 min_bp) {
     ASTNode *lhs = primary(p);
     if(!lhs) {
@@ -286,26 +291,32 @@ static ASTNode *expr_bp(Parser *p, u8 min_bp) {
     while(!is_eof(p)) {
         // can't consume the operator here,
         // as if its left binding power is smaller
-        // than min_bp, we won't do anything with it,
-        // but it will be needed later so we can't consume it.
-        Token *op = operator(p);
+        // than min_bp, we won't do anything with it
+        // but it will be needed later.
+        Token *op = next(p);
         if(!op) {
+            astFree(lhs);
             return NULL;
         }
         
-        BP bp = infix_binding_power(op->type);
-        if(bp.left < min_bp) {
-            break;
-        }
-        // consume the operator.
-        advance(p);
+        BP bp;
+        if(infix_binding_power(&bp, op->type)){
+            if(bp.left < min_bp) {
+                break;
+            }
+            // consume the operator.
+            advance(p);
 
-        ASTNode *rhs = expr_bp(p, bp.right);
-        if(!rhs) {
-            return NULL;
-        }
+            ASTNode *rhs = expr_bp(p, bp.right);
+            if(!rhs) {
+                astFree(lhs);
+                return NULL;
+            }
 
-        lhs = newBinaryNode(infix_token_to_node_type(op->type), op->location, lhs, rhs);
+            lhs = newBinaryNode(infix_token_to_node_type(op->type), locationMerge(lhs->location, locationMerge(op->location, rhs->location)), lhs, rhs);
+            continue;
+        }
+        break;
     }
     return lhs;
 }

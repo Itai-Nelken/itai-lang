@@ -10,7 +10,27 @@ typedef struct location {
     FileID file;
 } Location;
 
+/***
+ * Create a new Location.
+ *
+ * @param start The start point in a file.
+ * @param end The end point in a file.
+ * @param file The file 'start' and 'end' point to.
+ * @return A new Location.
+ ***/
 Location locationNew(u64 start, u64 end, FileID file);
+
+/***
+ * Merge to Locations into a new Location.
+ * NOTE: it is a checked runtime error:
+ *     1) To provide Locations with different FileID's
+ *     2) If a.start is larger than b.end
+ *
+ * @param a The first Location.
+ * @param b The second Location.
+ * @return A New Location starting at a.start and ending at b.end.
+ ***/
+Location locationMerge(Location a, Location b);
 
 // Update tokenFree(), tokenPrint(), tokenTypeString(), token_name() and token_type_name() in Token.c when adding new token types.
 typedef enum token_type {

@@ -13,6 +13,13 @@ Location locationNew(u64 start, u64 end, FileID file) {
     };
 }
 
+Location locationMerge(Location a, Location b) {
+    assert(a.file == b.file);
+    assert(a.start < b.end);
+
+    return locationNew(a.start, b.end, a.file);
+}
+
 NumberConstant numberConstantNewInt64(i64 value) {
     return (NumberConstant){
         .type = NUM_I64,
