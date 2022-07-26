@@ -1,5 +1,6 @@
 - New testing framework that checks stdout/stderr etc.
-- Parser
+- Statement  & declaration parser
+- Type parser
 - Validator (parser pass 2)
 - Typechecker
 - Codegenerator

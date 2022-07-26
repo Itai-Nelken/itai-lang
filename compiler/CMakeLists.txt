@@ -13,6 +13,7 @@ set(sources
     src/Error.c
     src/Compiler.c
     src/Scanner.c
+    src/Parser.c
 )
 
 add_library(compiler ${sources})
