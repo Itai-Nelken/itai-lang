@@ -114,7 +114,7 @@ int _run_test_list(Test testlist[]) {
 
 static void test_strings(void *a) {
     UNUSED(a);
-    char *s1 = NULL, *s2 = NULL, *s3 = NULL;
+    char *s1 = NULL, *s2 = NULL, *s3 = NULL, *s4 = NULL;
     s1 = stringNew(5);
     stringAppend(&s1, "Hello,");
     CHECK(stringIsValid(s1));
@@ -129,9 +129,13 @@ static void test_strings(void *a) {
     s3 = stringCopy("Hello, World!");
     CHECK(stringEqual(s2, s3));
 
+    s4 = stringFormat("%s", s3);
+    CHECK(stringEqual(s2, s4));
+
+    stringFree(s1);
     stringFree(s2);
     stringFree(s3);
-    stringFree(s1);
+    stringFree(s4);
 }
 
 static void test_array_callback(void *item, void *cl) {
