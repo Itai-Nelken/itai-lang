@@ -20,7 +20,7 @@ void scannerFree(Scanner *s) {
     s->start = s->current = 0;
 }
 
-static Location make_location(Scanner *s) {
+static inline Location make_location(Scanner *s) {
     return locationNew(s->start, s->current, compilerGetCurrentFileID(s->compiler));
 }
 
@@ -130,12 +130,11 @@ static void scan_file(Scanner *s, Array *tokens) {
             continue;
         }
         if(t->type == TK_EOF) {
+            tokenFree(t);
             break;
         }
         arrayPush(tokens, (void *)t);
     }
-    // free that last token (EOF) as it isn't pushed to the array.
-    tokenFree(t);
     s->source = NULL;
 }
 
@@ -146,5 +145,10 @@ Array scannerScan(Scanner *s) {
         compilerNextFile(s->compiler);
         scan_file(s, &tokens);
     }
+    // push the EOF token as the last token.
+    Token *t;
+    NEW0(t);
+    *t = tokenNew(TK_EOF, make_location(s));
+    arrayPush(&tokens, (void *)t);
     return tokens;
 }
