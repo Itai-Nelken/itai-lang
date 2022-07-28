@@ -1,13 +1,7 @@
 #include <stdio.h>
-#include <string.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <assert.h>
-
-#include "common.h"
-#include "Strings.h"
-#include "Array.h"
-#include "Table.h"
 
 #define MAX_FAILURES_IN_TEST 20
 
@@ -111,6 +105,19 @@ int _run_test_list(Test testlist[]) {
  * @param ... The format specifier arguments.
  ***/
 #define LOG_F(fmt, ...) (_log((fmt), __VA_ARGS__))
+
+
+// includes for the tests
+#include <string.h>
+#include <errno.h>
+#include <unistd.h>
+#include "common.h"
+#include "Strings.h"
+#include "Array.h"
+#include "Table.h"
+#include "Compiler.h"
+#include "Token.h"
+#include "Scanner.h"
 
 static void test_strings(void *a) {
     UNUSED(a);
@@ -233,10 +240,62 @@ static void test_table(void *a) {
     tableFree(&t.t);
 }
 
+struct scanner_test_token_type {
+    TokenType type;
+    i64 value;
+};
+static void test_scanner_callback(void *token, void *expected) {
+    Token *tk = AS_TOKEN(token);
+    struct scanner_test_token_type *e = (struct scanner_test_token_type *)expected;
+    static i32 i = 0;
+    CHECK(tk->type == e[i].type);
+    if(tk->type == TK_NUMBER) {
+        CHECK(AS_NUMBER_CONSTANT_TOKEN(tk)->value.as.int64 == e[i].value);
+    }
+    i++;
+}
+static void test_scanner(void *a) {
+    UNUSED(a);
+    const char *input = "(1 + 2 - 3 * 4 / 5)";
+    struct scanner_test_token_type expected[] = {{TK_LPAREN, 0}, {TK_NUMBER, 1}, {TK_PLUS, 0}, {TK_NUMBER, 2}, {TK_MINUS, 0}, {TK_NUMBER, 3}, {TK_STAR, 0}, {TK_NUMBER, 4}, {TK_SLASH, 0}, {TK_NUMBER, 5}, {TK_EOF, 0}};
+    char tmp_file_name[] = "ilc_scanner_test_XXXXXX";
+    int fd = mkstemp(tmp_file_name);
+    CHECK(fd != -1);
+    if(fd == -1) {
+        LOG_F("Failed to create a temporary file: %s", strerror(errno));
+        return;
+    }
+    usize input_length = strlen(input);
+    isize written = write(fd, (void *)input, input_length);
+    close(fd);
+    CHECK(written == (isize)input_length);
+    if(written != (isize)input_length) {
+        LOG("Failed to write to temporary file!");
+        return;
+    }
+
+    Compiler c;
+    Scanner s;
+    compilerInit(&c);
+    scannerInit(&s, &c);
+    compilerAddFile(&c, tmp_file_name);
+
+    Array tokens = scannerScan(&s);
+    CHECK(!compilerHadError(&c));
+    if(!compilerHadError(&c)) {
+        arrayMap(&tokens, test_scanner_callback, (void *)&expected);
+    }
+
+    arrayFree(&tokens);
+    scannerFree(&s);
+    compilerFree(&c);
+}
+
 Test tests[] = {
     {"Strings", test_strings, NULL},
     {"Array", test_array, NULL},
     {"Table", test_table, NULL},
+    {"Scanner", test_scanner, NULL},
     {NULL, NULL, NULL}
 };
 

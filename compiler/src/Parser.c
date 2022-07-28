@@ -154,6 +154,7 @@ static inline Token *previous(Parser *p) {
 }
 
 // if a valid String is provided as message, it will be freed.
+// uses previous tokens location.
 static void error(Parser *p, char *message) {
     Error *err;
     NEW0(err);
@@ -224,7 +225,7 @@ static inline PrefixParseFn get_nud(TokenType type) {
     return get_rule(type)->prefix;
 }
 
-// led == ledt denotation (has something to the left)
+// led == left denotation (has something to the left)
 static inline InfixParseFn get_led(TokenType type) {
     return get_rule(type)->infix;
 }
