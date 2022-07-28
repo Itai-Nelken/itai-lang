@@ -22,7 +22,7 @@ void parserFree(Parser *p) {
     p->current_token = 0;
 }
 
-ASTNode *newNumberNode(Location loc, NumberConstant value) {
+ASTNode *astNewNumberNode(Location loc, NumberConstant value) {
     ASTNumberNode *n;
     NEW0(n);
     n->header = (ASTNode){
@@ -44,7 +44,7 @@ ASTNode *astNewUnaryNode(ASTNodeType type, Location loc, ASTNode *operand) {
     return AS_NODE(n);
 }
 
-ASTNode *newBinaryNode(ASTNodeType type, Location loc, ASTNode *left, ASTNode *right) {
+ASTNode *astNewBinaryNode(ASTNodeType type, Location loc, ASTNode *left, ASTNode *right) {
     ASTBinaryNode *n;
     NEW0(n);
     n->header = (ASTNode){
@@ -173,34 +173,72 @@ static bool consume(Parser *p, TokenType expected) {
     return true;
 }
 
-typedef struct binding_power {
-    u8 left, right;
-} BP;
+typedef enum precedences {
+    PREC_NONE       = 0,
+    PREC_ASSIGNMENT = 1,  // infix =
+    PREC_BIT_OR     = 2,  // infix |
+    PREC_BIT_XOR    = 3,  // infix ^
+    PREC_BIT_AND    = 4,  // infix &
+    PREC_EQUALITY   = 5,  // infix == !=
+    PREC_COMPARISON = 6,  // infix > >= < <=
+    PREC_BIT_SHIFT  = 7,  // infix << >>
+    PREC_TERM       = 8,  // infix + -
+    PREC_FACTOR     = 9,  // infix * /
+    PREC_UNARY      = 10, // unary + -
+    PREC_CALL       = 11, // ()
+    PREC_PRIMARY    = 12  // highest
+} Precedence;
 
-static u8 prefix_binding_power(TokenType op) {
-    u8 r_bp = 0;
-    switch(op) {
-        case TK_PLUS:
-        case TK_MINUS:
-            r_bp = 5;
-            break;
-        default:
-            UNREACHABLE();
-    }
-    return r_bp;
+typedef ASTNode *(*PrefixParseFn)(Parser *p);
+typedef ASTNode *(*InfixParseFn)(Parser *p, ASTNode *left);
+
+typedef struct parse_rule {
+    PrefixParseFn prefix;
+    InfixParseFn infix;
+    Precedence precedence;
+} ParseRule;
+
+// pre-declarations for parse functions and rule table
+static ASTNode *parse_precedence(Parser *p, Precedence min_prec);
+static ASTNode *parse_prefix_expression(Parser *p);
+static ASTNode *parse_infix_expression(Parser *p, ASTNode *lhs);
+
+static ParseRule rules[] = {
+    // token  | prefix | infix | precedence
+    [TK_LPAREN] = {parse_prefix_expression, NULL, PREC_NONE},
+    [TK_RPAREN] = {NULL, NULL, PREC_NONE},
+    [TK_PLUS]   = {parse_prefix_expression, parse_infix_expression, PREC_TERM},
+    [TK_MINUS]  = {parse_prefix_expression, parse_infix_expression, PREC_TERM},
+    [TK_STAR]   = {NULL, parse_infix_expression, PREC_FACTOR},
+    [TK_SLASH]  = {NULL, parse_infix_expression, PREC_FACTOR},
+    [TK_NUMBER] = {parse_prefix_expression, NULL, PREC_NONE},
+    [TK_EOF]    = {NULL, NULL, PREC_NONE}
+};
+
+static inline ParseRule *get_rule(TokenType type) {
+    return &rules[(i32)type];
 }
 
-static bool infix_binding_power(BP *bp, TokenType op) {
-    switch(op) {
+// nud == null denotation (has nothing to the left)
+static inline PrefixParseFn get_nud(TokenType type) {
+    return get_rule(type)->prefix;
+}
+
+// led == ledt denotation (has something to the left)
+static inline InfixParseFn get_led(TokenType type) {
+    return get_rule(type)->infix;
+}
+
+static inline Precedence get_precedence(TokenType type) {
+    return get_rule(type)->precedence;
+}
+
+static bool is_binary_operator(TokenType type) {
+    switch(type) {
         case TK_PLUS:
         case TK_MINUS:
-            bp->left = 1;
-            bp->right = 2;
-            return true;
         case TK_STAR:
         case TK_SLASH:
-            bp->left = 3;
-            bp->right = 4;
             return true;
         default:
             break;
@@ -208,8 +246,8 @@ static bool infix_binding_power(BP *bp, TokenType op) {
     return false;
 }
 
-static ASTNodeType infix_token_to_node_type(TokenType type) {
-    switch(type) {
+static ASTNodeType token_to_node_type(TokenType tk) {
+    switch(tk) {
         case TK_PLUS:
             return ND_ADD;
         case TK_MINUS:
@@ -220,114 +258,79 @@ static ASTNodeType infix_token_to_node_type(TokenType type) {
             return ND_DIV;
         case TK_NUMBER:
             return ND_NUMBER;
-        case TK_LPAREN:
-        case TK_RPAREN:
-        case TK_EOF:
-            break;
-    }
-    UNREACHABLE();
-}
-
-static ASTNodeType prefix_token_to_node_type(TokenType type) {
-    switch(type) {
-        // No TK_PLUS here because it doesn't actually do anything.
-        // it is handled in primary() before calling this function.
-        case TK_MINUS:
-            return ND_NEG;
         default:
-            break;
+            UNREACHABLE();
     }
-    UNREACHABLE();
 }
 
-// pre-declarations
-static ASTNode *expr_bp(Parser *p, u8 min_bp);
-
-static ASTNode *primary(Parser *p) {
-    bool was_eof = false;
-    if(is_eof(p)) {
-        was_eof = true;
-        goto end;
-    }
-    switch(advance(p)->type) {
+static ASTNode *parse_prefix_expression(Parser *p) {
+    switch(previous(p)->type) {
         case TK_NUMBER:
-            return newNumberNode(previous(p)->location, AS_NUMBER_CONSTANT_TOKEN(previous(p))->value);
+            return astNewNumberNode(previous(p)->location, AS_NUMBER_CONSTANT_TOKEN(previous(p))->value);
         case TK_PLUS:
         case TK_MINUS: {
-            u8 r_bp = prefix_binding_power(previous(p)->type);
-            Token *operator = previous(p);
-            ASTNode *operand = expr_bp(p, r_bp);
-            if(!operand) {
-                astFree(operand);
-                return NULL;
-            }
-            if(operator->type == TK_PLUS) {
+            TokenType operator = previous(p)->type;
+            Location operator_loc = previous(p)->location;
+            ASTNode *operand = parse_precedence(p, PREC_UNARY);
+            if(operator == TK_PLUS) {
+                operand->location = locationMerge(operator_loc, operand->location);
                 return operand;
             }
-            return astNewUnaryNode(prefix_token_to_node_type(operator->type), locationMerge(operator->location, operand->location), operand);
+            return astNewUnaryNode(ND_NEG, locationMerge(operator_loc, operand->location), operand);
         }
-        case TK_LPAREN:
-            ASTNode *expr = expr_bp(p, 0);
+        case TK_LPAREN: {
+            ASTNode *expr = parse_precedence(p, PREC_NONE);
             if(!consume(p, TK_RPAREN)) {
                 astFree(expr);
                 return NULL;
             }
             return expr;
+        }
         default:
             break;
     }
-end:
-    error(p, stringFormat("Expected one of [<number>, '+', '-'] but got '%s'!", (was_eof ? "<eof>" : tokenTypeString(previous(p)->type))));
+    error(p, stringFormat("Expected one of [<number>, '('] but got '%s'!", tokenTypeString(previous(p)->type)));
     return NULL;
 }
 
-// expression parser based on the example here: https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
-static ASTNode *expr_bp(Parser *p, u8 min_bp) {
-    ASTNode *lhs = primary(p);
+static ASTNode *parse_infix_expression(Parser *p, ASTNode *lhs) {
+    if(is_binary_operator(previous(p)->type)) {
+        ASTNodeType type = token_to_node_type(previous(p)->type);
+        Location expr_loc = locationMerge(lhs->location, previous(p)->location);
+        ASTNode *rhs = parse_precedence(p, (Precedence)(get_precedence(previous(p)->type + 1)));
+        return astNewBinaryNode(type, locationMerge(expr_loc, rhs->location), lhs, rhs);
+    } else {
+        error(p, stringFormat("Expected one of ['+', '-', '*', '/'] but got '%s'!", tokenTypeString(previous(p)->type)));
+    }
+    return NULL;
+}
+
+static ASTNode *parse_precedence(Parser *p, Precedence min_prec) {
+    advance(p);
+    PrefixParseFn nud = get_nud(previous(p)->type);
+    if(!nud) {
+        error(p, "Expected an expression!");
+        return NULL;
+    }
+    ASTNode *lhs = nud(p);
     if(!lhs) {
         return NULL;
     }
-
-    while(!is_eof(p)) {
-        // can't consume the operator here,
-        // as if its left binding power is smaller
-        // than min_bp, we won't do anything with it
-        // but it will be needed later.
-        Token *op = next(p);
-        if(!op) {
-            astFree(lhs);
-            return NULL;
-        }
-        
-        BP bp;
-        if(infix_binding_power(&bp, op->type)){
-            if(bp.left < min_bp) {
-                break;
-            }
-            // consume the operator.
-            advance(p);
-
-            ASTNode *rhs = expr_bp(p, bp.right);
-            if(!rhs) {
-                astFree(lhs);
-                return NULL;
-            }
-
-            lhs = newBinaryNode(infix_token_to_node_type(op->type), locationMerge(lhs->location, locationMerge(op->location, rhs->location)), lhs, rhs);
-            continue;
-        }
-        break;
+    while(!is_eof(p) && min_prec < get_precedence(next(p)->type)) {
+        advance(p);
+        InfixParseFn led = get_led(previous(p)->type);
+        lhs = led(p, lhs);
     }
     return lhs;
 }
 
-static ASTNode *expression(Parser *p) {
-    return expr_bp(p, 0);
+static inline ASTNode *parse_expression(Parser *p) {
+    return parse_precedence(p, PREC_NONE);
 }
 
 ASTNode *parserParse(Parser *p, Array *tokens) {
     p->tokens = tokens;
-    ASTNode *expr = expression(p);
+    ASTNode *expr = parse_expression(p);
     p->tokens = NULL;
     p->current_token = 0;
     return expr;

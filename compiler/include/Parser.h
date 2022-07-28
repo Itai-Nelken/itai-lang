@@ -12,7 +12,7 @@ typedef struct parser {
     usize current_token;
 } Parser;
 
-// Update astPrint(), astFree(), node_type_name(), node_name(), token_to_node_type(), and all the *_binding_power() functions in Parser.c
+// Update astPrint(), astFree(), node_type_name(), node_name(), token_to_node_type(), all the is_*_*() functions, and the rule table all in Parser.c
 // when adding new types.
 typedef enum ast_node_type {
     ND_ADD, ND_SUB,
