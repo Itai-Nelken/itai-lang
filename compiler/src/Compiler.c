@@ -40,8 +40,11 @@ String fileRead(File *f) {
     length = ftell(fp);
     rewind(fp);
 
+    // A buffer is used instead of directly writing to 'f.contents'
+    // because fread doesn't set the length of the string.
     String buffer = stringNew(length + 1);
     if(fread(buffer, sizeof(char), length, fp) != length) {
+        stringFree(buffer);
         return NULL;
     }
     fclose(fp);
