@@ -36,33 +36,34 @@ public struct List<T> {
     }
 
     public fn push(&this, value: T) {
-        var item = new ListItem{value, null};
-        if !head.has_value() {
+        var item = new ListItem{value, null, null};
+        if .head == null {
             .head = item;
         } else {
+            item.prev = .head!;
             .head!.next = item;
-            .head!.prev = head;
             .head = item;
         }
         .item_count++;
     }
 
     public fn pop(&this) -> T? {
-        if item_count == 0 {
+        if .head == null || item_count == 0 {
             return null;
         }
         var value = (*.head!).value;
         .head = .head!.prev;
+        .item_count--;
         return value;
     }
 } // struct List<T>
 } // module Collections
 
 using os::Args;
-using Collections::Stack;
+using Collections::List;
 fn main() {
     if Args::len() < 2 {
-        io::printerrln("USAGE: %s [numbers]", os::args[0]);
+        io::printerrln("USAGE: %s [numbers]", Args::args[0]);
         return 1;
     }
     var args = Args::args[1:];
@@ -151,7 +152,7 @@ struct Data {
     // ...
 }
 
-var boxed_data = new Data{0, /* ... */};
+var boxed_data = new Data{value: 0, /* ... */};
 ```
 For builtin types like integers, you simply use the literal/value casting it if neccesary:
 ```rust
@@ -224,6 +225,14 @@ a ?? b; // 4
 // chaining also works
 a ?? b ?? 3; // 4
 ```
+To check if an optional has a value, you can compare it to `null`:
+```rust
+var opt: i32? = null;
+
+if opt == null {
+    // opt has no value
+}
+```
 
 ### Function type
 
@@ -260,7 +269,7 @@ Note that you cannot reference a function type as function types are already a r
 | ---  |        ---        |      ---      |
 | `u8` | `&u8`, `&const u8` | `[u8]` |
 | `Vector<T>` | `&Vector<T>`, `&const Vector<T>` | `[Vector<T>]` |
-| `fn(...) -> T` | N/A | `[fn<T>(...)]` |
+| `fn() -> T` | N/A | `[fn() -> T]` |
 
 The array variant can be mixed with the reference variant, for example:
 
@@ -283,7 +292,7 @@ Functions can be bound to custom types by adding them inside a pair of opening a
 ```rust
 type Number: i32 {
     public fn from_i32(value: i32) -> This {
-        return This{value};
+        return as<This>(value);
     }
 
     public fn equal(&const this, other: &const This) -> bool {
@@ -382,7 +391,7 @@ var instance2 = Foo{a, b: 0}; // instance2.a == 42
 Function literals are simply `fn` followed by the argument list inside parentheses, `->` and the return type.<br>
 Note that the parameter and return types can be ommited for generic function literals, for the details read the generics section.
 ```go
-var add = fn(a: i32, b: i32) -> i32 { return a + b; }; // type is fn<i32>(i32, i32)
+var add = fn(a: i32, b: i32) -> i32 { return a + b; }; // type is fn(i32, i32) -> i32
 add(1, 2); // returns 3
 var split = fn(s: String) -> String {
     var len = s.length()/2;
@@ -777,7 +786,7 @@ There are 2 types of functions you can bind to a struct/enum/any custom types:
 
 Both associated and bound functions have to be defined inside the struct/enum to which they belong. to be visible outside of the enclosing module, they have to be made public by adding the `public` keyword before defining them.
 
-Bound functions most have `&this` or `&const this` as the first parameter. this is short for `this: &This` or `this: &const This` respectively.<br>
+Bound functions must have `&this` or `&const this` as the first parameter. this is short for `this: &This` or `this: &const This` respectively.<br>
 The `This` type is defined automatically and is an alias to the type of the enclosing struct, enum or custom type.
 
 As bound functions are likely to access members/call other bound functions, the shorthand `.member` (instead of `this.member`) is allowed.
@@ -858,7 +867,7 @@ var nothing_here = MyOptional::None;
 ## Generics
 
 Generics allow a type in a function or struct to be any type the user provides.<br>
-In a function, the generic type can be infered in the call.
+In a function, the generic parameter(s) can be infered in the call.
 
 ```rust
 // structs
@@ -879,7 +888,7 @@ add(20, 22); // i32 inferred
 add(21.5, 20.5) // f32 inferred
 ```
 
-A generic type can be limited to be only a few types. this is useful for allowing only types that implement 1 or more specific traits (more about traits later):
+A generic parameter can be limited to be only a few types. this is useful for allowing only types that implement 1 or more specific traits (more about traits later):
 
 ```rust
 fn add_num<T(i32, f32)>(T a, T b) -> T {
@@ -959,13 +968,29 @@ Providing a type that doesn't implement the `Equality` and `Hashable` traits as 
 
 ## The `defer` statement
 
-The `defer` statement defers the execution of a function call until the parent (surrounding) function returns.
+The `defer` statement defers the execution of a function call until the parent (surrounding) function returns.<br>
+The deferred call's arguments are evaluated immediately, but the function call is not executed until the parent function returns.<br>
+`defer` is very useful to make sure each call to a function that frees a resource is right after the function that allocates it, which makes it harder to forget to free it later.<br>
+Bellow is an example of using defer, and the same example again if it had to be written manually:
 
-The deferred call's arguments are evaluated immediately, but the function call is not executed until the parent function returns.
+```go
+fn do_something() {
+    var f = open_file();
+    defer f.close();
+    // ...
+}
+
+// the above function is equivalent to manually calling `f.close()` at the end of the function.
+fn do_something() {
+    var f = open_file();
+    // ...
+    f.close();
+}
+```
 
 ## Modules
 
-A module is used to group related together types, variables, constants, enums, structs and functions. Each module has its own namespace.<br>
+A module is used to group related types, variables, constants, enums, structs and functions. Each module has its own namespace.<br>
 
 Anything in a module is private by default - that means the code importing it can't see anything inside the module. To make something public, add the `public` keyword before declaring it.
 
