@@ -175,7 +175,7 @@ static bool consume(Parser *p, TokenType expected) {
 }
 
 typedef enum precedences {
-    PREC_NONE       = 0,
+    PREC_LOWEST     = 0,  // lowest
     PREC_ASSIGNMENT = 1,  // infix =
     PREC_BIT_OR     = 2,  // infix |
     PREC_BIT_XOR    = 3,  // infix ^
@@ -206,14 +206,14 @@ static ASTNode *parse_infix_expression(Parser *p, ASTNode *lhs);
 
 static ParseRule rules[] = {
     // token  | prefix | infix | precedence
-    [TK_LPAREN] = {parse_prefix_expression, NULL, PREC_NONE},
-    [TK_RPAREN] = {NULL, NULL, PREC_NONE},
+    [TK_LPAREN] = {parse_prefix_expression, NULL, PREC_LOWEST},
+    [TK_RPAREN] = {NULL, NULL, PREC_LOWEST},
     [TK_PLUS]   = {parse_prefix_expression, parse_infix_expression, PREC_TERM},
     [TK_MINUS]  = {parse_prefix_expression, parse_infix_expression, PREC_TERM},
     [TK_STAR]   = {NULL, parse_infix_expression, PREC_FACTOR},
     [TK_SLASH]  = {NULL, parse_infix_expression, PREC_FACTOR},
-    [TK_NUMBER] = {parse_prefix_expression, NULL, PREC_NONE},
-    [TK_EOF]    = {NULL, NULL, PREC_NONE}
+    [TK_NUMBER] = {parse_prefix_expression, NULL, PREC_LOWEST},
+    [TK_EOF]    = {NULL, NULL, PREC_LOWEST}
 };
 
 static inline ParseRule *get_rule(TokenType type) {
@@ -280,7 +280,7 @@ static ASTNode *parse_prefix_expression(Parser *p) {
             return astNewUnaryNode(ND_NEG, locationMerge(operator_loc, operand->location), operand);
         }
         case TK_LPAREN: {
-            ASTNode *expr = parse_precedence(p, PREC_NONE);
+            ASTNode *expr = parse_precedence(p, PREC_LOWEST);
             if(!consume(p, TK_RPAREN)) {
                 astFree(expr);
                 return NULL;
@@ -326,7 +326,7 @@ static ASTNode *parse_precedence(Parser *p, Precedence min_prec) {
 }
 
 static inline ASTNode *parse_expression(Parser *p) {
-    return parse_precedence(p, PREC_NONE);
+    return parse_precedence(p, PREC_LOWEST);
 }
 
 ASTNode *parserParse(Parser *p, Array *tokens) {
