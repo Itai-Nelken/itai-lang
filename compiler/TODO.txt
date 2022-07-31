@@ -1,4 +1,3 @@
-- Don't store all the tokens at once.
 - New testing framework that checks stdout/stderr etc.
 - Statement & declaration parser
 - Type parser

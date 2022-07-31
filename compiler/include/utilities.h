@@ -5,6 +5,6 @@
 
 bool isDigit(char c);
 bool isAscii(char c);
-int align_to(int n, int value);
+int alignTo(int n, int value);
 
 #endif // UTILITIES_H
