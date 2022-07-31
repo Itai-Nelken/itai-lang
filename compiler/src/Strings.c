@@ -69,6 +69,7 @@ String stringResize(String s, size_t newCapacity) {
 String stringNCopy(const char *s, int length) {
     String str = stringNew(length);
     memcpy(str, s, length);
+    str[length] = '\0';
     from_str(str)[LENGTH] = length;
     return str;
 }
