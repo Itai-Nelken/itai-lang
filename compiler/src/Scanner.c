@@ -1,3 +1,5 @@
+#include <assert.h>
+#include <stdbool.h>
 #include "common.h"
 #include "memory.h"
 #include "utilities.h"
@@ -33,8 +35,8 @@ static void add_error(Scanner *s, String message) {
     compilerAddError(s->compiler, err);
 }
 
-static inline Token *make_operator_token(Scanner *s, TokenType type) {
-    return tokenNewOperator(type, locationNew(s->start, s->current, compilerGetCurrentFileID(s->compiler)));
+static inline Token make_simple_token(Scanner *s, TokenType type) {
+    return tokenNew(type, locationNew(s->start, s->current, compilerGetCurrentFileID(s->compiler)));
 }
 
 static inline bool is_end(Scanner *s) {
@@ -81,7 +83,7 @@ static void skip_whitespace(Scanner *s) {
     }
 }
 
-static Token *scan_number_constant(Scanner *s) {
+static Token scan_number_constant(Scanner *s) {
     // TODO: add hex, octal, and binary literals.
     while(!is_end(s) && (isDigit(peek(s)) || peek(s) == '_')) {
         advance(s);
@@ -90,11 +92,11 @@ static Token *scan_number_constant(Scanner *s) {
     return tokenNewNumberConstant(locationNew(s->start, s->current, compilerGetCurrentFileID(s->compiler)), numberConstantNewInt64(value));
 }
 
-static Token *scan_token(Scanner *s) {
+Token scan_token(Scanner *s) {
     skip_whitespace(s);
     s->start = s->current;
     if(is_end(s)) {
-        return make_operator_token(s, TK_EOF);
+        return make_simple_token(s, TK_EOF);
     }
 
     char c = advance(s);
@@ -103,52 +105,39 @@ static Token *scan_token(Scanner *s) {
     }
 
     switch(c) {
-        case '(': return make_operator_token(s, TK_LPAREN);
-        case ')': return make_operator_token(s, TK_RPAREN);
-        case '+': return make_operator_token(s, TK_PLUS);
-        case '-': return make_operator_token(s, TK_MINUS);
-        case '*': return make_operator_token(s, TK_STAR);
-        case '/': return make_operator_token(s, TK_SLASH);
+        case '(': return make_simple_token(s, TK_LPAREN); break;
+        case ')': return make_simple_token(s, TK_RPAREN); break;
+        case '+': return make_simple_token(s, TK_PLUS); break;
+        case '-': return make_simple_token(s, TK_MINUS); break;
+        case '*': return make_simple_token(s, TK_STAR); break;
+        case '/': return make_simple_token(s, TK_SLASH); break;
         default:
             break;
     }
     add_error(s, stringFormat("Unknown character '%c'!", c));
-    return NULL;
+    return make_simple_token(s, TK_GARBAGE);
 }
 
-static void scan_file(Scanner *s, Array *tokens) {
-    String contents = fileRead(compilerGetFile(s->compiler, compilerGetCurrentFileID(s->compiler)));
+static bool set_source(Scanner *s, FileID file) {
+    File *f = compilerGetFile(s->compiler, file);
+    assert(f);
+    String contents = fileRead(f);
     if(contents == NULL) {
         add_error(s, stringFormat("Failed to read file '%s'!", compilerGetFile(s->compiler, compilerGetCurrentFileID(s->compiler))->path));
-        return;
+        return false;
     }
-
     s->source = contents;
-    Token *t = NULL;
-    for(t = scan_token(s); !is_end(s); t = scan_token(s)) {
-        if(!t) {
-            continue;
-        }
-        if(t->type == TK_EOF) {
-            tokenFree(t);
-            break;
-        }
-        arrayPush(tokens, (void *)t);
-    }
-    s->source = NULL;
+    return true;
 }
 
-Array scannerScan(Scanner *s) {
-    Array tokens; // Array<Token *>
-    arrayInit(&tokens);
-    while(compilerHasNextFile(s->compiler)) {
-        compilerNextFile(s->compiler);
-        scan_file(s, &tokens);
+Token scannerNextToken(Scanner *s) {
+    if(!s->source) {
+        set_source(s, compilerNextFile(s->compiler));
     }
-    // push the EOF token as the last token.
-    Token *t;
-    NEW0(t);
-    *t = tokenNew(TK_EOF, make_location(s));
-    arrayPush(&tokens, (void *)t);
-    return tokens;
+    Token tk = scan_token(s);
+    if(tk.type == TK_EOF && compilerHasNextFile(s->compiler)) {
+        set_source(s, compilerNextFile(s->compiler));
+        tk = scan_token(s);
+    }
+    return tk;
 }

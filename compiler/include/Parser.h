@@ -2,14 +2,14 @@
 #define PARSER_H
 
 #include <stdio.h>
-#include "Array.h"
 #include "Token.h"
 #include "Compiler.h"
+#include "Scanner.h"
 
 typedef struct parser {
     Compiler *compiler;
-    Array *tokens;
-    usize current_token;
+    Scanner *scanner;
+    Token previous_token, current_token;
 } Parser;
 
 // Update astPrint(), astFree(), node_type_name(), node_name(), token_to_node_type(), all the is_*_*() functions, and the rule table all in Parser.c
@@ -62,12 +62,12 @@ void parserInit(Parser *p, Compiler *c);
 void parserFree(Parser *p);
 
 /***
- * Parse an AST from the token array.
+ * Parse an AST from the tokens from 's'.
  *
  * @param p An initialized Parser.
- * @param tokens An initialized Array<Token *> containing the tokens from the Scanner.
+ * @param s An initialized Scanner.
  ***/
-ASTNode *parserParse(Parser *p, Array *tokens);
+ASTNode *parserParse(Parser *p, Scanner *s);
 
 /***
  * Create a new AST number node.

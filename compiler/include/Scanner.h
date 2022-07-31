@@ -3,8 +3,8 @@
 
 #include "common.h"
 #include "Compiler.h"
-#include "Array.h"
 #include "Strings.h"
+#include "Token.h"
 
 typedef struct scanner {
     Compiler *compiler;
@@ -28,11 +28,11 @@ void scannerInit(Scanner *s, Compiler *c);
 void scannerFree(Scanner *s);
 
 /***
- * Scan All the files in the Compiler provided to scannerInit().
+ * Scan the next token in the current file, and change to the next file when needed.
  * 
  * @param s An initialized Scanner.
- * @return Array<Token *> containing all the tokens.
+ * @return The next token.
  ***/
-Array scannerScan(Scanner *s);
+Token scannerNextToken(Scanner *s);
 
 #endif // SCANNER_H

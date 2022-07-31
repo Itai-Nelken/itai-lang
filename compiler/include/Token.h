@@ -32,7 +32,7 @@ Location locationNew(u64 start, u64 end, FileID file);
  ***/
 Location locationMerge(Location a, Location b);
 
-// Update tokenFree(), tokenPrint(), tokenTypeString(), token_name() and token_type_name() in Token.c when adding new token types.
+// Update tokenPrint(), tokenTypeString() and token_type_name() in Token.c when adding new token types.
 typedef enum token_type {
     // One character tokens
     TK_LPAREN, TK_RPAREN,
@@ -43,6 +43,7 @@ typedef enum token_type {
     TK_NUMBER,
 
     // Other
+    TK_GARBAGE,
     TK_EOF
 } TokenType;
 
@@ -51,11 +52,6 @@ typedef enum number_constant_type {
     NUM_I64
 }  NumberConstantType;
 
-typedef struct token {
-    TokenType type;
-    Location location;
-} Token;
-
 typedef struct number_constant {
     NumberConstantType type;
     union {
@@ -63,13 +59,13 @@ typedef struct number_constant {
     } as;
 } NumberConstant;
 
-typedef struct number_constant_token {
-    Token header;
-    NumberConstant value;
-} NumberConstantToken;
-
-#define AS_TOKEN(token) ((Token *)(token))
-#define AS_NUMBER_CONSTANT_TOKEN(token) ((NumberConstantToken *)(token))
+typedef struct token {
+    TokenType type;
+    Location location;
+    union {
+        NumberConstant number_constant;
+    } as;
+} Token;
 
 /***
  * Make a new i64 NumberConstant.
@@ -89,28 +85,12 @@ NumberConstant numberConstantNewInt64(i64 value);
 Token tokenNew(TokenType type, Location location);
 
 /***
- * Make a new operator Token.
- *
- * @param type A TokenType.
- * @param location The Location of the token.
- * @return A new operator Token.
- ***/
-Token *tokenNewOperator(TokenType type, Location location);
-
-/***
  * Make a new number constant Token.
  *
  * @param value A NumberConstant with the value.
  * @return A new number constant Token.
  ***/
-Token *tokenNewNumberConstant(Location location, NumberConstant value);
-
-/***
- * Free a Token.
- *
- * @param t The Token to free.
- ***/
-void tokenFree(Token *t);
+Token tokenNewNumberConstant(Location location, NumberConstant value);
 
 /***
  * Print a number constant.

@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h> // memset()
 #include <stdbool.h>
 #include "common.h"
 #include "memory.h"
@@ -11,15 +12,14 @@
 #include "Parser.h"
 
 void parserInit(Parser *p, Compiler *c) {
+    memset(p, 0, sizeof(*p));
     p->compiler = c;
-    p->tokens = NULL;
-    p->current_token = 0;
+    p->current_token.type = TK_GARBAGE;
+    p->previous_token.type = TK_GARBAGE;
 }
 
 void parserFree(Parser *p) {
-    p->compiler = NULL;
-    p->tokens = NULL;
-    p->current_token = 0;
+    memset(p, 0, sizeof(*p));
 }
 
 ASTNode *astNewNumberNode(Location loc, NumberConstant value) {
@@ -138,19 +138,26 @@ void astFree(ASTNode *node) {
 }
 
 static inline bool is_eof(Parser *p) {
-    return ARRAY_GET_AS(Token *, p->tokens, p->current_token)->type == TK_EOF;
+    return p->current_token.type == TK_EOF;
 }
 
-static inline Token *advance(Parser *p) {
-    return is_eof(p) ? NULL : ARRAY_GET_AS(Token *, p->tokens, p->current_token++);
+static inline Token advance(Parser *p) {
+    // skip TK_GARBAGE tokens.
+    // We don't know how to handle them, and the Scanner
+    // has already reported errors for them anyway.
+    Token tok;
+    while((tok = scannerNextToken(p->scanner)).type == TK_GARBAGE) /* nothing */ ;
+    p->previous_token = p->current_token;
+    p->current_token = tok;
+    return tok;
 }
 
-static inline Token *next(Parser *p) {
-    return p->current_token + 1 > p->tokens->used ? NULL : ARRAY_GET_AS(Token *, p->tokens, p->current_token);
+static inline Token peek(Parser *p) {
+    return p->current_token;
 }
 
-static inline Token *previous(Parser *p) {
-    return p->current_token == 0 ? NULL : ARRAY_GET_AS(Token *, p->tokens, p->current_token - 1);
+static inline Token previous(Parser *p) {
+    return p->previous_token;
 }
 
 // if a valid String is provided as message, it will be freed.
@@ -158,7 +165,7 @@ static inline Token *previous(Parser *p) {
 static void error(Parser *p, char *message) {
     Error *err;
     NEW0(err);
-    errorInit(err, ERR_ERROR, previous(p)->location, message);
+    errorInit(err, ERR_ERROR, previous(p).location, message);
     compilerAddError(p->compiler, err);
     if(stringIsValid(message)) {
         stringFree(message);
@@ -166,8 +173,8 @@ static void error(Parser *p, char *message) {
 }
 
 static bool consume(Parser *p, TokenType expected) {
-    if(next(p)->type != expected) {
-        error(p, stringFormat("Expected '%s' but got '%s'!", tokenTypeString(expected), tokenTypeString(next(p)->type)));
+    if(peek(p).type != expected) {
+        error(p, stringFormat("Expected '%s' but got '%s'!", tokenTypeString(expected), tokenTypeString(peek(p).type)));
         return false;
     }
     advance(p);
@@ -213,6 +220,7 @@ static ParseRule rules[] = {
     [TK_STAR]   = {NULL, parse_infix_expression, PREC_FACTOR},
     [TK_SLASH]  = {NULL, parse_infix_expression, PREC_FACTOR},
     [TK_NUMBER] = {parse_prefix_expression, NULL, PREC_LOWEST},
+    [TK_GARBAGE] = {NULL, NULL, PREC_LOWEST},
     [TK_EOF]    = {NULL, NULL, PREC_LOWEST}
 };
 
@@ -265,13 +273,13 @@ static ASTNodeType token_to_node_type(TokenType tk) {
 }
 
 static ASTNode *parse_prefix_expression(Parser *p) {
-    switch(previous(p)->type) {
+    switch(previous(p).type) {
         case TK_NUMBER:
-            return astNewNumberNode(previous(p)->location, AS_NUMBER_CONSTANT_TOKEN(previous(p))->value);
+            return astNewNumberNode(previous(p).location, previous(p).as.number_constant);
         case TK_PLUS:
         case TK_MINUS: {
-            TokenType operator = previous(p)->type;
-            Location operator_loc = previous(p)->location;
+            TokenType operator = previous(p).type;
+            Location operator_loc = previous(p).location;
             ASTNode *operand = parse_precedence(p, PREC_UNARY);
             if(operator == TK_PLUS) {
                 operand->location = locationMerge(operator_loc, operand->location);
@@ -290,25 +298,25 @@ static ASTNode *parse_prefix_expression(Parser *p) {
         default:
             break;
     }
-    error(p, stringFormat("Expected one of [<number>, '('] but got '%s'!", tokenTypeString(previous(p)->type)));
+    error(p, stringFormat("Expected one of [<number>, '('] but got '%s'!", tokenTypeString(previous(p).type)));
     return NULL;
 }
 
 static ASTNode *parse_infix_expression(Parser *p, ASTNode *lhs) {
-    if(is_binary_operator(previous(p)->type)) {
-        ASTNodeType type = token_to_node_type(previous(p)->type);
-        Location expr_loc = locationMerge(lhs->location, previous(p)->location);
-        ASTNode *rhs = parse_precedence(p, (Precedence)(get_precedence(previous(p)->type + 1)));
+    if(is_binary_operator(previous(p).type)) {
+        ASTNodeType type = token_to_node_type(previous(p).type);
+        Location expr_loc = locationMerge(lhs->location, previous(p).location);
+        ASTNode *rhs = parse_precedence(p, (Precedence)(get_precedence(previous(p).type + 1)));
         return astNewBinaryNode(type, locationMerge(expr_loc, rhs->location), lhs, rhs);
     } else {
-        error(p, stringFormat("Expected one of ['+', '-', '*', '/'] but got '%s'!", tokenTypeString(previous(p)->type)));
+        error(p, stringFormat("Expected one of ['+', '-', '*', '/'] but got '%s'!", tokenTypeString(previous(p).type)));
     }
     return NULL;
 }
 
 static ASTNode *parse_precedence(Parser *p, Precedence min_prec) {
     advance(p);
-    PrefixParseFn nud = get_nud(previous(p)->type);
+    PrefixParseFn nud = get_nud(previous(p).type);
     if(!nud) {
         error(p, "Expected an expression!");
         return NULL;
@@ -317,9 +325,9 @@ static ASTNode *parse_precedence(Parser *p, Precedence min_prec) {
     if(!lhs) {
         return NULL;
     }
-    while(!is_eof(p) && min_prec < get_precedence(next(p)->type)) {
+    while(!is_eof(p) && min_prec < get_precedence(peek(p).type)) {
         advance(p);
-        InfixParseFn led = get_led(previous(p)->type);
+        InfixParseFn led = get_led(previous(p).type);
         lhs = led(p, lhs);
     }
     return lhs;
@@ -329,11 +337,12 @@ static inline ASTNode *parse_expression(Parser *p) {
     return parse_precedence(p, PREC_LOWEST);
 }
 
-ASTNode *parserParse(Parser *p, Array *tokens) {
-    p->tokens = tokens;
+ASTNode *parserParse(Parser *p, Scanner *s) {
+    p->scanner = s;
+    // prime the parser
+    advance(p);
     ASTNode *expr = parse_expression(p);
-    p->tokens = NULL;
-    p->current_token = 0;
+    p->scanner = NULL;
     return expr;
 }
 

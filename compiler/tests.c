@@ -108,6 +108,7 @@ int _run_test_list(Test testlist[]) {
 
 
 // includes for the tests
+#include <stdio.h>
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
@@ -244,20 +245,10 @@ struct scanner_test_token_type {
     TokenType type;
     i64 value;
 };
-static void test_scanner_callback(void *token, void *expected) {
-    Token *tk = AS_TOKEN(token);
-    struct scanner_test_token_type *e = (struct scanner_test_token_type *)expected;
-    static i32 i = 0;
-    CHECK(tk->type == e[i].type);
-    if(tk->type == TK_NUMBER) {
-        CHECK(AS_NUMBER_CONSTANT_TOKEN(tk)->value.as.int64 == e[i].value);
-    }
-    i++;
-}
 static void test_scanner(void *a) {
     UNUSED(a);
     const char *input = "(1 + 2 - 3 * 4 / 5)";
-    struct scanner_test_token_type expected[] = {{TK_LPAREN, 0}, {TK_NUMBER, 1}, {TK_PLUS, 0}, {TK_NUMBER, 2}, {TK_MINUS, 0}, {TK_NUMBER, 3}, {TK_STAR, 0}, {TK_NUMBER, 4}, {TK_SLASH, 0}, {TK_NUMBER, 5}, {TK_EOF, 0}};
+    struct scanner_test_token_type expected[] = {{TK_LPAREN, 0}, {TK_NUMBER, 1}, {TK_PLUS, 0}, {TK_NUMBER, 2}, {TK_MINUS, 0}, {TK_NUMBER, 3}, {TK_STAR, 0}, {TK_NUMBER, 4}, {TK_SLASH, 0}, {TK_NUMBER, 5}, {TK_RPAREN, 0}, {TK_EOF, 0}};
     char tmp_file_name[] = "ilc_scanner_test_XXXXXX";
     int fd = mkstemp(tmp_file_name);
     CHECK(fd != -1);
@@ -280,15 +271,17 @@ static void test_scanner(void *a) {
     scannerInit(&s, &c);
     compilerAddFile(&c, tmp_file_name);
 
-    Array tokens = scannerScan(&s);
-    CHECK(!compilerHadError(&c));
-    if(!compilerHadError(&c)) {
-        arrayMap(&tokens, test_scanner_callback, (void *)&expected);
+    for(u32 i = 0; i < sizeof(expected)/sizeof(expected[0]); ++i) {
+        Token tk = scannerNextToken(&s);
+        CHECK(tk.type == expected[i].type);
+        if(tk.type == TK_NUMBER) {
+            CHECK(tk.as.number_constant.as.int64 == expected[i].value);
+        }
     }
 
-    arrayFree(&tokens);
     scannerFree(&s);
     compilerFree(&c);
+    remove(tmp_file_name);
 }
 
 Test tests[] = {
