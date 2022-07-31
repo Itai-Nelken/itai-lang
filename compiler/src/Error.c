@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h> // labs()
 #include <stdbool.h>
 #include "common.h"
 #include "Compiler.h"
@@ -153,7 +154,7 @@ void errorPrint(Error *err, Compiler *c, FILE *to) {
     // print the '^' under the first offending character
     // followed by '~' for the rest (if they exist).
     fprintf(to, "\x1b[35;1m^");
-    for(u64 i = 0; i < err->location.end - err->location.start - 1; ++i) {
+    for(u64 i = 0; i < labs((isize)err->location.end - (isize)err->location.start - 1); ++i) {
         fputc('~', to);
     }
     fprintf(to, "\x1b[0;1m %s\x1b[0m\n", err->message);
