@@ -2,6 +2,7 @@
 #define ERROR_H
 
 #include <stdio.h>
+#include <stdbool.h>
 #include "Compiler.h"
 #include "Strings.h"
 #include "Token.h"
@@ -13,6 +14,7 @@ typedef enum error_type {
 
 typedef struct error {
     ErrorType type;
+    bool has_location;
     Location location;
     String message;
 } Error;
@@ -25,7 +27,7 @@ typedef struct error {
  * @param location The location of the error in the source files.
  * @param message The error message.
  ***/
-void errorInit(Error *err, ErrorType type, Location location, const char *message);
+void errorInit(Error *err, ErrorType type, bool has_location, Location location, const char *message);
 
 /***
  * Free an Error.

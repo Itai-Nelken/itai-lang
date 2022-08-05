@@ -10,6 +10,7 @@ typedef struct scanner {
     Compiler *compiler;
     String source;
     usize start, current;
+    bool failed_to_set_source;
 } Scanner;
 
 /***

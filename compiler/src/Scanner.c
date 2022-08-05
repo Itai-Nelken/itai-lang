@@ -14,6 +14,7 @@ void scannerInit(Scanner *s, Compiler *c) {
     s->compiler = c;
     s->source = NULL;
     s->start = s->current = 0;
+    s->failed_to_set_source = false;
 }
 
 void scannerFree(Scanner *s) {
@@ -27,10 +28,10 @@ static inline Location make_location(Scanner *s) {
 }
 
 // Takes ownership 'message'
-static void add_error(Scanner *s, String message) {
+static void add_error(Scanner *s, bool has_location, String message) {
     Error *err;
     NEW0(err);
-    errorInit(err, ERR_ERROR, make_location(s), message);
+    errorInit(err, ERR_ERROR, has_location, has_location ? make_location(s) : locationNew(0, 0, 0), message);
     stringFree(message);
     compilerAddError(s->compiler, err);
 }
@@ -114,7 +115,7 @@ Token scan_token(Scanner *s) {
         default:
             break;
     }
-    add_error(s, stringFormat("Unknown character '%c'!", c));
+    add_error(s, true, stringFormat("Unknown character '%c'!", c));
     return make_simple_token(s, TK_GARBAGE);
 }
 
@@ -123,7 +124,7 @@ static bool set_source(Scanner *s, FileID file) {
     assert(f);
     String contents = fileRead(f);
     if(contents == NULL) {
-        add_error(s, stringFormat("Failed to read file '%s'!", compilerGetFile(s->compiler, compilerGetCurrentFileID(s->compiler))->path));
+        add_error(s, false, stringFormat("Failed to read file '%s'!", compilerGetFile(s->compiler, compilerGetCurrentFileID(s->compiler))->path));
         return false;
     }
     s->source = contents;
@@ -131,8 +132,20 @@ static bool set_source(Scanner *s, FileID file) {
 }
 
 Token scannerNextToken(Scanner *s) {
+    if(s->failed_to_set_source) {
+        // if we failed to set the source, we can't do anything.
+        // the error was already reported, so we will simplt return
+        // TK_EOF so the parser thinks we are at the end of the input
+        // and will exit so errors can be printed.
+        return make_simple_token(s, TK_EOF);
+    }
     if(!s->source) {
-        set_source(s, compilerNextFile(s->compiler));
+        if(!set_source(s, compilerNextFile(s->compiler))) {
+            s->failed_to_set_source = true;
+            // if we can't set the source, assume we are at the end
+            // of the input.
+            return make_simple_token(s, TK_EOF);
+        }
     }
     Token tk = scan_token(s);
     if(tk.type == TK_EOF && compilerHasNextFile(s->compiler)) {

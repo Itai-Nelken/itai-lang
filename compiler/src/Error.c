@@ -2,12 +2,14 @@
 #include <stdlib.h> // labs()
 #include <stdbool.h>
 #include "common.h"
+#include "memory.h"
 #include "Compiler.h"
 #include "Strings.h"
 #include "Error.h"
 
-void errorInit(Error *err, ErrorType type, Location location, const char *message) {
+void errorInit(Error *err, ErrorType type, bool has_location, Location location, const char *message) {
     err->type = type;
+    err->has_location = has_location;
     err->location = location;
     err->message = stringCopy(message);
 }
@@ -121,6 +123,11 @@ Error: reason
  3 |     abc *= 2;
 */
 void errorPrint(Error *err, Compiler *c, FILE *to) {
+    if(!err->has_location) {
+        fprintf(to, "%s: \x1b[1m%s\x1b[0m\n", error_type_to_string(err->type), err->message);
+        return;
+    }
+
     struct line before = {0}, current = {0}, after = {0};
     String file_contents = fileRead(compilerGetFile(c, err->location.file));
     if(file_contents == NULL) {

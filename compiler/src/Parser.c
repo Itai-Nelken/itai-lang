@@ -165,7 +165,7 @@ static inline Token previous(Parser *p) {
 static void error(Parser *p, char *message) {
     Error *err;
     NEW0(err);
-    errorInit(err, ERR_ERROR, previous(p).location, message);
+    errorInit(err, ERR_ERROR, true, previous(p).location, message);
     compilerAddError(p->compiler, err);
     if(stringIsValid(message)) {
         stringFree(message);
@@ -341,6 +341,11 @@ ASTNode *parserParse(Parser *p, Scanner *s) {
     p->scanner = s;
     // prime the parser
     advance(p);
+    // if the scanner failed to set the source, we can't do anything.
+    if(p->scanner->failed_to_set_source) {
+        p->scanner = NULL;
+        return NULL;
+    }
     ASTNode *expr = parse_expression(p);
     p->scanner = NULL;
     return expr;
