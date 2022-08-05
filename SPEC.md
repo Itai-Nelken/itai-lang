@@ -22,7 +22,7 @@ public struct List<T> {
 
     public fn new() -> This<T> {
         return This<T>{
-            data: null,
+            head: null,
             item_count: 0
         };
     }
@@ -36,7 +36,7 @@ public struct List<T> {
     }
 
     public fn push(&this, value: T) {
-        var item = new ListItem{value, null, null};
+        var item = Box::new(ListItem{value, null, null});
         if .head == null {
             .head = item;
         } else {
@@ -66,7 +66,7 @@ fn main() {
         io::printerrln("USAGE: %s [numbers]", Args::args[0]);
         return 1;
     }
-    var args = Args::args[1:];
+    var args = &Args::args[1:];
     var list = List<i32>::new(16);
     for arg in args {
         if types::isdigit(arg) {
@@ -145,22 +145,24 @@ These aren't primitive types, but they are pretty basic in modern programming la
 
 The `Box<T>` type is integrated into the language for easier usage.<br>
 Note that `Box<T>` doesn't handle deallocating automatically, instead the compiler will reference count instances of it, and call its `free()` bound function when no references to the instance are left. If you need to explicitly free a boxed value, you can manually call the `free()` bound function.<br>
-To create a new boxed type, the `new` keyword is used:
+To create a new boxed type, the `Box::new(data: T)` bound function is used:
 ```rust
 struct Data {
     value: u32;
     // ...
 }
 
-var boxed_data = new Data{value: 0, /* ... */};
+var boxed_data = Box::new(Data{value: 0, /* ... */});
 ```
 For builtin types like integers, you simply use the literal/value casting it if neccesary:
 ```rust
-var boxed_i32 = new 42i32; // Box<i32> infered
-var boxed_usize = new 2usize; // Box<usize> infered
-var boxed_str = new "Hello!"; // Box<str> infered
+var boxed_i32 = Box::new(42i32); // Box<i32> infered
+var boxed_usize = Box::new(2usize); // Box<usize> infered
+var boxed_str = Box::new("Hello!"); // Box<str> infered
 var five = 5; // i64 infered
-var boxed_five = new five; // Box<i64> infered.
+var boxed_five = Box::new(five); // Box<i64> infered.
+var boxed_f32: Box<f32> = Box::new(1.23);
+var boxed_f64 = Box<f64>::new(4.56);
 ```
 
 To access a boxed value, simply dereference it, but unlike references boxed structs don't auto-dereference.<br>
@@ -250,7 +252,7 @@ fn(<param types>) -> T
 fn function() { io::println("function()"); }
 var func = null;
 var func2 = function; // the type of 'func2' is infered as 'fn()'
-func = nullfn; // the type of 'func' is infered as fn()?
+func = function; // the type of 'func' is infered as fn()?
 
 // all calls bellow call function()
 function();
@@ -292,7 +294,7 @@ Functions can be bound to custom types by adding them inside a pair of opening a
 ```rust
 type Number: i32 {
     public fn from_i32(value: i32) -> This {
-        return as<This>(value);
+        return as<This>(value)!;
     }
 
     public fn equal(&const this, other: &const This) -> bool {
@@ -369,6 +371,34 @@ Array elements are a comma separated list inside a pair of opening and closing b
 ["s1", "s2", "s3"] // [str; 3]
 // nested arrays
 [[1, 2, 3], [4, 5, 6]] // [[i32; 3]; 2]
+```
+
+#### Slices
+
+Slices allow you to create sub-arrays from any indexable type (arrays and strings).<br>
+A slice is actually a copy or a reference into the original data. that means that the slice types are actually array and/or reference types.<br>
+To get a slice, the subscript operator is used, but instead of a single index 2 index are provided with a `:` (colon) in between: `[start:end]`. the returned slice contains the elements between `start` and `end - 1`.
+For example the slice `[1:3]` of the array `[1, 2, 3, 4]` is `[2, 3]`, the elements between index `1` (including the element at index `1`) and index `3` (not including the element at index `3`).
+**Example:**<br>
+```go
+var array = [1, 2, 3, 4];
+var slice: [i64; 2] = array[1:3]; // [2, 3]
+```
+A slice is a copy, not a reference. to get a reference slice, the `&` operator is used:
+```go
+var ref_slice: &[i64; 2] = &array[1:3]; // &[2, 3]
+// The size of the slice type (reference to array) doesn't have to be declared
+var ref_slice2: &[i64] = &array[1:3]; // &[2, 3]
+```
+You don't have to specify the end or start index if you want the slice to end or start at the end or start of the array repsectively:
+```go
+var array2 = array[1:]; // all elements after 1 ([2, 3, 4])
+var array3 = array[:2]; // all elements before 2 ([1, 2])
+```
+Slices also work for strings:
+```go
+var hello = "Hello, World!";
+var comma = &hello[5:6]; // ","
 ```
 
 ### Structs
@@ -1091,7 +1121,6 @@ Custom namespaces cannot be declared, but each module has its own namespace.
 | `const`  | Declare a constant/make a reference constant |
 | `fn`     | Declaring functions |
 | `return` | Return from a function |
-| `new`    | Create a new boxed value. |
 | `null`   | The value of an empty optional. |
 | `enum`   | Declare an enum. |
 | `struct` | Declare a struct. |
