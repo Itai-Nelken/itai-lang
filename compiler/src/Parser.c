@@ -298,7 +298,7 @@ static ASTNode *parse_prefix_expression(Parser *p) {
         default:
             break;
     }
-    error(p, stringFormat("Expected one of [<number>, '('] but got '%s'!", tokenTypeString(previous(p).type)));
+    error(p, stringFormat("Expected one of [<number>, '+', '-', '('] but got '%s'!", tokenTypeString(previous(p).type)));
     return NULL;
 }
 
