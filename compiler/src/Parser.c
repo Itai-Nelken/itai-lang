@@ -242,19 +242,6 @@ static inline Precedence get_precedence(TokenType type) {
     return get_rule(type)->precedence;
 }
 
-static bool is_binary_operator(TokenType type) {
-    switch(type) {
-        case TK_PLUS:
-        case TK_MINUS:
-        case TK_STAR:
-        case TK_SLASH:
-            return true;
-        default:
-            break;
-    }
-    return false;
-}
-
 static ASTNodeType token_to_node_type(TokenType tk) {
     switch(tk) {
         case TK_PLUS:
@@ -296,22 +283,15 @@ static ASTNode *parse_prefix_expression(Parser *p) {
             return expr;
         }
         default:
-            break;
+            UNREACHABLE();
     }
-    error(p, stringFormat("Expected one of [<number>, '+', '-', '('] but got '%s'!", tokenTypeString(previous(p).type)));
-    return NULL;
 }
 
 static ASTNode *parse_infix_expression(Parser *p, ASTNode *lhs) {
-    if(is_binary_operator(previous(p).type)) {
-        ASTNodeType type = token_to_node_type(previous(p).type);
-        Location expr_loc = locationMerge(lhs->location, previous(p).location);
-        ASTNode *rhs = parse_precedence(p, (Precedence)(get_precedence(previous(p).type + 1)));
-        return astNewBinaryNode(type, locationMerge(expr_loc, rhs->location), lhs, rhs);
-    } else {
-        error(p, stringFormat("Expected one of ['+', '-', '*', '/'] but got '%s'!", tokenTypeString(previous(p).type)));
-    }
-    return NULL;
+    ASTNodeType type = token_to_node_type(previous(p).type);
+    Location expr_loc = locationMerge(lhs->location, previous(p).location);
+    ASTNode *rhs = parse_precedence(p, (Precedence)(get_precedence(previous(p).type + 1)));
+    return astNewBinaryNode(type, locationMerge(expr_loc, rhs->location), lhs, rhs);
 }
 
 static ASTNode *parse_precedence(Parser *p, Precedence min_prec) {
