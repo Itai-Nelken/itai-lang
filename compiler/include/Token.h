@@ -36,12 +36,21 @@ Location locationMerge(Location a, Location b);
 typedef enum token_type {
     // One character tokens
     TK_LPAREN, TK_RPAREN,
+    TK_LBRACE, TK_RBRACE,
     TK_PLUS, TK_MINUS,
     TK_STAR, TK_SLASH,
     TK_SEMICOLON,
 
+    // one or two character tokens
+    TK_EQUAL, TK_EQUAL_EQUAL,
+    TK_BANG, TK_BANG_EQUAL,
+
     // Literals
     TK_NUMBER,
+
+    // keywords
+    TK_IF, TK_ELSE,
+    TK_IDENTIFIER,
 
     // Other
     TK_GARBAGE,
@@ -65,6 +74,10 @@ typedef struct token {
     Location location;
     union {
         NumberConstant number_constant;
+        struct {
+            char *text;
+            u32 length; // u32 because its used for printf later with '%.*s'
+        } identifier;
     } as;
 } Token;
 

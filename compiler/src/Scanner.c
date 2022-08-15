@@ -1,3 +1,4 @@
+#include <string.h> // memcmp
 #include <assert.h>
 #include <stdbool.h>
 #include "common.h"
@@ -59,6 +60,14 @@ static inline char peek_next(Scanner *s) {
     return s->source[s->current + 1];
 }
 
+static bool match(Scanner *s, char c) {
+    if(peek(s) != c) {
+        return false;
+    }
+    advance(s);
+    return true;
+}
+
 static void skip_whitespace(Scanner *s) {
     for(;;) {
         switch(peek(s)) {
@@ -93,6 +102,28 @@ static Token scan_number_constant(Scanner *s) {
     return tokenNewNumberConstant(locationNew(s->start, s->current, compilerGetCurrentFileID(s->compiler)), numberConstantNewInt64(value));
 }
 
+static TokenType scan_keyword_or_identifier_type(Scanner *s) {
+    while(!is_end(s) && (isAscii(peek(s)) || isDigit(peek(s)) || peek(s) == '_')) {
+        advance(s);
+    }
+    char *lexeme = s->source + s->start;
+    u32 length = (u32)(s->current - s->start);
+
+    TokenType result;
+    switch(*lexeme) {
+        case 'i':
+            result =  (length == 2 && memcmp(lexeme, "if", 2) == 0) ? TK_IF : TK_IDENTIFIER;
+            break;
+        case 'e':
+            result = (length == 4 && memcmp(lexeme, "else", 4) == 0) ? TK_ELSE : TK_IDENTIFIER;
+            break;
+        default:
+            result = TK_IDENTIFIER;
+            break;
+    }
+    return result;
+}
+
 Token scan_token(Scanner *s) {
     skip_whitespace(s);
     s->start = s->current;
@@ -104,15 +135,25 @@ Token scan_token(Scanner *s) {
     if(isDigit(c)) {
         return scan_number_constant(s);
     }
+    if(isAscii(c) || c == '_') {
+        Token tk = make_simple_token(s, scan_keyword_or_identifier_type(s));
+        tk.as.identifier.text = s->source + s->start;
+        tk.as.identifier.length = (u32)(s->current - s->start);
+        return tk;
+    }
 
     switch(c) {
         case '(': return make_simple_token(s, TK_LPAREN);
         case ')': return make_simple_token(s, TK_RPAREN);
+        case '{': return make_simple_token(s, TK_LBRACE);
+        case '}': return make_simple_token(s, TK_RBRACE);
         case '+': return make_simple_token(s, TK_PLUS);
         case '-': return make_simple_token(s, TK_MINUS);
         case '*': return make_simple_token(s, TK_STAR);
         case '/': return make_simple_token(s, TK_SLASH);
         case ';': return make_simple_token(s, TK_SEMICOLON);
+        case '=': return make_simple_token(s, match(s, '=') ? TK_EQUAL_EQUAL : TK_EQUAL);
+        case '!': return make_simple_token(s, match(s, '=') ? TK_BANG_EQUAL : TK_BANG);
         default:
             break;
     }

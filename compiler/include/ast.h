@@ -14,12 +14,14 @@ typedef enum ast_node_type {
     ND_ADD, ND_SUB,
     ND_MUL, ND_DIV,
     ND_NEG,
+    ND_EQ, ND_NE,
 
     // literals
     ND_NUMBER,
 
     // statements
-    ND_EXPR_STMT
+    ND_EXPR_STMT,
+    ND_IF, ND_BLOCK
 } ASTNodeType;
 
 typedef struct ast_node {

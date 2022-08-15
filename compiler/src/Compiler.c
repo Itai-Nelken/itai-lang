@@ -106,7 +106,7 @@ bool compilerHasNextFile(Compiler *c) {
 
 FileID compilerNextFile(Compiler *c) {
     assert(compilerHasNextFile(c));
-    if(!c->current_file) {
+    if(!c->current_file_initialized) {
         c->current_file_initialized = true;
         return c->current_file;
     }

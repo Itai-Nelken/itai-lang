@@ -43,16 +43,24 @@ Token tokenNewNumberConstant(Location location, NumberConstant value) {
 
 static const char *token_type_name(TokenType type) {
     static const char *names[] = {
-        [TK_LPAREN]    = "TK_LPAREN",
-        [TK_RPAREN]    = "TK_RPAREN",
-        [TK_PLUS]      = "TK_PLUS",
-        [TK_MINUS]     = "TK_MINUS",
-        [TK_STAR]      = "TK_STAR",
-        [TK_SLASH]     = "TK_SLASH",
-        [TK_SEMICOLON] = "TK_SEMICOLON",
-        [TK_NUMBER]    = "TK_NUMBER",
-        [TK_GARBAGE]   = "TK_GARBAGE",
-        [TK_EOF]       = "TK_EOF"
+        [TK_LPAREN]      = "TK_LPAREN",
+        [TK_RPAREN]      = "TK_RPAREN",
+        [TK_LBRACE]      = "TK_LBRACE",
+        [TK_RBRACE]      = "TK_RBRACE",
+        [TK_PLUS]        = "TK_PLUS",
+        [TK_MINUS]       = "TK_MINUS",
+        [TK_STAR]        = "TK_STAR",
+        [TK_SLASH]       = "TK_SLASH",
+        [TK_SEMICOLON]   = "TK_SEMICOLON",
+        [TK_EQUAL]       = "TK_EQUAL",
+        [TK_EQUAL_EQUAL] = "TK_EQUAL_EQUAL",
+        [TK_BANG]        = "TK_BANG",
+        [TK_BANG_EQUAL]  = "TK_BANG_EQUAL",
+        [TK_NUMBER]      = "TK_NUMBER",
+        [TK_IF]          = "TK_IF",
+        [TK_ELSE]        = "TK_ELSE",
+        [TK_GARBAGE]     = "TK_GARBAGE",
+        [TK_EOF]         = "TK_EOF"
     };
     return names[(i32)type];
 }
@@ -82,6 +90,10 @@ void tokenPrint(FILE *to, Token *t) {
         case TK_NUMBER:
             fprintf(to, ", \x1b[1mvalue:\x1b[0m ");
             printNumberConstant(to, t->as.number_constant);
+            break;
+        case TK_IDENTIFIER:
+            fprintf(to, ", \x1b[1midentifier:\x1b[0m %.*s", t->as.identifier.length, t->as.identifier.text);
+            break;
         default:
             break;
     }
@@ -90,16 +102,25 @@ void tokenPrint(FILE *to, Token *t) {
 
 const char *tokenTypeString(TokenType type) {
     static const char *strings[] = {
-        [TK_LPAREN]    = "(",
-        [TK_RPAREN]    = ")",
-        [TK_PLUS]      = "+",
-        [TK_MINUS]     = "-",
-        [TK_STAR]      = "*",
-        [TK_SLASH]     = "/",
-        [TK_SEMICOLON] = ";",
-        [TK_NUMBER]    = "<number>",
-        [TK_GARBAGE]   = "<garbage>",
-        [TK_EOF]       = "<eof>"
+        [TK_LPAREN]      = "(",
+        [TK_RPAREN]      = ")",
+        [TK_LBRACE]      = "{",
+        [TK_RBRACE]      = "}",
+        [TK_PLUS]        = "+",
+        [TK_MINUS]       = "-",
+        [TK_STAR]        = "*",
+        [TK_SLASH]       = "/",
+        [TK_SEMICOLON]   = ";",
+        [TK_EQUAL]       = "=",
+        [TK_EQUAL_EQUAL] = "==",
+        [TK_BANG]        = "!",
+        [TK_BANG_EQUAL]  = "!=",
+        [TK_NUMBER]      = "<number>",
+        [TK_IF]          = "if",
+        [TK_ELSE]        = "else",
+        [TK_IDENTIFIER]  = "<identifier>",
+        [TK_GARBAGE]     = "<garbage>",
+        [TK_EOF]         = "<eof>"
     };
     return strings[(i32)type];
 }

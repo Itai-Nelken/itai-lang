@@ -131,7 +131,7 @@ void errorPrint(Error *err, Compiler *c, FILE *to) {
     struct line before = {0}, current = {0}, after = {0};
     String file_contents = fileRead(compilerGetFile(c, err->location.file));
     if(file_contents == NULL) {
-        LOG_ERR_F("Failed to read file '%s'!\n", compilerGetFile(c, err->location.file)->path);
+        LOG_ERR("Failed to read file '%s'!\n", compilerGetFile(c, err->location.file)->path);
         return;
     }
     // get the contents of the line before, the line with, and the line after the error,

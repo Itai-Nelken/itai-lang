@@ -82,9 +82,13 @@ static const char *node_type_name(ASTNodeType type) {
         [ND_SUB]       = "ND_SUB",
         [ND_MUL]       = "ND_MUL",
         [ND_DIV]       = "ND_DIV",
+        [ND_EQ]        = "ND_EQ",
+        [ND_NE]        = "ND_NE",
         [ND_NEG]       = "ND_NEG",
         [ND_NUMBER]    = "ND_NUMBER",
-        [ND_EXPR_STMT] = "ND_EXPR_STMT"
+        [ND_EXPR_STMT] = "ND_EXPR_STMT",
+        [ND_IF]        = "ND_IF",
+        [ND_BLOCK]        = "ND_BLOCK"
     };
     return names[(i32)type];
 }
@@ -96,11 +100,19 @@ static const char *node_name(ASTNodeType type) {
         case ND_SUB:
         case ND_MUL:
         case ND_DIV:
+        case ND_EQ:
+        case ND_NE:
             return "ASTBinaryNode";
         // unary node
         case ND_NEG:
         case ND_EXPR_STMT:
             return "ASTUnaryNode";
+        // conditional nodes
+        case ND_IF:
+            return "ASTConditionalNode";
+        // list nodes
+        case ND_BLOCK:
+            return "ASTListNode";
         // other nodes
         case ND_NUMBER:
             return "ASTNumberNode";
@@ -111,6 +123,10 @@ static const char *node_name(ASTNodeType type) {
 }
 
 void astPrint(FILE *to, ASTNode *node) {
+    if(!node) {
+        fprintf(to, "(null)");
+        return;
+    }
     fprintf(to, "%s{\x1b[1mtype:\x1b[0;33m %s\x1b[0m", node_name(node->type), node_type_name(node->type));
     switch(node->type) {
         // other nodes
@@ -123,6 +139,8 @@ void astPrint(FILE *to, ASTNode *node) {
         case ND_SUB:
         case ND_MUL:
         case ND_DIV:
+        case ND_EQ:
+        case ND_NE:
             fprintf(to, ", \x1b[1mleft:\x1b[0m ");
             astPrint(to, AS_BINARY_NODE(node)->left);
             fprintf(to, ", \x1b[1mright:\x1b[0m ");
@@ -134,6 +152,25 @@ void astPrint(FILE *to, ASTNode *node) {
             fprintf(to, ", \x1b[1moperand:\x1b[0m ");
             astPrint(to, AS_UNARY_NODE(node)->operand);
             break;
+        // conditional nodes
+        case ND_IF:
+            fprintf(to, ", \x1b[1mcondition:\x1b[0m ");
+            astPrint(to, AS_CONDITIONAL_NODE(node)->condition);
+            fprintf(to, ", \x1b[1mbody:\x1b[0m ");
+            astPrint(to, AS_NODE(AS_CONDITIONAL_NODE(node)->body));
+            fprintf(to, ", \x1b[1melse:\x1b[0m ");
+            astPrint(to, AS_CONDITIONAL_NODE(node)->else_);
+            break;
+        // list nodes
+        case ND_BLOCK:
+            fprintf(to, ", \x1b[1mbody:\x1b[0m ");
+            if(AS_LIST_NODE(node)->body.used == 0) {
+                fputs("(empty)", to);
+            }
+            for(usize i = 0; i < AS_LIST_NODE(node)->body.used; ++i) {
+                astPrint(to, ARRAY_GET_AS(ASTNode *, &AS_LIST_NODE(node)->body, i));
+            }
+            break;
         default:
             UNREACHABLE();
     }
@@ -141,12 +178,17 @@ void astPrint(FILE *to, ASTNode *node) {
 }
 
 void astFree(ASTNode *node) {
+    if(!node) {
+        return;
+    }
     switch(node->type) {
         // binary nodes
         case ND_ADD:
         case ND_SUB:
         case ND_MUL:
         case ND_DIV:
+        case ND_EQ:
+        case ND_NE:
             astFree(AS_BINARY_NODE(node)->left);
             astFree(AS_BINARY_NODE(node)->right);
             break;
@@ -154,6 +196,18 @@ void astFree(ASTNode *node) {
         case ND_NEG:
         case ND_EXPR_STMT:
             astFree(AS_UNARY_NODE(node)->operand);
+            break;
+        // conditional nodes
+        case ND_IF:
+            astFree(AS_CONDITIONAL_NODE(node)->condition);
+            astFree(AS_NODE(AS_CONDITIONAL_NODE(node)->body));
+            astFree(AS_CONDITIONAL_NODE(node)->else_);
+            break;
+        // list nodes
+        case ND_BLOCK:
+            for(usize i = 0; i < AS_LIST_NODE(node)->body.used; ++i) {
+                astFree(ARRAY_GET_AS(ASTNode *, &AS_LIST_NODE(node)->body, i));
+            }
             break;
         default:
             break;

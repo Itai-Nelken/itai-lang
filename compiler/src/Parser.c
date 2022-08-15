@@ -66,6 +66,14 @@ static bool consume(Parser *p, TokenType expected) {
     return true;
 }
 
+static bool match(Parser *p, TokenType expected) {
+    if(peek(p).type != expected) {
+        return false;
+    }
+    advance(p);
+    return true;
+}
+
 typedef enum precedences {
     PREC_LOWEST     = 0,  // lowest
     PREC_ASSIGNMENT = 1,  // infix =
@@ -97,17 +105,24 @@ static ASTNode *parse_prefix_expression(Parser *p);
 static ASTNode *parse_infix_expression(Parser *p, ASTNode *lhs);
 
 static ParseRule rules[] = {
-    //   token  |    prefix                 | infix | precedence
-    [TK_LPAREN]    = {parse_prefix_expression, NULL, PREC_LOWEST},
-    [TK_RPAREN]    = {NULL, NULL, PREC_LOWEST},
-    [TK_PLUS]      = {parse_prefix_expression, parse_infix_expression, PREC_TERM},
-    [TK_MINUS]     = {parse_prefix_expression, parse_infix_expression, PREC_TERM},
-    [TK_STAR]      = {NULL, parse_infix_expression, PREC_FACTOR},
-    [TK_SLASH]     = {NULL, parse_infix_expression, PREC_FACTOR},
-    [TK_SEMICOLON] = {NULL, NULL, PREC_LOWEST},
-    [TK_NUMBER]    = {parse_prefix_expression, NULL, PREC_LOWEST},
-    [TK_GARBAGE]   = {NULL, NULL, PREC_LOWEST},
-    [TK_EOF]       = {NULL, NULL, PREC_LOWEST}
+    //   token     |    prefix                 | infix | precedence
+    [TK_LPAREN]      = {parse_prefix_expression, NULL, PREC_LOWEST},
+    [TK_RPAREN]      = {NULL, NULL, PREC_LOWEST},
+    [TK_PLUS]        = {parse_prefix_expression, parse_infix_expression, PREC_TERM},
+    [TK_MINUS]       = {parse_prefix_expression, parse_infix_expression, PREC_TERM},
+    [TK_STAR]        = {NULL, parse_infix_expression, PREC_FACTOR},
+    [TK_SLASH]       = {NULL, parse_infix_expression, PREC_FACTOR},
+    [TK_SEMICOLON]   = {NULL, NULL, PREC_LOWEST},
+    [TK_EQUAL]       = {NULL, NULL, PREC_LOWEST},
+    [TK_EQUAL_EQUAL] = {NULL, parse_infix_expression, PREC_EQUALITY},
+    [TK_BANG]        = {NULL, NULL, PREC_LOWEST},
+    [TK_BANG_EQUAL]  = {NULL, parse_infix_expression, PREC_EQUALITY},
+    [TK_NUMBER]      = {parse_prefix_expression, NULL, PREC_LOWEST},
+    [TK_IF]          = {NULL, NULL, PREC_LOWEST},
+    [TK_ELSE]        = {NULL, NULL, PREC_LOWEST},
+    [TK_IDENTIFIER]  = {NULL, NULL, PREC_LOWEST},
+    [TK_GARBAGE]     = {NULL, NULL, PREC_LOWEST},
+    [TK_EOF]         = {NULL, NULL, PREC_LOWEST}
 };
 
 static inline ParseRule *get_rule(TokenType type) {
@@ -128,6 +143,38 @@ static inline Precedence get_precedence(TokenType type) {
     return get_rule(type)->precedence;
 }
 
+/***
+ * call parser function 'fn' with argument 'parser'
+ * and return NULL from the current function if it returns NULL.
+ *
+ * @param fn A Parser function with the signature 'ASTNode *(*)(Parser *)'.
+ * @param parser A pointer to a Parser that will be passed to 'fn'.
+ * @param on_null An optional *single* ASTNode to free on failure.
+ * @return The 'ASTNode *' returned from 'fn' or returns NULL from the *current* function.
+ ***/
+#define TRY_PARSE(fn, parser, on_null) ({ASTNode *_tmp_res = (fn)((parser)); if(!_tmp_res) { astFree(on_null); return NULL; } _tmp_res;})
+
+/***
+ * call parse_precedence() with arguments 'parser' and 'prec'.
+ * and return NULL from the current function if it returns NULL.
+ *
+ * @param parser A pointer to a Parser that will be passed to 'fn'.
+ * @param prec The precedence to pass to parse_precedence().
+ * @param on_null An optional *single* ASTNode to free on failure.
+ * @return The 'ASTNode *' returned from parse_precedence() or returns NULL from the *current* function.
+ ***/
+#define TRY_PARSE_PREC(parser, prec, on_null) ({ASTNode *_tmp_res = parse_precedence((parser), (prec)); if(!_tmp_res) { astFree(on_null); return NULL; } _tmp_res;})
+
+/***
+ * consume 'expected' and return NULL from the current function on failure.
+ *
+ * @param parser A pointer to a Parser that will be passed to 'fn'.
+ * @param expected The expected TokenType.
+ * @param on_null An optional *single* ASTNode to free on failure.
+ * @return true if 'expected' waas consumed succesfully. returns NULL from the current function if not.
+ ***/
+#define CONSUME(parser, expected, on_null) ({if(!consume((parser), (expected))) { astFree(on_null); return NULL;} true;})
+
 static ASTNodeType token_to_node_type(TokenType tk) {
     switch(tk) {
         case TK_PLUS:
@@ -138,6 +185,10 @@ static ASTNodeType token_to_node_type(TokenType tk) {
             return ND_MUL;
         case TK_SLASH:
             return ND_DIV;
+        case TK_EQUAL_EQUAL:
+            return ND_EQ;
+        case TK_BANG_EQUAL:
+            return ND_NE;
         case TK_NUMBER:
             return ND_NUMBER;
         default:
@@ -162,10 +213,7 @@ static ASTNode *parse_prefix_expression(Parser *p) {
         }
         case TK_LPAREN: {
             ASTNode *expr = parse_precedence(p, PREC_LOWEST);
-            if(!consume(p, TK_RPAREN)) {
-                astFree(expr);
-                return NULL;
-            }
+            CONSUME(p, TK_RPAREN, expr);
             return expr;
         }
         default:
@@ -176,11 +224,12 @@ static ASTNode *parse_prefix_expression(Parser *p) {
 static ASTNode *parse_infix_expression(Parser *p, ASTNode *lhs) {
     ASTNodeType type = token_to_node_type(previous(p).type);
     Location expr_loc = locationMerge(lhs->location, previous(p).location);
-    ASTNode *rhs = parse_precedence(p, (Precedence)(get_precedence(previous(p).type + 1)));
-    if(!rhs) {
-        astFree(lhs);
-        return NULL;
-    }
+    ASTNode *rhs = TRY_PARSE_PREC(p, (Precedence)(get_precedence(previous(p).type + 1)), lhs);
+    //ASTNode *rhs = parse_precedence(p, (Precedence)(get_precedence(previous(p).type + 1)));
+    //if(!rhs) {
+    //    astFree(lhs);
+    //    return NULL;
+    //}
     return astNewBinaryNode(type, locationMerge(expr_loc, rhs->location), lhs, rhs);
 }
 
@@ -207,6 +256,52 @@ static inline ASTNode *parse_expression(Parser *p) {
     return parse_precedence(p, PREC_LOWEST);
 }
 
+// pre-declarations
+static ASTNode *parse_statement(Parser *p);
+
+// block -> '{' statement* '}'
+static ASTNode *parse_block(Parser *p) {
+    // assumes '{' was already consumed.
+    Array body;
+    arrayInit(&body);
+    ASTListNode *n = AS_LIST_NODE(astNewListNode(ND_BLOCK, previous(p).location, body));
+    while(!is_eof(p) && peek(p).type != TK_RBRACE) {
+        arrayPush(&n->body, TRY_PARSE(parse_statement, p, AS_NODE(n)));
+    }
+    if(peek(p).type != TK_RBRACE) {
+        error(p, stringFormat("Expected '}' after block but got '%s'.", tokenTypeString(peek(p).type)));
+        astFree(AS_NODE(n));
+        return NULL;
+    }
+    advance(p); // consume the '}'.
+    return AS_NODE(n);
+}
+
+// if_stmt -> 'if' expression block ('else' (if_stmt | block))?
+static ASTNode *parse_if_stmt(Parser *p) {
+    // assumes 'if' was already consumed.
+    Location if_loc = previous(p).location;
+    ASTNode *condition = TRY_PARSE(parse_expression, p, 0);
+    CONSUME(p, TK_LBRACE, condition);
+    ASTNode *body = TRY_PARSE(parse_block, p, condition);
+
+    ASTNode *if_ = astNewConditionalNode(ND_IF, locationMerge(if_loc, locationMerge(condition->location, body->location)), condition, AS_LIST_NODE(body), NULL);
+    if(!match(p, TK_ELSE)) {
+        return if_;
+    }
+    if(match(p, TK_LBRACE)) {
+        AS_CONDITIONAL_NODE(if_)->else_ = TRY_PARSE(parse_block, p, if_);
+    } else if(match(p, TK_IF)) {
+        AS_CONDITIONAL_NODE(if_)->else_ = TRY_PARSE(parse_if_stmt, p, if_);
+    } else {
+        error(p, stringFormat("Expected one of ['if', '{'] after 'else' but got '%s'", tokenTypeString(peek(p).type)));
+        astFree(if_);
+        return NULL;
+    }
+    return if_;
+}
+
+// expr_stmt -> expression ';'
 static ASTNode *parse_expr_stmt(Parser *p) {
     ASTNode *expr = parse_expression(p);
     if(!expr) {
@@ -219,9 +314,20 @@ static ASTNode *parse_expr_stmt(Parser *p) {
     return astNewUnaryNode(ND_EXPR_STMT, locationMerge(expr->location, previous(p).location), expr);
 }
 
+// statement -> if_stmt | expr_stmt
 static ASTNode *parse_statement(Parser *p) {
-    return parse_expr_stmt(p);
+    ASTNode *result = NULL;
+    if(match(p, TK_IF)) {
+        result = parse_if_stmt(p);
+    } else {
+        result = parse_expr_stmt(p);
+    }
+    return result;
 }
+
+#undef CONSUME
+#undef TRY_PARSE_PREC
+#undef TRY_PARSE
 
 ASTNode *parserParse(Parser *p, Scanner *s) {
     p->scanner = s;

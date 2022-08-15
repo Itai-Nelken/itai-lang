@@ -45,13 +45,14 @@ static void _count_tests(Test testlist[]) {
     for(; testlist[__data.total_test_count].name && testlist[__data.total_test_count].fn; ++__data.total_test_count);
 }
 
-void _check(bool result, const char *expr) {
+bool _check(bool result, const char *expr) {
     assert(__data.current_test);
     if(result) {
-        return;
+        return true;
     }
     assert(__data.failure_count < MAX_FAILURES_IN_TEST);
     __data.failure_texts[__data.failure_count++] = expr;
+    return false;
 }
 
 void _log(const char *format, ...) {
@@ -90,6 +91,7 @@ int _run_test_list(Test testlist[]) {
  * Check an expression (evaluates to true or false).
  * 
  * @param expr The expression.
+ * @return true if the expression evaluates to true, false if not.
  ***/
 #define CHECK(expr) (_check((expr), #expr))
 /***
@@ -243,12 +245,43 @@ static void test_table(void *a) {
 
 struct scanner_test_token_type {
     TokenType type;
-    i64 value;
+    union {
+        i64 value;
+        const char *identifier;
+    } as;
 };
 static void test_scanner(void *a) {
     UNUSED(a);
-    const char *input = "(1 + 2 - 3 * 4 / 5)";
-    struct scanner_test_token_type expected[] = {{TK_LPAREN, 0}, {TK_NUMBER, 1}, {TK_PLUS, 0}, {TK_NUMBER, 2}, {TK_MINUS, 0}, {TK_NUMBER, 3}, {TK_STAR, 0}, {TK_NUMBER, 4}, {TK_SLASH, 0}, {TK_NUMBER, 5}, {TK_RPAREN, 0}, {TK_EOF, 0}};
+    const char *input = "(1 + 2 - 3 * 4 / 5) == 2; 2 != 2 if !2 {} else {} hello";
+    struct scanner_test_token_type expected[] = {
+        {TK_LPAREN,      {0}},
+        {TK_NUMBER,      {1}},
+        {TK_PLUS,        {0}},
+        {TK_NUMBER,      {2}},
+        {TK_MINUS,       {0}},
+        {TK_NUMBER,      {3}},
+        {TK_STAR,        {0}},
+        {TK_NUMBER,      {4}},
+        {TK_SLASH,       {0}},
+        {TK_NUMBER,      {5}},
+        {TK_RPAREN,      {0}},
+        {TK_EQUAL_EQUAL, {0}},
+        {TK_NUMBER,      {2}},
+        {TK_SEMICOLON,   {0}},
+        {TK_NUMBER,      {2}},
+        {TK_BANG_EQUAL,  {0}},
+        {TK_NUMBER,      {2}},
+        {TK_IF,          {0}},
+        {TK_BANG,        {0}},
+        {TK_NUMBER,      {2}},
+        {TK_LBRACE,      {0}},
+        {TK_RBRACE,      {0}},
+        {TK_ELSE,        {0}},
+        {TK_LBRACE,      {0}},
+        {TK_RBRACE,      {0}},
+        {TK_IDENTIFIER,  {.identifier = "hello"}},
+        {TK_EOF,         {0}}
+    };
     char tmp_file_name[] = "ilc_scanner_test_XXXXXX";
     int fd = mkstemp(tmp_file_name);
     CHECK(fd != -1);
@@ -275,7 +308,9 @@ static void test_scanner(void *a) {
         Token tk = scannerNextToken(&s);
         CHECK(tk.type == expected[i].type);
         if(tk.type == TK_NUMBER) {
-            CHECK(tk.as.number_constant.as.int64 == expected[i].value);
+            CHECK(tk.as.number_constant.as.int64 == expected[i].as.value);
+        } else if(tk.type == TK_IDENTIFIER && CHECK(expected[i].as.identifier != 0)) {
+            CHECK(strncmp(tk.as.identifier.text, expected[i].as.identifier, tk.as.identifier.length) == 0);
         }
     }
 
