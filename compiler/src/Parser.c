@@ -5,6 +5,7 @@
 #include "Array.h"
 #include "Strings.h"
 #include "Token.h"
+#include "ast.h"
 #include "Error.h"
 #include "Compiler.h"
 #include "Scanner.h"
@@ -96,16 +97,17 @@ static ASTNode *parse_prefix_expression(Parser *p);
 static ASTNode *parse_infix_expression(Parser *p, ASTNode *lhs);
 
 static ParseRule rules[] = {
-    // token  | prefix | infix | precedence
-    [TK_LPAREN] = {parse_prefix_expression, NULL, PREC_LOWEST},
-    [TK_RPAREN] = {NULL, NULL, PREC_LOWEST},
-    [TK_PLUS]   = {parse_prefix_expression, parse_infix_expression, PREC_TERM},
-    [TK_MINUS]  = {parse_prefix_expression, parse_infix_expression, PREC_TERM},
-    [TK_STAR]   = {NULL, parse_infix_expression, PREC_FACTOR},
-    [TK_SLASH]  = {NULL, parse_infix_expression, PREC_FACTOR},
-    [TK_NUMBER] = {parse_prefix_expression, NULL, PREC_LOWEST},
-    [TK_GARBAGE] = {NULL, NULL, PREC_LOWEST},
-    [TK_EOF]    = {NULL, NULL, PREC_LOWEST}
+    //   token  |    prefix                 | infix | precedence
+    [TK_LPAREN]    = {parse_prefix_expression, NULL, PREC_LOWEST},
+    [TK_RPAREN]    = {NULL, NULL, PREC_LOWEST},
+    [TK_PLUS]      = {parse_prefix_expression, parse_infix_expression, PREC_TERM},
+    [TK_MINUS]     = {parse_prefix_expression, parse_infix_expression, PREC_TERM},
+    [TK_STAR]      = {NULL, parse_infix_expression, PREC_FACTOR},
+    [TK_SLASH]     = {NULL, parse_infix_expression, PREC_FACTOR},
+    [TK_SEMICOLON] = {NULL, NULL, PREC_LOWEST},
+    [TK_NUMBER]    = {parse_prefix_expression, NULL, PREC_LOWEST},
+    [TK_GARBAGE]   = {NULL, NULL, PREC_LOWEST},
+    [TK_EOF]       = {NULL, NULL, PREC_LOWEST}
 };
 
 static inline ParseRule *get_rule(TokenType type) {
@@ -175,6 +177,10 @@ static ASTNode *parse_infix_expression(Parser *p, ASTNode *lhs) {
     ASTNodeType type = token_to_node_type(previous(p).type);
     Location expr_loc = locationMerge(lhs->location, previous(p).location);
     ASTNode *rhs = parse_precedence(p, (Precedence)(get_precedence(previous(p).type + 1)));
+    if(!rhs) {
+        astFree(lhs);
+        return NULL;
+    }
     return astNewBinaryNode(type, locationMerge(expr_loc, rhs->location), lhs, rhs);
 }
 
@@ -201,6 +207,22 @@ static inline ASTNode *parse_expression(Parser *p) {
     return parse_precedence(p, PREC_LOWEST);
 }
 
+static ASTNode *parse_expr_stmt(Parser *p) {
+    ASTNode *expr = parse_expression(p);
+    if(!expr) {
+        return NULL;
+    }
+    if(!consume(p, TK_SEMICOLON)) {
+        astFree(expr);
+        return NULL;
+    }
+    return astNewUnaryNode(ND_EXPR_STMT, locationMerge(expr->location, previous(p).location), expr);
+}
+
+static ASTNode *parse_statement(Parser *p) {
+    return parse_expr_stmt(p);
+}
+
 ASTNode *parserParse(Parser *p, Scanner *s) {
     p->scanner = s;
     // prime the parser
@@ -210,7 +232,7 @@ ASTNode *parserParse(Parser *p, Scanner *s) {
         p->scanner = NULL;
         return NULL;
     }
-    ASTNode *expr = parse_expression(p);
+    ASTNode *expr = parse_statement(p);
     p->scanner = NULL;
     return expr;
 }

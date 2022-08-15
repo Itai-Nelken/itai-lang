@@ -10,10 +10,16 @@
 // Update astPrint(), astFree(), node_type_name(), node_name() in ast.c
 // and token_to_node_type() in Parser.c when adding new types.
 typedef enum ast_node_type {
+    // expressions
     ND_ADD, ND_SUB,
     ND_MUL, ND_DIV,
     ND_NEG,
-    ND_NUMBER
+
+    // literals
+    ND_NUMBER,
+
+    // statements
+    ND_EXPR_STMT
 } ASTNodeType;
 
 typedef struct ast_node {

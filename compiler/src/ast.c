@@ -78,12 +78,13 @@ ASTNode *astNewLoopNode(ASTNodeType type, Location loc, ASTNode *initializer, AS
 
 static const char *node_type_name(ASTNodeType type) {
     static const char *names[] = {
-        [ND_ADD]    = "ND_ADD",
-        [ND_SUB]    = "ND_SUB",
-        [ND_MUL]    = "ND_MUL",
-        [ND_DIV]    = "ND_DIV",
-        [ND_NEG]    = "ND_NEG",
-        [ND_NUMBER] = "ND_NUMBER"
+        [ND_ADD]       = "ND_ADD",
+        [ND_SUB]       = "ND_SUB",
+        [ND_MUL]       = "ND_MUL",
+        [ND_DIV]       = "ND_DIV",
+        [ND_NEG]       = "ND_NEG",
+        [ND_NUMBER]    = "ND_NUMBER",
+        [ND_EXPR_STMT] = "ND_EXPR_STMT"
     };
     return names[(i32)type];
 }
@@ -98,6 +99,7 @@ static const char *node_name(ASTNodeType type) {
             return "ASTBinaryNode";
         // unary node
         case ND_NEG:
+        case ND_EXPR_STMT:
             return "ASTUnaryNode";
         // other nodes
         case ND_NUMBER:
@@ -128,6 +130,7 @@ void astPrint(FILE *to, ASTNode *node) {
             break;
         // unary nodes
         case ND_NEG:
+        case ND_EXPR_STMT:
             fprintf(to, ", \x1b[1moperand:\x1b[0m ");
             astPrint(to, AS_UNARY_NODE(node)->operand);
             break;
@@ -149,6 +152,7 @@ void astFree(ASTNode *node) {
             break;
         // unary nodes
         case ND_NEG:
+        case ND_EXPR_STMT:
             astFree(AS_UNARY_NODE(node)->operand);
             break;
         default:

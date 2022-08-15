@@ -43,15 +43,16 @@ Token tokenNewNumberConstant(Location location, NumberConstant value) {
 
 static const char *token_type_name(TokenType type) {
     static const char *names[] = {
-        [TK_LPAREN]  = "TK_LPAREN",
-        [TK_RPAREN]  = "TK_RPAREN",
-        [TK_PLUS]    = "TK_PLUS",
-        [TK_MINUS]   = "TK_MINUS",
-        [TK_STAR]    = "TK_STAR",
-        [TK_SLASH]   = "TK_SLASH",
-        [TK_NUMBER]  = "TK_NUMBER",
-        [TK_GARBAGE] = "TK_GARBAGE",
-        [TK_EOF]     = "TK_EOF"
+        [TK_LPAREN]    = "TK_LPAREN",
+        [TK_RPAREN]    = "TK_RPAREN",
+        [TK_PLUS]      = "TK_PLUS",
+        [TK_MINUS]     = "TK_MINUS",
+        [TK_STAR]      = "TK_STAR",
+        [TK_SLASH]     = "TK_SLASH",
+        [TK_SEMICOLON] = "TK_SEMICOLON",
+        [TK_NUMBER]    = "TK_NUMBER",
+        [TK_GARBAGE]   = "TK_GARBAGE",
+        [TK_EOF]       = "TK_EOF"
     };
     return names[(i32)type];
 }
@@ -89,15 +90,16 @@ void tokenPrint(FILE *to, Token *t) {
 
 const char *tokenTypeString(TokenType type) {
     static const char *strings[] = {
-        [TK_LPAREN]  = "(",
-        [TK_RPAREN]  = ")",
-        [TK_PLUS]    = "+",
-        [TK_MINUS]   = "-",
-        [TK_STAR]    = "*",
-        [TK_SLASH]   = "/",
-        [TK_NUMBER]  = "<number>",
-        [TK_GARBAGE] = "<garbage>",
-        [TK_EOF]     = "<eof>"
+        [TK_LPAREN]    = "(",
+        [TK_RPAREN]    = ")",
+        [TK_PLUS]      = "+",
+        [TK_MINUS]     = "-",
+        [TK_STAR]      = "*",
+        [TK_SLASH]     = "/",
+        [TK_SEMICOLON] = ";",
+        [TK_NUMBER]    = "<number>",
+        [TK_GARBAGE]   = "<garbage>",
+        [TK_EOF]       = "<eof>"
     };
     return strings[(i32)type];
 }

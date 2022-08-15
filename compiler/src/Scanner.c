@@ -106,12 +106,13 @@ Token scan_token(Scanner *s) {
     }
 
     switch(c) {
-        case '(': return make_simple_token(s, TK_LPAREN); break;
-        case ')': return make_simple_token(s, TK_RPAREN); break;
-        case '+': return make_simple_token(s, TK_PLUS); break;
-        case '-': return make_simple_token(s, TK_MINUS); break;
-        case '*': return make_simple_token(s, TK_STAR); break;
-        case '/': return make_simple_token(s, TK_SLASH); break;
+        case '(': return make_simple_token(s, TK_LPAREN);
+        case ')': return make_simple_token(s, TK_RPAREN);
+        case '+': return make_simple_token(s, TK_PLUS);
+        case '-': return make_simple_token(s, TK_MINUS);
+        case '*': return make_simple_token(s, TK_STAR);
+        case '/': return make_simple_token(s, TK_SLASH);
+        case ';': return make_simple_token(s, TK_SEMICOLON);
         default:
             break;
     }

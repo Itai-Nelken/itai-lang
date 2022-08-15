@@ -38,6 +38,7 @@ typedef enum token_type {
     TK_LPAREN, TK_RPAREN,
     TK_PLUS, TK_MINUS,
     TK_STAR, TK_SLASH,
+    TK_SEMICOLON,
 
     // Literals
     TK_NUMBER,
