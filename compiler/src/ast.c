@@ -88,7 +88,8 @@ static const char *node_type_name(ASTNodeType type) {
         [ND_NUMBER]    = "ND_NUMBER",
         [ND_EXPR_STMT] = "ND_EXPR_STMT",
         [ND_IF]        = "ND_IF",
-        [ND_BLOCK]        = "ND_BLOCK"
+        [ND_BLOCK]     = "ND_BLOCK",
+        [ND_LOOP]      = "ND_LOOP"
     };
     return names[(i32)type];
 }
@@ -113,6 +114,9 @@ static const char *node_name(ASTNodeType type) {
         // list nodes
         case ND_BLOCK:
             return "ASTListNode";
+        // loop nodes
+        case ND_LOOP:
+            return "ASTLoopNode";
         // other nodes
         case ND_NUMBER:
             return "ASTNumberNode";
@@ -171,6 +175,17 @@ void astPrint(FILE *to, ASTNode *node) {
                 astPrint(to, ARRAY_GET_AS(ASTNode *, &AS_LIST_NODE(node)->body, i));
             }
             break;
+        // loop nodes
+        case ND_LOOP:
+            fprintf(to, ", \x1b[1minitializer:\x1b[0m ");
+            astPrint(to, AS_LOOP_NODE(node)->initializer);
+            fprintf(to, ", \x1b[1mcondition:\x1b[0m ");
+            astPrint(to, AS_LOOP_NODE(node)->condition);
+            fprintf(to, ", \x1b[1mincrement:\x1b[0m ");
+            astPrint(to, AS_LOOP_NODE(node)->increment);
+            fprintf(to, ", \x1b[1mbody:\x1b[0m ");
+            astPrint(to, AS_NODE(AS_LOOP_NODE(node)->body));
+            break;
         default:
             UNREACHABLE();
     }
@@ -208,6 +223,13 @@ void astFree(ASTNode *node) {
             for(usize i = 0; i < AS_LIST_NODE(node)->body.used; ++i) {
                 astFree(ARRAY_GET_AS(ASTNode *, &AS_LIST_NODE(node)->body, i));
             }
+            break;
+        // loop nodes
+        case ND_LOOP:
+            astFree(AS_LOOP_NODE(node)->initializer);
+            astFree(AS_LOOP_NODE(node)->condition);
+            astFree(AS_LOOP_NODE(node)->increment);
+            astFree(AS_NODE(AS_LOOP_NODE(node)->body));
             break;
         default:
             break;

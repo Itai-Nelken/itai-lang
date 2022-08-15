@@ -120,6 +120,7 @@ static ParseRule rules[] = {
     [TK_NUMBER]      = {parse_prefix_expression, NULL, PREC_LOWEST},
     [TK_IF]          = {NULL, NULL, PREC_LOWEST},
     [TK_ELSE]        = {NULL, NULL, PREC_LOWEST},
+    [TK_WHILE]       = {NULL, NULL, PREC_LOWEST},
     [TK_IDENTIFIER]  = {NULL, NULL, PREC_LOWEST},
     [TK_GARBAGE]     = {NULL, NULL, PREC_LOWEST},
     [TK_EOF]         = {NULL, NULL, PREC_LOWEST}
@@ -265,8 +266,11 @@ static ASTNode *parse_block(Parser *p) {
     Array body;
     arrayInit(&body);
     ASTListNode *n = AS_LIST_NODE(astNewListNode(ND_BLOCK, previous(p).location, body));
+    Location location = previous(p).location;
     while(!is_eof(p) && peek(p).type != TK_RBRACE) {
-        arrayPush(&n->body, TRY_PARSE(parse_statement, p, AS_NODE(n)));
+        ASTNode *node = TRY_PARSE(parse_statement, p, AS_NODE(n));
+        location = locationMerge(location, node->location);
+        arrayPush(&n->body, (void *)node);
     }
     if(peek(p).type != TK_RBRACE) {
         error(p, stringFormat("Expected '}' after block but got '%s'.", tokenTypeString(peek(p).type)));
@@ -274,6 +278,7 @@ static ASTNode *parse_block(Parser *p) {
         return NULL;
     }
     advance(p); // consume the '}'.
+    n->header.location = location;
     return AS_NODE(n);
 }
 
@@ -301,6 +306,17 @@ static ASTNode *parse_if_stmt(Parser *p) {
     return if_;
 }
 
+// while_stmt -> 'while' expression block
+static ASTNode *parse_while_stmt(Parser *p) {
+    // assumes 'while' was already consumed.
+    Location while_loc = previous(p).location;
+    ASTNode *condition = TRY_PARSE(parse_expression, p, 0);
+    CONSUME(p, TK_LBRACE, condition);
+    ASTNode *body = TRY_PARSE(parse_block, p, condition);
+
+    return astNewLoopNode(ND_LOOP, locationMerge(while_loc, locationMerge(condition->location, body->location)), NULL, condition, NULL, AS_LIST_NODE(body));
+}
+
 // expr_stmt -> expression ';'
 static ASTNode *parse_expr_stmt(Parser *p) {
     ASTNode *expr = parse_expression(p);
@@ -314,11 +330,15 @@ static ASTNode *parse_expr_stmt(Parser *p) {
     return astNewUnaryNode(ND_EXPR_STMT, locationMerge(expr->location, previous(p).location), expr);
 }
 
-// statement -> if_stmt | expr_stmt
+// statement -> if_stmt
+//            | while_stmt
+//            | expr_stmt
 static ASTNode *parse_statement(Parser *p) {
     ASTNode *result = NULL;
     if(match(p, TK_IF)) {
         result = parse_if_stmt(p);
+    } else if(match(p, TK_WHILE)) {
+        result = parse_while_stmt(p);
     } else {
         result = parse_expr_stmt(p);
     }
