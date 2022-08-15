@@ -10,6 +10,7 @@ set(sources
     src/Strings.c
     src/Array.c
     src/Token.c
+    src/ast.c
     src/Error.c
     src/Compiler.c
     src/Scanner.c
