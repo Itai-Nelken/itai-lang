@@ -37,6 +37,45 @@ ASTNode *astNewBinaryNode(ASTNodeType type, Location loc, ASTNode *left, ASTNode
     return AS_NODE(n);
 }
 
+ASTNode *astNewListNode(ASTNodeType type, Location loc, Array body) {
+    ASTListNode *n;
+    NEW0(n);
+    n->header = (ASTNode){
+        .type = type,
+        .location = loc
+    };
+    n->body = body;
+    return AS_NODE(n);
+}
+
+ASTNode *astNewConditionalNode(ASTNodeType type, Location loc, ASTNode *condition, ASTListNode *body, ASTNode *else_) {
+    ASTConditionalNode *n;
+    NEW0(n);
+    n->header = (ASTNode){
+        .type = type,
+        .location = loc
+    };
+    n->condition = condition;
+    n->body = body;
+    n->else_ = else_;
+    return AS_NODE(n);
+}
+
+ASTNode *astNewLoopNode(ASTNodeType type, Location loc, ASTNode *initializer, ASTNode *condition, ASTNode *increment, ASTListNode *body) {
+    ASTLoopNode *n;
+    NEW0(n);
+    n->header = (ASTNode){
+        .type = type,
+        .location = loc
+    };
+    n->initializer = initializer;
+    n->condition = condition;
+    n->increment = increment;
+    n->body = body;
+    return AS_NODE(n);
+}
+
+
 static const char *node_type_name(ASTNodeType type) {
     static const char *names[] = {
         [ND_ADD]    = "ND_ADD",
