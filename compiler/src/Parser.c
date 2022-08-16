@@ -205,7 +205,7 @@ static ASTNode *parse_prefix_expression(Parser *p) {
         case TK_MINUS: {
             TokenType operator = previous(p).type;
             Location operator_loc = previous(p).location;
-            ASTNode *operand = parse_precedence(p, PREC_UNARY);
+            ASTNode *operand = TRY_PARSE_PREC(p, PREC_UNARY, 0);
             if(operator == TK_PLUS) {
                 operand->location = locationMerge(operator_loc, operand->location);
                 return operand;
@@ -213,7 +213,7 @@ static ASTNode *parse_prefix_expression(Parser *p) {
             return astNewUnaryNode(ND_NEG, locationMerge(operator_loc, operand->location), operand);
         }
         case TK_LPAREN: {
-            ASTNode *expr = parse_precedence(p, PREC_LOWEST);
+            ASTNode *expr = TRY_PARSE_PREC(p, PREC_LOWEST, 0);
             CONSUME(p, TK_RPAREN, expr);
             return expr;
         }
@@ -226,11 +226,6 @@ static ASTNode *parse_infix_expression(Parser *p, ASTNode *lhs) {
     ASTNodeType type = token_to_node_type(previous(p).type);
     Location expr_loc = locationMerge(lhs->location, previous(p).location);
     ASTNode *rhs = TRY_PARSE_PREC(p, (Precedence)(get_precedence(previous(p).type + 1)), lhs);
-    //ASTNode *rhs = parse_precedence(p, (Precedence)(get_precedence(previous(p).type + 1)));
-    //if(!rhs) {
-    //    astFree(lhs);
-    //    return NULL;
-    //}
     return astNewBinaryNode(type, locationMerge(expr_loc, rhs->location), lhs, rhs);
 }
 
@@ -241,10 +236,7 @@ static ASTNode *parse_precedence(Parser *p, Precedence min_prec) {
         error(p, "Expected an expression!");
         return NULL;
     }
-    ASTNode *lhs = nud(p);
-    if(!lhs) {
-        return NULL;
-    }
+    ASTNode *lhs = TRY_PARSE(nud, p, 0);
     while(!is_eof(p) && min_prec < get_precedence(peek(p).type)) {
         advance(p);
         InfixParseFn led = get_led(previous(p).type);
@@ -319,14 +311,8 @@ static ASTNode *parse_while_stmt(Parser *p) {
 
 // expr_stmt -> expression ';'
 static ASTNode *parse_expr_stmt(Parser *p) {
-    ASTNode *expr = parse_expression(p);
-    if(!expr) {
-        return NULL;
-    }
-    if(!consume(p, TK_SEMICOLON)) {
-        astFree(expr);
-        return NULL;
-    }
+    ASTNode *expr = TRY_PARSE(parse_expression, p, 0);
+    CONSUME(p, TK_SEMICOLON, expr);
     return astNewUnaryNode(ND_EXPR_STMT, locationMerge(expr->location, previous(p).location), expr);
 }
 
