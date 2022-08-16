@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "common.h"
 #include "memory.h"
 #include "Error.h"
