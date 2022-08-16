@@ -63,7 +63,7 @@ String stringResize(String s, size_t newLength);
  * @param length How much characters to copy.
  * @return A new copy of 'length' characters of 's'.
  ***/
-String stringNCopy(const char *s, int length);
+String stringNCopy(const char *s, size_t length);
 
 /***
  * Copy a string into a new string.

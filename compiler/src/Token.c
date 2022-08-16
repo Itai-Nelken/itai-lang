@@ -60,6 +60,7 @@ static const char *token_type_name(TokenType type) {
         [TK_IF]          = "TK_IF",
         [TK_ELSE]        = "TK_ELSE",
         [TK_WHILE]       = "TK_WHILE",
+        [TK_FN]          = "TK_FN",
         [TK_GARBAGE]     = "TK_GARBAGE",
         [TK_EOF]         = "TK_EOF"
     };
@@ -120,6 +121,7 @@ const char *tokenTypeString(TokenType type) {
         [TK_IF]          = "if",
         [TK_ELSE]        = "else",
         [TK_WHILE]       = "while",
+        [TK_FN]          = "fn",
         [TK_IDENTIFIER]  = "<identifier>",
         [TK_GARBAGE]     = "<garbage>",
         [TK_EOF]         = "<eof>"

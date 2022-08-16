@@ -66,7 +66,7 @@ String stringResize(String s, size_t newCapacity) {
     return to_str(ptr);
 }
 
-String stringNCopy(const char *s, int length) {
+String stringNCopy(const char *s, size_t length) {
     String str = stringNew(length);
     memcpy(str, s, length);
     str[length] = '\0';

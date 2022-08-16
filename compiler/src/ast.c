@@ -1,7 +1,117 @@
 #include <stdio.h>
+#include "common.h"
 #include "memory.h"
+#include "Array.h"
+#include "Strings.h"
 #include "Token.h"
+#include "Symbols.h"
 #include "ast.h"
+
+ASTIdentifier *astNewIdentifier(Location loc, SymbolID id) {
+    ASTIdentifier *ident;
+    NEW0(ident);
+    ident->location = loc;
+    ident->id = id;
+    return ident;
+}
+
+void astFreeIdentifier(ASTIdentifier *id) {
+    FREE(id);
+}
+
+void astPrintIdentifier(FILE *to, ASTIdentifier *id) {
+    fprintf(to, "ASTIdentifier{\x1b[1mlocation:\x1b[0m ");
+    printLocation(to, id->location);
+    fprintf(to, ", \x1b[1mid:\x1b[0m \x1b[34m%zu\x1b[0m}", id->id);
+}
+
+ASTObj *astNewFunctionObj(Location loc, ASTIdentifier *name, ASTListNode *body) {
+    ASTFunctionObj *fn;
+    NEW0(fn);
+    fn->header = (ASTObj){
+        .type = OBJ_FUNCTION,
+        .location = loc,
+        .name = name
+    };
+    fn->body = body;
+    return AS_OBJ(fn);
+}
+
+void astFreeObj(ASTObj *obj) {
+    if(!obj) {
+        return;
+    }
+    if(obj->name) {
+        astFreeIdentifier(obj->name);
+    }
+    switch(obj->type) {
+        case OBJ_FUNCTION:
+            astFree(AS_NODE(AS_FUNCTION_OBJ(obj)->body));
+            break;
+        default:
+            UNREACHABLE();
+    }
+    FREE(obj);
+}
+
+static const char *obj_name(ASTObjType type) {
+    switch(type) {
+        case OBJ_FUNCTION:
+            return "ASTFunctionObj";
+        default:
+            break;
+    }
+    UNREACHABLE();
+}
+
+void astPrintObj(FILE *to, ASTObj *obj) {
+    fprintf(to, "%s{\x1b[1mlocation:\x1b[0m ", obj_name(obj->type));
+    printLocation(to, obj->location);
+    fprintf(to, ", \x1b[1mname:\x1b[0m ");
+    astPrintIdentifier(to, obj->name);
+    switch(obj->type) {
+        case OBJ_FUNCTION:
+            fprintf(to, ", \x1b[1mbody:\x1b[0m ");
+            astPrint(to, AS_NODE(AS_FUNCTION_OBJ(obj)->body));
+            break;
+        default:
+            break;
+    }
+    fputc('}', to);
+}
+
+void astInitProgram(ASTProgram *prog) {
+    prog->entry_point = NULL;
+    arrayInit(&prog->functions);
+    symbolTableInit(&prog->symbols);
+}
+
+void astFreeProgram(ASTProgram *prog) {
+    for(usize i = 0; i < prog->functions.used; ++i) {
+        astFreeObj(ARRAY_GET_AS(ASTObj *, &prog->functions, i));
+    }
+    arrayFree(&prog->functions);
+    prog->entry_point = NULL; // entry point should be in the functions array, so it was already freed.
+    symbolTableFree(&prog->symbols);
+}
+
+void astPrintProgram(FILE *to, ASTProgram *prog) {
+    fprintf(to, "ASTProgram{\x1b[1mentry_point:\x1b[0m ");
+    if(prog->entry_point) {
+        astPrintObj(to, AS_OBJ(prog->entry_point));
+    } else {
+        fputs("(null)", to);
+    }
+    fprintf(to, ", \x1b[1mfunctions:\x1b[0m ");
+    for(usize i = 0; i < prog->functions.used; ++i) {
+        astPrintObj(to, ARRAY_GET_AS(ASTObj *, &prog->functions, i));
+        if(i + 1 < prog->functions.used) {
+            fputs(", ", to);
+        }
+    }
+    fprintf(to, ", \x1b[1msymbols:\x1b[0m <symbol table>}");
+}
+
 
 ASTNode *astNewNumberNode(Location loc, NumberConstant value) {
     ASTNumberNode *n;

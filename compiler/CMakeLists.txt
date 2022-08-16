@@ -12,6 +12,7 @@ set(sources
     src/Token.c
     src/ast.c
     src/Error.c
+    src/Symbols.c
     src/Compiler.c
     src/Scanner.c
     src/Parser.c

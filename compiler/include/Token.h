@@ -51,6 +51,7 @@ typedef enum token_type {
     // keywords
     TK_IF, TK_ELSE,
     TK_WHILE,
+    TK_FN,
     TK_IDENTIFIER,
 
     // Other

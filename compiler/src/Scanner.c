@@ -120,6 +120,9 @@ static TokenType scan_keyword_or_identifier_type(Scanner *s) {
         case 'w':
             result = (length == 5 && memcmp(lexeme, "while", 5) == 0) ? TK_WHILE : TK_IDENTIFIER;
             break;
+        case 'f':
+            result = (length == 2 && memcmp(lexeme, "fn", 2) == 0) ? TK_FN : TK_IDENTIFIER;
+            break;
         default:
             result = TK_IDENTIFIER;
             break;

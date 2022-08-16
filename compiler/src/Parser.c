@@ -14,6 +14,7 @@
 void parserInit(Parser *p, Compiler *c) {
     memset(p, 0, sizeof(*p));
     p->compiler = c;
+    p->current_symbol_table = NULL;
     p->current_token.type = TK_GARBAGE;
     p->previous_token.type = TK_GARBAGE;
 }
@@ -46,15 +47,20 @@ static inline Token previous(Parser *p) {
 }
 
 // if a valid String is provided as message, it will be freed.
-// uses previous tokens location.
-static void error(Parser *p, char *message) {
+static void error_at(Parser *p, Location loc, char *message) {
     Error *err;
     NEW0(err);
-    errorInit(err, ERR_ERROR, true, previous(p).location, message);
+    errorInit(err, ERR_ERROR, true, loc, message);
     compilerAddError(p->compiler, err);
     if(stringIsValid(message)) {
         stringFree(message);
     }
+}
+
+// if 'message' is a valid String, it will be freed.
+// uses previous location.
+static inline void error(Parser *p, char *message) {
+    error_at(p, previous(p).location, message);
 }
 
 static bool consume(Parser *p, TokenType expected) {
@@ -252,6 +258,19 @@ static inline ASTNode *parse_expression(Parser *p) {
 // pre-declarations
 static ASTNode *parse_statement(Parser *p);
 
+/* helpers */
+
+static ASTIdentifier *parse_identifier(Parser *p) {
+    CONSUME(p, TK_IDENTIFIER, 0);
+    Token id = previous(p);
+    SymbolID id_idx = symbolTableAddIdentifier(p->current_symbol_table, id.as.identifier.text, id.as.identifier.length);
+    return astNewIdentifier(id.location, id_idx);
+}
+
+#define TRY_PARSE_ID(parser) ({ASTIdentifier *_tmp_res = parse_identifier((parser)); if(!_tmp_res) { return NULL; } _tmp_res;})
+
+/* statements */
+
 // block -> '{' statement* '}'
 static ASTNode *parse_block(Parser *p) {
     // assumes '{' was already consumed.
@@ -331,12 +350,50 @@ static ASTNode *parse_statement(Parser *p) {
     return result;
 }
 
+/* declarations */
+
+// fn_decl -> 'fn' IDENTIFIER generic_parameters? '(' parameter_list ')' ('->' type)? block
+static ASTFunctionObj *parse_function_decl(Parser *p) {
+    // assumes 'fn' was already consumed.
+    // TODO: parameters, generic parameters and return type
+    Location location = previous(p).location;
+    ASTIdentifier *name = TRY_PARSE_ID(p);
+    location = locationMerge(location, name->location);
+
+    CONSUME(p, TK_LPAREN, 0);
+    location = locationMerge(location, previous(p).location);
+    CONSUME(p, TK_RPAREN, 0);
+    location = locationMerge(location, previous(p).location);
+
+    CONSUME(p, TK_LBRACE, 0);
+    ASTListNode *body = AS_LIST_NODE(TRY_PARSE(parse_block, p, 0));
+
+    return AS_FUNCTION_OBJ(astNewFunctionObj(locationMerge(location, body->header.location), name, body));
+}
+
+#undef TRY_PARSE_ID
 #undef CONSUME
 #undef TRY_PARSE_PREC
 #undef TRY_PARSE
 
-ASTNode *parserParse(Parser *p, Scanner *s) {
+// synchronize to declaration boundaries
+static void synchronize(Parser *p) {
+    while(!is_eof(p)) {
+        switch(peek(p).type) {
+            case TK_FN:
+            //case TK_VAR:
+            //case TK_IMPORT:
+                break;
+            default:
+                advance(p);
+                break;
+        }
+    }
+}
+
+bool parserParse(Parser *p, Scanner *s, ASTProgram *prog) {
     p->scanner = s;
+    p->current_symbol_table = &prog->symbols;
     // prime the parser
     advance(p);
     // if the scanner failed to set the source, we can't do anything.
@@ -344,7 +401,26 @@ ASTNode *parserParse(Parser *p, Scanner *s) {
         p->scanner = NULL;
         return NULL;
     }
-    ASTNode *expr = parse_statement(p);
+
+    bool had_error = false;
+    while(!is_eof(p)) {
+        if(match(p, TK_FN)) {
+            ASTFunctionObj *fn = parse_function_decl(p);
+            if(p) {
+                arrayPush(&prog->functions, (void *)fn);
+            } else {
+                had_error = true;
+                synchronize(p);
+            }
+        } else {
+            error_at(p, peek(p).location, stringFormat("Expected one of ['fn'], but got '%s'.", tokenTypeString(peek(p).type)));
+            // advance and synchronize so we don't get stuck in an infinite loop on the same token.
+            advance(p);
+            synchronize(p);
+        }
+    }
+
+    p->current_symbol_table = NULL;
     p->scanner = NULL;
-    return expr;
+    return !had_error;
 }

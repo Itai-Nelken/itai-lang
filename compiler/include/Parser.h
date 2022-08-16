@@ -4,11 +4,13 @@
 #include "Token.h"
 #include "Compiler.h"
 #include "Scanner.h"
+#include "Symbols.h"
 #include "ast.h"
 
 typedef struct parser {
     Compiler *compiler;
     Scanner *scanner;
+    SymbolTable *current_symbol_table;
     Token previous_token, current_token;
 } Parser;
 
@@ -32,7 +34,9 @@ void parserFree(Parser *p);
  *
  * @param p An initialized Parser.
  * @param s An initialized Scanner.
+ * @param prog A pointer to an initialized AST program.
+ * @return true on success, false on failure.
  ***/
-ASTNode *parserParse(Parser *p, Scanner *s);
+bool parserParse(Parser *p, Scanner *s, ASTProgram *prog);
 
 #endif // PARSER_H
