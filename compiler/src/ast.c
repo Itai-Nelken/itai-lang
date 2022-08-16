@@ -223,6 +223,7 @@ void astFree(ASTNode *node) {
             for(usize i = 0; i < AS_LIST_NODE(node)->body.used; ++i) {
                 astFree(ARRAY_GET_AS(ASTNode *, &AS_LIST_NODE(node)->body, i));
             }
+            arrayFree(&AS_LIST_NODE(node)->body);
             break;
         // loop nodes
         case ND_LOOP:
