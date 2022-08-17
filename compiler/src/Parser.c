@@ -413,6 +413,7 @@ bool parserParse(Parser *p, Scanner *s, ASTProgram *prog) {
                 synchronize(p);
             }
         } else {
+            had_error = true;
             error_at(p, peek(p).location, stringFormat("Expected one of ['fn'], but got '%s'.", tokenTypeString(peek(p).type)));
             // advance and synchronize so we don't get stuck in an infinite loop on the same token.
             advance(p);
