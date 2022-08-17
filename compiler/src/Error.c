@@ -47,7 +47,12 @@ struct line_array {
 
 static void push_line(struct line_array *lines, struct line line) {
     if(lines->used + 1 > lines->capacity || lines->lines == NULL) {
-        lines->capacity = lines->capacity == 0 ? 2 : lines->capacity * 2;
+        // The initial capacity is 4 because in most errors there will be 3 lines:
+        // * The line before the error.
+        // * The line with the error.
+        // * The line after the error.
+        // 4 will store the 3 lines with a slot left over.
+        lines->capacity = lines->capacity == 0 ? 4 : lines->capacity * 2;
         lines->lines = REALLOC(lines->lines, sizeof(*lines->lines) * lines->capacity);
     }
     lines->lines[lines->used++] = line;
