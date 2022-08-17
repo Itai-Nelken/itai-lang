@@ -352,7 +352,7 @@ static ASTNode *parse_statement(Parser *p) {
 
 /* declarations */
 
-// fn_decl -> 'fn' IDENTIFIER generic_parameters? '(' parameter_list ')' ('->' type)? block
+// fn_decl -> 'fn' IDENTIFIER generic_parameters? '(' parameter_list? ')' ('->' type)? block
 static ASTFunctionObj *parse_function_decl(Parser *p) {
     // assumes 'fn' was already consumed.
     // TODO: parameters, generic parameters and return type
