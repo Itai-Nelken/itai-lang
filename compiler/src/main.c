@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include "common.h"
 #include "memory.h"
-#include "Error.h"
 #include "Token.h"
 #include "Compiler.h"
 #include "Scanner.h"

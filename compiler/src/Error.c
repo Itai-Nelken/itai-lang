@@ -37,10 +37,31 @@ struct line {
     usize start;
     usize end;
     u64 line_number;
-    bool use;
+    bool is_error_line;
 };
 
-static void collect_lines(String file_contents, Location loc, struct line *before, struct line *current, struct line *after) {
+struct line_array {
+    struct line *lines;
+    usize used, capacity;
+};
+
+static void push_line(struct line_array *lines, struct line line) {
+    if(lines->used + 1 > lines->capacity || lines->lines == NULL) {
+        lines->capacity = lines->capacity == 0 ? 2 : lines->capacity * 2;
+        lines->lines = REALLOC(lines->lines, sizeof(*lines->lines) * lines->capacity);
+    }
+    lines->lines[lines->used++] = line;
+}
+
+static inline struct line *get_line(struct line_array *lines, usize idx) {
+    return idx < lines->used ? &lines->lines[idx] : NULL;
+}
+
+static inline struct line *get_last_line(struct line_array *lines) {
+    return get_line(lines, lines->used - 1);
+}
+
+static void collect_lines(String file_contents, Location loc, struct line_array *lines, struct line *first_error_line) {
     u64 prev_start = 0, prev_end = 0, current_start = 0;
     u64 line_number = 1;
     for(usize i = 0; i < stringLength(file_contents); ++i) {
@@ -53,33 +74,37 @@ static void collect_lines(String file_contents, Location loc, struct line *befor
         }
         // if the location is found, set all the line structs and return; 
         if(i == loc.start) {
-            // set previous line.
+            // set previous line (if exists).
             if(line_number > 1) {
-                before->start = prev_start;
-                before->end = prev_end;
-                before->line_number = line_number - 1;
-                before->use = true;
-            } else {
-                before->use = false;
+                struct line before;
+                before.is_error_line = false;
+                before.start = prev_start;
+                before.end = prev_end;
+                before.line_number = line_number - 1;
+                push_line(lines, before);
             }
 
-            // set current line.
-            current->start = current_start;
+            // set current line(s).
+            struct line current = {0};
+            current.is_error_line = true;
+            current.start = current_start;
+            // continue until end of the current line
             for(; i < stringLength(file_contents) && file_contents[i] != '\n'; ++i) /* nothing */;
-            current->end = i;
-            current->line_number = line_number;
-            current->use = true;
+            current.end = i;
+            current.line_number = line_number;
+            *first_error_line = current;
+            push_line(lines, current);
 
-            // set next line.
+            // set next line (if exists).
             if(i + 1 < stringLength(file_contents)) {
+                struct line after;
+                after.is_error_line = false;
                 // 'i' points to the previous newline, so get the next character location.
-                after->start = ++i;
+                after.start = ++i;
                 for(; i < stringLength(file_contents) && file_contents[i] != '\n'; ++i) /* nothing */;
-                after->end = i;
-                after->line_number = line_number + 1;
-                after->use = true;
-            } else {
-                after->use = false;
+                after.end = i;
+                after.line_number = line_number + 1;
+                push_line(lines, after);
             }
 
             return;
@@ -128,48 +153,46 @@ void errorPrint(Error *err, Compiler *c, FILE *to) {
         return;
     }
 
-    struct line before = {0}, current = {0}, after = {0};
     String file_contents = fileRead(compilerGetFile(c, err->location.file));
     if(file_contents == NULL) {
         LOG_ERR("Failed to read file '%s'!\n", compilerGetFile(c, err->location.file)->path);
         return;
     }
+    struct line_array lines = {0};
+    struct line first_error_line = {0};
     // get the contents of the line before, the line with, and the line after the error,
-    collect_lines(file_contents, err->location, &before, &current, &after);
+    collect_lines(file_contents, err->location, &lines, &first_error_line);
     // calculate the width of the largest line number.
     // if the line after isn't available, the current line number must be the largest.
-    u32 largest_width = number_width(after.use ? after.line_number : current.line_number);
+    u32 largest_width = number_width(get_last_line(&lines)->line_number);
 
     fprintf(to, "%s: \x1b[1m%s\x1b[0m\n", error_type_to_string(err->type), err->message);
-    fprintf(to, "---%*c \x1b[33m%s:%ld:%ld\x1b[0m\n", largest_width, '-', compilerGetFile(c, err->location.file)->path, current.line_number, err->location.start);
+    fprintf(to, "---%*c \x1b[33m%s:%ld:%ld\x1b[0m\n", largest_width, '-', compilerGetFile(c, err->location.file)->path, first_error_line.line_number, err->location.start);
     
-    // line before
-    if(before.use) {
-        print_line(to, err, file_contents, &before, largest_width);
+    // print all the lines
+    for(usize i = 0; i < lines.used; ++i) {
+        struct line *current_line = get_line(&lines, i);
+        print_line(to, err, file_contents, current_line, largest_width);
+        if(current_line->is_error_line) {
+            // pad the line for " <line> | "
+            fprintf(to, " %*c   ", largest_width, ' ');
+            // if 'start' is larger than 0, pad until the offending character - 1.
+            // FIXME: tab (\t) characters are 8 spaces, are a single character, print as 4 spaces???.
+            // 3 |    if -1 { // the spaces before 'if' are a tab ('\t').
+            //      ^~ error message
+            // 4 | <line after contents>
+            for(u64 i = current_line->start; i < err->location.start; ++i) {
+                fputc(' ', to);
+            }
+            fprintf(to, "\x1b[35;1m^");
+            for(u64 i = 0; i < labs((isize)err->location.end - (isize)err->location.start - 1); ++i) {
+                fputc('~', to);
+            }
+            fprintf(to, "\x1b[0;1m %s\x1b[0m\n", err->message);
+        }
     }
-
-    // line with error
-    print_line(to, err, file_contents, &current, largest_width);
-
-    // line pointing to the error.
-    // pad the line for " <line> | "
-    fprintf(to, " %*c   ", largest_width, ' ');
-    // if 'start' is larger than 0, pad until the offending character - 1.
-    for(u64 i = current.start; i < err->location.start; ++i) {
-        fputc(' ', to);
-    }
-    // print the '^' under the first offending character
-    // followed by '~' for the rest (if they exist).
-    fprintf(to, "\x1b[35;1m^");
-    for(u64 i = 0; i < labs((isize)err->location.end - (isize)err->location.start - 1); ++i) {
-        fputc('~', to);
-    }
-    fprintf(to, "\x1b[0;1m %s\x1b[0m\n", err->message);
-
-    // line after
-    if(after.use) {
-        print_line(to, err, file_contents, &after, largest_width);
-    }
-
     fprintf(to, "---%*c\n", largest_width, '-');
+    if(lines.lines) {
+        FREE(lines.lines);
+    }
 }
