@@ -253,8 +253,9 @@ struct scanner_test_token_type {
 };
 static void test_scanner(void *a) {
     UNUSED(a);
-    const char *input = "(1 + 2 - 3 * 4 / 5) == 2; 2 != 2 if !2 {} else {} hello";
+    const char *input = "fn (1 + 2 - 3 * 4 / 5) == 2; 2 != 2 if !2 {} else {} hello = 1; while 1 {} @";
     struct scanner_test_token_type expected[] = {
+        {TK_FN,          {0}},
         {TK_LPAREN,      {0}},
         {TK_NUMBER,      {1}},
         {TK_PLUS,        {0}},
@@ -281,6 +282,14 @@ static void test_scanner(void *a) {
         {TK_LBRACE,      {0}},
         {TK_RBRACE,      {0}},
         {TK_IDENTIFIER,  {.identifier = "hello"}},
+        {TK_EQUAL,       {0}},
+        {TK_NUMBER      ,{1}},
+        {TK_SEMICOLON   ,{0}},
+        {TK_WHILE,       {0}},
+        {TK_NUMBER,      {1}},
+        {TK_LBRACE,      {0}},
+        {TK_RBRACE,      {0}},
+        {TK_GARBAGE,     {0}},
         {TK_EOF,         {0}}
     };
     char tmp_file_name[] = "ilc_scanner_test_XXXXXX";
