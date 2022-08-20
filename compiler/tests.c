@@ -198,7 +198,8 @@ static long find_value_for_key(struct table_test *t, char *key) {
     }
     return -1;
 }
-static void test_table_callback(TableItem *item, void *cl) {
+static void test_table_callback(TableItem *item, bool is_last, void *cl) {
+    UNUSED(is_last);
     struct table_test *t = (struct table_test *)cl;
     CHECK(((long)item->value) == find_value_for_key(t, (char *)item->key));
 }

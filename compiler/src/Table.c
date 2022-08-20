@@ -47,7 +47,7 @@ static Item *findItem(tableCmpFn cmp, Item *items, size_t capacity, void *key, u
     for(;;) {
         Item *item = &items[index];
         
-        if(item->key == NULL) {
+        if(item->is_empty) {
             if(item->value != (void *)0xDEADC0DE) {
                 // empty item
                 return tombstone != NULL ? tombstone : item;
@@ -70,6 +70,7 @@ static void adjustCapacity(Table *t, size_t newCapacity) {
     // initialize a new empty Item array.
     Item *items = CALLOC(newCapacity, sizeof(Item));
     for(size_t i = 0; i < newCapacity; ++i) {
+        items[i].is_empty = true;
         items[i].key = NULL;
         items[i].value = NULL;
     }
@@ -78,11 +79,12 @@ static void adjustCapacity(Table *t, size_t newCapacity) {
     t->used = 0;
     for(size_t i = 0; i < t->capacity; ++i) {
         Item *item = &t->items[i];
-        if(item->key == NULL) {
+        if(item->is_empty) {
             continue;
         }
         Item *dest = findItem(t->cmpFn, items, newCapacity, item->key, t->hashFn(item->key));
         // ok to do this as table saves pointers, not values.
+        dest->is_empty = false;
         dest->key = item->key;
         dest->value = item->value;
         t->used++;
@@ -98,20 +100,28 @@ static void adjustCapacity(Table *t, size_t newCapacity) {
     t->capacity = newCapacity;
 }
 
-void tableSet(Table *t, void *key, void *value) {
+void *tableSet(Table *t, void *key, void *value) {
     if(t->used + 1 > t->capacity * TABLE_MAX_LOAD) {
         size_t newCapacity = t->capacity == 0 ? TABLE_INITIAL_CAPACITY : t->capacity * 2;
         adjustCapacity(t, newCapacity);
     }
 
     Item *item = findItem(t->cmpFn, t->items, t->capacity, key, t->hashFn(key));
+    void *old_value = NULL;
     // check if new item
-    if(item->key == NULL && item->value != (void *)0xDEADC0DE) {
+    if(item->is_empty && item->value != (void *)0xDEADC0DE) {
         t->used++;
+    } else {
+        // The item already exists.
+        // set the old_value to return
+        // so caller can handle destructing it.
+        old_value = item->value;
     }
 
+    item->is_empty = false;
     item->key = key;
     item->value = value;
+    return old_value;
 }
 
 Item *tableGet(Table *t, void *key) {
@@ -120,20 +130,22 @@ Item *tableGet(Table *t, void *key) {
     }
 
     Item *item = findItem(t->cmpFn, t->items, t->capacity, key, t->hashFn(key));
-    if(item->key == NULL) {
+    if(item->is_empty) {
         return NULL;
     }
 
     return item;
 }
 
-void tableMap(Table *t, void (*callback)(Item *item, void *cl), void *cl) {
+void tableMap(Table *t, void (*callback)(Item *item, bool is_last, void *cl), void *cl) {
+    size_t valid_item_count = 0;
     for(size_t i = 0; i < t->capacity; ++i) {
         Item *item = &t->items[i];
-        if(item->key == NULL) {
+        if(item->is_empty) {
             continue;
         }
-        callback(item, cl);
+        valid_item_count++;
+        callback(item, valid_item_count == t->used, cl);
     }
 }
 
@@ -143,10 +155,11 @@ void tableDelete(Table *t, void *key) {
     }
 
     Item *item = findItem(t->cmpFn, t->items, t->capacity, key, t->hashFn(key));
-    if(item->key == NULL) {
+    if(item->is_empty) {
         return;
     }
 
+    item->is_empty = true;
     item->key = NULL;
     item->value = (void *)0xDEADC0DE;
 }
