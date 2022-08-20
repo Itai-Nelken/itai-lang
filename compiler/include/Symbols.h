@@ -2,13 +2,14 @@
 #define SYMBOLS_H
 
 #include "common.h"
-#include "Array.h"
+#include "Table.h"
 
-// A SymbolID is an index into the symbol array in SymbolTable.
+// A SymbolID is a key in the symbols hash table that refers to a symbol.
 typedef usize SymbolID;
 
 typedef struct symbol_table {
-    Array symbols; // Array<Symbol *> - Symbol is an internal struct.
+    SymbolID next_id; // used for generating new symbolID's.
+    Table symbols; // Table<SymbolID, Symbol *> - Symbol is an internal struct.
 } SymbolTable;
 
 /***

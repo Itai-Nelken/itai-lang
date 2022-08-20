@@ -1,7 +1,8 @@
+#include <stdio.h>
 #include <stdbool.h>
 #include "common.h"
 #include "memory.h"
-#include "Array.h"
+#include "Table.h"
 #include "Strings.h"
 #include "Symbols.h"
 
@@ -16,67 +17,70 @@ typedef struct symbol {
     } as;
 } Symbol;
 
-void symbolTableInit(SymbolTable *syms) {
-    arrayInit(&syms->symbols);
+static unsigned hash_usize(void *key) {
+    // As there are no two different SymbolID's that hold
+    // the same number, we can simply return the value
+    // and be sure that there will be no colisions.
+    return (unsigned)(usize)key;
 }
 
-static void symbol_free_callback(void *sym, void *cl) {
-    UNUSED(cl);
-    Symbol *s = (Symbol *)sym;
-    if(s->type == SYM_IDENTIFIER) {
-        stringFree(s->as.identifier);
+static bool compare_usize(void *a, void *b) {
+    return (usize)a == (usize)b;
+}
+
+void symbolTableInit(SymbolTable *syms) {
+    syms->next_id = 0;
+    tableInit(&syms->symbols, hash_usize, compare_usize);
+}
+
+static void free_symbol(Symbol *sym) {
+    if(sym->type == SYM_IDENTIFIER) {
+        stringFree(sym->as.identifier);
     }
-    FREE(s);
+    FREE(sym);
+}
+
+static void free_symbol_callback(TableItem *item, bool is_last, void *cl) {
+    UNUSED(cl);
+    UNUSED(is_last);
+    free_symbol((Symbol *)item->value);
 }
 
 void symbolTableFree(SymbolTable *syms) {
-    arrayMap(&syms->symbols, symbol_free_callback, NULL);
-    arrayFree(&syms->symbols);
+    tableMap(&syms->symbols, free_symbol_callback, NULL);
+    tableFree(&syms->symbols);
+    syms->next_id = 0;
+}
+
+static SymbolID gen_id(SymbolTable *syms) {
+    return syms->next_id++;
 }
 
 static SymbolID add_symbol(SymbolTable *syms, Symbol *sym) {
-    return arrayPush(&syms->symbols, (void *)sym);
+    SymbolID id = gen_id(syms);
+    void *old_sym = tableSet(&syms->symbols, (void *)id, (void *)sym);
+    if(old_sym) {
+        // The symbol already exists.
+        // free the old one as it isn't needed anymore.
+        // FIXME: this isn't very efficient memory-wise.
+        free_symbol((Symbol *)old_sym);
+    }
+    return id;
 }
 
 static Symbol *get_symbol(SymbolTable *syms, SymbolID id) {
-    // arrayGet() handles the case where 'id' is larger than the array.
-    return ARRAY_GET_AS(Symbol *, &syms->symbols, id);
-}
-
-struct find_symbol_data {
-    bool found;
-    SymbolID found_id;
-    void *data;
-};
-
-static void find_identifier_callback(void *sym, void *data) {
-    Symbol *s = (Symbol *)sym;
-    struct find_symbol_data *d = (struct find_symbol_data *)data;
-    if(s->type == SYM_IDENTIFIER && stringEqual(s->as.identifier, (char *)d->data)) {
-        d->found = true;
-    } else {
-        d->found_id++;
+    TableItem *item = tableGet(&syms->symbols, (void *)id);
+    if(!item) {
+        return NULL;
     }
+    return (Symbol *)item->value;
 }
 
 SymbolID symbolTableAddIdentifier(SymbolTable *syms, char *txt, usize length) {
-    // Check if the identifier already exists, if yes return its ID.
-    // No need to have multiple copies of each identifier.
-    String id = stringNCopy(txt, length);
-    struct find_symbol_data data = {
-        .found = false,
-        .found_id = 0,
-        .data = (void *)id
-    };
-    arrayMap(&syms->symbols, find_identifier_callback, (void *)&data);
-    if(data.found) {
-        return data.found_id;
-    }
-
     Symbol *sym;
     NEW0(sym);
     sym->type = SYM_IDENTIFIER;
-    sym->as.identifier = id;
+    sym->as.identifier = stringNCopy(txt, length);
     return add_symbol(syms, sym);
 }
 
