@@ -109,7 +109,9 @@ void astPrintProgram(FILE *to, ASTProgram *prog) {
             fputs(", ", to);
         }
     }
-    fprintf(to, ", \x1b[1msymbols:\x1b[0m <symbol table>}");
+    fprintf(to, ", \x1b[1msymbols:\x1b[0m ");
+    symbolTablePrint(to, &prog->symbols);
+    fputc('}', to);
 }
 
 

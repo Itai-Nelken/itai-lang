@@ -91,3 +91,26 @@ const char *symbolTableGetIdentifier(SymbolTable *syms, SymbolID id) {
     }
     return (const char *)sym->as.identifier;
 }
+
+static void print_symbol_callback(TableItem *item, bool is_last, void *stream) {
+    FILE *to = (FILE *)stream;
+    Symbol *sym = (Symbol *)item->value;
+    fprintf(to, "Symbol{\x1b[1mid:\x1b[0;34m %zu\x1b[0m, \x1b[1mvalue:\x1b[0m ", (SymbolID)item->key);
+    switch(sym->type) {
+        case SYM_IDENTIFIER:
+            fprintf(to, "'%s'", sym->as.identifier);
+            break;
+        default:
+            UNREACHABLE();
+    }
+    fputc('}', to);
+    if(!is_last) {
+        fputs(", ", to);
+    }
+}
+
+void symbolTablePrint(FILE *to, SymbolTable *syms) {
+    fputs("SymbolTable{\x1b[1msymbols:\x1b[0m [", to);
+    tableMap(&syms->symbols, print_symbol_callback, (void *)to);
+    fputs("]}", to);
+}

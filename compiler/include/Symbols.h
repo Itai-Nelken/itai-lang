@@ -45,4 +45,12 @@ SymbolID symbolTableAddIdentifier(SymbolTable *syms, char *txt, usize length);
  ***/
 const char *symbolTableGetIdentifier(SymbolTable *syms, SymbolID id);
 
+/***
+ * Print a symbol table to stream 'to'.
+ *
+ * @param to The stream to print to.
+ * @param syms The SymbolTable to print.
+ ***/
+void symbolTablePrint(FILE *to, SymbolTable *syms);
+
 #endif // SYMBOLS_H
