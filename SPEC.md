@@ -13,7 +13,7 @@ module Collections {
 struct ListItem<T> {
     value: T?;
     next: Box<ListItem<T>>;
-    prev: Box<ListIem<T>>
+    prev: Box<ListIem<T>>;
 }
 
 public struct List<T> {
