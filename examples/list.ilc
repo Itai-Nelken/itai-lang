@@ -1,0 +1,49 @@
+// A simple doubly-linked list
+
+import "std/memory" as mem;
+
+public struct List<T> {
+    struct Item {
+        value: T;
+        next: &Item<T>;
+        prev: &Item<T>;
+    };
+
+    head: &Item;
+    item_count: usize;
+
+    public fn new() -> This<T> {
+        // T is infered.
+        return This{
+            head: null,
+            length: 0
+        };
+    }
+
+    public fn length(&const this) -> usize {
+        return .item_count;
+    }
+
+    public fn push(&this, value: T) {
+        // Can't do '!.head' as null has to be explicitly checked for.
+        if .head == null {
+            // The field for value isn't needed as the variable 'value'
+            // has the same name.
+            .head = mem::new(Item{value, next: null, prev: null});
+        } else {
+            var item = mem::new(Item{value, next: null, prev: .head});
+            .head.next = item;
+            .head = item;
+        }
+        .item_count++;
+    }
+
+    public fn pop(&this) -> T? {
+        if .length() == 0 {
+            return None;
+        }
+        var item = .head;
+        .head.next = null;
+        return item.value;
+    }
+}

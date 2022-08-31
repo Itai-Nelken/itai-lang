@@ -1,0 +1,29 @@
+import "std/os";
+import "std/io";
+import "./list";
+
+fn main() {
+    using list::list;
+    using os::Args;
+    using io::{eprintln, println};
+
+    if Args::length() < 2 {
+        eprintln("Usage: %s [numbers]", Args::as_array()[0]);
+        return 1;
+    }
+
+    var args = &Args::as_array()[1:];
+    var list = List<i32>::new();
+
+    for arg in args {
+        if arg.is_digit() {
+            list.push(arg.convert_to<i32>());
+        } else {
+            eprintln("'%s' is not a digit!", arg);
+        }
+    }
+
+    while list.length() > 0 {
+        println("%d", list.pop());
+    }
+}
