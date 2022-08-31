@@ -21,6 +21,7 @@ They don't have destructors, so they have to be manually freed.
 ### Example usage of raw pointers
 ```rust
 import "std/memory";
+using memory::{new, free};
 {
     using memory::{new, free};
     var i: &i32 = new(42); // fn new<T>(T) -> &T;
@@ -32,14 +33,14 @@ import "std/memory";
 
 ## Error handling (Optional types)
 Error handling is achieved using the `Error` base class and Optionals.<br>
-Optionals are declared by appending a `?` (question mark) to a type (e.g `i64?` is an optional `i64`). values are automatically wrapped in An optional when returned in a function returning an optional.<br>
+Optionals are declared by appending a `?` (question mark) to a type (e.g `i64?` is an optional `i64`). values are automatically wrapped in An optional when returned in a function returning an optional or assigned to a variable that is an optional type.<br>
 
 An empty optional contains an error (`Error` or derived structs), empty errors are represented by `Error::new("")` or the shorthand `None`.<br>
 To get the state of an optional, the `is_error() -> bool` bound function is used.
 
 An optional must be unwraped to access the value stored in it, there are three ways to do so:
 1) Force unwrap: panic if there is no value.
-2) `or` blocks: have a special variable `err` containing the error and they must return.
+2) `or` blocks: executed on error, and they have a special variable named `err` containing the error. `or` blocks must return.
 3) Propagate the error using the `?` operator: used to let caller handle the error.
 4) Using the `value_or(T) -> T` bound function: for default values.
 
@@ -49,8 +50,10 @@ import "std/errors";
 using errors::Error;
 
 struct NotDivisibleByTwoError < Error {
+    value: i32;
+
     fn new(value: i32) -> This {
-        return as<This>(value);
+        return This{value};
     }
 
     public fn what(&this) override -> String {
@@ -67,7 +70,7 @@ fn do_stuff(values: &[i32]) -> i64? {
         sum += value / 2;
     }
 
-    // 'sum' is automatically wrapped in a Option<i64>.
+    // 'sum' is automatically wrapped in a optional.
     return sum;
 }
 
@@ -94,6 +97,12 @@ fn main() {
         return 1;
     }
     println("result: %d", value);
+}
+```
+The base struct `Error` stores a string:
+```rust
+fn error() -> i32? {
+    return Error::new("error message");
 }
 ```
 
@@ -123,7 +132,7 @@ fn add<T(ops::Add<T, T>)>add(a: T, b: T) -> T {
     return a + b;
 }
 ```
-Now only types that implement `std::traits::operators::Add<T, Out>` will be accepted as arguments.
+Now only types that implement `std::traits::operators::Add<T, T>` will be accepted as arguments.
 
 Multiple traits can be required:
 ```rust
@@ -134,7 +143,7 @@ fn make_table<K(Equality, Hashable), V>() -> Table<K, V> {
 }
 ```
 
-It is also possible to limit generic types to a list of types:
+It is also possible to limit generic types to one of a list of types:
 ```rust
 fn to_i32<T(str, String)>(string: T) -> i32 {
     return string.covert_to<i32>();
@@ -153,7 +162,7 @@ trait Printable {
 }
 
 trait Add<T, Out> {
-    fn add(&this, b: B) -> Out;
+    fn add(&this, b: T) -> Out;
 }
 
 struct NumberList implements Printable, Add<[i32], This> {
@@ -184,7 +193,7 @@ fn main() {
 
 Runtime polymorphism is achieved using bound function overriding.
 
-A virtual bound function is a function that can be redaclared in derived structs. A virtual function must have an implementation (pure virtual functions are implemented with traits).<br>
+A virtual bound function is a function that can be re-declared in derived structs. A virtual function must have an implementation (pure virtual functions are implemented with traits).<br>
 A virtual function can't be private, and is marked as public automatically.
 
 ```rust
