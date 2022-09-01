@@ -218,7 +218,8 @@ static const char *node_type_name(ASTNodeType type) {
         [ND_EXPR_STMT] = "ND_EXPR_STMT",
         [ND_IF]        = "ND_IF",
         [ND_BLOCK]     = "ND_BLOCK",
-        [ND_LOOP]      = "ND_LOOP"
+        [ND_LOOP]      = "ND_LOOP",
+        [ND_RETURN]    = "ND_RETURN"
     };
     return names[(i32)type];
 }
@@ -236,6 +237,7 @@ static const char *node_name(ASTNodeType type) {
         // unary node
         case ND_NEG:
         case ND_EXPR_STMT:
+        case ND_RETURN:
             return "ASTUnaryNode";
         // conditional nodes
         case ND_IF:
@@ -282,6 +284,7 @@ void astPrint(FILE *to, ASTNode *node) {
         // unary nodes
         case ND_NEG:
         case ND_EXPR_STMT:
+        case ND_RETURN:
             fprintf(to, ", \x1b[1moperand:\x1b[0m ");
             astPrint(to, AS_UNARY_NODE(node)->operand);
             break;
@@ -339,6 +342,7 @@ void astFree(ASTNode *node) {
         // unary nodes
         case ND_NEG:
         case ND_EXPR_STMT:
+        case ND_RETURN:
             astFree(AS_UNARY_NODE(node)->operand);
             break;
         // conditional nodes

@@ -133,6 +133,9 @@ static TokenType scan_keyword_or_identifier_type(Scanner *s) {
         case 'f':
             result = (length == 2 && memcmp(lexeme, "fn", 2) == 0) ? TK_FN : TK_IDENTIFIER;
             break;
+        case 'r':
+            result = (length == 6 && memcmp(lexeme, "return", 6) == 0) ? TK_RETURN : TK_IDENTIFIER;
+            break;
         default:
             result = TK_IDENTIFIER;
             break;

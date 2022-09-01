@@ -24,7 +24,8 @@ typedef enum ast_node_type {
     // statements
     ND_EXPR_STMT,
     ND_IF, ND_BLOCK,
-    ND_LOOP
+    ND_LOOP,
+    ND_RETURN
 } ASTNodeType;
 
 typedef struct ast_node {

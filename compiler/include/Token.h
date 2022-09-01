@@ -52,7 +52,7 @@ typedef enum token_type {
     // keywords
     TK_IF, TK_ELSE,
     TK_WHILE,
-    TK_FN,
+    TK_FN, TK_RETURN,
 
     // primitive types
     TK_I32,

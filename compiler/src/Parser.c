@@ -116,10 +116,11 @@ static ParseRule rules[] = {
     [TK_LPAREN]      = {parse_prefix_expression, NULL, PREC_LOWEST},
     [TK_RPAREN]      = {NULL, NULL, PREC_LOWEST},
     [TK_PLUS]        = {parse_prefix_expression, parse_infix_expression, PREC_TERM},
-    [TK_MINUS]       = {parse_prefix_expression, parse_infix_expression, PREC_TERM},
     [TK_STAR]        = {NULL, parse_infix_expression, PREC_FACTOR},
     [TK_SLASH]       = {NULL, parse_infix_expression, PREC_FACTOR},
     [TK_SEMICOLON]   = {NULL, NULL, PREC_LOWEST},
+    [TK_MINUS]       = {parse_prefix_expression, parse_infix_expression, PREC_TERM},
+    [TK_ARROW]       = {NULL, NULL, PREC_LOWEST},
     [TK_EQUAL]       = {NULL, NULL, PREC_LOWEST},
     [TK_EQUAL_EQUAL] = {NULL, parse_infix_expression, PREC_EQUALITY},
     [TK_BANG]        = {NULL, NULL, PREC_LOWEST},
@@ -128,6 +129,9 @@ static ParseRule rules[] = {
     [TK_IF]          = {NULL, NULL, PREC_LOWEST},
     [TK_ELSE]        = {NULL, NULL, PREC_LOWEST},
     [TK_WHILE]       = {NULL, NULL, PREC_LOWEST},
+    [TK_FN]          = {NULL, NULL, PREC_LOWEST},
+    [TK_RETURN]      = {NULL, NULL, PREC_LOWEST},
+    [TK_I32]         = {NULL, NULL, PREC_LOWEST},
     [TK_IDENTIFIER]  = {NULL, NULL, PREC_LOWEST},
     [TK_GARBAGE]     = {NULL, NULL, PREC_LOWEST},
     [TK_EOF]         = {NULL, NULL, PREC_LOWEST}
@@ -342,6 +346,19 @@ static ASTNode *parse_while_stmt(Parser *p) {
     return astNewLoopNode(ND_LOOP, locationMerge(while_loc, locationMerge(condition->location, body->location)), NULL, condition, NULL, AS_LIST_NODE(body));
 }
 
+// return_stmt -> 'return' expression? ';'
+static ASTNode *parse_return_stmt(Parser *p) {
+    // assumes 'return' was already consumed.
+    Location loc = previous(p).location;
+    ASTNode *operand = NULL;
+    if(peek(p).type != TK_SEMICOLON) {
+        operand = TRY_PARSE(parse_expression, p, 0);
+        loc = locationMerge(loc, operand->location);
+    }
+    CONSUME(p, TK_SEMICOLON, operand);
+    return astNewUnaryNode(ND_RETURN, loc, operand);
+}
+
 // expr_stmt -> expression ';'
 static ASTNode *parse_expr_stmt(Parser *p) {
     ASTNode *expr = TRY_PARSE(parse_expression, p, 0);
@@ -351,6 +368,7 @@ static ASTNode *parse_expr_stmt(Parser *p) {
 
 // statement -> if_stmt
 //            | while_stmt
+//            | return_stmt
 //            | expr_stmt
 static ASTNode *parse_statement(Parser *p) {
     ASTNode *result = NULL;
@@ -358,6 +376,8 @@ static ASTNode *parse_statement(Parser *p) {
         result = parse_if_stmt(p);
     } else if(match(p, TK_WHILE)) {
         result = parse_while_stmt(p);
+    } else if(match(p, TK_RETURN)) {
+        result = parse_return_stmt(p);
     } else {
         result = parse_expr_stmt(p);
     }
