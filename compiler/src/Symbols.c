@@ -1,10 +1,18 @@
 #include <stdio.h>
 #include <stdbool.h>
+#include <assert.h>
 #include "common.h"
 #include "memory.h"
 #include "Table.h"
 #include "Strings.h"
 #include "Symbols.h"
+
+/***
+ * A note about the implementation:
+ * A hashtable is used even though known incices are used because
+ * it allows for easier checking if a symbol already exists, as well
+ * as providing the option to change the SymbolID type to for example a string in the future.
+ ***/
 
 typedef enum symbol_type {
     SYM_IDENTIFIER
@@ -58,13 +66,8 @@ static SymbolID gen_id(SymbolTable *syms) {
 
 static SymbolID add_symbol(SymbolTable *syms, Symbol *sym) {
     SymbolID id = gen_id(syms);
-    void *old_sym = tableSet(&syms->symbols, (void *)id, (void *)sym);
-    if(old_sym) {
-        // The symbol already exists.
-        // free the old one as it isn't needed anymore.
-        // FIXME: this isn't very efficient memory-wise.
-        free_symbol((Symbol *)old_sym);
-    }
+    // symbols can't be readded.
+    assert(tableSet(&syms->symbols, (void *)id, (void *)sym) == NULL);
     return id;
 }
 
