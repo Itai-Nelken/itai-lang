@@ -119,14 +119,14 @@ void astPrintProgram(FILE *to, ASTProgram *prog) {
     } else {
         fputs("(null)", to);
     }
-    fprintf(to, ", \x1b[1mfunctions:\x1b[0m ");
+    fprintf(to, ", \x1b[1mfunctions:\x1b[0m [");
     for(usize i = 0; i < prog->functions.used; ++i) {
         astPrintObj(to, ARRAY_GET_AS(ASTObj *, &prog->functions, i));
         if(i + 1 < prog->functions.used) {
             fputs(", ", to);
         }
     }
-    fprintf(to, ", \x1b[1msymbols:\x1b[0m ");
+    fprintf(to, "], \x1b[1msymbols:\x1b[0m ");
     symbolTablePrint(to, &prog->symbols);
     fputc('}', to);
 }
