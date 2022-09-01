@@ -403,7 +403,7 @@ static ASTFunctionObj *parse_function_decl(Parser *p) {
     location = locationMerge(location, previous(p).location);
 
     // return type
-    SymbolID return_type;
+    SymbolID return_type = EMPTY_SYMBOL_ID;
     if(match(p, TK_ARROW)) {
         return_type = parse_type(p);
     }
