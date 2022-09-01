@@ -65,7 +65,7 @@ static inline void error(Parser *p, char *message) {
 
 static bool consume(Parser *p, TokenType expected) {
     if(peek(p).type != expected) {
-        error(p, stringFormat("Expected '%s' but got '%s'!", tokenTypeString(expected), tokenTypeString(peek(p).type)));
+        error_at(p, peek(p).location, stringFormat("Expected '%s' but got '%s'!", tokenTypeString(expected), tokenTypeString(peek(p).type)));
         return false;
     }
     advance(p);
