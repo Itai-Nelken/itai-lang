@@ -244,7 +244,7 @@ static ASTNode *parse_precedence(Parser *p, Precedence min_prec) {
     advance(p);
     PrefixParseFn nud = get_nud(previous(p).type);
     if(!nud) {
-        error(p, "Expected an expression!");
+        error(p, stringFormat("Expected an expression but got '%s'!", tokenTypeString(previous(p).type)));
         return NULL;
     }
     ASTNode *lhs = TRY_PARSE(nud, p, 0);
@@ -279,7 +279,7 @@ static SymbolID parse_typename(Parser *p) {
     if(match(p, TK_I32)) {
         return astProgramGetPrimitiveType(p->program, TY_I32);
     }
-    error_at(p, peek(p).location, "Expected a typename!");
+    error_at(p, peek(p).location, stringFormat("Expected a typename but got '%s'!", tokenTypeString(peek(p).type)));
 }
 
 static SymbolID parse_type(Parser *p) {
