@@ -77,4 +77,12 @@ DataType *symbolTableGetType(SymbolTable *syms, SymbolID id);
  ***/
 void symbolTablePrint(FILE *to, SymbolTable *syms);
 
+/***
+ * Print a SymbolID to stream 'to'.
+ *
+ * @param to The stream to print to.
+ * @param id The SYmbolID to print.
+ ***/
+void symbolIDPrint(FILE *to, SymbolID id);
+
 #endif // SYMBOLS_H

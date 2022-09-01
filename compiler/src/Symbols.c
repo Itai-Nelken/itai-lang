@@ -140,3 +140,13 @@ void symbolTablePrint(FILE *to, SymbolTable *syms) {
     tableMap(&syms->symbols, print_symbol_callback, (void *)to);
     fputs("]}", to);
 }
+
+void symbolIDPrint(FILE *to, SymbolID id) {
+    fputs("SymbolID{", to);
+    if(id == EMPTY_SYMBOL_ID) {
+        fputs("(empty)", to);
+    } else {
+        fprintf(to, "\x1b[34m%zu\x1b[0m", id);
+    }
+    fputc('}', to);
+}

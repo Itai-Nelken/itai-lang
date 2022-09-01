@@ -22,7 +22,9 @@ void astFreeIdentifier(ASTIdentifier *id) {
 void astPrintIdentifier(FILE *to, ASTIdentifier *id) {
     fprintf(to, "ASTIdentifier{\x1b[1mlocation:\x1b[0m ");
     printLocation(to, id->location);
-    fprintf(to, ", \x1b[1mid:\x1b[0m \x1b[34m%zu\x1b[0m}", id->id);
+    fprintf(to, ", \x1b[1mid:\x1b[0m ");
+    symbolIDPrint(to, id->id);
+    fputc('}', to);
 }
 
 ASTObj *astNewFunctionObj(Location loc, ASTIdentifier *name, SymbolID return_type_id, ASTListNode *body) {
@@ -69,7 +71,8 @@ void astPrintObj(FILE *to, ASTObj *obj) {
     astPrintIdentifier(to, obj->name);
     switch(obj->type) {
         case OBJ_FUNCTION:
-            fprintf(to, ", \x1b[1mreturn_type:\x1b[0m \x1b[34m%zu\x1b[0m", AS_FUNCTION_OBJ(obj)->return_type);
+            fprintf(to, ", \x1b[1mreturn_type:\x1b[0m ");
+            symbolIDPrint(to, AS_FUNCTION_OBJ(obj)->return_type);
             fprintf(to, ", \x1b[1mbody:\x1b[0m ");
             astPrint(to, AS_NODE(AS_FUNCTION_OBJ(obj)->body));
             break;
