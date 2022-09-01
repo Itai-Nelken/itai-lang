@@ -172,7 +172,7 @@ void errorPrint(Error *err, Compiler *c, FILE *to) {
     u32 largest_width = number_width(get_last_line(&lines)->line_number);
 
     fprintf(to, "%s: \x1b[1m%s\x1b[0m\n", error_type_to_string(err->type), err->message);
-    fprintf(to, "---%*c \x1b[33m%s:%ld:%ld\x1b[0m\n", largest_width, '-', compilerGetFile(c, err->location.file)->path, first_error_line.line_number, err->location.start);
+    fprintf(to, "---%*c \x1b[33m%s:%ld:%ld\x1b[0m\n", largest_width, '-', compilerGetFile(c, err->location.file)->path, first_error_line.line_number, err->location.start - first_error_line.start);
     
     // print all the lines
     for(usize i = 0; i < lines.used; ++i) {
