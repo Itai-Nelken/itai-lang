@@ -112,7 +112,17 @@ static TokenType scan_keyword_or_identifier_type(Scanner *s) {
     TokenType result;
     switch(*lexeme) {
         case 'i':
-            result =  (length == 2 && memcmp(lexeme, "if", 2) == 0) ? TK_IF : TK_IDENTIFIER;
+            switch(length) {
+                case 2:
+                    result =  memcmp(lexeme, "if", 2) == 0 ? TK_IF : TK_IDENTIFIER;
+                    break;
+                case 3:
+                    result =  memcmp(lexeme, "i32", 3) == 0 ? TK_I32 : TK_IDENTIFIER;
+                    break;
+                default:
+                    result = TK_IDENTIFIER;
+                    break;
+            }
             break;
         case 'e':
             result = (length == 4 && memcmp(lexeme, "else", 4) == 0) ? TK_ELSE : TK_IDENTIFIER;
@@ -154,10 +164,10 @@ Token scan_token(Scanner *s) {
         case '{': return make_simple_token(s, TK_LBRACE);
         case '}': return make_simple_token(s, TK_RBRACE);
         case '+': return make_simple_token(s, TK_PLUS);
-        case '-': return make_simple_token(s, TK_MINUS);
         case '*': return make_simple_token(s, TK_STAR);
         case '/': return make_simple_token(s, TK_SLASH);
         case ';': return make_simple_token(s, TK_SEMICOLON);
+        case '-': return make_simple_token(s, match(s, '>') ? TK_ARROW : TK_MINUS);
         case '=': return make_simple_token(s, match(s, '=') ? TK_EQUAL_EQUAL : TK_EQUAL);
         case '!': return make_simple_token(s, match(s, '=') ? TK_BANG_EQUAL : TK_BANG);
         default:

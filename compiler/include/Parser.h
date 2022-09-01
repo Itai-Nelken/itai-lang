@@ -10,6 +10,7 @@
 typedef struct parser {
     Compiler *compiler;
     Scanner *scanner;
+    ASTProgram *program;
     SymbolTable *current_symbol_table;
     Token previous_token, current_token;
 } Parser;

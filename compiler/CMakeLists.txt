@@ -11,6 +11,7 @@ set(sources
     src/Array.c
     src/Token.c
     src/ast.c
+    src/Types.c
     src/Error.c
     src/Symbols.c
     src/Compiler.c

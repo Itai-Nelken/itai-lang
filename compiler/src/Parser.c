@@ -14,6 +14,7 @@
 void parserInit(Parser *p, Compiler *c) {
     memset(p, 0, sizeof(*p));
     p->compiler = c;
+    p->program = NULL;
     p->current_symbol_table = NULL;
     p->current_token.type = TK_GARBAGE;
     p->previous_token.type = TK_GARBAGE;
@@ -255,7 +256,7 @@ static inline ASTNode *parse_expression(Parser *p) {
     return parse_precedence(p, PREC_LOWEST);
 }
 
-// pre-declarations
+// forward declarations
 static ASTNode *parse_statement(Parser *p);
 
 /* helpers */
@@ -268,6 +269,19 @@ static ASTIdentifier *parse_identifier(Parser *p) {
 }
 
 #define TRY_PARSE_ID(parser) ({ASTIdentifier *_tmp_res = parse_identifier((parser)); if(!_tmp_res) { return NULL; } _tmp_res;})
+
+/* type parser */
+static SymbolID parse_typename(Parser *p) {
+    if(match(p, TK_I32)) {
+        return astProgramGetPrimitiveType(p->program, TY_I32);
+    }
+    error_at(p, peek(p).location, "Expected a typename!");
+}
+
+static SymbolID parse_type(Parser *p) {
+    // TODO: advanced types ([T], T? etc.)
+    return parse_typename(p);
+}
 
 /* statements */
 
@@ -355,20 +369,27 @@ static ASTNode *parse_statement(Parser *p) {
 // fn_decl -> 'fn' IDENTIFIER generic_parameters? '(' parameter_list? ')' ('->' type)? block
 static ASTFunctionObj *parse_function_decl(Parser *p) {
     // assumes 'fn' was already consumed.
-    // TODO: parameters, generic parameters and return type
     Location location = previous(p).location;
     ASTIdentifier *name = TRY_PARSE_ID(p);
     location = locationMerge(location, name->location);
+    // TODO: generic parameters
 
     CONSUME(p, TK_LPAREN, 0);
     location = locationMerge(location, previous(p).location);
+    // TODO: parameters
     CONSUME(p, TK_RPAREN, 0);
     location = locationMerge(location, previous(p).location);
+
+    // return type
+    SymbolID return_type;
+    if(match(p, TK_ARROW)) {
+        return_type = parse_type(p);
+    }
 
     CONSUME(p, TK_LBRACE, 0);
     ASTListNode *body = AS_LIST_NODE(TRY_PARSE(parse_block, p, 0));
 
-    return AS_FUNCTION_OBJ(astNewFunctionObj(locationMerge(location, body->header.location), name, body));
+    return AS_FUNCTION_OBJ(astNewFunctionObj(locationMerge(location, body->header.location), name, return_type, body));
 }
 
 #undef TRY_PARSE_ID
@@ -393,6 +414,7 @@ static void synchronize(Parser *p) {
 
 bool parserParse(Parser *p, Scanner *s, ASTProgram *prog) {
     p->scanner = s;
+    p->program = prog;
     p->current_symbol_table = &prog->symbols;
     // prime the parser
     advance(p);

@@ -5,6 +5,7 @@
 #include "memory.h"
 #include "Table.h"
 #include "Strings.h"
+#include "Types.h"
 #include "Symbols.h"
 
 /***
@@ -15,13 +16,15 @@
  ***/
 
 typedef enum symbol_type {
-    SYM_IDENTIFIER
+    SYM_IDENTIFIER,
+    SYM_TYPE
 } SymbolType;
 
 typedef struct symbol {
     SymbolType type;
     union {
         String identifier;
+        DataType type;
     } as;
 } Symbol;
 
@@ -60,7 +63,8 @@ void symbolTableFree(SymbolTable *syms) {
     syms->next_id = 0;
 }
 
-static SymbolID gen_id(SymbolTable *syms) {
+static inline SymbolID gen_id(SymbolTable *syms) {
+    assert(syms->next_id + 1 < EMPTY_SYMBOL_ID);
     return syms->next_id++;
 }
 
@@ -95,6 +99,22 @@ const char *symbolTableGetIdentifier(SymbolTable *syms, SymbolID id) {
     return (const char *)sym->as.identifier;
 }
 
+SymbolID symbolTableAddType(SymbolTable *syms, DataType ty) {
+    Symbol *sym;
+    NEW0(sym);
+    sym->type = SYM_TYPE;
+    sym->as.type = ty;
+    return add_symbol(syms, sym);
+}
+
+DataType *symbolTableGetType(SymbolTable *syms, SymbolID id) {
+    Symbol *sym = get_symbol(syms, id);
+    if(!sym || sym->type != SYM_TYPE) {
+        return NULL;
+    }
+    return &sym->as.type;
+}
+
 static void print_symbol_callback(TableItem *item, bool is_last, void *stream) {
     FILE *to = (FILE *)stream;
     Symbol *sym = (Symbol *)item->value;
@@ -102,6 +122,9 @@ static void print_symbol_callback(TableItem *item, bool is_last, void *stream) {
     switch(sym->type) {
         case SYM_IDENTIFIER:
             fprintf(to, "'%s'", sym->as.identifier);
+            break;
+        case SYM_TYPE:
+            dataTypePrint(to, sym->as.type);
             break;
         default:
             UNREACHABLE();

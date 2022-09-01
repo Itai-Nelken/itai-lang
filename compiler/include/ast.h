@@ -7,6 +7,7 @@
 #include "Strings.h"
 #include "Array.h"
 #include "Symbols.h"
+#include "Types.h"
 
 // Update astPrint(), astFree(), node_type_name(), node_name() in ast.c
 // and token_to_node_type() in Parser.c when adding new types.
@@ -115,7 +116,7 @@ typedef struct ast_obj {
     ASTObjType type;
     Location location;
     ASTIdentifier *name;
-    // Type data_type;
+    //SymbolID data_type; // fn type, typedef, var type.
     // ScopeID scope;
     // bool is_public;
 } ASTObj;
@@ -128,7 +129,7 @@ typedef struct ast_obj {
 
 typedef struct ast_function_obj {
     ASTObj header;
-//    Type return_type;
+    SymbolID return_type;
 //    Array parameters; // Array<ASTObj *> (OBJ_PARAMETER)
 //    Array generic_parameters; // Array<ASTObj *> (OBJ_TYPEDEF)
 //    Array locals; // Array<ASTVariableNode *> (OBJ_LOCAL)
@@ -142,6 +143,7 @@ typedef struct ast_function_obj {
 //} ASTVariableObj;
 
 typedef struct ast_program {
+    SymbolID primitive_ids[TY_COUNT];
     ASTFunctionObj *entry_point;
     SymbolTable symbols;
     Array functions; // Array<ASTFunctionObj *>
@@ -160,9 +162,10 @@ typedef struct ast_program {
  *
  * @param loc The Location of the function.
  * @param name The functions name.
+ * @param return_type_id The SymbolID of the return type.
  * @param body The body of the function.
  ***/
-ASTObj *astNewFunctionObj(Location loc, ASTIdentifier *name, ASTListNode *body);
+ASTObj *astNewFunctionObj(Location loc, ASTIdentifier *name, SymbolID return_type_id, ASTListNode *body);
 
 /***
  * Free an AST object.
@@ -193,6 +196,15 @@ void astInitProgram(ASTProgram *prog);
  * @param prog The program to free.
  ***/
 void astFreeProgram(ASTProgram *prog);
+
+/***
+ * Return the SymbolID of a primitive type.
+ *
+ * @param prog A initialized program.
+ * @param ty The primitive type.
+ * @return The SymbolID of the primitive type.
+ ***/
+SymbolID astProgramGetPrimitiveType(ASTProgram *prog, PrimitiveType ty);
 
 /***
  * Print an AST program.

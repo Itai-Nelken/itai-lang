@@ -25,14 +25,15 @@ void astPrintIdentifier(FILE *to, ASTIdentifier *id) {
     fprintf(to, ", \x1b[1mid:\x1b[0m \x1b[34m%zu\x1b[0m}", id->id);
 }
 
-ASTObj *astNewFunctionObj(Location loc, ASTIdentifier *name, ASTListNode *body) {
+ASTObj *astNewFunctionObj(Location loc, ASTIdentifier *name, SymbolID return_type_id, ASTListNode *body) {
     ASTFunctionObj *fn;
     NEW0(fn);
     fn->header = (ASTObj){
         .type = OBJ_FUNCTION,
         .location = loc,
-        .name = name
+        .name = name,
     };
+    fn->return_type = return_type_id;
     fn->body = body;
     return AS_OBJ(fn);
 }
@@ -55,13 +56,10 @@ void astFreeObj(ASTObj *obj) {
 }
 
 static const char *obj_name(ASTObjType type) {
-    switch(type) {
-        case OBJ_FUNCTION:
-            return "ASTFunctionObj";
-        default:
-            break;
-    }
-    UNREACHABLE();
+    static const char *names[] = {
+        [OBJ_FUNCTION] = "ASTFunctionObj"
+    };
+    return names[(i32)type];
 }
 
 void astPrintObj(FILE *to, ASTObj *obj) {
@@ -71,6 +69,7 @@ void astPrintObj(FILE *to, ASTObj *obj) {
     astPrintIdentifier(to, obj->name);
     switch(obj->type) {
         case OBJ_FUNCTION:
+            fprintf(to, ", \x1b[1mreturn_type:\x1b[0m \x1b[34m%zu\x1b[0m", AS_FUNCTION_OBJ(obj)->return_type);
             fprintf(to, ", \x1b[1mbody:\x1b[0m ");
             astPrint(to, AS_NODE(AS_FUNCTION_OBJ(obj)->body));
             break;
@@ -80,10 +79,21 @@ void astPrintObj(FILE *to, ASTObj *obj) {
     fputc('}', to);
 }
 
+static void init_primitives(SymbolID ids[TY_COUNT], SymbolTable *syms) {
+    SymbolID name;
+    DataType ty;
+
+    // i32
+    name = symbolTableAddIdentifier(syms, "i32", 3);
+    ty = dataTypeNew(name, 32, true);
+    ids[TY_I32] = symbolTableAddType(syms, ty);
+}
+
 void astInitProgram(ASTProgram *prog) {
     prog->entry_point = NULL;
     arrayInit(&prog->functions);
     symbolTableInit(&prog->symbols);
+    init_primitives(prog->primitive_ids, &prog->symbols);
 }
 
 void astFreeProgram(ASTProgram *prog) {
@@ -93,6 +103,10 @@ void astFreeProgram(ASTProgram *prog) {
     arrayFree(&prog->functions);
     prog->entry_point = NULL; // entry point should be in the functions array, so it was already freed.
     symbolTableFree(&prog->symbols);
+}
+
+SymbolID astProgramGetPrimitiveType(ASTProgram *prog, PrimitiveType ty) {
+    return prog->primitive_ids[(u32)ty];
 }
 
 void astPrintProgram(FILE *to, ASTProgram *prog) {
