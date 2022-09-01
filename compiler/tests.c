@@ -1,7 +1,11 @@
 #include <stdio.h>
+#include <stdlib.h> // abort
+#include <string.h> // strsignal
 #include <stdarg.h>
 #include <stdbool.h>
 #include <assert.h>
+#include <setjmp.h>
+#include <signal.h>
 
 #define MAX_FAILURES_IN_TEST 20
 
@@ -16,6 +20,9 @@ typedef struct test_list_data {
     int total_test_count, current_test_number;
     const char *failure_texts[MAX_FAILURES_IN_TEST];
     int failure_count;
+
+    jmp_buf panic_jump;
+    bool panic_jump_set;
 } TestListData;
 
 static TestListData __data;
@@ -39,6 +46,7 @@ static void _init() {
     __data.current_test = NULL;
     __data.total_test_count = __data.current_test_number = 0;
     __data.failure_count = 0;
+    __data.panic_jump_set = false;
 }
 
 static void _count_tests(Test testlist[]) {
@@ -55,6 +63,16 @@ bool _check(bool result, const char *expr) {
     return false;
 }
 
+void _assert(bool result, const char *expr) {
+    assert(__data.current_test);
+    if(result) {
+        return;
+    }
+    assert(__data.failure_count < MAX_FAILURES_IN_TEST);
+    __data.failure_texts[__data.failure_count++] = expr;
+    abort(); // will be catched by the signal handler
+}
+
 void _log(const char *format, ...) {
     va_list ap;
 
@@ -65,19 +83,51 @@ void _log(const char *format, ...) {
     putchar('\n');
 }
 
+static void signal_handler(int signal) {
+    fprintf(stderr, "[test %d]: recieved signal %d (%s)!", __data.current_test_number + 1, signal, strsignal(signal));
+    if(__data.panic_jump_set) {
+        fputc('\n', stderr);
+        fflush(stderr);
+        longjmp(__data.panic_jump, 1);
+    } else {
+        fputs("no jump, exiting.\n", stderr);
+        fflush(stderr);
+        exit(1);
+    }
+}
+
 int _run_test_list(Test testlist[]) {
     _init();
     _count_tests(testlist);
     bool had_failure = false;
 
+    struct sigaction new_act;
+    new_act.sa_handler = signal_handler;
+    sigemptyset(&new_act.sa_mask);
+    sigaction(SIGSEGV, &new_act, NULL);
+    sigaction(SIGABRT, &new_act, NULL);
+
     for(; __data.current_test_number < __data.total_test_count; ++__data.current_test_number) {
         __data.current_test = &testlist[__data.current_test_number];
-        __data.current_test->fn(__data.current_test->arg);
+        __data.panic_jump_set = true;
+        if(setjmp(__data.panic_jump) != 0) {
+            __data.panic_jump_set = false;
+            assert(__data.failure_count < MAX_FAILURES_IN_TEST);
+            __data.failure_texts[__data.failure_count++] = "panic!";
+            fflush(stdout);
+        } else {
+            __data.current_test->fn(__data.current_test->arg);
+        }
         if(__data.failure_count > 0) {
             had_failure = true;
         }
         _print_test_summary();
     }
+
+    new_act.sa_handler = SIG_DFL;
+    sigemptyset(&new_act.sa_mask);
+    sigaction(SIGABRT, &new_act, NULL);
+    sigaction(SIGSEGV, &new_act, NULL);
     return had_failure ? 1 : 0;
 }
 
@@ -94,6 +144,12 @@ int _run_test_list(Test testlist[]) {
  * @return true if the expression evaluates to true, false if not.
  ***/
 #define CHECK(expr) (_check((expr), #expr))
+/***
+ * Check an expression and abort the test if false..
+ *
+ * @param expr The expression.
+ ***/
+#define ASSERT(expr) (_assert((expr), #expr))
 /***
  * Print a message that will look nice with the rest of the output.
  * 
