@@ -406,7 +406,7 @@ bool parserParse(Parser *p, Scanner *s, ASTProgram *prog) {
     while(!is_eof(p)) {
         if(match(p, TK_FN)) {
             ASTFunctionObj *fn = parse_function_decl(p);
-            if(p) {
+            if(fn) {
                 arrayPush(&prog->functions, (void *)fn);
             } else {
                 had_error = true;
