@@ -280,10 +280,12 @@ static SymbolID parse_typename(Parser *p) {
         return astProgramGetPrimitiveType(p->program, TY_I32);
     }
     error_at(p, peek(p).location, stringFormat("Expected a typename but got '%s'!", tokenTypeString(peek(p).type)));
+    return EMPTY_SYMBOL_ID;
 }
 
 static SymbolID parse_type(Parser *p) {
     // TODO: advanced types ([T], T? etc.)
+    // FIXME: handle EMPTY_SYMBOL_ID returned from parse_typename.
     return parse_typename(p);
 }
 
