@@ -305,6 +305,9 @@ void astPrint(FILE *to, ASTNode *node) {
             }
             for(usize i = 0; i < AS_LIST_NODE(node)->body.used; ++i) {
                 astPrint(to, ARRAY_GET_AS(ASTNode *, &AS_LIST_NODE(node)->body, i));
+		if(i + 1 < AS_LIST_NODE(node)->body.used) {
+			fputs(", ", to);
+		}
             }
             break;
         // loop nodes
