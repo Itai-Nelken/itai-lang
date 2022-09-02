@@ -9,6 +9,35 @@
 #include "Symbols.h"
 #include "Types.h"
 
+typedef struct ast_identifier {
+    Location location;
+    SymbolID id;
+} ASTIdentifier;
+
+/***
+ * Initialize an ast identifier.
+ *
+ * @param loc The location of the identifier.
+ * @param id The SymbolID of the identifier.
+ * @return An initialized heap-allocated identifier.
+ ***/
+ASTIdentifier *astNewIdentifier(Location loc, SymbolID id);
+
+/***
+ * Free an ast identifier.
+ *
+ * @param id The identifier to free.
+ ***/
+void astFreeIdentifier(ASTIdentifier *id);
+
+/***
+ * Print an ast identifier.
+ *
+ * @param to The stream to print to.
+ * @param id The identifier to print.
+ ***/
+void astPrintIdentifier(FILE *to, ASTIdentifier *id);
+
 // Update astPrint(), astFree(), node_type_name(), node_name() in ast.c
 // and token_to_node_type() in Parser.c when adding new types.
 typedef enum ast_node_type {
@@ -17,9 +46,11 @@ typedef enum ast_node_type {
     ND_MUL, ND_DIV,
     ND_NEG,
     ND_EQ, ND_NE,
+    ND_CALL,
 
-    // literals
+    // literals, identifiers
     ND_NUMBER,
+    ND_IDENTIFIER,
 
     // statements
     ND_EXPR_STMT,
@@ -32,6 +63,12 @@ typedef struct ast_node {
     ASTNodeType type;
     Location location;
 } ASTNode;
+
+typedef struct ast_identifier_node {
+    ASTNode header;
+    SymbolID data_type;
+    ASTIdentifier *id;
+} ASTIdentifierNode;
 
 typedef struct ast_number_node {
     ASTNode header;
@@ -69,41 +106,13 @@ typedef struct ast_loop_node {
 } ASTLoopNode;
 
 #define AS_NODE(node) ((ASTNode *)(node))
+#define AS_IDENTIFIER_NODE(node) ((ASTIdentifierNode *)(node))
 #define AS_NUMBER_NODE(node) ((ASTNumberNode *)(node))
 #define AS_UNARY_NODE(node) ((ASTUnaryNode *)(node))
 #define AS_BINARY_NODE(node) ((ASTBinaryNode *)(node))
 #define AS_LIST_NODE(node) ((ASTListNode *)(node))
 #define AS_CONDITIONAL_NODE(node) ((ASTConditionalNode *)(node))
 #define AS_LOOP_NODE(node) ((ASTLoopNode *)(node))
-
-typedef struct ast_identifier {
-    Location location;
-    SymbolID id;
-} ASTIdentifier;
-
-/***
- * Initialize an ast identifier.
- *
- * @param loc The location of the identifier.
- * @param id The SymbolID of the identifier.
- * @return An initialized heap-allocated identifier.
- ***/
-ASTIdentifier *astNewIdentifier(Location loc, SymbolID id);
-
-/***
- * Free an ast identifier.
- *
- * @param id The identifier to free.
- ***/
-void astFreeIdentifier(ASTIdentifier *id);
-
-/***
- * Print an ast identifier.
- *
- * @param to The stream to print to.
- * @param id The identifier to print.
- ***/
-void astPrintIdentifier(FILE *to, ASTIdentifier *id);
 
 // update astFreeObj(), astPrintObj() & obj_name() when adding new types.
 typedef enum ast_obj_type {
@@ -215,6 +224,14 @@ SymbolID astProgramGetPrimitiveType(ASTProgram *prog, PrimitiveType ty);
  ***/
 void astPrintProgram(FILE *to, ASTProgram *prog);
 
+/***
+ * Create a new AST identifier node.
+ *
+ * @param data_type The data type of the identifier (for varibles, the type of the variable. for functions, the return type etc.)
+ * @param id The identifier.
+ * @return The new AST node.
+ ***/
+ASTNode *astNewIdentifierNode(SymbolID data_type, ASTIdentifier *id);
 
 /***
  * Create a new AST number node.

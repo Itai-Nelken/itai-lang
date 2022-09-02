@@ -86,6 +86,11 @@ static void init_primitives(SymbolID ids[TY_COUNT], SymbolTable *syms) {
     SymbolID name;
     DataType ty;
 
+    // void
+    name = symbolTableAddIdentifier(syms, "void", 4);
+    ty = dataTypeNew(name, 0, false);
+    ids[TY_VOID] = symbolTableAddType(syms, ty);
+
     // i32
     name = symbolTableAddIdentifier(syms, "i32", 3);
     ty = dataTypeNew(name, 32, true);
@@ -131,6 +136,18 @@ void astPrintProgram(FILE *to, ASTProgram *prog) {
     fputc('}', to);
 }
 
+
+ASTNode *astNewIdentifierNode(SymbolID data_type, ASTIdentifier *id) {
+    ASTIdentifierNode *n;
+    NEW0(n);
+    n->header = (ASTNode){
+        .type = ND_IDENTIFIER,
+        .location = id->location
+    };
+    n->data_type = data_type;
+    n->id = id;
+    return AS_NODE(n);
+}
 
 ASTNode *astNewNumberNode(Location loc, NumberConstant value) {
     ASTNumberNode *n;
@@ -207,19 +224,21 @@ ASTNode *astNewLoopNode(ASTNodeType type, Location loc, ASTNode *initializer, AS
 
 static const char *node_type_name(ASTNodeType type) {
     static const char *names[] = {
-        [ND_ADD]       = "ND_ADD",
-        [ND_SUB]       = "ND_SUB",
-        [ND_MUL]       = "ND_MUL",
-        [ND_DIV]       = "ND_DIV",
-        [ND_EQ]        = "ND_EQ",
-        [ND_NE]        = "ND_NE",
-        [ND_NEG]       = "ND_NEG",
-        [ND_NUMBER]    = "ND_NUMBER",
-        [ND_EXPR_STMT] = "ND_EXPR_STMT",
-        [ND_IF]        = "ND_IF",
-        [ND_BLOCK]     = "ND_BLOCK",
-        [ND_LOOP]      = "ND_LOOP",
-        [ND_RETURN]    = "ND_RETURN"
+        [ND_ADD]        = "ND_ADD",
+        [ND_SUB]        = "ND_SUB",
+        [ND_MUL]        = "ND_MUL",
+        [ND_DIV]        = "ND_DIV",
+        [ND_NEG]        = "ND_NEG",
+        [ND_EQ]         = "ND_EQ",
+        [ND_NE]         = "ND_NE",
+        [ND_CALL]       = "ND_CALL",
+        [ND_NUMBER]     = "ND_NUMBER",
+        [ND_IDENTIFIER] = "ND_IDENTIFIER",
+        [ND_EXPR_STMT]  = "ND_EXPR_STMT",
+        [ND_IF]         = "ND_IF",
+        [ND_BLOCK]      = "ND_BLOCK",
+        [ND_LOOP]       = "ND_LOOP",
+        [ND_RETURN]     = "ND_RETURN"
     };
     return names[(i32)type];
 }
@@ -238,6 +257,7 @@ static const char *node_name(ASTNodeType type) {
         case ND_NEG:
         case ND_EXPR_STMT:
         case ND_RETURN:
+        case ND_CALL:
             return "ASTUnaryNode";
         // conditional nodes
         case ND_IF:
@@ -251,6 +271,8 @@ static const char *node_name(ASTNodeType type) {
         // other nodes
         case ND_NUMBER:
             return "ASTNumberNode";
+        case ND_IDENTIFIER:
+            return "ASTIdentifierNode";
         default:
             break;
     }
@@ -285,6 +307,7 @@ void astPrint(FILE *to, ASTNode *node) {
         case ND_NEG:
         case ND_EXPR_STMT:
         case ND_RETURN:
+        case ND_CALL:
             fprintf(to, ", \x1b[1moperand:\x1b[0m ");
             astPrint(to, AS_UNARY_NODE(node)->operand);
             break;
@@ -305,9 +328,9 @@ void astPrint(FILE *to, ASTNode *node) {
             }
             for(usize i = 0; i < AS_LIST_NODE(node)->body.used; ++i) {
                 astPrint(to, ARRAY_GET_AS(ASTNode *, &AS_LIST_NODE(node)->body, i));
-		if(i + 1 < AS_LIST_NODE(node)->body.used) {
-			fputs(", ", to);
-		}
+		        if(i + 1 < AS_LIST_NODE(node)->body.used) {
+			        fputs(", ", to);
+		        }
             }
             break;
         // loop nodes
@@ -320,6 +343,13 @@ void astPrint(FILE *to, ASTNode *node) {
             astPrint(to, AS_LOOP_NODE(node)->increment);
             fprintf(to, ", \x1b[1mbody:\x1b[0m ");
             astPrint(to, AS_NODE(AS_LOOP_NODE(node)->body));
+            break;
+        // identifier nodes
+        case ND_IDENTIFIER:
+            fprintf(to, ", \x1b[1mdata_type:\x1b[0m ");
+            symbolIDPrint(to, AS_IDENTIFIER_NODE(node)->data_type);
+            fprintf(to, ", \x1b[1mid:\x1b[0m ");
+            astPrintIdentifier(to, AS_IDENTIFIER_NODE(node)->id);
             break;
         default:
             UNREACHABLE();
@@ -346,6 +376,7 @@ void astFree(ASTNode *node) {
         case ND_NEG:
         case ND_EXPR_STMT:
         case ND_RETURN:
+        case ND_CALL:
             astFree(AS_UNARY_NODE(node)->operand);
             break;
         // conditional nodes
@@ -367,6 +398,10 @@ void astFree(ASTNode *node) {
             astFree(AS_LOOP_NODE(node)->condition);
             astFree(AS_LOOP_NODE(node)->increment);
             astFree(AS_NODE(AS_LOOP_NODE(node)->body));
+            break;
+        // identifier nodes
+        case ND_IDENTIFIER:
+            astFreeIdentifier(AS_IDENTIFIER_NODE(node)->id);
             break;
         default:
             break;

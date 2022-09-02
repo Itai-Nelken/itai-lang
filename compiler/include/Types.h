@@ -7,6 +7,7 @@
 #include "Symbols.h"
 
 typedef enum primitive_data_types {
+    TY_VOID, // used internally for functions returning nothing, but it isn't a valid primitive type in the language.
     TY_I32,
     TY_COUNT
 } PrimitiveType;

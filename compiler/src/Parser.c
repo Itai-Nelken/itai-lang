@@ -105,14 +105,17 @@ typedef struct parse_rule {
     Precedence precedence;
 } ParseRule;
 
-// pre-declarations for parse functions and rule table
+// forward-declarations for parse functions and rule table
 static ASTNode *parse_precedence(Parser *p, Precedence min_prec);
 static ASTNode *parse_prefix_expression(Parser *p);
 static ASTNode *parse_infix_expression(Parser *p, ASTNode *lhs);
+static ASTNode *parse_call_expression(Parser *p, ASTNode *callee);
+static ASTNode *parse_statement(Parser *p);
+static ASTIdentifier *parse_identifier_from_token(Parser *p, Token tk);
 
 static ParseRule rules[] = {
     //   token     |    prefix                 | infix | precedence
-    [TK_LPAREN]      = {parse_prefix_expression, NULL, PREC_LOWEST},
+    [TK_LPAREN]      = {parse_prefix_expression, parse_call_expression, PREC_CALL},
     [TK_RPAREN]      = {NULL, NULL, PREC_LOWEST},
     [TK_PLUS]        = {parse_prefix_expression, parse_infix_expression, PREC_TERM},
     [TK_STAR]        = {NULL, parse_infix_expression, PREC_FACTOR},
@@ -131,7 +134,7 @@ static ParseRule rules[] = {
     [TK_FN]          = {NULL, NULL, PREC_LOWEST},
     [TK_RETURN]      = {NULL, NULL, PREC_LOWEST},
     [TK_I32]         = {NULL, NULL, PREC_LOWEST},
-    [TK_IDENTIFIER]  = {NULL, NULL, PREC_LOWEST},
+    [TK_IDENTIFIER]  = {parse_prefix_expression, NULL, PREC_LOWEST},
     [TK_GARBAGE]     = {NULL, NULL, PREC_LOWEST},
     [TK_EOF]         = {NULL, NULL, PREC_LOWEST}
 };
@@ -211,6 +214,13 @@ static ASTNode *parse_prefix_expression(Parser *p) {
     switch(previous(p).type) {
         case TK_NUMBER:
             return astNewNumberNode(previous(p).location, previous(p).as.number_constant);
+        case TK_IDENTIFIER: {
+            ASTIdentifier *id = parse_identifier_from_token(p, previous(p));
+            if(!id) {
+                return NULL;
+            }
+            return astNewIdentifierNode(EMPTY_SYMBOL_ID, id);
+        }
         case TK_PLUS:
         case TK_MINUS: {
             TokenType operator = previous(p).type;
@@ -239,6 +249,13 @@ static ASTNode *parse_infix_expression(Parser *p, ASTNode *lhs) {
     return astNewBinaryNode(type, locationMerge(expr_loc, rhs->location), lhs, rhs);
 }
 
+static ASTNode *parse_call_expression(Parser *p, ASTNode *callee) {
+    Location loc = locationMerge(callee->location, previous(p).location);
+    // TODO: generic arguments (have to be parsed in parse_identifier_from_token?), arguments
+    CONSUME(p, TK_RPAREN, callee);
+    return astNewUnaryNode(ND_CALL, locationMerge(loc, previous(p).location), callee);
+}
+
 static ASTNode *parse_precedence(Parser *p, Precedence min_prec) {
     advance(p);
     PrefixParseFn nud = get_nud(previous(p).type);
@@ -259,21 +276,26 @@ static inline ASTNode *parse_expression(Parser *p) {
     return parse_precedence(p, PREC_LOWEST);
 }
 
-// forward declarations
-static ASTNode *parse_statement(Parser *p);
-
 /* helpers */
+
+static ASTIdentifier *parse_identifier_from_token(Parser *p, Token tk) {
+    if(tk.type != TK_IDENTIFIER) {
+        error_at(p, tk.location, stringFormat("Expected an identifier but got '%s'!", tokenTypeString(tk.type)));
+        return NULL;
+    }
+    SymbolID id_idx = symbolTableAddIdentifier(&p->program->symbols, tk.as.identifier.text, tk.as.identifier.length);
+    return astNewIdentifier(tk.location, id_idx);
+}
 
 static ASTIdentifier *parse_identifier(Parser *p) {
     CONSUME(p, TK_IDENTIFIER, 0);
-    Token id = previous(p);
-    SymbolID id_idx = symbolTableAddIdentifier(&p->program->symbols, id.as.identifier.text, id.as.identifier.length);
-    return astNewIdentifier(id.location, id_idx);
+    return parse_identifier_from_token(p, previous(p));
 }
 
 #define TRY_PARSE_ID(parser) ({ASTIdentifier *_tmp_res = parse_identifier((parser)); if(!_tmp_res) { return NULL; } _tmp_res;})
 
 /* type parser */
+
 static SymbolID parse_typename(Parser *p) {
     if(match(p, TK_I32)) {
         return astProgramGetPrimitiveType(p->program, TY_I32);
@@ -402,7 +424,7 @@ static ASTFunctionObj *parse_function_decl(Parser *p) {
     location = locationMerge(location, previous(p).location);
 
     // return type
-    SymbolID return_type = EMPTY_SYMBOL_ID;
+    SymbolID return_type = astProgramGetPrimitiveType(p->program, TY_VOID);
     if(match(p, TK_ARROW)) {
         return_type = parse_type(p);
     }

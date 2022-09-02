@@ -1,4 +1,4 @@
-- New testing framework that checks stdout/stderr etc.
+- Add better tests.
 - Add variable declarations and assignment.
 - Finish Type parser.
 - Validator (parser pass 2).
