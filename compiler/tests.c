@@ -366,9 +366,12 @@ struct scanner_test_token_type {
 };
 static void test_scanner(void *a) {
     UNUSED(a);
-    const char *input = "fn (1 + 2 - 3 * 4 / 5) == 2; 2 != 2 if !2 {} else {} hello = 1; while 1 {} @";
+    const char *input = "fn -> i32 return (1 + 2 - 3 * 4 / 5) == 2; 2 != 2 if !2 {} else {} hello = 1; while 1 {} @";
     struct scanner_test_token_type expected[] = {
         {TK_FN,          {0}},
+        {TK_ARROW,       {0}},
+        {TK_I32,         {0}},
+        {TK_RETURN,      {0}},
         {TK_LPAREN,      {0}},
         {TK_NUMBER,      {1}},
         {TK_PLUS,        {0}},
