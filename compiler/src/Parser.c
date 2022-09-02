@@ -15,7 +15,6 @@ void parserInit(Parser *p, Compiler *c) {
     memset(p, 0, sizeof(*p));
     p->compiler = c;
     p->program = NULL;
-    p->current_symbol_table = NULL;
     p->current_token.type = TK_GARBAGE;
     p->previous_token.type = TK_GARBAGE;
 }
@@ -268,7 +267,7 @@ static ASTNode *parse_statement(Parser *p);
 static ASTIdentifier *parse_identifier(Parser *p) {
     CONSUME(p, TK_IDENTIFIER, 0);
     Token id = previous(p);
-    SymbolID id_idx = symbolTableAddIdentifier(p->current_symbol_table, id.as.identifier.text, id.as.identifier.length);
+    SymbolID id_idx = symbolTableAddIdentifier(&p->program->symbols, id.as.identifier.text, id.as.identifier.length);
     return astNewIdentifier(id.location, id_idx);
 }
 
@@ -437,13 +436,14 @@ static void synchronize(Parser *p) {
 bool parserParse(Parser *p, Scanner *s, ASTProgram *prog) {
     p->scanner = s;
     p->program = prog;
-    p->current_symbol_table = &prog->symbols;
+
     // prime the parser
     advance(p);
     // if the scanner failed to set the source, we can't do anything.
     if(p->scanner->failed_to_set_source) {
+        p->program = NULL;
         p->scanner = NULL;
-        return NULL;
+        return false;
     }
 
     bool had_error = false;
@@ -465,7 +465,7 @@ bool parserParse(Parser *p, Scanner *s, ASTProgram *prog) {
         }
     }
 
-    p->current_symbol_table = NULL;
+    p->program = NULL;
     p->scanner = NULL;
     return !had_error;
 }

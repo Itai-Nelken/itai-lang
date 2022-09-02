@@ -4,14 +4,12 @@
 #include "Token.h"
 #include "Compiler.h"
 #include "Scanner.h"
-#include "Symbols.h"
 #include "ast.h"
 
 typedef struct parser {
     Compiler *compiler;
     Scanner *scanner;
     ASTProgram *program;
-    SymbolTable *current_symbol_table;
     Token previous_token, current_token;
 } Parser;
 
