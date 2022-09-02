@@ -174,6 +174,8 @@ int _run_test_list(Test testlist[]) {
 #include "Strings.h"
 #include "Array.h"
 #include "Table.h"
+#include "Types.h"
+#include "Symbols.h"
 #include "Compiler.h"
 #include "Token.h"
 #include "Scanner.h"
@@ -300,6 +302,59 @@ static void test_table(void *a) {
     tableFree(&t.t);
 }
 
+static void test_symbols(void *a) {
+    UNUSED(a);
+    SymbolTable s;
+    symbolTableInit(&s);
+
+    struct id {
+        char *txt;
+        u32 length;
+        SymbolID id;
+    } ids[] = {
+        {"Hello, World", 12, EMPTY_SYMBOL_ID},
+        {"Test identifier", 15, EMPTY_SYMBOL_ID},
+        {"Another id", 10, EMPTY_SYMBOL_ID},
+        {"test", 4, EMPTY_SYMBOL_ID}
+    };
+    const u32 ids_length = sizeof(ids)/sizeof(ids[0]);
+
+    struct type {
+        DataType ty;
+        SymbolID id;
+    } types[] = {
+        {{.name = EMPTY_SYMBOL_ID, .size = 32, .is_signed = true}, EMPTY_SYMBOL_ID},
+        {{.name = EMPTY_SYMBOL_ID, .size = 32, .is_signed = false}, EMPTY_SYMBOL_ID},
+        {{.name = EMPTY_SYMBOL_ID, .size = 1, .is_signed = false}, EMPTY_SYMBOL_ID},
+        {{.name = EMPTY_SYMBOL_ID, .size = 8, .is_signed = false}, EMPTY_SYMBOL_ID}
+    };
+    const u32 types_length = sizeof(types)/sizeof(types[0]);
+
+    for(u32 i = 0; i < ids_length; ++i) {
+        ids[i].id = symbolTableAddIdentifier(&s, ids[i].txt, ids[i].length);
+    }
+
+    for(u32 i = 0; i < types_length; ++i) {
+        types[i].id = symbolTableAddType(&s, types[i].ty);
+    }
+
+    for(u32 i = 0; i < ids_length; ++i) {
+        const char *id = symbolTableGetIdentifier(&s, ids[i].id);
+        ASSERT(id != NULL);
+        CHECK(strcmp(id, ids[i].txt) == 0);
+    }
+
+    for(u32 i = 0; i < types_length; ++i) {
+        DataType *ty = symbolTableGetType(&s, types[i].id);
+        ASSERT(ty != NULL);
+        CHECK(ty->name == types[i].ty.name);
+        CHECK(ty->size == types[i].ty.size);
+        CHECK(ty->is_signed == types[i].ty.is_signed);
+    }
+
+    symbolTableFree(&s);
+}
+
 struct scanner_test_token_type {
     TokenType type;
     union {
@@ -389,6 +444,7 @@ Test tests[] = {
     {"Strings", test_strings, NULL},
     {"Array", test_array, NULL},
     {"Table", test_table, NULL},
+    {"Symbols", test_symbols, NULL},
     {"Scanner", test_scanner, NULL},
     {NULL, NULL, NULL}
 };
