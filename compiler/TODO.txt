@@ -1,6 +1,6 @@
 - New testing framework that checks stdout/stderr etc.
-- Finish Object parser
-- Finish Type parser
-- Validator (parser pass 2)
-- Typechecker
-- Codegenerator
+- Add variable declarations and assignment.
+- Finish Type parser.
+- Validator (parser pass 2).
+- Typechecker (part of validator).
+- Codegenerator.
