@@ -117,16 +117,15 @@ typedef struct ast_loop_node {
 // update astFreeObj(), astPrintObj() & obj_name() when adding new types.
 typedef enum ast_obj_type {
     OBJ_FUNCTION,
-    //OBJ_GLOBAL, OBJ_LOCAL, OBJ_PARAMETER,
-    //OBJ_STRUCT, OBJ_ENUM,
-    //OBJ_TYPEDEF
+    //OBJ_GLOBAL, OBJ_LOCAL, OBJ_GENERIC_PARAMETER,
+    //OBJ_STRUCT, OBJ_ENUM
 } ASTObjType;
 
 typedef struct ast_obj {
     ASTObjType type;
     Location location;
     ASTIdentifier *name;
-    //SymbolID data_type; // fn type, typedef, var type.
+    // SymbolID data_type; // fn type, typedef, var type.
     // ScopeID scope;
     // bool is_public;
 } ASTObj;
@@ -158,7 +157,6 @@ typedef struct ast_program {
     SymbolTable symbols;
     Array functions; // Array<ASTFunctionObj *>
 //    Array records; // Array<ASTRecordObj *>
-//    Array types; // Array<ASTObj *> (OBJ_TYPEDEF)
 } ASTProgram;
 
 #define AS_OBJ(obj) ((ASTObj *)(obj))

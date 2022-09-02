@@ -1,6 +1,9 @@
 - Add better tests.
 - Add variable declarations and assignment.
 - Finish Type parser.
-- Validator (parser pass 2).
-- Typechecker (part of validator).
-- Codegenerator.
+- Validator (parser pass 2):
+    * check that all the referenced globals (variables and functions) exist.
+    * Typechecker (part of validator):
+        - infer types.
+        - typecheck expressions (assignment etc.)
+- Codegenerator (start with a C "transpiler")
