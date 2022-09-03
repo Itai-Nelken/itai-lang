@@ -446,6 +446,7 @@ static ASTFunctionObj *parse_function_decl(Parser *p) {
 #undef TRY_PARSE
 
 // synchronize to declaration boundaries
+// FIXME: synchronize to statement boundaries?
 static void synchronize(Parser *p) {
     while(!is_eof(p)) {
         switch(peek(p).type) {
