@@ -447,7 +447,7 @@ static void synchronize(Parser *p) {
             case TK_FN:
             //case TK_VAR:
             //case TK_IMPORT:
-                break;
+                return;
             default:
                 advance(p);
                 break;
