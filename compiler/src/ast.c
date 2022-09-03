@@ -102,6 +102,7 @@ ASTModule *astNewModule(ASTIdentifier *name) {
 }
 
 void astFreeModule(ASTModule *m) {
+    astFreeIdentifier(m->name);
     arrayMap(&m->objects, free_object_callback, NULL);
     arrayFree(&m->objects);
     FREE(m);
