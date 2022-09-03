@@ -178,7 +178,7 @@ void astPrintProgram(FILE *to, ASTProgram *prog) {
     fprintf(to, "], \x1b[1mroot_module:\x1b[0m ModuleID{\x1b[34m%zu\x1b[0m}", prog->root_module);
     fprintf(to, ", \x1b[1mentry_point:\x1b[0m ");
     if(prog->entry_point) {
-        astPrintObj(to, AS_OBJ(prog->entry_point));
+        fprintf(to, "function %s", symbolTableGetIdentifier(&prog->symbols, prog->entry_point->header.name->id));
     } else {
         fputs("(null)", to);
     }
