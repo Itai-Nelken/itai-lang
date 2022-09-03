@@ -91,12 +91,12 @@ SymbolID symbolTableAddIdentifier(SymbolTable *syms, char *txt, usize length) {
     return add_symbol(syms, sym);
 }
 
-const char *symbolTableGetIdentifier(SymbolTable *syms, SymbolID id) {
+String symbolTableGetIdentifier(SymbolTable *syms, SymbolID id) {
     Symbol *sym = get_symbol(syms, id);
     if(!sym || sym->type != SYM_IDENTIFIER) {
         return NULL;
     }
-    return (const char *)sym->as.identifier;
+    return sym->as.identifier;
 }
 
 SymbolID symbolTableAddType(SymbolTable *syms, DataType ty) {

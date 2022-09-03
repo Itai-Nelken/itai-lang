@@ -47,9 +47,9 @@ SymbolID symbolTableAddIdentifier(SymbolTable *syms, char *txt, usize length);
  *
  * @param syms The symbol table to use.
  * @param id The ID of the identifier to get.
- * @return The identifier (as a null terminated string) or NULL on failure.
+ * @return The identifier (as a String) or NULL on failure.
  ***/
-const char *symbolTableGetIdentifier(SymbolTable *syms, SymbolID id);
+String symbolTableGetIdentifier(SymbolTable *syms, SymbolID id);
 
 /***
  * Add a type to a symbol table.
