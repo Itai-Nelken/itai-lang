@@ -151,12 +151,19 @@ typedef struct ast_function_obj {
 //    bool is_const;
 //} ASTVariableObj;
 
+typedef struct ast_module {
+    ASTIdentifier *name;
+    Array objects; // Array<ASTObj *> // functions, globals, records.
+} ASTModule;
+
+typedef usize ModuleID; // An index into the ASTProgram::modules array.
+
 typedef struct ast_program {
     SymbolID primitive_ids[TY_COUNT];
-    ASTFunctionObj *entry_point;
     SymbolTable symbols;
-    Array functions; // Array<ASTFunctionObj *>
-//    Array records; // Array<ASTRecordObj *>
+    ASTFunctionObj *entry_point;
+    ModuleID root_module;
+    Array modules; // Array<ASTModule *>
 } ASTProgram;
 
 #define AS_OBJ(obj) ((ASTObj *)(obj))
@@ -191,6 +198,29 @@ void astFreeObj(ASTObj *obj);
 void astPrintObj(FILE *to, ASTObj *obj);
 
 /***
+ * Create a new ast module.
+ * NOTE: ownership of 'name' is taken.
+ *
+ * @param name The modules name.
+ ***/
+ASTModule *astNewModule(ASTIdentifier *name);
+
+/***
+ * Free an ast module.
+ *
+ * @param m The module to free.
+ ***/
+void astFreeModule(ASTModule *m);
+
+/***
+ * Print an ast module.
+ *
+ * @param to The stream to print to.
+ * @param m The module to print.
+ ***/
+void astPrintModule(FILE *to, ASTModule *m);
+
+/***
  * Initialize an AST program.
  * NOTE: ownership of 'functions' is taken.
  *
@@ -213,6 +243,26 @@ void astFreeProgram(ASTProgram *prog);
  * @return The SymbolID of the primitive type.
  ***/
 SymbolID astProgramGetPrimitiveType(ASTProgram *prog, PrimitiveType ty);
+
+/***
+ * Add a module to an ast program.
+ * NOTE: ownership of 'module' is taken.
+ *
+ * @param prog The program to add the module to.
+ * @param module The module to add.
+ * @return The ModuleID of the module.
+ ***/
+ModuleID astProgramAddModule(ASTProgram *prog, ASTModule *module);
+
+/***
+ * Get a module from an ast program.
+ * NOTE: do NOT free the returned module, it's owned by the ASTProgram.
+ *
+ * @param prog The program containing the module,
+ * @param module_id The ModuleID of the module to get.
+ * @return A pointer to the module or NULL on failure.
+ ***/
+ASTModule *astProgramGetModule(ASTProgram *prog, ModuleID module_id);
 
 /***
  * Print an AST program.

@@ -7,6 +7,17 @@
 #include "Symbols.h"
 #include "ast.h"
 
+// callbacks
+static void free_object_callback(void *obj, void *cl) {
+    UNUSED(cl);
+    astFreeObj(AS_OBJ(obj));
+}
+
+static void free_module_callback(void *module, void *cl) {
+    UNUSED(cl);
+    astFreeModule((ASTModule *)module);
+}
+
 ASTIdentifier *astNewIdentifier(Location loc, SymbolID id) {
     ASTIdentifier *ident;
     NEW0(ident);
@@ -82,6 +93,33 @@ void astPrintObj(FILE *to, ASTObj *obj) {
     fputc('}', to);
 }
 
+ASTModule *astNewModule(ASTIdentifier *name) {
+    ASTModule *m;
+    NEW0(m);
+    m->name = name;
+    arrayInit(&m->objects);
+    return m;
+}
+
+void astFreeModule(ASTModule *m) {
+    arrayMap(&m->objects, free_object_callback, NULL);
+    arrayFree(&m->objects);
+    FREE(m);
+}
+
+void astPrintModule(FILE *to, ASTModule *m) {
+    fputs("ASTModule{\x1b[1mname:\x1b[0m ", to);
+    astPrintIdentifier(to, m->name);
+    fputs(", \x1b[1mobjects:\x1b[0m [", to);
+    for(usize i = 0; i < m->objects.used; ++i) {
+        astPrintObj(to, ARRAY_GET_AS(ASTObj *, &m->objects, i));
+        if(i + 1 < m->objects.used) {
+            fputs(", ", to);
+        }
+    }
+    fputs("]}", to);
+}
+
 static void init_primitives(SymbolID ids[TY_COUNT], SymbolTable *syms) {
     SymbolID name;
     DataType ty;
@@ -99,17 +137,17 @@ static void init_primitives(SymbolID ids[TY_COUNT], SymbolTable *syms) {
 
 void astInitProgram(ASTProgram *prog) {
     prog->entry_point = NULL;
-    arrayInit(&prog->functions);
+    prog->root_module = 0; // not an actual module id, just a known initial value.
+    arrayInit(&prog->modules);
     symbolTableInit(&prog->symbols);
     init_primitives(prog->primitive_ids, &prog->symbols);
 }
 
 void astFreeProgram(ASTProgram *prog) {
-    for(usize i = 0; i < prog->functions.used; ++i) {
-        astFreeObj(ARRAY_GET_AS(ASTObj *, &prog->functions, i));
-    }
-    arrayFree(&prog->functions);
-    prog->entry_point = NULL; // entry point should be in the functions array, so it was already freed.
+    arrayMap(&prog->modules, free_module_callback, NULL);
+    arrayFree(&prog->modules);
+    prog->entry_point = NULL; // entry point should be in the root module, so it was already freed.
+    prog->root_module = 0;
     symbolTableFree(&prog->symbols);
 }
 
@@ -117,17 +155,36 @@ SymbolID astProgramGetPrimitiveType(ASTProgram *prog, PrimitiveType ty) {
     return prog->primitive_ids[(u32)ty];
 }
 
+ModuleID astProgramAddModule(ASTProgram *prog, ASTModule *module) {
+    return (ModuleID)arrayPush(&prog->modules, (void *)module);
+}
+
+ASTModule *astProgramGetModule(ASTProgram *prog, ModuleID module_id) {
+    // arrayGet() handles the id being out of bounds.
+    return ARRAY_GET_AS(ASTModule *, &prog->modules, module_id);
+}
+
 void astPrintProgram(FILE *to, ASTProgram *prog) {
-    fprintf(to, "ASTProgram{\x1b[1mentry_point:\x1b[0m ");
+    fprintf(to, "ASTProgram{\x1b[1mprimitive_ids:\x1b[0m [");
+    const u32 primitive_ids_length = sizeof(prog->primitive_ids)/sizeof(prog->primitive_ids[0]);
+    for(u32 i = 0; i < primitive_ids_length; ++i) {
+        // TODO: print the primitive before its id.
+        symbolIDPrint(to, prog->primitive_ids[i]);
+        if(i + 1 < primitive_ids_length) {
+            fputs(", ", to);
+        }
+    }
+    fprintf(to, "], \x1b[1mroot_module:\x1b[0m ModuleID{\x1b[34m%zu\x1b[0m}", prog->root_module);
+    fprintf(to, ", \x1b[1mentry_point:\x1b[0m ");
     if(prog->entry_point) {
         astPrintObj(to, AS_OBJ(prog->entry_point));
     } else {
         fputs("(null)", to);
     }
-    fprintf(to, ", \x1b[1mfunctions:\x1b[0m [");
-    for(usize i = 0; i < prog->functions.used; ++i) {
-        astPrintObj(to, ARRAY_GET_AS(ASTObj *, &prog->functions, i));
-        if(i + 1 < prog->functions.used) {
+    fprintf(to, ", \x1b[1mmodules:\x1b[0m [");
+    for(usize i = 0; i < prog->modules.used; ++i) {
+        astPrintModule(to, ARRAY_GET_AS(ASTModule *, &prog->modules, i));
+        if(i + 1 < prog->modules.used) {
             fputs(", ", to);
         }
     }

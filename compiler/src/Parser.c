@@ -463,6 +463,20 @@ bool parserParse(Parser *p, Scanner *s, ASTProgram *prog) {
     advance(p);
     // if the scanner failed to set the source, we can't do anything.
     if(p->scanner->failed_to_set_source) {
+        // The scanner already reported the error.
+        p->program = NULL;
+        p->scanner = NULL;
+        return false;
+    }
+
+    // create the root module
+    SymbolID root_module_name_id = symbolTableAddIdentifier(&prog->symbols, "___root___", 10);
+    prog->root_module = astProgramAddModule(prog, astNewModule(astNewIdentifier(locationNew(0, 0, compilerGetCurrentFileID(p->compiler)), root_module_name_id)));
+
+    // get the root module as the initial module
+    ASTModule *current_module = astProgramGetModule(prog, prog->root_module);
+    if(!current_module) {
+        // TODO: report the error.
         p->program = NULL;
         p->scanner = NULL;
         return false;
@@ -473,7 +487,7 @@ bool parserParse(Parser *p, Scanner *s, ASTProgram *prog) {
         if(match(p, TK_FN)) {
             ASTFunctionObj *fn = parse_function_decl(p);
             if(fn) {
-                arrayPush(&prog->functions, (void *)fn);
+                arrayPush(&current_module->objects, (void *)fn);
             } else {
                 had_error = true;
                 synchronize(p);
