@@ -118,7 +118,7 @@ typedef struct ast_loop_node {
 // update astFreeObj(), astPrintObj() & obj_name() when adding new types.
 typedef enum ast_obj_type {
     OBJ_FUNCTION,
-    //OBJ_GLOBAL, OBJ_LOCAL, OBJ_GENERIC_PARAMETER,
+    OBJ_GLOBAL, //OBJ_LOCAL, OBJ_GENERIC_PARAMETER,
     //OBJ_STRUCT, OBJ_ENUM
 } ASTObjType;
 
@@ -126,9 +126,9 @@ typedef struct ast_obj {
     ASTObjType type;
     Location location;
     ASTIdentifier *name;
-    // SymbolID data_type; // fn type, typedef, var type.
-    // ScopeID scope;
-    // bool is_public;
+    SymbolID data_type; // fn type, var type.
+    //ScopeID scope;
+    //bool is_public;
 } ASTObj;
 
 //typedef struct ast_record_obj {
@@ -140,17 +140,17 @@ typedef struct ast_obj {
 typedef struct ast_function_obj {
     ASTObj header;
     SymbolID return_type;
-//    Array parameters; // Array<ASTObj *> (OBJ_PARAMETER)
-//    Array generic_parameters; // Array<ASTObj *> (OBJ_TYPEDEF)
-//    Array locals; // Array<ASTVariableNode *> (OBJ_LOCAL)
+    //Array parameters; // Array<ASTObj *> (OBJ_PARAMETER)
+    //Array generic_parameters; // Array<ASTObj *> (OBJ_TYPEDEF)
+    //Array locals; // Array<ASTVariableNode *> (OBJ_LOCAL)
     ASTListNode *body;
 } ASTFunctionObj;
 
-//typedef struct ast_variable_obj {
-//    ASTObj header;
-//    ASTNode *initializer;
-//    bool is_const;
-//} ASTVariableObj;
+typedef struct ast_variable_obj {
+    ASTObj header;
+    ASTNode *initializer;
+    //bool is_const;
+} ASTVariableObj;
 
 typedef struct ast_module {
     ASTIdentifier *name;
@@ -170,7 +170,7 @@ typedef struct ast_program {
 #define AS_OBJ(obj) ((ASTObj *)(obj))
 //#define AS_RECORD_OBJ(obj) ((ASTRecordObj *)(obj))
 #define AS_FUNCTION_OBJ(obj) ((ASTFunctionObj *)(obj))
-//#define AS_VARIABLE_OBJ(obj) ((ASTVariableObj *)(obj))
+#define AS_VARIABLE_OBJ(obj) ((ASTVariableObj *)(obj))
 
 /***
  * Create a new AST function object.
@@ -180,8 +180,22 @@ typedef struct ast_program {
  * @param name The functions name.
  * @param return_type_id The SymbolID of the return type.
  * @param body The body of the function.
+ * @return A new function object.
  ***/
 ASTObj *astNewFunctionObj(Location loc, ASTIdentifier *name, SymbolID return_type_id, ASTListNode *body);
+
+/***
+ * Create a new AST variable object.
+ * NOTE: ownership of 'name' and 'initializer' is taken.
+ *
+ * @param type The type (OBJ_GLOBAL/OBJ_LOCAL).
+ * @param loc The location of the variable.
+ * @param name The variables name.
+ * @param data_type The SymbolID of the variables type.
+ * @param initializer The initializer (optional (can be NULL)).
+ * @return A new variable object.
+ ***/
+ASTObj *astNewVariableObj(ASTObjType type, Location loc, ASTIdentifier *name, SymbolID data_type, ASTNode *initializer);
 
 /***
  * Free an AST object.

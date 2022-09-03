@@ -458,6 +458,36 @@ static ASTFunctionObj *parse_function_decl(Parser *p) {
     return AS_FUNCTION_OBJ(astNewFunctionObj(locationMerge(location, body->header.location), name, return_type, body));
 }
 
+static ASTVariableObj *parse_variable_decl(Parser *p) {
+    // assumes 'var' was already consumed.
+    Location location = previous(p).location;
+
+    // name
+    ASTIdentifier *name = TRY_PARSE_ID(p);
+
+    // type
+    SymbolID type = EMPTY_SYMBOL_ID;
+    if(match(p, TK_COLON)) {
+        type = parse_type(p);
+    }
+
+    // initializer
+    ASTNode *initializer = NULL;
+    if(match(p, TK_EQUAL)) {
+        initializer = parse_expression(p);
+    }
+
+    // end
+    if(!consume(p, TK_SEMICOLON)) {
+        astFree(initializer);
+        astFreeIdentifier(name);
+        return NULL;
+    }
+
+    // TODO: add local variables.
+    return AS_VARIABLE_OBJ(astNewVariableObj(OBJ_GLOBAL, locationMerge(location, previous(p).location), name, type, initializer));
+}
+
 #undef TRY_PARSE_ID
 #undef CONSUME
 #undef TRY_PARSE_PREC
@@ -469,7 +499,7 @@ static void synchronize(Parser *p) {
     while(!is_eof(p)) {
         switch(peek(p).type) {
             case TK_FN:
-            //case TK_VAR:
+            case TK_VAR:
             //case TK_IMPORT:
                 return;
             default:
@@ -516,9 +546,17 @@ bool parserParse(Parser *p, Scanner *s, ASTProgram *prog) {
                 had_error = true;
                 synchronize(p);
             }
+        } else if(match(p, TK_VAR)) {
+            ASTVariableObj *var = parse_variable_decl(p);
+            if(var) {
+                arrayPush(&current_module->objects, (void *)var);
+            } else {
+                had_error = true;
+                synchronize(p);
+            }
         } else {
             had_error = true;
-            error_at(p, peek(p).location, stringFormat("Expected one of ['fn'], but got '%s'.", tokenTypeString(peek(p).type)));
+            error_at(p, peek(p).location, stringFormat("Expected one of ['fn', 'var'], but got '%s'.", tokenTypeString(peek(p).type)));
             // advance and synchronize so we don't get stuck in an infinite loop on the same token.
             advance(p);
             synchronize(p);

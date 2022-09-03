@@ -111,6 +111,12 @@ static TokenType scan_keyword_or_identifier_type(Scanner *s) {
 
     TokenType result;
     switch(*lexeme) {
+        case 'e':
+            result = (length == 4 && memcmp(lexeme, "else", 4) == 0) ? TK_ELSE : TK_IDENTIFIER;
+            break;
+        case 'f':
+            result = (length == 2 && memcmp(lexeme, "fn", 2) == 0) ? TK_FN : TK_IDENTIFIER;
+            break;
         case 'i':
             switch(length) {
                 case 2:
@@ -124,17 +130,14 @@ static TokenType scan_keyword_or_identifier_type(Scanner *s) {
                     break;
             }
             break;
-        case 'e':
-            result = (length == 4 && memcmp(lexeme, "else", 4) == 0) ? TK_ELSE : TK_IDENTIFIER;
+        case 'r':
+            result = (length == 6 && memcmp(lexeme, "return", 6) == 0) ? TK_RETURN : TK_IDENTIFIER;
+            break;
+        case 'v':
+            result = (length == 3 && memcmp(lexeme, "var", 3) == 0) ? TK_VAR : TK_IDENTIFIER;
             break;
         case 'w':
             result = (length == 5 && memcmp(lexeme, "while", 5) == 0) ? TK_WHILE : TK_IDENTIFIER;
-            break;
-        case 'f':
-            result = (length == 2 && memcmp(lexeme, "fn", 2) == 0) ? TK_FN : TK_IDENTIFIER;
-            break;
-        case 'r':
-            result = (length == 6 && memcmp(lexeme, "return", 6) == 0) ? TK_RETURN : TK_IDENTIFIER;
             break;
         default:
             result = TK_IDENTIFIER;
@@ -170,6 +173,7 @@ Token scan_token(Scanner *s) {
         case '*': return make_simple_token(s, TK_STAR);
         case '/': return make_simple_token(s, TK_SLASH);
         case ';': return make_simple_token(s, TK_SEMICOLON);
+        case ':': return make_simple_token(s, TK_COLON);
         case '-': return make_simple_token(s, match(s, '>') ? TK_ARROW : TK_MINUS);
         case '=': return make_simple_token(s, match(s, '=') ? TK_EQUAL_EQUAL : TK_EQUAL);
         case '!': return make_simple_token(s, match(s, '=') ? TK_BANG_EQUAL : TK_BANG);

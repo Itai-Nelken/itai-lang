@@ -39,7 +39,7 @@ typedef enum token_type {
     TK_LBRACE, TK_RBRACE,
     TK_PLUS,
     TK_STAR, TK_SLASH,
-    TK_SEMICOLON,
+    TK_SEMICOLON, TK_COLON,
 
     // one or two character tokens
     TK_MINUS, TK_ARROW,
@@ -53,6 +53,7 @@ typedef enum token_type {
     TK_IF, TK_ELSE,
     TK_WHILE,
     TK_FN, TK_RETURN,
+    TK_VAR,
 
     // primitive types
     TK_I32,

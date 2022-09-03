@@ -8,12 +8,9 @@
 #include "Types.h"
 #include "Symbols.h"
 
-/***
- * A note about the implementation:
- * A hashtable is used even though known incices are used because
- * it allows for easier checking if a symbol already exists, as well
- * as providing the option to change the SymbolID type to for example a string in the future.
- ***/
+// FIXME: This implementation isn't very good. a hashtable is usefule for fast checking if a symbol exists,
+//        but the current implementation doesn't use that feature of the hashtable at all because the keys won't
+//        ever collide, but the values can be the same.
 
 typedef enum symbol_type {
     SYM_IDENTIFIER,

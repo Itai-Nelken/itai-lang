@@ -45,10 +45,24 @@ ASTObj *astNewFunctionObj(Location loc, ASTIdentifier *name, SymbolID return_typ
         .type = OBJ_FUNCTION,
         .location = loc,
         .name = name,
+        .data_type = EMPTY_SYMBOL_ID // TODO: populate properly.
     };
     fn->return_type = return_type_id;
     fn->body = body;
     return AS_OBJ(fn);
+}
+
+ASTObj *astNewVariableObj(ASTObjType type, Location loc, ASTIdentifier *name, SymbolID data_type, ASTNode *initializer) {
+    ASTVariableObj *var;
+    NEW0(var);
+    var->header = (ASTObj){
+        .type = type,
+        .location = loc,
+        .name = name,
+        .data_type = data_type
+    };
+    var->initializer = initializer;
+    return AS_OBJ(var);
 }
 
 void astFreeObj(ASTObj *obj) {
@@ -62,6 +76,10 @@ void astFreeObj(ASTObj *obj) {
         case OBJ_FUNCTION:
             astFree(AS_NODE(AS_FUNCTION_OBJ(obj)->body));
             break;
+        case OBJ_GLOBAL:
+        //case OBJ_LOCAL:
+            astFree(AS_VARIABLE_OBJ(obj)->initializer);
+            break;
         default:
             UNREACHABLE();
     }
@@ -70,7 +88,9 @@ void astFreeObj(ASTObj *obj) {
 
 static const char *obj_name(ASTObjType type) {
     static const char *names[] = {
-        [OBJ_FUNCTION] = "ASTFunctionObj"
+        [OBJ_FUNCTION] = "ASTFunctionObj",
+        [OBJ_GLOBAL]   = "ASTVariableObj",
+        //[OBJ_LOCAL]   = "ASTVariableObj"
     };
     return names[(i32)type];
 }
@@ -80,12 +100,22 @@ void astPrintObj(FILE *to, ASTObj *obj) {
     printLocation(to, obj->location);
     fprintf(to, ", \x1b[1mname:\x1b[0m ");
     astPrintIdentifier(to, obj->name);
+    fprintf(to, ", \x1b[1mdata_type:\x1b[0m ");
+    symbolIDPrint(to, obj->data_type);
     switch(obj->type) {
         case OBJ_FUNCTION:
             fprintf(to, ", \x1b[1mreturn_type:\x1b[0m ");
             symbolIDPrint(to, AS_FUNCTION_OBJ(obj)->return_type);
             fprintf(to, ", \x1b[1mbody:\x1b[0m ");
             astPrint(to, AS_NODE(AS_FUNCTION_OBJ(obj)->body));
+            break;
+        case OBJ_GLOBAL:
+            fprintf(to, ", \x1b[1minitializer:\x1b[0m ");
+            if(AS_VARIABLE_OBJ(obj)->initializer) {
+                astPrint(to, AS_VARIABLE_OBJ(obj)->initializer);
+            } else {
+                fputs("(null)", to);
+            }
             break;
         default:
             break;
