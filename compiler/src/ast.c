@@ -290,6 +290,7 @@ static const char *node_type_name(ASTNodeType type) {
         [ND_EQ]         = "ND_EQ",
         [ND_NE]         = "ND_NE",
         [ND_CALL]       = "ND_CALL",
+        [ND_ASSIGN]     = "ND_ASSIGN",
         [ND_NUMBER]     = "ND_NUMBER",
         [ND_IDENTIFIER] = "ND_IDENTIFIER",
         [ND_EXPR_STMT]  = "ND_EXPR_STMT",
@@ -310,6 +311,7 @@ static const char *node_name(ASTNodeType type) {
         case ND_DIV:
         case ND_EQ:
         case ND_NE:
+        case ND_ASSIGN:
             return "ASTBinaryNode";
         // unary node
         case ND_NEG:
@@ -356,6 +358,7 @@ void astPrint(FILE *to, ASTNode *node) {
         case ND_DIV:
         case ND_EQ:
         case ND_NE:
+        case ND_ASSIGN:
             fprintf(to, ", \x1b[1mleft:\x1b[0m ");
             astPrint(to, AS_BINARY_NODE(node)->left);
             fprintf(to, ", \x1b[1mright:\x1b[0m ");
@@ -427,6 +430,7 @@ void astFree(ASTNode *node) {
         case ND_DIV:
         case ND_EQ:
         case ND_NE:
+        case ND_ASSIGN:
             astFree(AS_BINARY_NODE(node)->left);
             astFree(AS_BINARY_NODE(node)->right);
             break;

@@ -47,6 +47,7 @@ typedef enum ast_node_type {
     ND_NEG,
     ND_EQ, ND_NE,
     ND_CALL,
+    ND_ASSIGN,
 
     // literals, identifiers
     ND_NUMBER,

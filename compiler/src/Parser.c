@@ -101,7 +101,7 @@ typedef enum precedences {
     PREC_PRIMARY    = 12  // highest
 } Precedence;
 
-typedef ASTNode *(*PrefixParseFn)(Parser *p);
+typedef ASTNode *(*PrefixParseFn)(Parser *p, bool can_assign);
 typedef ASTNode *(*InfixParseFn)(Parser *p, ASTNode *left);
 
 typedef struct parse_rule {
@@ -112,7 +112,8 @@ typedef struct parse_rule {
 
 // forward-declarations for parse functions and rule table
 static ASTNode *parse_precedence(Parser *p, Precedence min_prec);
-static ASTNode *parse_prefix_expression(Parser *p);
+static ASTNode *parse_expression(Parser *p);
+static ASTNode *parse_prefix_expression(Parser *p, bool can_assign);
 static ASTNode *parse_infix_expression(Parser *p, ASTNode *lhs);
 static ASTNode *parse_call_expression(Parser *p, ASTNode *callee);
 static ASTNode *parse_statement(Parser *p);
@@ -194,6 +195,7 @@ static inline Precedence get_precedence(TokenType type) {
  ***/
 #define CONSUME(parser, expected, on_null) ({if(!consume((parser), (expected))) { astFree(on_null); return NULL;} true;})
 
+// infix operators.
 static ASTNodeType token_to_node_type(TokenType tk) {
     switch(tk) {
         case TK_PLUS:
@@ -208,14 +210,12 @@ static ASTNodeType token_to_node_type(TokenType tk) {
             return ND_EQ;
         case TK_BANG_EQUAL:
             return ND_NE;
-        case TK_NUMBER:
-            return ND_NUMBER;
         default:
             UNREACHABLE();
     }
 }
 
-static ASTNode *parse_prefix_expression(Parser *p) {
+static ASTNode *parse_prefix_expression(Parser *p, bool can_assign) {
     switch(previous(p).type) {
         case TK_NUMBER:
             return astNewNumberNode(previous(p).location, previous(p).as.number_constant);
@@ -224,7 +224,12 @@ static ASTNode *parse_prefix_expression(Parser *p) {
             if(!id) {
                 return NULL;
             }
-            return astNewIdentifierNode(EMPTY_SYMBOL_ID, id);
+            ASTNode *node = astNewIdentifierNode(EMPTY_SYMBOL_ID, id);
+            if(can_assign && match(p, TK_EQUAL)) {
+                ASTNode *rvalue = TRY_PARSE(parse_expression, p, node);
+                node = astNewBinaryNode(ND_ASSIGN, locationMerge(node->location, rvalue->location), node, rvalue);
+            }
+            return node;
         }
         case TK_PLUS:
         case TK_MINUS: {
@@ -268,12 +273,25 @@ static ASTNode *parse_precedence(Parser *p, Precedence min_prec) {
         error(p, stringFormat("Expected an expression but got '%s'!", tokenTypeString(previous(p).type)));
         return NULL;
     }
-    ASTNode *lhs = TRY_PARSE(nud, p, 0);
+    bool can_assign = min_prec <= PREC_ASSIGNMENT;
+    ASTNode *lhs = nud(p, can_assign);
+    if(!lhs) {
+        return NULL;
+    }
     while(!is_eof(p) && min_prec < get_precedence(peek(p).type)) {
         advance(p);
         InfixParseFn led = get_led(previous(p).type);
         lhs = led(p, lhs);
+        if(!lhs) {
+            break;
+        }
     }
+
+    if(can_assign && peek(p).type == TK_EQUAL) {
+        error(p, "Invalid assignment target!");
+        advance(p);
+    }
+
     return lhs;
 }
 
@@ -445,8 +463,8 @@ static ASTFunctionObj *parse_function_decl(Parser *p) {
 #undef TRY_PARSE_PREC
 #undef TRY_PARSE
 
-// synchronize to declaration boundaries
-// FIXME: synchronize to statement boundaries?
+// synchronize to declaration boundaries.
+// TODO: if inside a function, synchronize to statement boundaries.
 static void synchronize(Parser *p) {
     while(!is_eof(p)) {
         switch(peek(p).type) {
