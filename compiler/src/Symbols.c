@@ -3,14 +3,11 @@
 #include <assert.h>
 #include "common.h"
 #include "memory.h"
-#include "Table.h"
+#include "Array.h"
 #include "Strings.h"
 #include "Types.h"
 #include "Symbols.h"
 
-// FIXME: This implementation isn't very good. a hashtable is usefule for fast checking if a symbol exists,
-//        but the current implementation doesn't use that feature of the hashtable at all because the keys won't
-//        ever collide, but the values can be the same.
 
 typedef enum symbol_type {
     SYM_IDENTIFIER,
@@ -25,20 +22,8 @@ typedef struct symbol {
     } as;
 } Symbol;
 
-static unsigned hash_usize(void *key) {
-    // As there are no two different SymbolID's that hold
-    // the same number, we can simply return the value
-    // and be sure that there will be no colisions.
-    return (unsigned)(usize)key;
-}
-
-static bool compare_usize(void *a, void *b) {
-    return (usize)a == (usize)b;
-}
-
 void symbolTableInit(SymbolTable *syms) {
-    syms->next_id = 0;
-    tableInit(&syms->symbols, hash_usize, compare_usize);
+    arrayInit(&syms->symbols);
 }
 
 static void free_symbol(Symbol *sym) {
@@ -48,43 +33,46 @@ static void free_symbol(Symbol *sym) {
     FREE(sym);
 }
 
-static void free_symbol_callback(TableItem *item, bool is_last, void *cl) {
+static void free_symbol_callback(void *sym, void *cl) {
     UNUSED(cl);
-    UNUSED(is_last);
-    free_symbol((Symbol *)item->value);
+    free_symbol((Symbol *)sym);
 }
 
 void symbolTableFree(SymbolTable *syms) {
-    tableMap(&syms->symbols, free_symbol_callback, NULL);
-    tableFree(&syms->symbols);
-    syms->next_id = 0;
-}
-
-static inline SymbolID gen_id(SymbolTable *syms) {
-    assert(syms->next_id + 1 < EMPTY_SYMBOL_ID);
-    return syms->next_id++;
+    arrayMap(&syms->symbols, free_symbol_callback, NULL);
+    arrayFree(&syms->symbols);
 }
 
 static SymbolID add_symbol(SymbolTable *syms, Symbol *sym) {
-    SymbolID id = gen_id(syms);
-    // symbols can't be readded.
-    assert(tableSet(&syms->symbols, (void *)id, (void *)sym) == NULL);
-    return id;
+    return (SymbolID)arrayPush(&syms->symbols, (void *)sym);
 }
 
 static Symbol *get_symbol(SymbolTable *syms, SymbolID id) {
-    TableItem *item = tableGet(&syms->symbols, (void *)id);
-    if(!item) {
-        return NULL;
+    return arrayGet(&syms->symbols, id);
+}
+
+static SymbolID find_identifier(SymbolTable *syms, String txt) {
+    for(usize i = 0; i < syms->symbols.used; ++i) {
+        Symbol *sym = ARRAY_GET_AS(Symbol *, &syms->symbols, i);
+        if(sym->type != SYM_IDENTIFIER) {
+            continue;
+        } else if(stringEqual(sym->as.identifier, txt)) {
+            return (SymbolID)i;
+        }
     }
-    return (Symbol *)item->value;
+    return EMPTY_SYMBOL_ID;
 }
 
 SymbolID symbolTableAddIdentifier(SymbolTable *syms, char *txt, usize length) {
+    String identifier = stringNCopy(txt, length);
+    SymbolID existing_sym = find_identifier(syms, identifier);
+    if(existing_sym != EMPTY_SYMBOL_ID) {
+        return existing_sym;
+    }
     Symbol *sym;
     NEW0(sym);
     sym->type = SYM_IDENTIFIER;
-    sym->as.identifier = stringNCopy(txt, length);
+    sym->as.identifier = identifier;
     return add_symbol(syms, sym);
 }
 
@@ -96,7 +84,24 @@ String symbolTableGetIdentifier(SymbolTable *syms, SymbolID id) {
     return sym->as.identifier;
 }
 
+static SymbolID find_type(SymbolTable *syms, DataType ty) {
+    for(usize i = 0; i < syms->symbols.used; ++i) {
+        Symbol *sym = ARRAY_GET_AS(Symbol *, &syms->symbols, i);
+        if(sym->type != SYM_TYPE) {
+            continue;
+        } else if(sym->as.type.name == ty.name) {
+            // FIXME: handle re-declaration of types.
+            return (SymbolID)i;
+        }
+    }
+    return EMPTY_SYMBOL_ID;
+}
+
 SymbolID symbolTableAddType(SymbolTable *syms, DataType ty) {
+    SymbolID existing_sym = find_type(syms, ty);
+    if(existing_sym != EMPTY_SYMBOL_ID) {
+        return existing_sym;
+    }
     Symbol *sym;
     NEW0(sym);
     sym->type = SYM_TYPE;
@@ -112,29 +117,26 @@ DataType *symbolTableGetType(SymbolTable *syms, SymbolID id) {
     return &sym->as.type;
 }
 
-static void print_symbol_callback(TableItem *item, bool is_last, void *stream) {
-    FILE *to = (FILE *)stream;
-    Symbol *sym = (Symbol *)item->value;
-    fprintf(to, "Symbol{\x1b[1mid:\x1b[0;34m %zu\x1b[0m, \x1b[1mvalue:\x1b[0m ", (SymbolID)item->key);
-    switch(sym->type) {
-        case SYM_IDENTIFIER:
-            fprintf(to, "'%s'", sym->as.identifier);
-            break;
-        case SYM_TYPE:
-            dataTypePrint(to, sym->as.type);
-            break;
-        default:
-            UNREACHABLE();
-    }
-    fputc('}', to);
-    if(!is_last) {
-        fputs(", ", to);
-    }
-}
-
 void symbolTablePrint(FILE *to, SymbolTable *syms) {
     fputs("SymbolTable{\x1b[1msymbols:\x1b[0m [", to);
-    tableMap(&syms->symbols, print_symbol_callback, (void *)to);
+    for(usize i = 0; i < syms->symbols.used; ++i) {
+        Symbol *sym = ARRAY_GET_AS(Symbol *, &syms->symbols, i);
+        fprintf(to, "Symbol{\x1b[1mid:\x1b[0;34m %zu\x1b[0m, \x1b[1mvalue:\x1b[0m ", (SymbolID)i);
+        switch(sym->type) {
+            case SYM_IDENTIFIER:
+                fprintf(to, "'%s'", sym->as.identifier);
+                break;
+            case SYM_TYPE:
+                dataTypePrint(to, sym->as.type);
+                break;
+            default:
+                UNREACHABLE();
+        }
+        fputc('}', to);
+        if(i + 1 < syms->symbols.used) {
+            fputs(", ", to);
+        }
+    }
     fputs("]}", to);
 }
 

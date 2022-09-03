@@ -3,19 +3,18 @@
 
 #include <limits.h>
 #include "common.h"
-#include "Table.h"
+#include "Array.h"
 
 // can't include Types.h as it includes this file, so the DataType type has to be pre-declared.
 typedef struct data_type DataType;
 
-// A SymbolID is a key in the symbols hash table that refers to a symbol.
+// A SymbolID is an index into the SymbolTable::symbols array.
 typedef usize SymbolID;
 
 #define EMPTY_SYMBOL_ID (SIZE_MAX - 1)
 
 typedef struct symbol_table {
-    SymbolID next_id; // used for generating new symbolID's.
-    Table symbols; // Table<SymbolID, Symbol *> - Symbol is an internal struct.
+    Array symbols;
 } SymbolTable;
 
 /***
