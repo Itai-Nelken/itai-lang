@@ -46,19 +46,24 @@ static inline Token previous(Parser *p) {
     return p->previous_token;
 }
 
-// if a valid String is provided as message, it will be freed.
-static void error_at(Parser *p, Location loc, char *message) {
+// if a valid String is provided as messages, it will be freed.
+static void add_error(Parser *p, bool has_location, Location loc, char *message) {
     Error *err;
     NEW0(err);
-    errorInit(err, ERR_ERROR, true, loc, message);
+    errorInit(err, ERR_ERROR, has_location, loc, message);
     compilerAddError(p->compiler, err);
     if(stringIsValid(message)) {
         stringFree(message);
     }
 }
 
+// if a valid String is provided as message, it will be freed.
+static inline void error_at(Parser *p, Location loc, char *message) {
+    add_error(p, true, loc, message);
+}
+
 // if 'message' is a valid String, it will be freed.
-// uses previous location.
+// uses the previous tokens location.
 static inline void error(Parser *p, char *message) {
     error_at(p, previous(p).location, message);
 }
@@ -251,7 +256,7 @@ static ASTNode *parse_infix_expression(Parser *p, ASTNode *lhs) {
 
 static ASTNode *parse_call_expression(Parser *p, ASTNode *callee) {
     Location loc = locationMerge(callee->location, previous(p).location);
-    // TODO: generic arguments (have to be parsed in parse_identifier_from_token?), arguments
+    // TODO: generic arguments (parseedin parse_prefix_expression => TK_IDENTIFIER?), arguments
     CONSUME(p, TK_RPAREN, callee);
     return astNewUnaryNode(ND_CALL, locationMerge(loc, previous(p).location), callee);
 }
@@ -476,7 +481,7 @@ bool parserParse(Parser *p, Scanner *s, ASTProgram *prog) {
     // get the root module as the initial module
     ASTModule *current_module = astProgramGetModule(prog, prog->root_module);
     if(!current_module) {
-        // TODO: report the error.
+        add_error(p, false, locationNew(0, 0, 0), "Failed to get root module!");
         p->program = NULL;
         p->scanner = NULL;
         return false;
