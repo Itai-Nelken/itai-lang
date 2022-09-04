@@ -3,7 +3,7 @@ import "std/io";
 import "./list";
 
 fn main() {
-    using list::list;
+    using list::List;
     using os::Args;
     using io::{eprintln, println};
 
