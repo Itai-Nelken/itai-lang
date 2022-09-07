@@ -1,10 +1,13 @@
 #include <stdbool.h>
+#include <assert.h>
 #include "common.h"
+#include "memory.h"
 #include "Array.h"
 #include "Strings.h"
 #include "Symbols.h"
 #include "Compiler.h"
 #include "ast.h"
+#include "Error.h"
 #include "Validator.h"
 
 typedef struct validator_state {
@@ -14,31 +17,64 @@ typedef struct validator_state {
     ASTProgram *program;
 } ValidatorState;
 
+// if a valid 'String' is provided as 'message', it will be freed.
+static void error(ValidatorState *state, Location location, char *message) {
+    Error *err;
+    NEW0(err);
+    errorInit(err, ERR_ERROR, true, location, message);
+    if(stringIsValid(message)) {
+        stringFree(message);
+    }
+    compilerAddError(state->compiler, err);
+}
+
 static inline String get_identifier(ValidatorState *s, SymbolID id) {
     // TODO: handle NULL returned.
     return symbolTableGetIdentifier(&s->program->symbols, id);
 }
 
-static SymbolID infer_type_from_node(ValidatorState *state, ASTNode *node) {
-    UNUSED(state);
-    UNUSED(node);
+static SymbolID get_type_from_node(ValidatorState *state, ASTNode *node) {
+    switch(node->type) {
+        case ND_NUMBER:
+            return astProgramGetPrimitiveType(state->program, TY_I32);
+        default:
+            break;
+    }
     return EMPTY_SYMBOL_ID;
 }
 
-static void infer_types_in_assignment(ValidatorState *state, ASTNode *lvalue, ASTNode *rvalue) {
-    UNUSED(state);
-    UNUSED(lvalue);
-    UNUSED(rvalue);
+static void infer_types_in_assignment(ValidatorState *state, ASTNode *assignment) {
+    assert(assignment->type == ND_ASSIGN);
+    ASTIdentifierNode *lvalue = AS_IDENTIFIER_NODE(AS_BINARY_NODE(assignment)->left);
+    SymbolID type_id = get_type_from_node(state, AS_BINARY_NODE(assignment)->right);
+    if(type_id != EMPTY_SYMBOL_ID) {
+        lvalue->data_type = type_id;
+    }
 }
 
 static void validate_ast(ValidatorState *state, ASTNode *node) {
-    UNUSED(state);
-    UNUSED(node);
+    switch(node->type) {
+        case ND_ASSIGN:
+            infer_types_in_assignment(state, node);
+            break;
+        default:
+            break;
+    }
 }
 
 static void typecheck_ast(ValidatorState *state, ASTNode *node) {
-    UNUSED(state);
-    UNUSED(node);
+    if(!node) {
+        return;
+    }
+    switch(node->type) {
+        case ND_ASSIGN:
+            if(AS_IDENTIFIER_NODE(AS_BINARY_NODE(node)->left)->data_type != get_type_from_node(state, AS_BINARY_NODE(node)->right)) {
+                error(state, node->location, "Mismatched types.");
+            }
+            break;
+        default:
+            break;
+    }
 }
 
 static void typecheck_variable(ValidatorState *state, ASTVariableObj *var) {
@@ -52,9 +88,6 @@ static void validate_function(ValidatorState *state, ASTFunctionObj *fn) {
     }
     for(usize i = 0; i < fn->body->body.used; ++i) {
         ASTNode *node = ARRAY_GET_AS(ASTNode *, &fn->body->body, i);
-        if(node->type == ND_ASSIGN) {
-            infer_types_in_assignment(state, AS_BINARY_NODE(node)->left, AS_BINARY_NODE(node)->right);
-        }
         validate_ast(state, node);
         typecheck_ast(state, node);
     }
@@ -63,7 +96,7 @@ static void validate_function(ValidatorState *state, ASTFunctionObj *fn) {
 static void validate_variable(ValidatorState *state, ASTVariableObj *var) {
     if(var->header.data_type == EMPTY_SYMBOL_ID) {
         if(var->initializer) {
-            var->header.data_type = infer_type_from_node(state, var->initializer);
+            var->header.data_type = get_type_from_node(state, var->initializer);
         }
     }
     typecheck_variable(state, var);
