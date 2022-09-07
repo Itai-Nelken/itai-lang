@@ -335,15 +335,14 @@ static SymbolID parse_type(Parser *p) {
 
 /* statements */
 
-// block -> '{' statement* '}'
-static ASTNode *parse_block(Parser *p) {
+static ASTNode *parse_block_construct(Parser *p, ASTNode *(*parse_fn_callback)(Parser *)) {
     // assumes '{' was already consumed.
     Array body;
     arrayInit(&body);
     ASTListNode *n = AS_LIST_NODE(astNewListNode(ND_BLOCK, previous(p).location, body));
     Location location = previous(p).location;
     while(!is_eof(p) && peek(p).type != TK_RBRACE) {
-        ASTNode *node = TRY_PARSE(parse_statement, p, AS_NODE(n));
+        ASTNode *node = TRY_PARSE(parse_fn_callback, p, AS_NODE(n));
         location = locationMerge(location, node->location);
         arrayPush(&n->body, (void *)node);
     }
@@ -355,6 +354,12 @@ static ASTNode *parse_block(Parser *p) {
     advance(p); // consume the '}'.
     n->header.location = location;
     return AS_NODE(n);
+}
+
+// block -> '{' statement* '}'
+static inline ASTNode *parse_block(Parser *p) {
+    // assumes '{' was already consumed.
+    return parse_block_construct(p, parse_statement);
 }
 
 // if_stmt -> 'if' expression block ('else' (if_stmt | block))?
