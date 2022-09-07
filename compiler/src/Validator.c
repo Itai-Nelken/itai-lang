@@ -79,8 +79,11 @@ static void typecheck_ast(ValidatorState *state, ASTNode *node) {
 }
 
 static void typecheck_variable(ValidatorState *state, ASTVariableObj *var) {
-    UNUSED(state);
-    UNUSED(var);
+    if(var->header.data_type == EMPTY_SYMBOL_ID) {
+        error(state, var->header.name->location, stringFormat("Variable '%s' has no type!", get_identifier(state, var->header.name->id)));
+    } else if(var->initializer && (var->header.data_type != get_type_from_node(state, var->initializer))) {
+        error(state, locationMerge(var->header.location, var->initializer->location), "Mismatched types!");
+    }
 }
 
 static void validate_function(ValidatorState *state, ASTFunctionObj *fn) {
