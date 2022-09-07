@@ -26,6 +26,7 @@ static void error(ValidatorState *state, Location location, char *message) {
         stringFree(message);
     }
     compilerAddError(state->compiler, err);
+    state->had_error = true;
 }
 
 static inline String get_identifier(ValidatorState *s, SymbolID id) {
