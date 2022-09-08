@@ -30,8 +30,19 @@ static void error(ValidatorState *state, Location location, char *message) {
 }
 
 static inline String get_identifier(ValidatorState *s, SymbolID id) {
-    // TODO: handle NULL returned.
-    return symbolTableGetIdentifier(&s->program->symbols, id);
+    String identifier = symbolTableGetIdentifier(&s->program->symbols, id);
+    if(!identifier) {
+        return "<invalid identifier>";
+    }
+    return identifier;
+}
+
+static const char *get_typename(ValidatorState *state, SymbolID ty) {
+    DataType *type = symbolTableGetType(&state->program->symbols, ty);
+    if(!type) {
+        return "<invalid type>";
+    }
+    return get_identifier(state, type->name);
 }
 
 static SymbolID get_type_from_node(ValidatorState *state, ASTNode *node) {
@@ -68,21 +79,33 @@ static void typecheck_ast(ValidatorState *state, ASTNode *node) {
         return;
     }
     switch(node->type) {
-        case ND_ASSIGN:
-            if(AS_IDENTIFIER_NODE(AS_BINARY_NODE(node)->left)->data_type != get_type_from_node(state, AS_BINARY_NODE(node)->right)) {
-                error(state, node->location, "Mismatched types.");
+        case ND_ASSIGN: {
+            SymbolID lvalue_type = AS_IDENTIFIER_NODE(AS_BINARY_NODE(node)->left)->data_type;
+            SymbolID rvalue_type = get_type_from_node(state, AS_BINARY_NODE(node)->right);
+            if(lvalue_type != rvalue_type) {
+                error(state, node->location,
+                    stringFormat("Mismatched types (expected '%s' but got '%s')!",
+                    get_typename(state, lvalue_type),
+                    get_typename(state, rvalue_type)));
             }
             break;
+        }
         default:
             break;
     }
 }
 
 static void typecheck_variable(ValidatorState *state, ASTVariableObj *var) {
-    if(var->header.data_type == EMPTY_SYMBOL_ID) {
-        error(state, var->header.name->location, stringFormat("Variable '%s' has no type!", get_identifier(state, var->header.name->id)));
-    } else if(var->initializer && (var->header.data_type != get_type_from_node(state, var->initializer))) {
-        error(state, locationMerge(var->header.location, var->initializer->location), "Mismatched types!");
+    SymbolID ty = var->header.data_type;
+    if(ty == EMPTY_SYMBOL_ID) {
+        error(state, var->header.name->location,
+            stringFormat("Variable '%s' has no type!",
+            get_identifier(state, var->header.name->id)));
+    } else if(var->initializer && (ty != get_type_from_node(state, var->initializer))) {
+        error(state, locationMerge(var->header.location, var->initializer->location),
+            stringFormat("Mismatched types (expected '%s' but got '%s')!",
+            get_typename(state, var->header.data_type),
+            get_typename(state, get_type_from_node(state, var->initializer))));
     }
 }
 
@@ -98,10 +121,8 @@ static void validate_function(ValidatorState *state, ASTFunctionObj *fn) {
 }
 
 static void validate_variable(ValidatorState *state, ASTVariableObj *var) {
-    if(var->header.data_type == EMPTY_SYMBOL_ID) {
-        if(var->initializer) {
-            var->header.data_type = get_type_from_node(state, var->initializer);
-        }
+    if(var->header.data_type == EMPTY_SYMBOL_ID && var->initializer) {
+        var->header.data_type = get_type_from_node(state, var->initializer);
     }
     typecheck_variable(state, var);
 }
