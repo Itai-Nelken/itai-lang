@@ -328,7 +328,7 @@ static SymbolID parse_typename(Parser *p) {
 }
 
 static SymbolID parse_type(Parser *p) {
-    // TODO: advanced types ([T], T? etc.)
+    // TODO: advanced types ([T], T?, &T etc.)
     // FIXME: handle EMPTY_SYMBOL_ID returned from parse_typename.
     return parse_typename(p);
 }

@@ -155,7 +155,7 @@ A trait defines functions the implementing type must implement.
 Traits are used for generic type constraints.<br>
 A trait can have generic types, but they can't be limited.<br>
 The `This` type is an alias for the implementing type.<br>
-Functions defined in traits musr not be private, so they are automatically marked as public.
+Functions defined in traits must not be private, so they are automatically marked as public.
 
 ```rust
 trait Printable {
