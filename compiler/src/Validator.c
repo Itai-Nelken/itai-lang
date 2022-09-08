@@ -124,7 +124,7 @@ static void validate_module_callback(void *module, void *state) {
     ASTModule *mod = (ASTModule *)module;
 
     arrayMap(&mod->objects, validate_object_callback, state);
-    ((ValidatorState *)state)->current_module++; // assumes that the objects are stored in an Array (so sequencially).
+    ((ValidatorState *)state)->current_module++; // assumes that the objects are stored in an Array (so sequentially).
 }
 
 
