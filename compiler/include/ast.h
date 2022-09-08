@@ -159,6 +159,12 @@ typedef struct ast_module {
 
 typedef usize ModuleID; // An index into the ASTProgram::modules array.
 
+typedef enum primitive_data_types {
+    TY_VOID, // used internally for functions returning nothing, but it isn't a valid primitive type in the language.
+    TY_I32,
+    TY_COUNT
+} PrimitiveType;
+
 typedef struct ast_program {
     SymbolID primitive_ids[TY_COUNT];
     SymbolTable symbols;
