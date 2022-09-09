@@ -123,7 +123,7 @@ fn add<T>(a: T, b: T) -> T {
 The above example won't compile as `T` doesn't implement the `+` operator.<br>
 Type limiting also known as type constraints is a way to limit generic types so only certain types that are known to work are accepted.<br>
 
-To fix the above example, we will use the `std::traits::operators::Add<T, Out>` trait:
+To fix the above example, we will use the `std::traits::operators::Add<Rhs, Output>` trait:
 
 ```rust
 import "std/traits/operators" as ops;
@@ -132,7 +132,7 @@ fn add<T(ops::Add<T, T>)>add(a: T, b: T) -> T {
     return a + b;
 }
 ```
-Now only types that implement `std::traits::operators::Add<T, T>` will be accepted as arguments.
+Now only types that implement `std::traits::operators::Add<Rhs, Output>` will be accepted as arguments.
 
 Multiple traits can be required:
 ```rust
@@ -162,8 +162,8 @@ trait Printable {
     fn print(&this);
 }
 
-trait Add<T, Out> {
-    fn add(&this, b: T) -> Out;
+trait Add<Rhs, Output> {
+    fn add(&this, rhs: Rhs) -> Output;
 }
 
 struct NumberList implements Printable, Add<[i32], This> {
@@ -173,7 +173,7 @@ struct NumberList implements Printable, Add<[i32], This> {
         println("%a", .numbers);
     }
 
-    public fn add(&this, b: This) -> This {
+    public fn add(&this, rhs: [i32]) -> This {
         var new_list = NumberList{numbers: []};
         new_list.numbers.append_array(.numbers);
         new_list.numbers.append_array(b);
