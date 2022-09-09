@@ -117,6 +117,7 @@ static void leave_scope(Parser *p) {
     p->scopes = sc->previous;
     arrayFree(&sc->locals);
     FREE(sc);
+    p->current_scope--;
 }
 
 // Refering to locals only by their name works because
