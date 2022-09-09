@@ -67,6 +67,7 @@ SymbolID symbolTableAddIdentifier(SymbolTable *syms, char *txt, usize length) {
     String identifier = stringNCopy(txt, length);
     SymbolID existing_sym = find_identifier(syms, identifier);
     if(existing_sym != EMPTY_SYMBOL_ID) {
+        stringFree(identifier);
         return existing_sym;
     }
     Symbol *sym;

@@ -75,8 +75,9 @@ void astFreeObj(ASTObj *obj) {
     }
     switch(obj->type) {
         case OBJ_FUNCTION:
-            arrayFree(&AS_FUNCTION_OBJ(obj)->locals);
             astFree(AS_NODE(AS_FUNCTION_OBJ(obj)->body));
+            arrayMap(&AS_FUNCTION_OBJ(obj)->locals, free_object_callback, NULL);
+            arrayFree(&AS_FUNCTION_OBJ(obj)->locals);
             break;
         case OBJ_GLOBAL:
         case OBJ_LOCAL:
