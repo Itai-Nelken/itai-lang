@@ -1,5 +1,6 @@
 #include <string.h> // memset()
 #include <stdbool.h>
+#include <assert.h>
 #include "common.h"
 #include "memory.h"
 #include "Array.h"
@@ -7,6 +8,7 @@
 #include "Token.h"
 #include "ast.h"
 #include "Error.h"
+#include "Symbols.h"
 #include "Compiler.h"
 #include "Scanner.h"
 #include "Parser.h"
@@ -15,12 +17,23 @@ void parserInit(Parser *p, Compiler *c) {
     memset(p, 0, sizeof(*p));
     p->compiler = c;
     p->program = NULL;
+    p->scopes = NULL;
+    p->current_scope = -1;
     p->current_token.type = TK_GARBAGE;
     p->previous_token.type = TK_GARBAGE;
 }
 
 void parserFree(Parser *p) {
+    if(p->scopes) {
+        while(p->scopes) {
+            Scope *previous = p->scopes->previous;
+            arrayFree(&p->scopes->locals);
+            FREE(p->scopes);
+            p->scopes = previous;
+        }
+    }
     memset(p, 0, sizeof(*p));
+    p->current_scope = -1;
 }
 
 static inline bool is_eof(Parser *p) {
@@ -85,6 +98,51 @@ static bool match(Parser *p, TokenType expected) {
     return true;
 }
 
+static Scope *new_scope(Scope *previous) {
+    Scope *sc;
+    NEW0(sc);
+    arrayInit(&sc->locals);
+    sc->previous = previous;
+    return sc;
+}
+
+static void enter_scope(Parser *p) {
+    p->scopes = new_scope(p->scopes);
+    p->current_scope++;
+}
+
+static void leave_scope(Parser *p) {
+    assert(p->scopes && p->current_scope > -1);
+    Scope *sc = p->scopes;
+    p->scopes = sc->previous;
+    arrayFree(&sc->locals);
+    FREE(sc);
+}
+
+// Refering to locals only by their name works because
+// A variable in a scope shadows variables in the parent scopes.
+// That means that when resolving a local, we will always
+// get the one in the closest scope as expected.
+static void register_local(Parser *p, SymbolID name_id) {
+    assert(p->scopes && p->current_scope > -1);
+    arrayPush(&p->scopes->locals, (void *)name_id);
+}
+
+/*static bool local_exists(Parser *p, SymbolID name_id) {
+    assert(p->scopes && p->current_scope > -1);
+    Scope *sc = p->scopes;
+    while(sc) {
+        for(usize i = 0; i < sc->locals.used; ++i) {
+            SymbolID id = ARRAY_GET_AS(SymbolID, &sc->locals, i);
+            if(name_id == id) {
+                return true;
+            }
+        }
+        sc = sc->previous;
+    }
+    return false;
+}*/
+
 typedef enum precedences {
     PREC_LOWEST     = 0,  // lowest
     PREC_ASSIGNMENT = 1,  // infix =
@@ -118,6 +176,7 @@ static ASTNode *parse_infix_expression(Parser *p, ASTNode *lhs);
 static ASTNode *parse_call_expression(Parser *p, ASTNode *callee);
 static ASTNode *parse_statement(Parser *p);
 static ASTIdentifier *parse_identifier_from_token(Parser *p, Token tk);
+static ASTVariableObj *parse_variable_decl(Parser *p, ASTObjType type);
 
 static ParseRule rules[] = {
     //   token     |    prefix                 | infix | precedence
@@ -335,6 +394,7 @@ static SymbolID parse_type(Parser *p) {
 
 /* statements */
 
+// block_construct -> '{' parse_fn_callback* '}'
 static ASTNode *parse_block_construct(Parser *p, ASTNode *(*parse_fn_callback)(Parser *)) {
     // assumes '{' was already consumed.
     Array body;
@@ -342,9 +402,13 @@ static ASTNode *parse_block_construct(Parser *p, ASTNode *(*parse_fn_callback)(P
     ASTListNode *n = AS_LIST_NODE(astNewListNode(ND_BLOCK, previous(p).location, body));
     Location location = previous(p).location;
     while(!is_eof(p) && peek(p).type != TK_RBRACE) {
-        ASTNode *node = TRY_PARSE(parse_fn_callback, p, AS_NODE(n));
-        location = locationMerge(location, node->location);
-        arrayPush(&n->body, (void *)node);
+        // Don't return on error because the parse_fn_callback might return NULL
+        // on success as well (for example parse_function_body returns NULL when parsing locals).
+        ASTNode *node = parse_fn_callback(p);
+        if(node) {
+            location = locationMerge(location, node->location);
+            arrayPush(&n->body, (void *)node);
+        }
     }
     if(peek(p).type != TK_RBRACE) {
         error(p, stringFormat("Expected '}' after block but got '%s'.", tokenTypeString(peek(p).type)));
@@ -429,6 +493,10 @@ static ASTNode *parse_statement(Parser *p) {
         result = parse_while_stmt(p);
     } else if(match(p, TK_RETURN)) {
         result = parse_return_stmt(p);
+    } else if(match(p, TK_LBRACE)) {
+        enter_scope(p);
+        result = parse_block(p);
+        leave_scope(p);
     } else {
         result = parse_expr_stmt(p);
     }
@@ -436,6 +504,18 @@ static ASTNode *parse_statement(Parser *p) {
 }
 
 /* declarations */
+
+static ASTNode *parse_function_body(Parser *p) {
+    ASTNode *result = NULL;
+    if(match(p, TK_VAR)) {
+        ASTVariableObj *var = parse_variable_decl(p, OBJ_LOCAL);
+        arrayPush(&p->current_fn->locals, (void *)var);
+        register_local(p, var->header.name->id);
+    } else {
+        result = parse_statement(p);
+    }
+    return result;
+}
 
 // fn_decl -> 'fn' IDENTIFIER generic_parameters? '(' parameter_list? ')' ('->' type)? block
 static ASTFunctionObj *parse_function_decl(Parser *p) {
@@ -457,13 +537,25 @@ static ASTFunctionObj *parse_function_decl(Parser *p) {
         return_type = parse_type(p);
     }
 
+    ASTFunctionObj *fn = AS_FUNCTION_OBJ(astNewFunctionObj(locationNew(0, 0, 0), name, return_type, NULL));
+    // FIXME: This doesn't support nested functions.
+    p->current_fn = fn;
     CONSUME(p, TK_LBRACE, 0);
-    ASTListNode *body = AS_LIST_NODE(TRY_PARSE(parse_block, p, 0));
+    enter_scope(p);
+    ASTListNode *body = AS_LIST_NODE(parse_block_construct(p, parse_function_body));
+    leave_scope(p);
+    p->current_fn = NULL;
+    if(!body) {
+        astFreeObj(AS_OBJ(fn));
+        return NULL;
+    }
+    fn->body = body;
+    fn->header.location = locationMerge(location, body->header.location);
 
-    return AS_FUNCTION_OBJ(astNewFunctionObj(locationMerge(location, body->header.location), name, return_type, body));
+    return fn;
 }
 
-static ASTVariableObj *parse_variable_decl(Parser *p) {
+static ASTVariableObj *parse_variable_decl(Parser *p, ASTObjType type) {
     // assumes 'var' was already consumed.
     Location location = previous(p).location;
 
@@ -471,9 +563,9 @@ static ASTVariableObj *parse_variable_decl(Parser *p) {
     ASTIdentifier *name = TRY_PARSE_ID(p);
 
     // type
-    SymbolID type = EMPTY_SYMBOL_ID;
+    SymbolID data_type = EMPTY_SYMBOL_ID;
     if(match(p, TK_COLON)) {
-        type = parse_type(p);
+        data_type = parse_type(p);
     }
 
     // initializer
@@ -489,8 +581,7 @@ static ASTVariableObj *parse_variable_decl(Parser *p) {
         return NULL;
     }
 
-    // TODO: add local variables.
-    return AS_VARIABLE_OBJ(astNewVariableObj(OBJ_GLOBAL, locationMerge(location, previous(p).location), name, type, initializer));
+    return AS_VARIABLE_OBJ(astNewVariableObj(type, locationMerge(location, previous(p).location), name, data_type, initializer));
 }
 
 #undef TRY_PARSE_ID
@@ -552,7 +643,7 @@ bool parserParse(Parser *p, Scanner *s, ASTProgram *prog) {
                 synchronize(p);
             }
         } else if(match(p, TK_VAR)) {
-            ASTVariableObj *var = parse_variable_decl(p);
+            ASTVariableObj *var = parse_variable_decl(p, OBJ_GLOBAL);
             if(var) {
                 arrayPush(&current_module->objects, (void *)var);
             } else {

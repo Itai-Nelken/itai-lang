@@ -48,6 +48,7 @@ ASTObj *astNewFunctionObj(Location loc, ASTIdentifier *name, SymbolID return_typ
         .data_type = EMPTY_SYMBOL_ID // TODO: populate properly.
     };
     fn->return_type = return_type_id;
+    arrayInit(&fn->locals);
     fn->body = body;
     return AS_OBJ(fn);
 }
@@ -74,10 +75,11 @@ void astFreeObj(ASTObj *obj) {
     }
     switch(obj->type) {
         case OBJ_FUNCTION:
+            arrayFree(&AS_FUNCTION_OBJ(obj)->locals);
             astFree(AS_NODE(AS_FUNCTION_OBJ(obj)->body));
             break;
         case OBJ_GLOBAL:
-        //case OBJ_LOCAL:
+        case OBJ_LOCAL:
             astFree(AS_VARIABLE_OBJ(obj)->initializer);
             break;
         default:
@@ -90,9 +92,13 @@ static const char *obj_name(ASTObjType type) {
     static const char *names[] = {
         [OBJ_FUNCTION] = "ASTFunctionObj",
         [OBJ_GLOBAL]   = "ASTVariableObj",
-        //[OBJ_LOCAL]   = "ASTVariableObj"
+        [OBJ_LOCAL]   = "ASTVariableObj"
     };
     return names[(i32)type];
+}
+
+static void print_local_callback(void *local, void *stream) {
+    astPrintObj((FILE *)stream, AS_OBJ(local));
 }
 
 void astPrintObj(FILE *to, ASTObj *obj) {
@@ -106,10 +112,14 @@ void astPrintObj(FILE *to, ASTObj *obj) {
         case OBJ_FUNCTION:
             fprintf(to, ", \x1b[1mreturn_type:\x1b[0m ");
             symbolIDPrint(to, AS_FUNCTION_OBJ(obj)->return_type);
+            fprintf(to, ", \x1b[1mlocals:\x1b[0m [");
+            arrayMap(&AS_FUNCTION_OBJ(obj)->locals, print_local_callback, (void *)to);
+            fputs("]", to);
             fprintf(to, ", \x1b[1mbody:\x1b[0m ");
             astPrint(to, AS_NODE(AS_FUNCTION_OBJ(obj)->body));
             break;
         case OBJ_GLOBAL:
+        case OBJ_LOCAL:
             fprintf(to, ", \x1b[1minitializer:\x1b[0m ");
             if(AS_VARIABLE_OBJ(obj)->initializer) {
                 astPrint(to, AS_VARIABLE_OBJ(obj)->initializer);

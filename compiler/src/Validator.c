@@ -49,6 +49,8 @@ static SymbolID get_type_from_node(ValidatorState *state, ASTNode *node) {
     switch(node->type) {
         case ND_NUMBER:
             return astProgramGetPrimitiveType(state->program, TY_I32);
+        case ND_IDENTIFIER:
+            // TODO: resolve variable types.
         default:
             break;
     }
@@ -109,22 +111,26 @@ static void typecheck_variable(ValidatorState *state, ASTVariableObj *var) {
     }
 }
 
+static void validate_variable(ValidatorState *state, ASTVariableObj *var) {
+    if(var->header.data_type == EMPTY_SYMBOL_ID && var->initializer) {
+        var->header.data_type = get_type_from_node(state, var->initializer);
+    }
+    typecheck_variable(state, var);
+}
+
 static void validate_function(ValidatorState *state, ASTFunctionObj *fn) {
     if(state->current_module == state->program->root_module && stringEqual(get_identifier(state, fn->header.name->id), "main")) {
         state->program->entry_point = fn;
+    }
+    for(usize i = 0; i < fn->locals.used; ++i) {
+        ASTVariableObj *var = ARRAY_GET_AS(ASTVariableObj *, &fn->locals, i);
+        validate_variable(state, var);
     }
     for(usize i = 0; i < fn->body->body.used; ++i) {
         ASTNode *node = ARRAY_GET_AS(ASTNode *, &fn->body->body, i);
         validate_ast(state, node);
         typecheck_ast(state, node);
     }
-}
-
-static void validate_variable(ValidatorState *state, ASTVariableObj *var) {
-    if(var->header.data_type == EMPTY_SYMBOL_ID && var->initializer) {
-        var->header.data_type = get_type_from_node(state, var->initializer);
-    }
-    typecheck_variable(state, var);
 }
 
 static void validate_object_callback(void *object, void *state) {

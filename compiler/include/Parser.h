@@ -1,15 +1,25 @@
 #ifndef PARSER_H
 #define PARSER_H
 
+#include "Array.h"
 #include "Token.h"
 #include "Compiler.h"
 #include "Scanner.h"
 #include "ast.h"
 
+typedef int64_t ScopeID; // A ScopeID represents an index into the Scope::locals array.
+typedef struct scope {
+    Array locals; // Array<SymbolID>
+    struct scope *previous;
+} Scope;
+
 typedef struct parser {
     Compiler *compiler;
     Scanner *scanner;
     ASTProgram *program;
+    Scope *scopes;
+    ScopeID current_scope;
+    ASTFunctionObj *current_fn;
     Token previous_token, current_token;
 } Parser;
 
