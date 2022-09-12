@@ -103,6 +103,10 @@ static void print_local_callback(void *local, void *stream) {
 }
 
 void astPrintObj(FILE *to, ASTObj *obj) {
+    if(!obj) {
+        fprintf(to, "(null)");
+        return;
+    }
     fprintf(to, "%s{\x1b[1mlocation:\x1b[0m ", obj_name(obj->type));
     printLocation(to, obj->location);
     fprintf(to, ", \x1b[1mname:\x1b[0m ");
@@ -207,6 +211,10 @@ ASTModule *astProgramGetModule(ASTProgram *prog, ModuleID module_id) {
 }
 
 void astPrintProgram(FILE *to, ASTProgram *prog) {
+    if(!prog) {
+        fprintf(to, "(null)");
+        return;
+    }
     fprintf(to, "ASTProgram{\x1b[1mprimitive_ids:\x1b[0m [");
     const u32 primitive_ids_length = sizeof(prog->primitive_ids)/sizeof(prog->primitive_ids[0]);
     for(u32 i = 0; i < primitive_ids_length; ++i) {
