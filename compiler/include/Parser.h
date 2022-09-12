@@ -7,7 +7,6 @@
 #include "Scanner.h"
 #include "ast.h"
 
-typedef int64_t ScopeID; // A ScopeID represents an index into the Scope::locals array.
 typedef struct scope {
     Array locals; // Array<SymbolID>
     struct scope *previous;
@@ -18,7 +17,7 @@ typedef struct parser {
     Scanner *scanner;
     ASTProgram *program;
     Scope *scopes;
-    ScopeID current_scope;
+    u32 scope_depth;
     ASTFunctionObj *current_fn;
     Token previous_token, current_token;
 } Parser;

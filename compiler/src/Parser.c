@@ -18,7 +18,7 @@ void parserInit(Parser *p, Compiler *c) {
     p->compiler = c;
     p->program = NULL;
     p->scopes = NULL;
-    p->current_scope = -1;
+    p->scope_depth = 0;
     p->current_token.type = TK_GARBAGE;
     p->previous_token.type = TK_GARBAGE;
 }
@@ -33,7 +33,6 @@ void parserFree(Parser *p) {
         }
     }
     memset(p, 0, sizeof(*p));
-    p->current_scope = -1;
 }
 
 static inline bool is_eof(Parser *p) {
@@ -108,16 +107,16 @@ static Scope *new_scope(Scope *previous) {
 
 static void enter_scope(Parser *p) {
     p->scopes = new_scope(p->scopes);
-    p->current_scope++;
+    p->scope_depth++;
 }
 
 static void leave_scope(Parser *p) {
-    assert(p->scopes && p->current_scope > -1);
+    assert(p->scopes && p->scope_depth > 0);
     Scope *sc = p->scopes;
     p->scopes = sc->previous;
     arrayFree(&sc->locals);
     FREE(sc);
-    p->current_scope--;
+    p->scope_depth--;
 }
 
 // Refering to locals only by their name works because
@@ -125,7 +124,7 @@ static void leave_scope(Parser *p) {
 // That means that when resolving a local, we will always
 // get the one in the closest scope as expected.
 static void register_local(Parser *p, SymbolID name_id) {
-    assert(p->scopes && p->current_scope > -1);
+    assert(p->scopes && p->scope_depth > 0);
     arrayPush(&p->scopes->locals, (void *)name_id);
 }
 
@@ -284,6 +283,9 @@ static ASTNode *parse_prefix_expression(Parser *p, bool can_assign) {
             if(!id) {
                 return NULL;
             }
+            // TODO: If scope_depth > 0 (meaning we are inside a function),
+            // Resolve the name now.
+
             ASTNode *node = astNewIdentifierNode(EMPTY_SYMBOL_ID, id);
             if(can_assign && match(p, TK_EQUAL)) {
                 ASTNode *rvalue = TRY_PARSE(parse_expression, p, node);
