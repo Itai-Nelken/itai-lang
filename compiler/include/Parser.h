@@ -8,7 +8,7 @@
 #include "ast.h"
 
 typedef struct scope {
-    Array locals; // Array<SymbolID>
+    Array locals; // Array<ASTObj *>
     struct scope *previous;
 } Scope;
 

@@ -244,15 +244,25 @@ void astPrintProgram(FILE *to, ASTProgram *prog) {
 }
 
 
-ASTNode *astNewIdentifierNode(SymbolID data_type, ASTIdentifier *id) {
+ASTNode *astNewIdentifierNode(ASTIdentifier *id) {
     ASTIdentifierNode *n;
     NEW0(n);
     n->header = (ASTNode){
         .type = ND_IDENTIFIER,
         .location = id->location
     };
-    n->data_type = data_type;
     n->id = id;
+    return AS_NODE(n);
+}
+
+ASTNode *astNewObjNode(Location loc, ASTObj *obj) {
+    ASTObjNode *n;
+    NEW0(n);
+    n->header = (ASTNode){
+        .type = ND_OBJ,
+        .location = loc
+    };
+    n->obj = obj;
     return AS_NODE(n);
 }
 
@@ -342,6 +352,8 @@ static const char *node_type_name(ASTNodeType type) {
         [ND_ASSIGN]     = "ND_ASSIGN",
         [ND_NUMBER]     = "ND_NUMBER",
         [ND_IDENTIFIER] = "ND_IDENTIFIER",
+        [ND_OBJ]        = "ND_OBJ",
+        [ND_VAR]        = "ND_VAR",
         [ND_EXPR_STMT]  = "ND_EXPR_STMT",
         [ND_IF]         = "ND_IF",
         [ND_BLOCK]      = "ND_BLOCK",
@@ -361,6 +373,7 @@ static const char *node_name(ASTNodeType type) {
         case ND_EQ:
         case ND_NE:
         case ND_ASSIGN:
+        case ND_VAR:
             return "ASTBinaryNode";
         // unary node
         case ND_NEG:
@@ -382,6 +395,8 @@ static const char *node_name(ASTNodeType type) {
             return "ASTNumberNode";
         case ND_IDENTIFIER:
             return "ASTIdentifierNode";
+        case ND_OBJ:
+            return "ASTObjNode";
         default:
             break;
     }
@@ -408,6 +423,7 @@ void astPrint(FILE *to, ASTNode *node) {
         case ND_EQ:
         case ND_NE:
         case ND_ASSIGN:
+        case ND_VAR:
             fprintf(to, ", \x1b[1mleft:\x1b[0m ");
             astPrint(to, AS_BINARY_NODE(node)->left);
             fprintf(to, ", \x1b[1mright:\x1b[0m ");
@@ -456,10 +472,13 @@ void astPrint(FILE *to, ASTNode *node) {
             break;
         // identifier nodes
         case ND_IDENTIFIER:
-            fprintf(to, ", \x1b[1mdata_type:\x1b[0m ");
-            symbolIDPrint(to, AS_IDENTIFIER_NODE(node)->data_type);
             fprintf(to, ", \x1b[1mid:\x1b[0m ");
             astPrintIdentifier(to, AS_IDENTIFIER_NODE(node)->id);
+            break;
+        // object nodes
+        case ND_OBJ:
+            fprintf(to, ", \x1b[1mobj:\x1b[0m ");
+            astPrintObj(to, AS_OBJ_NODE(node)->obj);
             break;
         default:
             UNREACHABLE();
@@ -480,6 +499,7 @@ void astFree(ASTNode *node) {
         case ND_EQ:
         case ND_NE:
         case ND_ASSIGN:
+        case ND_VAR:
             astFree(AS_BINARY_NODE(node)->left);
             astFree(AS_BINARY_NODE(node)->right);
             break;
@@ -514,6 +534,7 @@ void astFree(ASTNode *node) {
         case ND_IDENTIFIER:
             astFreeIdentifier(AS_IDENTIFIER_NODE(node)->id);
             break;
+        // ND_OBJ doesn't own the object, so we don't free it.
         default:
             break;
     }

@@ -53,6 +53,9 @@ typedef enum ast_node_type {
     ND_NUMBER,
     ND_IDENTIFIER,
 
+    // objects
+    ND_OBJ, ND_VAR,
+
     // statements
     ND_EXPR_STMT,
     ND_IF, ND_BLOCK,
@@ -67,9 +70,15 @@ typedef struct ast_node {
 
 typedef struct ast_identifier_node {
     ASTNode header;
-    SymbolID data_type;
     ASTIdentifier *id;
 } ASTIdentifierNode;
+
+// forward declare ASTObj.
+typedef struct ast_obj ASTObj;
+typedef struct ast_obj_node {
+    ASTNode header;
+    ASTObj *obj;
+} ASTObjNode;
 
 typedef struct ast_number_node {
     ASTNode header;
@@ -106,14 +115,15 @@ typedef struct ast_loop_node {
     ASTListNode *body;
 } ASTLoopNode;
 
-#define AS_NODE(node) ((ASTNode *)(node))
-#define AS_IDENTIFIER_NODE(node) ((ASTIdentifierNode *)(node))
-#define AS_NUMBER_NODE(node) ((ASTNumberNode *)(node))
-#define AS_UNARY_NODE(node) ((ASTUnaryNode *)(node))
-#define AS_BINARY_NODE(node) ((ASTBinaryNode *)(node))
-#define AS_LIST_NODE(node) ((ASTListNode *)(node))
+#define AS_NODE(node)             ((ASTNode *)(node))
+#define AS_IDENTIFIER_NODE(node)  ((ASTIdentifierNode *)(node))
+#define AS_OBJ_NODE(node)         ((ASTObjNode *)(node))
+#define AS_NUMBER_NODE(node)      ((ASTNumberNode *)(node))
+#define AS_UNARY_NODE(node)       ((ASTUnaryNode *)(node))
+#define AS_BINARY_NODE(node)      ((ASTBinaryNode *)(node))
+#define AS_LIST_NODE(node)        ((ASTListNode *)(node))
 #define AS_CONDITIONAL_NODE(node) ((ASTConditionalNode *)(node))
-#define AS_LOOP_NODE(node) ((ASTLoopNode *)(node))
+#define AS_LOOP_NODE(node)        ((ASTLoopNode *)(node))
 
 // update astFreeObj(), astPrintObj() & obj_name() when adding new types.
 typedef enum ast_obj_type {
@@ -296,11 +306,20 @@ void astPrintProgram(FILE *to, ASTProgram *prog);
 /***
  * Create a new AST identifier node.
  *
- * @param data_type The data type of the identifier (for varibles, the type of the variable. for functions, the return type etc.)
  * @param id The identifier.
  * @return The new AST node.
  ***/
-ASTNode *astNewIdentifierNode(SymbolID data_type, ASTIdentifier *id);
+ASTNode *astNewIdentifierNode(ASTIdentifier *id);
+
+/***
+ * Create a new AST object node.
+ * NOTE: ownership of 'obj' is NOT taken.
+ *
+ * @param loc A location.
+ * @param obj The object.
+ * @return The new AST node.
+ ***/
+ASTNode *astNewObjNode(Location loc, ASTObj *obj);
 
 /***
  * Create a new AST number node.

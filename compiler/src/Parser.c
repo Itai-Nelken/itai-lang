@@ -119,29 +119,26 @@ static void leave_scope(Parser *p) {
     p->scope_depth--;
 }
 
-// Refering to locals only by their name works because
-// A variable in a scope shadows variables in the parent scopes.
-// That means that when resolving a local, we will always
-// get the one in the closest scope as expected.
-static void register_local(Parser *p, SymbolID name_id) {
+// NOTE: Ownership of 'var' is NOT taken.
+static void register_local(Parser *p, ASTObj *var) {
     assert(p->scopes && p->scope_depth > 0);
-    arrayPush(&p->scopes->locals, (void *)name_id);
+    arrayPush(&p->scopes->locals, (void *)var);
 }
 
-/*static bool local_exists(Parser *p, SymbolID name_id) {
-    assert(p->scopes && p->current_scope > -1);
+static ASTObj *find_local(Parser *p, SymbolID name_id) {
+    assert(p->scopes && p->scope_depth > 0);
     Scope *sc = p->scopes;
     while(sc) {
         for(usize i = 0; i < sc->locals.used; ++i) {
-            SymbolID id = ARRAY_GET_AS(SymbolID, &sc->locals, i);
-            if(name_id == id) {
-                return true;
+            ASTObj *var = ARRAY_GET_AS(ASTObj *, &sc->locals, i);
+            if(var->name->id == name_id) {
+                return var;
             }
         }
         sc = sc->previous;
     }
-    return false;
-}*/
+    return NULL;
+}
 
 typedef enum precedences {
     PREC_LOWEST     = 0,  // lowest
@@ -283,13 +280,17 @@ static ASTNode *parse_prefix_expression(Parser *p, bool can_assign) {
             if(!id) {
                 return NULL;
             }
-            // TODO: If scope_depth > 0 (meaning we are inside a function),
-            // Resolve the name now.
 
-            ASTNode *node = astNewIdentifierNode(EMPTY_SYMBOL_ID, id);
+            ASTNode *node = astNewIdentifierNode(id);
             if(can_assign && match(p, TK_EQUAL)) {
                 ASTNode *rvalue = TRY_PARSE(parse_expression, p, node);
-                node = astNewBinaryNode(ND_ASSIGN, locationMerge(node->location, rvalue->location), node, rvalue);
+                ASTObj *var_obj = NULL;
+                // If inside a function (scope depth > 0)
+                if(p->scope_depth > 0) {
+                    var_obj = find_local(p, id->id);
+                }
+                ASTNode *var = astNewBinaryNode(ND_VAR, id->location, node, astNewObjNode(id->location, var_obj));
+                node = astNewBinaryNode(ND_ASSIGN, locationMerge(var->location, rvalue->location), var, rvalue);
             }
             return node;
         }
@@ -323,7 +324,7 @@ static ASTNode *parse_infix_expression(Parser *p, ASTNode *lhs) {
 
 static ASTNode *parse_call_expression(Parser *p, ASTNode *callee) {
     Location loc = locationMerge(callee->location, previous(p).location);
-    // TODO: generic arguments (parseedin parse_prefix_expression => TK_IDENTIFIER?), arguments
+    // TODO: generic arguments (parsed in parse_prefix_expression => TK_IDENTIFIER?), arguments
     CONSUME(p, TK_RPAREN, callee);
     return astNewUnaryNode(ND_CALL, locationMerge(loc, previous(p).location), callee);
 }
@@ -513,7 +514,7 @@ static ASTNode *parse_function_body(Parser *p) {
     if(match(p, TK_VAR)) {
         ASTVariableObj *var = parse_variable_decl(p, OBJ_LOCAL);
         arrayPush(&p->current_fn->locals, (void *)var);
-        register_local(p, var->header.name->id);
+        register_local(p, AS_OBJ(var));
     } else {
         result = parse_statement(p);
     }

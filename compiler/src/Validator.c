@@ -49,8 +49,8 @@ static SymbolID get_type_from_node(ValidatorState *state, ASTNode *node) {
     switch(node->type) {
         case ND_NUMBER:
             return astProgramGetPrimitiveType(state->program, TY_I32);
-        case ND_IDENTIFIER:
-            // TODO: resolve variable types.
+        case ND_VAR:
+            return AS_OBJ_NODE(node)->obj->data_type;
         default:
             break;
     }
@@ -59,11 +59,7 @@ static SymbolID get_type_from_node(ValidatorState *state, ASTNode *node) {
 
 static void infer_types_in_assignment(ValidatorState *state, ASTNode *assignment) {
     assert(assignment->type == ND_ASSIGN);
-    ASTIdentifierNode *lvalue = AS_IDENTIFIER_NODE(AS_BINARY_NODE(assignment)->left);
-    SymbolID type_id = get_type_from_node(state, AS_BINARY_NODE(assignment)->right);
-    if(type_id != EMPTY_SYMBOL_ID) {
-        lvalue->data_type = type_id;
-    }
+    UNUSED(state);
 }
 
 static void validate_ast(ValidatorState *state, ASTNode *node) {
@@ -80,42 +76,17 @@ static void typecheck_ast(ValidatorState *state, ASTNode *node) {
     if(!node) {
         return;
     }
-    switch(node->type) {
-        case ND_ASSIGN: {
-            SymbolID lvalue_type = AS_IDENTIFIER_NODE(AS_BINARY_NODE(node)->left)->data_type;
-            SymbolID rvalue_type = get_type_from_node(state, AS_BINARY_NODE(node)->right);
-            if(lvalue_type != rvalue_type) {
-                error(state, node->location,
-                    stringFormat("Mismatched types (expected '%s' but got '%s')!",
-                    get_typename(state, lvalue_type),
-                    get_typename(state, rvalue_type)));
-            }
-            break;
-        }
-        default:
-            break;
-    }
+    UNUSED(state);
 }
 
 static void typecheck_variable(ValidatorState *state, ASTVariableObj *var) {
-    SymbolID ty = var->header.data_type;
-    if(ty == EMPTY_SYMBOL_ID) {
-        error(state, var->header.name->location,
-            stringFormat("Variable '%s' has no type!",
-            get_identifier(state, var->header.name->id)));
-    } else if(var->initializer && (ty != get_type_from_node(state, var->initializer))) {
-        error(state, locationMerge(var->header.location, var->initializer->location),
-            stringFormat("Mismatched types (expected '%s' but got '%s')!",
-            get_typename(state, var->header.data_type),
-            get_typename(state, get_type_from_node(state, var->initializer))));
-    }
+    UNUSED(state);
+    UNUSED(var);
 }
 
 static void validate_variable(ValidatorState *state, ASTVariableObj *var) {
-    if(var->header.data_type == EMPTY_SYMBOL_ID && var->initializer) {
-        var->header.data_type = get_type_from_node(state, var->initializer);
-    }
-    typecheck_variable(state, var);
+    UNUSED(state);
+    UNUSED(var);
 }
 
 static void validate_function(ValidatorState *state, ASTFunctionObj *fn) {
@@ -156,6 +127,10 @@ static void validate_module_callback(void *module, void *state) {
 
 
 bool validateAndTypecheckProgram(Compiler *compiler, ASTProgram *prog) {
+    UNUSED(typecheck_variable);
+    UNUSED(get_type_from_node);
+    UNUSED(get_typename);
+    UNUSED(error);
     // For every module in the program, do:
     // - For every object in the module, do:
     //   1) If object is a global, do:
