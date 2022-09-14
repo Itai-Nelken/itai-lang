@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdbool.h>
-#include <assert.h>
 #include "common.h"
 #include "memory.h"
 #include "Array.h"

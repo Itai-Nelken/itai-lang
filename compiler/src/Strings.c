@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <string.h> // memcpy(), memset()
 #include <stdarg.h>
-#include <assert.h>
 #include <stdbool.h>
+#include "common.h"
 #include "memory.h"
 #include "Strings.h"
 
@@ -32,7 +32,7 @@ static inline char *to_str(size_t *ptr) {
 }
 
 String stringNew(size_t capacity) {
-    assert(capacity > 0);
+    VERIFY(capacity > 0);
     size_t *ptr = ALLOC(sizeof(size_t) * SLOT_COUNT + sizeof(char) * (capacity + 1));
     memset(ptr, 0, capacity + 1);
     ptr[CAPACITY] = capacity + 1; // capacity
@@ -42,7 +42,7 @@ String stringNew(size_t capacity) {
 }
 
 void stringFree(String s) {
-    assert(stringIsValid(s));
+    VERIFY(stringIsValid(s));
     // Remove the magic number in case the string is used again accidentally.
     from_str(s)[MAGIC] = 0;
     FREE(from_str(s));
@@ -57,7 +57,7 @@ size_t stringLength(String s) {
 }
 
 String stringResize(String s, size_t newCapacity) {
-    assert(newCapacity > 0);
+    VERIFY(newCapacity > 0);
     size_t *ptr = from_str(s);
     size_t oldCap = ptr[CAPACITY];
     ptr = REALLOC(ptr, newCapacity);
@@ -79,7 +79,7 @@ String stringCopy(const char *s) {
 }
 
 String stringDuplicate(String s) {
-    assert(stringIsValid(s));
+    VERIFY(stringIsValid(s));
     return stringNCopy((const char *)s, stringLength(s));
 }
 
@@ -126,7 +126,7 @@ String stringFormat(const char *format, ...) {
 }
 
 void stringAppend(String *dest, const char *format, ...) {
-    assert(stringIsValid(*dest));
+    VERIFY(stringIsValid(*dest));
     va_list ap;
 
     va_start(ap, format);

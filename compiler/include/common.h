@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include "utilities.h"
 
 typedef int8_t i8;
 typedef int16_t i16;
@@ -25,6 +26,8 @@ typedef float f32;
 typedef double f64;
 
 typedef const char *str;
+
+#define VERIFY(x) ((x) ? ((void)0) : assertFail(#x, __FILE__, __LINE__, __func__))
 
 #define UNREACHABLE() do { \
 		fprintf(stderr, "\n============\nInternal error at %s(): %s:%d: unreachable state!\n============\n", __func__, __FILE__, __LINE__); \

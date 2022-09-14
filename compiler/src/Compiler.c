@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <string.h>
-#include <assert.h>
+#include "common.h"
 #include "memory.h"
 #include "Strings.h"
 #include "Error.h"
@@ -105,7 +105,7 @@ bool compilerHasNextFile(Compiler *c) {
 }
 
 FileID compilerNextFile(Compiler *c) {
-    assert(compilerHasNextFile(c));
+    VERIFY(compilerHasNextFile(c));
     if(!c->current_file_initialized) {
         c->current_file_initialized = true;
         return c->current_file;
@@ -120,7 +120,7 @@ File *compilerGetFile(Compiler *c, FileID id) {
 }
 
 FileID compilerGetCurrentFileID(Compiler *c) {
-    assert(c->current_file_initialized);
+    VERIFY(c->current_file_initialized);
     return c->current_file;
 }
 

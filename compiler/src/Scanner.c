@@ -1,5 +1,4 @@
 #include <string.h> // memcmp
-#include <assert.h>
 #include <stdbool.h>
 #include "common.h"
 #include "memory.h"
@@ -186,7 +185,7 @@ Token scan_token(Scanner *s) {
 
 static bool set_source(Scanner *s, FileID file) {
     File *f = compilerGetFile(s->compiler, file);
-    assert(f);
+    VERIFY(f);
     String contents = fileRead(f);
     if(contents == NULL) {
         add_error(s, false, stringFormat("Failed to read file '%s'!", compilerGetFile(s->compiler, compilerGetCurrentFileID(s->compiler))->path));

@@ -1,6 +1,5 @@
 #include <string.h> // memset()
 #include <stdbool.h>
-#include <assert.h>
 #include "common.h"
 #include "memory.h"
 #include "Array.h"
@@ -111,7 +110,7 @@ static void enter_scope(Parser *p) {
 }
 
 static void leave_scope(Parser *p) {
-    assert(p->scopes && p->scope_depth > 0);
+    VERIFY(p->scopes && p->scope_depth > 0);
     Scope *sc = p->scopes;
     p->scopes = sc->previous;
     arrayFree(&sc->locals);
@@ -121,12 +120,12 @@ static void leave_scope(Parser *p) {
 
 // NOTE: Ownership of 'var' is NOT taken.
 static void register_local(Parser *p, ASTObj *var) {
-    assert(p->scopes && p->scope_depth > 0);
+    VERIFY(p->scopes && p->scope_depth > 0);
     arrayPush(&p->scopes->locals, (void *)var);
 }
 
 static ASTObj *find_local(Parser *p, SymbolID name_id) {
-    assert(p->scopes && p->scope_depth > 0);
+    VERIFY(p->scopes && p->scope_depth > 0);
     Scope *sc = p->scopes;
     while(sc) {
         for(usize i = 0; i < sc->locals.used; ++i) {
@@ -287,6 +286,7 @@ static ASTNode *parse_prefix_expression(Parser *p, bool can_assign) {
                 ASTObj *var_obj = NULL;
                 // If inside a function (scope depth > 0)
                 if(p->scope_depth > 0) {
+                    // If not a local, assume global (var_obj == NULL).
                     var_obj = find_local(p, id->id);
                 }
                 ASTNode *var = astNewBinaryNode(ND_VAR, id->location, node, astNewObjNode(id->location, var_obj));

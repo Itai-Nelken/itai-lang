@@ -1,5 +1,4 @@
 #include <stdbool.h>
-#include <assert.h>
 #include "common.h"
 #include "memory.h"
 #include "Array.h"
@@ -58,7 +57,7 @@ static SymbolID get_type_from_node(ValidatorState *state, ASTNode *node) {
 }
 
 static void infer_types_in_assignment(ValidatorState *state, ASTNode *assignment) {
-    assert(assignment->type == ND_ASSIGN);
+    VERIFY(assignment->type == ND_ASSIGN);
     UNUSED(state);
 }
 

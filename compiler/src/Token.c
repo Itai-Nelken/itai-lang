@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <assert.h>
 #include "common.h"
 #include "memory.h"
 #include "Compiler.h" // FileID
@@ -14,8 +13,8 @@ Location locationNew(u64 start, u64 end, FileID file) {
 }
 
 Location locationMerge(Location a, Location b) {
-    assert(a.file == b.file);
-    assert(a.start < b.end);
+    VERIFY(a.file == b.file);
+    VERIFY(a.start < b.end);
 
     return locationNew(a.start, b.end, a.file);
 }
@@ -90,7 +89,7 @@ void printLocation(FILE *to, Location loc) {
 }
 
 void tokenPrint(FILE *to, Token *t) {
-    assert(t);
+    VERIFY(t);
     fprintf(to, "Token{\x1b[1mtype:\x1b[0;33m %s\x1b[0m, \x1b[1mlocation:\x1b[0m ", token_type_name(t->type));
     printLocation(to, t->location);
     // handle special tokens
