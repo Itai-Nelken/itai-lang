@@ -18,6 +18,8 @@ set(sources
     src/Scanner.c
     src/Parser.c
     src/Validator.c
+    src/Codegenerator.c
+    src/codegenerators/c_codegen.c
 )
 
 add_library(compiler ${sources})

@@ -7,6 +7,7 @@
 #include "Scanner.h"
 #include "Parser.h"
 #include "Validator.h"
+#include "codegenerators/c_codegen.h"
 
 int main(void) {
     int return_value = 0;
@@ -45,6 +46,10 @@ int main(void) {
 
     astPrintProgram(stdout, &prog);
     fputc('\n', stdout);
+
+    if(!c_codegen(&prog)) {
+        fputs("\x1b[1;31mError:\x1b[0m code generator failed!\n", stderr);
+    }
 
 end:
     astFreeProgram(&prog);
