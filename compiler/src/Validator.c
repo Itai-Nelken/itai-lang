@@ -103,19 +103,26 @@ static void validate_variable(ValidatorState *state, ASTVariableObj *var) {
 }
 
 static void validate_function(ValidatorState *state, ASTFunctionObj *fn) {
+    // If function is main, set the entry point to it.
     if(state->current_module == state->program->root_module && stringEqual(get_identifier(state, fn->header.name->id), "main")) {
         state->program->entry_point = fn;
     }
+
+    // locals
     for(usize i = 0; i < fn->locals.used; ++i) {
         ASTVariableObj *var = ARRAY_GET_AS(ASTVariableObj *, &fn->locals, i);
         validate_variable(state, var);
         typecheck_variable(state, var);
     }
+
+    // body
     for(usize i = 0; i < fn->body->body.used; ++i) {
         ASTNode *node = ARRAY_GET_AS(ASTNode *, &fn->body->body, i);
         validate_ast(state, node);
         typecheck_ast(state, node);
     }
+
+    // TODO: check that returned value types against function return type.
 }
 
 static void validate_object_callback(void *object, void *state) {
