@@ -58,13 +58,23 @@ static SymbolID get_type_from_node(ValidatorState *state, ASTNode *node) {
 
 static void infer_types_in_assignment(ValidatorState *state, ASTNode *assignment) {
     VERIFY(assignment->type == ND_ASSIGN);
-    UNUSED(state);
+    if(!AS_BINARY_NODE(assignment)->right) {
+        return;
+    }
+    SymbolID rvalue_type = get_type_from_node(state, assignment);
+    SymbolID *lvalue_type = &AS_OBJ_NODE(AS_BINARY_NODE(AS_BINARY_NODE(assignment)->left)->right)->obj->data_type;
+    // The type of the variable will not be changed if it already exists
+    // so type mismatches can be detected.
+    if(*lvalue_type == EMPTY_SYMBOL_ID) {
+        *lvalue_type = rvalue_type;
+    }
 }
 
 static void validate_ast(ValidatorState *state, ASTNode *node) {
     switch(node->type) {
         case ND_ASSIGN:
             infer_types_in_assignment(state, node);
+            // TODO: check for type mismatches.
             break;
         default:
             break;
@@ -80,12 +90,16 @@ static void typecheck_ast(ValidatorState *state, ASTNode *node) {
 
 static void typecheck_variable(ValidatorState *state, ASTVariableObj *var) {
     UNUSED(state);
-    UNUSED(var);
+    if(var->header.data_type == EMPTY_SYMBOL_ID) {
+        error(state, var->header.location, "Variable has no type! (hint: consider adding an explicit type).");
+    }
 }
 
 static void validate_variable(ValidatorState *state, ASTVariableObj *var) {
     UNUSED(state);
-    UNUSED(var);
+    if(var->initializer && var->header.data_type == EMPTY_SYMBOL_ID) {
+        var->header.data_type = get_type_from_node(state, var->initializer);
+    }
 }
 
 static void validate_function(ValidatorState *state, ASTFunctionObj *fn) {
@@ -95,6 +109,7 @@ static void validate_function(ValidatorState *state, ASTFunctionObj *fn) {
     for(usize i = 0; i < fn->locals.used; ++i) {
         ASTVariableObj *var = ARRAY_GET_AS(ASTVariableObj *, &fn->locals, i);
         validate_variable(state, var);
+        typecheck_variable(state, var);
     }
     for(usize i = 0; i < fn->body->body.used; ++i) {
         ASTNode *node = ARRAY_GET_AS(ASTNode *, &fn->body->body, i);
@@ -111,6 +126,7 @@ static void validate_object_callback(void *object, void *state) {
             break;
         case OBJ_GLOBAL:
             validate_variable((ValidatorState *)state, AS_VARIABLE_OBJ(obj));
+            typecheck_variable((ValidatorState *)state, AS_VARIABLE_OBJ(obj));
             break;
         default:
             UNREACHABLE();
