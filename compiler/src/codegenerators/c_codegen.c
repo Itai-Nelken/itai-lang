@@ -75,8 +75,21 @@ static void gen_expression(CodeGeneratorData *data, ASTNode *expr) {
     gen_expression(data, AS_BINARY_NODE(expr)->right);
 }
 
+static void gen_var_decl(ASTVariableObj *var, CodeGeneratorData *data) {
+    gen_type(data, var->header.data_type);
+    print(data, " %s", data->get_identifier(data, var->header.name->id));
+    if(var->initializer) {
+        print(data, " = ");
+        gen_expression(data, var->initializer);
+    }
+    println(data, ";");
+}
+
 static void gen_statement(CodeGeneratorData *data, ASTNode *stmt) {
     switch(stmt->type) {
+        case ND_VAR_DECL:
+            gen_var_decl(AS_VARIABLE_OBJ(AS_OBJ_NODE(AS_UNARY_NODE(stmt)->operand)->obj), data);
+            break;
         case ND_EXPR_STMT:
             gen_expression(data, AS_UNARY_NODE(stmt)->operand);
             println(data, ";");
@@ -130,16 +143,6 @@ static void gen_statement(CodeGeneratorData *data, ASTNode *stmt) {
     }
 }
 
-static void gen_var_decl(ASTVariableObj *var, CodeGeneratorData *data) {
-    gen_type(data, var->header.data_type);
-    print(data, " %s", data->get_identifier(data, var->header.name->id));
-    if(var->initializer) {
-        print(data, " = ");
-        gen_expression(data, var->initializer);
-    }
-    println(data, ";");
-}
-
 static void gen_function(ASTFunctionObj *fn, CodeGeneratorData *data) {
     gen_type(data, fn->return_type);
     if(fn == data->_prog->entry_point) {
@@ -147,15 +150,15 @@ static void gen_function(ASTFunctionObj *fn, CodeGeneratorData *data) {
     } else {
         print(data, " %s", data->get_identifier(data, fn->header.name->id));
     }
-    println(data, "() {");
+    print(data, "() ");
 
-    for(usize i = 0; i < fn->locals.used; ++i) {
-        gen_var_decl(ARRAY_GET_AS(ASTVariableObj *, &fn->locals, i), data);
-    }
+    //for(usize i = 0; i < fn->locals.used; ++i) {
+    //    gen_var_decl(ARRAY_GET_AS(ASTVariableObj *, &fn->locals, i), data);
+    //}
 
     gen_statement(data, AS_NODE(fn->body));
 
-    println(data, "}");
+    print(data, "\n");
 }
 
 static void gen_function_predcl(ASTFunctionObj *fn, CodeGeneratorData *data) {

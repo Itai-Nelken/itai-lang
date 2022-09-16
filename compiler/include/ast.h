@@ -55,6 +55,7 @@ typedef enum ast_node_type {
 
     // objects
     ND_OBJ, ND_VAR,
+    ND_VAR_DECL,
 
     // statements
     ND_EXPR_STMT,

@@ -172,7 +172,7 @@ static ASTNode *parse_expression(Parser *p);
 static ASTNode *parse_prefix_expression(Parser *p, bool can_assign);
 static ASTNode *parse_infix_expression(Parser *p, ASTNode *lhs);
 static ASTNode *parse_call_expression(Parser *p, ASTNode *callee);
-static ASTNode *parse_statement(Parser *p);
+static ASTNode *parse_declaration(Parser *p);
 static ASTIdentifier *parse_identifier_from_token(Parser *p, Token tk);
 static ASTVariableObj *parse_variable_decl(Parser *p, ASTObjType type);
 
@@ -426,10 +426,10 @@ static ASTNode *parse_block_construct(Parser *p, ASTNode *(*parse_fn_callback)(P
     return AS_NODE(n);
 }
 
-// block -> '{' statement* '}'
+// block -> '{' declaration* '}'
 static inline ASTNode *parse_block(Parser *p) {
     // assumes '{' was already consumed.
-    return parse_block_construct(p, parse_statement);
+    return parse_block_construct(p, parse_declaration);
 }
 
 // if_stmt -> 'if' expression block ('else' (if_stmt | block))?
@@ -511,12 +511,14 @@ static ASTNode *parse_statement(Parser *p) {
 
 /* declarations */
 
-static ASTNode *parse_function_body(Parser *p) {
+// declaration -> var_decl | statement
+static ASTNode *parse_declaration(Parser *p) {
     ASTNode *result = NULL;
     if(match(p, TK_VAR)) {
         ASTVariableObj *var = parse_variable_decl(p, OBJ_LOCAL);
         arrayPush(&p->current_fn->locals, (void *)var);
         register_local(p, AS_OBJ(var));
+        result = astNewUnaryNode(ND_VAR_DECL, var->header.location, astNewObjNode(var->header.location, AS_OBJ(var)));
     } else {
         result = parse_statement(p);
     }
@@ -548,7 +550,7 @@ static ASTFunctionObj *parse_function_decl(Parser *p) {
     p->current_fn = fn;
     CONSUME(p, TK_LBRACE, 0);
     enter_scope(p);
-    ASTListNode *body = AS_LIST_NODE(parse_block_construct(p, parse_function_body));
+    ASTListNode *body = AS_LIST_NODE(parse_block_construct(p, parse_declaration));
     leave_scope(p);
     p->current_fn = NULL;
     if(!body) {
