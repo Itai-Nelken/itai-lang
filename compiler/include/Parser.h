@@ -20,6 +20,7 @@ typedef struct parser {
     u32 scope_depth;
     ASTFunctionObj *current_fn;
     Token previous_token, current_token;
+    bool had_error;
 } Parser;
 
 /***

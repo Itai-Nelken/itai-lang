@@ -18,6 +18,7 @@ void parserInit(Parser *p, Compiler *c) {
     p->program = NULL;
     p->scopes = NULL;
     p->scope_depth = 0;
+    p->had_error = false;
     p->current_token.type = TK_GARBAGE;
     p->previous_token.type = TK_GARBAGE;
 }
@@ -66,6 +67,7 @@ static void add_error(Parser *p, bool has_location, Location loc, char *message)
     if(stringIsValid(message)) {
         stringFree(message);
     }
+    p->had_error = true;
 }
 
 // if a valid String is provided as message, it will be freed.
@@ -636,14 +638,12 @@ bool parserParse(Parser *p, Scanner *s, ASTProgram *prog) {
         return false;
     }
 
-    bool had_error = false;
     while(!is_eof(p)) {
         if(match(p, TK_FN)) {
             ASTFunctionObj *fn = parse_function_decl(p);
             if(fn) {
                 arrayPush(&current_module->objects, (void *)fn);
             } else {
-                had_error = true;
                 synchronize(p);
             }
         } else if(match(p, TK_VAR)) {
@@ -651,11 +651,9 @@ bool parserParse(Parser *p, Scanner *s, ASTProgram *prog) {
             if(var) {
                 arrayPush(&current_module->objects, (void *)var);
             } else {
-                had_error = true;
                 synchronize(p);
             }
         } else {
-            had_error = true;
             error_at(p, peek(p).location, stringFormat("Expected one of ['fn', 'var'], but got '%s'.", tokenTypeString(peek(p).type)));
             // advance and synchronize so we don't get stuck in an infinite loop on the same token.
             advance(p);
@@ -665,5 +663,5 @@ bool parserParse(Parser *p, Scanner *s, ASTProgram *prog) {
 
     p->program = NULL;
     p->scanner = NULL;
-    return !had_error;
+    return !p->had_error;
 }
