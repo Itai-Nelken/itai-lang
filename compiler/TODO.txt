@@ -1,4 +1,2 @@
 - Improve symbol table so adding symbols will be better than the current O(n).
 - Add better tests.
-- Resolve local variables.
-- Codegenerator (start with a C transpiler).

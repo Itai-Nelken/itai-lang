@@ -33,14 +33,15 @@ bool parse_arguments(Options *opts, int argc, char **argv) {
                 break;
         }
     }
-    if(!opts->file_path) {
         if(optind >= argc) {
+            if(opts->file_path) {
+                return true;
+            }
             fprintf(stderr, "Expected file name!\n");
             return false;
         } else {
             opts->file_path = argv[optind];
         }
-    }
     return true;
 }
 
