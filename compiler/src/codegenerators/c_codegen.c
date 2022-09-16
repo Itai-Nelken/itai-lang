@@ -29,8 +29,8 @@ static void gen_expression(CodeGeneratorData *data, ASTNode *expr) {
             print(data, "-");
             gen_expression(data, AS_UNARY_NODE(expr)->operand);
             return;
-        case ND_CALL:
-            print(data, "%s()", data->get_identifier(data, AS_IDENTIFIER_NODE(AS_UNARY_NODE(expr)->operand)->id->id));
+        case ND_CHECKED_CALL:
+            print(data, "%s()", data->get_identifier(data, AS_OBJ_NODE(AS_UNARY_NODE(expr)->operand)->obj->name->id));
             return;
         case ND_NUMBER:
             print(data, "%d", AS_NUMBER_NODE(expr)->value.as.int64);

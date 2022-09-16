@@ -28,6 +28,28 @@ static void error(ValidatorState *state, Location location, char *message) {
     state->had_error = true;
 }
 
+static ASTObj *find_global_in_current_module(ValidatorState *state, SymbolID name) {
+    ASTModule *module = astProgramGetModule(state->program, state->current_module);
+    for(usize i = 0; i < module->objects.used; ++i) {
+        ASTObj *obj = ARRAY_GET_AS(ASTObj *, &module->objects, i);
+        if(obj->type == OBJ_GLOBAL && obj->name->id == name) {
+            return obj;
+        }
+    }
+    return NULL;
+}
+
+static ASTObj *find_function_in_current_module(ValidatorState *state, SymbolID name) {
+    ASTModule *module = astProgramGetModule(state->program, state->current_module);
+    for(usize i = 0; i < module->objects.used; ++i) {
+        ASTObj *obj = ARRAY_GET_AS(ASTObj *, &module->objects, i);
+        if(obj->type == OBJ_FUNCTION && obj->name->id == name) {
+            return obj;
+        }
+    }
+    return NULL;
+}
+
 static inline String get_identifier(ValidatorState *s, SymbolID id) {
     String identifier = symbolTableGetIdentifier(&s->program->symbols, id);
     if(!identifier) {
@@ -50,10 +72,20 @@ static SymbolID get_type_from_node(ValidatorState *state, ASTNode *node) {
             return astProgramGetPrimitiveType(state->program, TY_I32);
         case ND_VAR:
             return AS_OBJ_NODE(node)->obj->data_type;
+        case ND_CHECKED_CALL:
+            return AS_FUNCTION_OBJ(AS_OBJ_NODE(AS_UNARY_NODE(node)->operand)->obj)->return_type;
+        case ND_CALL: /* fallthrough */
         default:
             break;
     }
     return EMPTY_SYMBOL_ID;
+}
+
+static SymbolID *unpack_lvalue_type_in_assignment(ASTNode *node) {
+    ASTBinaryNode *assignment = AS_BINARY_NODE(node);
+    ASTBinaryNode *lvalue = AS_BINARY_NODE(assignment->left);
+    ASTObjNode *var = AS_OBJ_NODE(lvalue->right);
+    return &var->obj->data_type;
 }
 
 static void infer_types_in_assignment(ValidatorState *state, ASTNode *assignment) {
@@ -61,8 +93,22 @@ static void infer_types_in_assignment(ValidatorState *state, ASTNode *assignment
     if(!AS_BINARY_NODE(assignment)->right) {
         return;
     }
-    SymbolID rvalue_type = get_type_from_node(state, assignment);
-    SymbolID *lvalue_type = &AS_OBJ_NODE(AS_BINARY_NODE(AS_BINARY_NODE(assignment)->left)->right)->obj->data_type;
+    // If the operand is a call, replace it with a CHECKED_CALL (which has the function object stored).
+    if(AS_BINARY_NODE(assignment)->right->type == ND_CALL) {
+        ASTUnaryNode *call = AS_UNARY_NODE(AS_BINARY_NODE(assignment)->right);
+        SymbolID fn_name = AS_IDENTIFIER_NODE(call->operand)->id->id;
+        ASTObj *fn = find_function_in_current_module(state, fn_name);
+        if(!fn) {
+            error(state, call->header.location, stringFormat("Function '%s' doesn't exist!", get_identifier(state, fn_name)));
+            return;
+        }
+        call->header.type = ND_CHECKED_CALL;
+        astFree(call->operand);
+        call->operand = astNewObjNode(fn->location, fn);
+    }
+
+    SymbolID rvalue_type = get_type_from_node(state, AS_BINARY_NODE(assignment)->right);
+    SymbolID *lvalue_type = unpack_lvalue_type_in_assignment(assignment);
     // The type of the variable will not be changed if it already exists
     // so type mismatches can be detected.
     if(*lvalue_type == EMPTY_SYMBOL_ID) {
@@ -70,11 +116,33 @@ static void infer_types_in_assignment(ValidatorState *state, ASTNode *assignment
     }
 }
 
+static void set_global_obj_in_assignment(ValidatorState *state, ASTNode *node) {
+    VERIFY(node->type == ND_ASSIGN);
+    ASTBinaryNode *var_node = AS_BINARY_NODE(AS_BINARY_NODE(node)->left);
+    ASTObj **obj = &AS_OBJ_NODE(var_node->right)->obj;
+    if(*obj) {
+        return;
+    }
+    ASTObj *global = find_global_in_current_module(state, AS_IDENTIFIER_NODE(var_node->left)->id->id);
+    if(!global) {
+        error(state, var_node->header.location, stringFormat("Variable '%s' doesn't exist in this scope!", get_identifier(state, AS_IDENTIFIER_NODE(var_node->left)->id->id)));
+    }
+    *obj = global;
+}
+
 static void validate_ast(ValidatorState *state, ASTNode *node) {
     switch(node->type) {
+        case ND_EXPR_STMT:
+            validate_ast(state, AS_UNARY_NODE(node)->operand);
+            break;
+        case ND_BLOCK:
+            for(usize i = 0; i < AS_LIST_NODE(node)->body.used; ++i) {
+                validate_ast(state, ARRAY_GET_AS(ASTNode *, &AS_LIST_NODE(node)->body, i));
+            }
+            break;
         case ND_ASSIGN:
+            set_global_obj_in_assignment(state, node);
             infer_types_in_assignment(state, node);
-            // TODO: check for type mismatches.
             break;
         default:
             break;
@@ -82,10 +150,26 @@ static void validate_ast(ValidatorState *state, ASTNode *node) {
 }
 
 static void typecheck_ast(ValidatorState *state, ASTNode *node) {
-    if(!node) {
-        return;
+    switch(node->type) {
+        case ND_EXPR_STMT:
+            typecheck_ast(state, AS_UNARY_NODE(node)->operand);
+            break;
+        case ND_BLOCK:
+            for(usize i = 0; i < AS_LIST_NODE(node)->body.used; ++i) {
+                typecheck_ast(state, ARRAY_GET_AS(ASTNode *, &AS_LIST_NODE(node)->body, i));
+            }
+            break;
+        case ND_ASSIGN: {
+            SymbolID *lvalue_type = unpack_lvalue_type_in_assignment(node);
+            SymbolID rvalue_type = get_type_from_node(state, AS_BINARY_NODE(node)->right);
+            if(*lvalue_type != rvalue_type) {
+                error(state, AS_BINARY_NODE(node)->right->location, stringFormat("Type mismatch: expected '%s' but got '%s'!", get_typename(state, *lvalue_type), get_typename(state, rvalue_type)));
+            }
+            break;
+        }
+        default:
+            break;
     }
-    UNUSED(state);
 }
 
 static void typecheck_variable(ValidatorState *state, ASTVariableObj *var) {
@@ -149,10 +233,6 @@ static void validate_module_callback(void *module, void *state) {
 
 
 bool validateAndTypecheckProgram(Compiler *compiler, ASTProgram *prog) {
-    UNUSED(typecheck_variable);
-    UNUSED(get_type_from_node);
-    UNUSED(get_typename);
-    UNUSED(error);
     // For every module in the program, do:
     // - For every object in the module, do:
     //   1) If object is a global, do:
@@ -172,5 +252,12 @@ bool validateAndTypecheckProgram(Compiler *compiler, ASTProgram *prog) {
         .program = prog
     };
     arrayMap(&prog->modules, validate_module_callback, (void *)&state);
+    if(!prog->entry_point) {
+        Error *err;
+        NEW0(err);
+        errorInit(err, ERR_ERROR, false, locationNew(0, 0, 0), "No entry point! (Hint: Add a 'main' function).");
+        compilerAddError(state.compiler, err);
+        return false;
+    }
     return !state.had_error;
 }

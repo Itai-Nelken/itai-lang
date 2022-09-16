@@ -46,7 +46,7 @@ typedef enum ast_node_type {
     ND_MUL, ND_DIV,
     ND_NEG,
     ND_EQ, ND_NE,
-    ND_CALL,
+    ND_CALL, ND_CHECKED_CALL, // CHECKED_CALL is the output from the validator.
     ND_ASSIGN,
 
     // literals, identifiers

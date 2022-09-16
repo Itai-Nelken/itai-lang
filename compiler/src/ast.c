@@ -341,24 +341,25 @@ ASTNode *astNewLoopNode(ASTNodeType type, Location loc, ASTNode *initializer, AS
 
 static const char *node_type_name(ASTNodeType type) {
     static const char *names[] = {
-        [ND_ADD]        = "ND_ADD",
-        [ND_SUB]        = "ND_SUB",
-        [ND_MUL]        = "ND_MUL",
-        [ND_DIV]        = "ND_DIV",
-        [ND_NEG]        = "ND_NEG",
-        [ND_EQ]         = "ND_EQ",
-        [ND_NE]         = "ND_NE",
-        [ND_CALL]       = "ND_CALL",
-        [ND_ASSIGN]     = "ND_ASSIGN",
-        [ND_NUMBER]     = "ND_NUMBER",
-        [ND_IDENTIFIER] = "ND_IDENTIFIER",
-        [ND_OBJ]        = "ND_OBJ",
-        [ND_VAR]        = "ND_VAR",
-        [ND_EXPR_STMT]  = "ND_EXPR_STMT",
-        [ND_IF]         = "ND_IF",
-        [ND_BLOCK]      = "ND_BLOCK",
-        [ND_LOOP]       = "ND_LOOP",
-        [ND_RETURN]     = "ND_RETURN"
+        [ND_ADD]          = "ND_ADD",
+        [ND_SUB]          = "ND_SUB",
+        [ND_MUL]          = "ND_MUL",
+        [ND_DIV]          = "ND_DIV",
+        [ND_NEG]          = "ND_NEG",
+        [ND_EQ]           = "ND_EQ",
+        [ND_NE]           = "ND_NE",
+        [ND_CALL]         = "ND_CALL",
+        [ND_CHECKED_CALL] = "ND_CHECKED_CALL",
+        [ND_ASSIGN]       = "ND_ASSIGN",
+        [ND_NUMBER]       = "ND_NUMBER",
+        [ND_IDENTIFIER]   = "ND_IDENTIFIER",
+        [ND_OBJ]          = "ND_OBJ",
+        [ND_VAR]          = "ND_VAR",
+        [ND_EXPR_STMT]    = "ND_EXPR_STMT",
+        [ND_IF]           = "ND_IF",
+        [ND_BLOCK]        = "ND_BLOCK",
+        [ND_LOOP]         = "ND_LOOP",
+        [ND_RETURN]       = "ND_RETURN"
     };
     return names[(i32)type];
 }
@@ -380,6 +381,7 @@ static const char *node_name(ASTNodeType type) {
         case ND_EXPR_STMT:
         case ND_RETURN:
         case ND_CALL:
+        case ND_CHECKED_CALL:
             return "ASTUnaryNode";
         // conditional nodes
         case ND_IF:
@@ -434,6 +436,7 @@ void astPrint(FILE *to, ASTNode *node) {
         case ND_EXPR_STMT:
         case ND_RETURN:
         case ND_CALL:
+        case ND_CHECKED_CALL:
             fprintf(to, ", \x1b[1moperand:\x1b[0m ");
             astPrint(to, AS_UNARY_NODE(node)->operand);
             break;
@@ -508,6 +511,7 @@ void astFree(ASTNode *node) {
         case ND_EXPR_STMT:
         case ND_RETURN:
         case ND_CALL:
+        case ND_CHECKED_CALL:
             astFree(AS_UNARY_NODE(node)->operand);
             break;
         // conditional nodes
