@@ -88,23 +88,29 @@ static SymbolID *unpack_lvalue_type_in_assignment(ASTNode *node) {
     return &var->obj->data_type;
 }
 
+static bool validate_call(ValidatorState *state, ASTNode *call) {
+    VERIFY(call->type == ND_CALL);
+    ASTUnaryNode *n = AS_UNARY_NODE(call);
+    SymbolID fn_name = AS_IDENTIFIER_NODE(n->operand)->id->id;
+    ASTObj *fn = find_function_in_current_module(state, fn_name);
+    if(!fn) {
+        error(state, n->header.location, stringFormat("Function '%s' doesn't exist!", get_identifier(state, fn_name)));
+        return false;
+    }
+    n->header.type = ND_CHECKED_CALL;
+    astFree(n->operand);
+    n->operand = astNewObjNode(fn->location, fn);
+    return true;
+}
+
 static void infer_types_in_assignment(ValidatorState *state, ASTNode *assignment) {
     VERIFY(assignment->type == ND_ASSIGN);
     if(!AS_BINARY_NODE(assignment)->right) {
         return;
     }
     // If the operand is a call, replace it with a CHECKED_CALL (which has the function object stored).
-    if(AS_BINARY_NODE(assignment)->right->type == ND_CALL) {
-        ASTUnaryNode *call = AS_UNARY_NODE(AS_BINARY_NODE(assignment)->right);
-        SymbolID fn_name = AS_IDENTIFIER_NODE(call->operand)->id->id;
-        ASTObj *fn = find_function_in_current_module(state, fn_name);
-        if(!fn) {
-            error(state, call->header.location, stringFormat("Function '%s' doesn't exist!", get_identifier(state, fn_name)));
-            return;
-        }
-        call->header.type = ND_CHECKED_CALL;
-        astFree(call->operand);
-        call->operand = astNewObjNode(fn->location, fn);
+    if(AS_BINARY_NODE(assignment)->right->type == ND_CALL && !validate_call(state, AS_BINARY_NODE(assignment)->right)) {
+        return;
     }
 
     SymbolID rvalue_type = get_type_from_node(state, AS_BINARY_NODE(assignment)->right);
@@ -143,6 +149,9 @@ static void validate_ast(ValidatorState *state, ASTNode *node) {
         case ND_ASSIGN:
             set_global_obj_in_assignment(state, node);
             infer_types_in_assignment(state, node);
+            break;
+        case ND_CALL:
+            validate_call(state, node);
             break;
         default:
             break;
