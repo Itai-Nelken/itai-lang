@@ -516,6 +516,9 @@ static ASTNode *parse_declaration(Parser *p) {
     ASTNode *result = NULL;
     if(match(p, TK_VAR)) {
         ASTVariableObj *var = parse_variable_decl(p, OBJ_LOCAL);
+        if(!var) {
+            return NULL;
+        }
         arrayPush(&p->current_fn->locals, (void *)var);
         register_local(p, AS_OBJ(var));
         result = astNewUnaryNode(ND_VAR_DECL, var->header.location, astNewObjNode(var->header.location, AS_OBJ(var)));
