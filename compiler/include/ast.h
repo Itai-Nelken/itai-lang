@@ -42,26 +42,26 @@ void astPrintIdentifier(FILE *to, ASTIdentifier *id);
 // and token_to_node_type() in Parser.c when adding new types.
 typedef enum ast_node_type {
     // expressions
-    ND_ADD, ND_SUB,
-    ND_MUL, ND_DIV,
-    ND_NEG,
-    ND_EQ, ND_NE,
-    ND_CALL, ND_CHECKED_CALL, // CHECKED_CALL is the output from the validator.
+    ND_ADD, ND_SUB, // binary(node, node), binary(node, node)
+    ND_MUL, ND_DIV, // binary(node, node), binary(node, node)
+    ND_NEG, // unary(node)
+    ND_EQ, ND_NE, // binary(node), binary(node)
+    ND_CALL, ND_CHECKED_CALL, // both: unary(node-callee) (CHECKED_CALL is the output from the validator).
     ND_ASSIGN,
 
     // literals, identifiers
-    ND_NUMBER,
-    ND_IDENTIFIER,
+    ND_NUMBER, // literal
+    ND_IDENTIFIER, // identifier
 
     // objects
-    ND_OBJ, ND_VAR,
-    ND_VAR_DECL,
+    ND_OBJ, ND_VAR, // unary, binary(identifier, obj)
+    ND_VAR_DECL, // unary(obj)
 
     // statements
-    ND_EXPR_STMT,
-    ND_IF, ND_BLOCK,
-    ND_LOOP,
-    ND_RETURN
+    ND_EXPR_STMT, // unary(node)
+    ND_IF, ND_BLOCK, // conditional, list
+    ND_LOOP, // loop
+    ND_RETURN // unary(node?)
 } ASTNodeType;
 
 typedef struct ast_node {
