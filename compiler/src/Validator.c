@@ -190,8 +190,19 @@ static void typecheck_variable(ValidatorState *state, ASTVariableObj *var) {
 
 static void validate_variable(ValidatorState *state, ASTVariableObj *var) {
     UNUSED(state);
-    if(var->initializer && var->header.data_type == EMPTY_SYMBOL_ID) {
-        var->header.data_type = get_type_from_node(state, var->initializer);
+    if(var->initializer) {
+        SymbolID rvalue_type = get_type_from_node(state, var->initializer);
+        SymbolID *lvalue_type = &var->header.data_type;
+        if(*lvalue_type == EMPTY_SYMBOL_ID) {
+            *lvalue_type = rvalue_type;
+        } else if(*lvalue_type != rvalue_type) {
+            // FIXME: This is a terrible and unspeakable hack to fix 'var a: u32 = number(i32)'.
+            //        This should be fixed as fast as possible to prevent future "ghost bugs".
+            if((*lvalue_type == astProgramGetPrimitiveType(state->program, TY_U32) && rvalue_type == astProgramGetPrimitiveType(state->program, TY_I32))) {
+                return;
+            }
+            error(state, var->header.location, stringFormat("Type mismatch: expected '%s' but got '%s'!", get_typename(state, *lvalue_type), get_typename(state, rvalue_type)));
+        }
     }
 }
 

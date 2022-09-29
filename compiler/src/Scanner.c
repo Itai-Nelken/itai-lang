@@ -107,22 +107,23 @@ static TokenType scan_keyword_or_identifier_type(Scanner *s) {
     }
     char *lexeme = s->source + s->start;
     u32 length = (u32)(s->current - s->start);
+    #define CHECK(expected, expected_length, expected_type) (length == (expected_length) && memcmp(lexeme, (expected), (expected_length)) == 0 ? (expected_type) : TK_IDENTIFIER)
 
     TokenType result;
     switch(*lexeme) {
         case 'e':
-            result = (length == 4 && memcmp(lexeme, "else", 4) == 0) ? TK_ELSE : TK_IDENTIFIER;
+            result = CHECK("else", 4, TK_ELSE);
             break;
         case 'f':
-            result = (length == 2 && memcmp(lexeme, "fn", 2) == 0) ? TK_FN : TK_IDENTIFIER;
+            result = CHECK("fn", 2, TK_FN);
             break;
         case 'i':
             switch(length) {
                 case 2:
-                    result =  memcmp(lexeme, "if", 2) == 0 ? TK_IF : TK_IDENTIFIER;
+                    result =  CHECK("if", 2, TK_IF);
                     break;
                 case 3:
-                    result =  memcmp(lexeme, "i32", 3) == 0 ? TK_I32 : TK_IDENTIFIER;
+                    result =  CHECK("i32", 3, TK_I32);
                     break;
                 default:
                     result = TK_IDENTIFIER;
@@ -130,18 +131,22 @@ static TokenType scan_keyword_or_identifier_type(Scanner *s) {
             }
             break;
         case 'r':
-            result = (length == 6 && memcmp(lexeme, "return", 6) == 0) ? TK_RETURN : TK_IDENTIFIER;
+            result = CHECK("return", 6, TK_RETURN);
+            break;
+        case 'u':
+            result = CHECK("u32", 3, TK_U32);
             break;
         case 'v':
-            result = (length == 3 && memcmp(lexeme, "var", 3) == 0) ? TK_VAR : TK_IDENTIFIER;
+            result = CHECK("var", 3, TK_VAR);
             break;
         case 'w':
-            result = (length == 5 && memcmp(lexeme, "while", 5) == 0) ? TK_WHILE : TK_IDENTIFIER;
+            result = CHECK("while", 5, TK_WHILE);
             break;
         default:
             result = TK_IDENTIFIER;
             break;
     }
+    #undef CHECK
     return result;
 }
 

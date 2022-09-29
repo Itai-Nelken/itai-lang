@@ -186,7 +186,8 @@ bool c_codegen(ASTProgram *prog) {
 
     // generate the header
     cg.cg_data.print(&cg.cg_data, "#include <stdbool.h>\n#include <stdint.h>\n");
-    cg.cg_data.print(&cg.cg_data, "typedef int32_t i32;\n\n");
+    cg.cg_data.print(&cg.cg_data, "typedef int32_t i32;\n");
+    cg.cg_data.print(&cg.cg_data, "typedef uint32_t u32;\n\n");
 
     bool result = codeGeneratorGenerate(&cg, prog);
 

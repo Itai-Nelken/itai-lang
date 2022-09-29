@@ -65,6 +65,7 @@ static const char *token_type_name(TokenType type) {
         [TK_RETURN]      = "TK_RETURN",
         [TK_VAR]         = "TK_VAR",
         [TK_I32]         = "TK_I32",
+        [TK_U32]         = "TK_U32",
         [TK_IDENTIFIER]  = "TK_IDENTIFIER",
         [TK_GARBAGE]     = "TK_GARBAGE",
         [TK_EOF]         = "TK_EOF"
@@ -132,6 +133,7 @@ const char *tokenTypeString(TokenType type) {
         [TK_RETURN]      = "return",
         [TK_VAR]         = "var",
         [TK_I32]         = "i32",
+        [TK_U32]         = "u32",
         [TK_IDENTIFIER]  = "<identifier>",
         [TK_GARBAGE]     = "<garbage>",
         [TK_EOF]         = "<eof>"

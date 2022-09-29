@@ -179,6 +179,11 @@ static void init_primitives(SymbolID ids[TY_COUNT], SymbolTable *syms) {
     name = symbolTableAddIdentifier(syms, "i32", 3);
     ty = dataTypeNew(name, 32, true);
     ids[TY_I32] = symbolTableAddType(syms, ty);
+
+    // u32
+    name = symbolTableAddIdentifier(syms, "u32", 3);
+    ty = dataTypeNew(name, 32, false);
+    ids[TY_U32] = symbolTableAddType(syms, ty);
 }
 
 void astInitProgram(ASTProgram *prog) {

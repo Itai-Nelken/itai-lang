@@ -387,8 +387,11 @@ static ASTIdentifier *parse_identifier(Parser *p) {
 static SymbolID parse_typename(Parser *p) {
     if(match(p, TK_I32)) {
         return astProgramGetPrimitiveType(p->program, TY_I32);
+    } else if(match(p, TK_U32)) {
+        return astProgramGetPrimitiveType(p->program, TY_U32);
     }
     error_at(p, peek(p).location, stringFormat("Expected a typename but got '%s'!", tokenTypeString(peek(p).type)));
+    advance(p); // consume the bad typename.
     return EMPTY_SYMBOL_ID;
 }
 

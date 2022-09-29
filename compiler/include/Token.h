@@ -56,7 +56,7 @@ typedef enum token_type {
     TK_VAR,
 
     // primitive types
-    TK_I32,
+    TK_I32, TK_U32,
 
     // identifier
     TK_IDENTIFIER,
