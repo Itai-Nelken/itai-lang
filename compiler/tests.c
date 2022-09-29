@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <setjmp.h>
 #include <signal.h>
+#include <unistd.h> // kill
 
 #define MAX_FAILURES_IN_TEST 20
 
@@ -70,7 +71,7 @@ void _assert(bool result, const char *expr) {
     }
     assert(__data.failure_count < MAX_FAILURES_IN_TEST);
     __data.failure_texts[__data.failure_count++] = expr;
-    abort(); // will be catched by the signal handler
+    kill(getpid(), SIGUSR1); // will be catched by the signal handler
 }
 
 void _log(const char *format, ...) {
@@ -96,6 +97,20 @@ static void signal_handler(int signal) {
     }
 }
 
+static void assert_handler(int signal) {
+    (void)signal; // unused
+    fprintf(stderr, "[test %d]: assertion failed!", __data.current_test_number + 1);
+    if(__data.panic_jump_set) {
+        fputc('\n', stderr);
+        fflush(stderr);
+        longjmp(__data.panic_jump, 1);
+    } else {
+        fputs("no jump, exiting.\n", stderr);
+        fflush(stderr);
+        exit(1);
+    }
+}
+
 int _run_test_list(Test testlist[]) {
     _init();
     _count_tests(testlist);
@@ -106,6 +121,8 @@ int _run_test_list(Test testlist[]) {
     sigemptyset(&new_act.sa_mask);
     sigaction(SIGSEGV, &new_act, NULL);
     sigaction(SIGABRT, &new_act, NULL);
+    new_act.sa_handler = assert_handler;
+    sigaction(SIGUSR1, &new_act, NULL);
 
     for(; __data.current_test_number < __data.total_test_count; ++__data.current_test_number) {
         __data.current_test = &testlist[__data.current_test_number];
@@ -128,6 +145,7 @@ int _run_test_list(Test testlist[]) {
     sigemptyset(&new_act.sa_mask);
     sigaction(SIGABRT, &new_act, NULL);
     sigaction(SIGSEGV, &new_act, NULL);
+    sigaction(SIGUSR1, &new_act, NULL);
     return had_failure ? 1 : 0;
 }
 
