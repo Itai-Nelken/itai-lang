@@ -61,6 +61,10 @@ int main(int argc, char **argv) {
         putc('\n', stdout);
     }
 
+    if(compilerHadError(&c)) {
+        compilerPrintErrors(&c);
+    }
+
 end:
     scannerFree(&s);
     compilerFree(&c);
