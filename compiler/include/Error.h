@@ -21,9 +21,10 @@ typedef struct error {
 
 /***
  * Initialize a new Error.
- * 
+ *
  * @param err The Error to initialize.
  * @param type The ErrorType.
+ * @param has_location A boolean indicating if the error has a valid location.
  * @param location The location of the error in the source files.
  * @param message The error message.
  ***/

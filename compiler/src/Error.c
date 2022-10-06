@@ -181,14 +181,14 @@ void errorPrint(Error *err, Compiler *c, FILE *to) {
         if(current_line->is_error_line) {
             // pad the line for " <line> | "
             fprintf(to, " %*c   ", largest_width, ' ');
-            // if 'start' is larger than 0, pad until the offending character - 1.
 
-            // FIXME: tab (\t) characters are 8 spaces, are a single character, print as 4 spaces???.
-            // 3 |    if -1 { // the spaces before 'if' are a tab ('\t').
-            //      ^~ error message
-            // 4 | <line after contents>
+            // if 'start' is larger than 0, pad until the offending character - 1.
             for(u64 i = current_line->start; i < err->location.start; ++i) {
-                fputc(' ', to);
+                char c = ' ';
+                if(file_contents[i] == '\t') {
+                    c = '\t';
+                }
+                fputc(c, to);
             }
             fprintf(to, "\x1b[35;1m^");
             for(u64 i = 0; i < labs((isize)err->location.end - (isize)err->location.start - 1); ++i) {
