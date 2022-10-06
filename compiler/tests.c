@@ -251,6 +251,9 @@ static void test_array(void *a) {
 
     arrayMap(&array, test_array_callback, NULL);
 
+    arrayClear(&copy);
+    CHECK(copy.used == 0);
+
     arrayFree(&copy);
     arrayFree(&array);
 }
