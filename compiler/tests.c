@@ -320,54 +320,51 @@ static void test_table(void *a) {
 
 struct scanner_test_token_type {
     TokenType type;
-    union {
-        i64 value;
-        const char *identifier;
-    } as;
+    const char *lexeme;
 };
 static void test_scanner(void *a) {
     UNUSED(a);
-    const char *input = "fn -> i32 return (1 + 2 - 3 * 4 / 5) == 2; 2 != 2 if !2 {} else {} hello = 1; while 1 {} @";
+    const char *input = "fn -> i32 + u32 return (2 - 3 * 4 / 5) == 2; 2 != 2 if !2 {} else {} hello = 1; while 1 {} @";
     struct scanner_test_token_type expected[] = {
-        {TK_FN,          {0}},
-        {TK_ARROW,       {0}},
-        {TK_I32,         {0}},
-        {TK_RETURN,      {0}},
-        {TK_LPAREN,      {0}},
-        {TK_NUMBER,      {1}},
-        {TK_PLUS,        {0}},
-        {TK_NUMBER,      {2}},
-        {TK_MINUS,       {0}},
-        {TK_NUMBER,      {3}},
-        {TK_STAR,        {0}},
-        {TK_NUMBER,      {4}},
-        {TK_SLASH,       {0}},
-        {TK_NUMBER,      {5}},
-        {TK_RPAREN,      {0}},
-        {TK_EQUAL_EQUAL, {0}},
-        {TK_NUMBER,      {2}},
-        {TK_SEMICOLON,   {0}},
-        {TK_NUMBER,      {2}},
-        {TK_BANG_EQUAL,  {0}},
-        {TK_NUMBER,      {2}},
-        {TK_IF,          {0}},
-        {TK_BANG,        {0}},
-        {TK_NUMBER,      {2}},
-        {TK_LBRACE,      {0}},
-        {TK_RBRACE,      {0}},
-        {TK_ELSE,        {0}},
-        {TK_LBRACE,      {0}},
-        {TK_RBRACE,      {0}},
-        {TK_IDENTIFIER,  {.identifier = "hello"}},
-        {TK_EQUAL,       {0}},
-        {TK_NUMBER      ,{1}},
-        {TK_SEMICOLON   ,{0}},
-        {TK_WHILE,       {0}},
-        {TK_NUMBER,      {1}},
-        {TK_LBRACE,      {0}},
-        {TK_RBRACE,      {0}},
-        {TK_GARBAGE,     {0}},
-        {TK_EOF,         {0}}
+        {TK_FN,          "fn"},
+        {TK_ARROW,       "->"},
+        {TK_I32,         "i32"},
+        {TK_PLUS,        "+"},
+        {TK_U32,         "u32"},
+        {TK_RETURN,      "return"},
+        {TK_LPAREN,      "("},
+        {TK_NUMBER,      "2"},
+        {TK_MINUS,       "-"},
+        {TK_NUMBER,      "3"},
+        {TK_STAR,        "*"},
+        {TK_NUMBER,      "4"},
+        {TK_SLASH,       "/"},
+        {TK_NUMBER,      "5"},
+        {TK_RPAREN,      ")"},
+        {TK_EQUAL_EQUAL, "=="},
+        {TK_NUMBER,      "2"},
+        {TK_SEMICOLON,   ";"},
+        {TK_NUMBER,      "2"},
+        {TK_BANG_EQUAL,  "!="},
+        {TK_NUMBER,      "2"},
+        {TK_IF,          "if"},
+        {TK_BANG,        "!"},
+        {TK_NUMBER,      "2"},
+        {TK_LBRACE,      "{"},
+        {TK_RBRACE,      "}"},
+        {TK_ELSE,        "else"},
+        {TK_LBRACE,      "{"},
+        {TK_RBRACE,      "}"},
+        {TK_IDENTIFIER,  "hello"},
+        {TK_EQUAL,       "="},
+        {TK_NUMBER      ,"1"},
+        {TK_SEMICOLON   ,";"},
+        {TK_WHILE,       "while"},
+        {TK_NUMBER,      "1"},
+        {TK_LBRACE,      "{"},
+        {TK_RBRACE,      "}"},
+        {TK_GARBAGE,     "@"},
+        {TK_EOF,         ""}
     };
     char tmp_file_name[] = "ilc_scanner_test_XXXXXX";
     int fd = mkstemp(tmp_file_name);
@@ -394,11 +391,7 @@ static void test_scanner(void *a) {
     for(u32 i = 0; i < sizeof(expected)/sizeof(expected[0]); ++i) {
         Token tk = scannerNextToken(&s);
         CHECK(tk.type == expected[i].type);
-        if(tk.type == TK_NUMBER) {
-            CHECK(tk.as.number_constant.as.int64 == expected[i].as.value);
-        } else if(tk.type == TK_IDENTIFIER && CHECK(expected[i].as.identifier != 0)) {
-            CHECK(strncmp(tk.as.identifier.text, expected[i].as.identifier, tk.as.identifier.length) == 0);
-        }
+        CHECK(strncmp(tk.lexeme, expected[i].lexeme, tk.length) == 0);
     }
 
     scannerFree(&s);

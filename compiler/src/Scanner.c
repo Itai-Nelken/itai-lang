@@ -36,8 +36,8 @@ static void add_error(Scanner *s, bool has_location, String message) {
     compilerAddError(s->compiler, err);
 }
 
-static inline Token make_simple_token(Scanner *s, TokenType type) {
-    return tokenNew(type, locationNew(s->start, s->current, compilerGetCurrentFileID(s->compiler)));
+static inline Token make_token(Scanner *s, TokenType type) {
+    return tokenNew(type, locationNew(s->start, s->current, compilerGetCurrentFileID(s->compiler)), s->source + s->start, (u32)(s->current - s->start));
 }
 
 static inline bool is_end(Scanner *s) {
@@ -92,13 +92,11 @@ static void skip_whitespace(Scanner *s) {
     }
 }
 
-static Token scan_number_constant(Scanner *s) {
+static void scan_number_constant(Scanner *s) {
     // TODO: add hex, octal, and binary literals.
     while(!is_end(s) && (isDigit(peek(s)) || peek(s) == '_')) {
         advance(s);
     }
-    i64 value = strtol(&s->source[s->start], NULL, 10);
-    return tokenNewNumberConstant(locationNew(s->start, s->current, compilerGetCurrentFileID(s->compiler)), numberConstantNewInt64(value));
 }
 
 static TokenType scan_keyword_or_identifier_type(Scanner *s) {
@@ -154,38 +152,37 @@ Token scan_token(Scanner *s) {
     skip_whitespace(s);
     s->start = s->current;
     if(is_end(s)) {
-        return make_simple_token(s, TK_EOF);
+        return make_token(s, TK_EOF);
     }
 
     char c = advance(s);
     if(isDigit(c)) {
-        return scan_number_constant(s);
+        scan_number_constant(s);
+        return make_token(s, TK_NUMBER);
     }
     if(isAscii(c) || c == '_') {
-        Token tk = make_simple_token(s, scan_keyword_or_identifier_type(s));
-        tk.as.identifier.text = s->source + s->start;
-        tk.as.identifier.length = (u32)(s->current - s->start);
+        Token tk = make_token(s, scan_keyword_or_identifier_type(s));
         return tk;
     }
 
     switch(c) {
-        case '(': return make_simple_token(s, TK_LPAREN);
-        case ')': return make_simple_token(s, TK_RPAREN);
-        case '{': return make_simple_token(s, TK_LBRACE);
-        case '}': return make_simple_token(s, TK_RBRACE);
-        case '+': return make_simple_token(s, TK_PLUS);
-        case '*': return make_simple_token(s, TK_STAR);
-        case '/': return make_simple_token(s, TK_SLASH);
-        case ';': return make_simple_token(s, TK_SEMICOLON);
-        case ':': return make_simple_token(s, TK_COLON);
-        case '-': return make_simple_token(s, match(s, '>') ? TK_ARROW : TK_MINUS);
-        case '=': return make_simple_token(s, match(s, '=') ? TK_EQUAL_EQUAL : TK_EQUAL);
-        case '!': return make_simple_token(s, match(s, '=') ? TK_BANG_EQUAL : TK_BANG);
+        case '(': return make_token(s, TK_LPAREN);
+        case ')': return make_token(s, TK_RPAREN);
+        case '{': return make_token(s, TK_LBRACE);
+        case '}': return make_token(s, TK_RBRACE);
+        case '+': return make_token(s, TK_PLUS);
+        case '*': return make_token(s, TK_STAR);
+        case '/': return make_token(s, TK_SLASH);
+        case ';': return make_token(s, TK_SEMICOLON);
+        case ':': return make_token(s, TK_COLON);
+        case '-': return make_token(s, match(s, '>') ? TK_ARROW : TK_MINUS);
+        case '=': return make_token(s, match(s, '=') ? TK_EQUAL_EQUAL : TK_EQUAL);
+        case '!': return make_token(s, match(s, '=') ? TK_BANG_EQUAL : TK_BANG);
         default:
             break;
     }
     add_error(s, true, stringFormat("Unknown character '%c'!", c));
-    return make_simple_token(s, TK_GARBAGE);
+    return make_token(s, TK_GARBAGE);
 }
 
 static bool set_source(Scanner *s, FileID file) {
@@ -206,14 +203,14 @@ Token scannerNextToken(Scanner *s) {
         // the error was already reported, so we will simplt return
         // TK_EOF so the parser thinks we are at the end of the input
         // and will exit so errors can be printed.
-        return make_simple_token(s, TK_EOF);
+        return make_token(s, TK_EOF);
     }
     if(!s->source) {
         if(!set_source(s, compilerNextFile(s->compiler))) {
             s->failed_to_set_source = true;
             // if we can't set the source, assume we are at the end
             // of the input.
-            return make_simple_token(s, TK_EOF);
+            return make_token(s, TK_EOF);
         }
     }
     Token tk = scan_token(s);

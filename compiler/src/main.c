@@ -46,7 +46,7 @@ int main(int argc, char **argv) {
     scannerInit(&s, &c);
 
     Options opts = {
-        .file_path = "../build/test.ilc"
+        .file_path = "./test.ilc"
     };
     if(!parse_arguments(&opts, argc, argv)) {
         return_value = 1;
@@ -54,6 +54,12 @@ int main(int argc, char **argv) {
     }
 
     compilerAddFile(&c, opts.file_path);
+
+    Token tk;
+    for(tk = scannerNextToken(&s); tk.type != TK_EOF; tk = scannerNextToken(&s)) {
+        tokenPrint(stdout, &tk);
+        putc('\n', stdout);
+    }
 
 end:
     scannerFree(&s);

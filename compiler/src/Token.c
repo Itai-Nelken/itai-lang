@@ -19,25 +19,13 @@ Location locationMerge(Location a, Location b) {
     return locationNew(a.start, b.end, a.file);
 }
 
-NumberConstant numberConstantNewInt64(i64 value) {
-    return (NumberConstant){
-        .type = NUM_I64,
-        .as.int64 = value
+Token tokenNew(TokenType type, Location location, char *lexeme, u32 length) {
+    return (Token){
+        .type = type,
+        .location = location,
+        .lexeme = lexeme,
+        .length = length
     };
-}
-
-Token tokenNew(TokenType type, Location location) {
-    Token tk = {0};
-    tk.type = type;
-    tk.location = location;
-    return tk;
-}
-
-
-Token tokenNewNumberConstant(Location location, NumberConstant value) {
-    Token tk = tokenNew(TK_NUMBER, location);
-    tk.as.number_constant = value;
-    return tk;
 }
 
 static const char *token_type_name(TokenType type) {
@@ -73,18 +61,6 @@ static const char *token_type_name(TokenType type) {
     return names[(i32)type];
 }
 
-void printNumberConstant(FILE *to, NumberConstant value) {
-    fprintf(to, "NumberConstant{");
-    switch(value.type) {
-        case NUM_I64:
-            fprintf(to, "\x1b[1mas.int64:\x1b[0;34m %ld\x1b[0m", value.as.int64);
-            break;
-        default:
-            UNREACHABLE();
-    }
-    fprintf(to, "}");
-}
-
 void printLocation(FILE *to, Location loc) {
     fprintf(to, "Location{\x1b[1mstart:\x1b[0;34m %ld\x1b[0m, \x1b[1mend:\x1b[0;34m %ld\x1b[0m, \x1b[1mfile:\x1b[0;34m %zu\x1b[0m}", loc.start, loc.end, loc.file);
 }
@@ -93,18 +69,8 @@ void tokenPrint(FILE *to, Token *t) {
     VERIFY(t);
     fprintf(to, "Token{\x1b[1mtype:\x1b[0;33m %s\x1b[0m, \x1b[1mlocation:\x1b[0m ", token_type_name(t->type));
     printLocation(to, t->location);
-    // handle special tokens
-    switch(t->type) {
-        case TK_NUMBER:
-            fprintf(to, ", \x1b[1mvalue:\x1b[0m ");
-            printNumberConstant(to, t->as.number_constant);
-            break;
-        case TK_IDENTIFIER:
-            fprintf(to, ", \x1b[1midentifier:\x1b[0m %.*s", t->as.identifier.length, t->as.identifier.text);
-            break;
-        default:
-            break;
-    }
+    fprintf(to, ", \x1b[1mlexeme:\x1b[0m '%.*s'", t->length, t->lexeme);
+    fprintf(to, ", \x1b[1mlength:\x1b[0;34m %u\x1b[0m", t->length);
     fprintf(to, "}");
 }
 

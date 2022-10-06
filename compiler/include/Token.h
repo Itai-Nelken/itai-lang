@@ -66,62 +66,23 @@ typedef enum token_type {
     TK_EOF
 } TokenType;
 
-// Update print_number_constant() in Token.c when adding new types.
-typedef enum number_constant_type {
-    NUM_I64
-}  NumberConstantType;
-
-typedef struct number_constant {
-    NumberConstantType type;
-    union {
-        i64 int64;
-    } as;
-} NumberConstant;
-
 typedef struct token {
     TokenType type;
     Location location;
-    union {
-        NumberConstant number_constant;
-        struct {
-            char *text;
-            u32 length; // u32 because its used for printf later with '%.*s'
-        } identifier;
-    } as;
+    char *lexeme;
+    u32 length;
 } Token;
 
 /***
- * Make a new i64 NumberConstant.
+ * Make a new Token.
  *
- * @param value The value.
- * @return A NumberConstant with the value.
+ * @param type A TokenType.
+ * @param location The Location of the token.
+ * @param lexeme The lexeme the token represents.
+ * @param length The length of the lexeme.
+ * @return A new base Token.
  ***/
-NumberConstant numberConstantNewInt64(i64 value);
-
-/***
- * Make a new base Token.
- *
- @param type A TokenType.
- @param location The Location of the token.
- @return A new base Token.
- ***/
-Token tokenNew(TokenType type, Location location);
-
-/***
- * Make a new number constant Token.
- *
- * @param value A NumberConstant with the value.
- * @return A new number constant Token.
- ***/
-Token tokenNewNumberConstant(Location location, NumberConstant value);
-
-/***
- * Print a number constant.
- *
- * @param to The stream to print to.
- * @param value The number constant to print.
- ***/
-void printNumberConstant(FILE *to, NumberConstant value);
+Token tokenNew(TokenType type, Location location, char *lexeme, u32 length);
 
 /***
  * Print a Location.
