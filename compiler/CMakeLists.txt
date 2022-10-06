@@ -10,16 +10,9 @@ set(sources
     src/Strings.c
     src/Array.c
     src/Token.c
-    src/ast.c
-    src/Types.c
     src/Error.c
-    src/Symbols.c
     src/Compiler.c
     src/Scanner.c
-    src/Parser.c
-    src/Validator.c
-    src/Codegenerator.c
-    src/codegenerators/c_codegen.c
 )
 
 add_library(compiler ${sources})

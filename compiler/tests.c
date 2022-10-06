@@ -192,13 +192,9 @@ int _run_test_list(Test testlist[]) {
 #include "Strings.h"
 #include "Array.h"
 #include "Table.h"
-#include "Types.h"
-#include "Symbols.h"
 #include "Compiler.h"
 #include "Token.h"
 #include "Scanner.h"
-#include "ast.h"
-#include "Parser.h"
 
 static void test_strings(void *a) {
     UNUSED(a);
@@ -322,61 +318,6 @@ static void test_table(void *a) {
     tableFree(&t.t);
 }
 
-static void test_symbols(void *a) {
-    UNUSED(a);
-    SymbolTable s;
-    symbolTableInit(&s);
-
-    struct id {
-        char *txt;
-        u32 length;
-        SymbolID id;
-    } ids[] = {
-        {"Hello, World", 12, EMPTY_SYMBOL_ID},
-        {"Test identifier", 15, EMPTY_SYMBOL_ID},
-        {"Another id", 10, EMPTY_SYMBOL_ID},
-        {"test", 4, EMPTY_SYMBOL_ID}
-    };
-    const u32 ids_length = sizeof(ids)/sizeof(ids[0]);
-
-    struct type {
-        DataType ty;
-        SymbolID id;
-    } types[] = {
-        // the names don't map to any name, they are simply different so
-        // so that each type will be added as a different symbol.
-        {{.name = 0, .size = 32, .is_signed = true}, EMPTY_SYMBOL_ID},
-        {{.name = 1, .size = 32, .is_signed = false}, EMPTY_SYMBOL_ID},
-        {{.name = 2, .size = 1, .is_signed = false}, EMPTY_SYMBOL_ID},
-        {{.name = 3, .size = 8, .is_signed = false}, EMPTY_SYMBOL_ID}
-    };
-    const u32 types_length = sizeof(types)/sizeof(types[0]);
-
-    for(u32 i = 0; i < ids_length; ++i) {
-        ids[i].id = symbolTableAddIdentifier(&s, ids[i].txt, ids[i].length);
-    }
-
-    for(u32 i = 0; i < types_length; ++i) {
-        types[i].id = symbolTableAddType(&s, types[i].ty);
-    }
-
-    for(u32 i = 0; i < ids_length; ++i) {
-        const char *id = symbolTableGetIdentifier(&s, ids[i].id);
-        ASSERT(id != NULL);
-        CHECK(strcmp(id, ids[i].txt) == 0);
-    }
-
-    for(u32 i = 0; i < types_length; ++i) {
-        DataType *ty = symbolTableGetType(&s, types[i].id);
-        ASSERT(ty != NULL);
-        CHECK(ty->name == types[i].ty.name);
-        CHECK(ty->size == types[i].ty.size);
-        CHECK(ty->is_signed == types[i].ty.is_signed);
-    }
-
-    symbolTableFree(&s);
-}
-
 struct scanner_test_token_type {
     TokenType type;
     union {
@@ -465,72 +406,11 @@ static void test_scanner(void *a) {
     remove(tmp_file_name);
 }
 
-static void test_parser(void *a) {
-    UNUSED(a);
-    const char *input = "fn test() -> i32 { return 1 + 2 * 4 / 2 + (2 + 3); }";
-    // to get the output with the escape sequences, see the following guide: https://www.mengyibai.com/p/gdb-print-variables/
-    // but change 'set logging on' to 'set logging enabled on'
-    const char *expected = "ASTProgram{\033[1mprimitive_ids:\033[0m [SymbolID{\033[34m1\033[0m}, SymbolID{\033[34m3\033[0m}, SymbolID{\033[34m5\033[0m}], \033[1mroot_module:\033[0m ModuleID{\033[34m0\033[0m}, \033[1mentry_point:\033[0m (null), \033[1mmodules:\033[0m [ASTModule{\033[1mname:\033[0m ASTIdentifier{\033[1mlocation:\033[0m Location{\033[1mstart:\033[0;34m 0\033[0m, \033[1mend:\033[0;34m 0\033[0m, \033[1mfile:\033[0;34m 0\033[0m}, \033[1mid:\033[0m SymbolID{\033[34m6\033[0m}}, \033[1mobjects:\033[0m [ASTFunctionObj{\033[1mlocation:\033[0m Location{\033[1mstart:\033[0;34m 0\033[0m, \033[1mend:\033[0;34m 48\033[0m, \033[1mfile:\033[0;34m 0\033[0m}, \033[1mname:\033[0m ASTIdentifier{\033[1mlocation:\033[0m Location{\033[1mstart:\033[0;34m 3\033[0m, \033[1mend:\033[0;34m 7\033[0m, \033[1mfile:\033[0;34m 0\033[0m}, \033[1mid:\033[0m SymbolID{\033[34m7\033[0m}}, \033[1mdata_type:\033[0m SymbolID{(empty)}, \033[1mreturn_type:\033[0m SymbolID{\033[34m3\033[0m}, \033[1mlocals:\033[0m [], \033[1mbody:\033[0m ASTListNode{\033[1mtype:\033[0;33m ND_BLOCK\033[0m, \033[1mbody:\033[0m ASTUnaryNode{\033[1mtype:\033[0;33m ND_RETURN\033[0m, \033[1moperand:\033[0m ASTBinaryNode{\033[1mtype:\033[0;33m ND_DIV\033[0m, \033[1mleft:\033[0m ASTBinaryNode{\033[1mtype:\033[0;33m ND_MUL\033[0m, \033[1mleft:\033[0m ASTBinaryNode{\033[1mtype:\033[0;33m ND_ADD\033[0m, \033[1mleft:\033[0m ASTNumberNode{\033[1mtype:\033[0;33m ND_NUMBER\033[0m, \033[1mvalue:\033[0m NumberConstant{\033[1mas.int64:\033[0;34m 1\033[0m}}, \033[1mright:\033[0m ASTNumberNode{\033[1mtype:\033[0;33m ND_NUMBER\033[0m, \033[1mvalue:\033[0m NumberConstant{\033[1mas.int64:\033[0;34m 2\033[0m}}}, \033[1mright:\033[0m ASTNumberNode{\033[1mtype:\033[0;33m ND_NUMBER\033[0m, \033[1mvalue:\033[0m NumberConstant{\033[1mas.int64:\033[0;34m 4\033[0m}}}, \033[1mright:\033[0m ASTBinaryNode{\033[1mtype:\033[0;33m ND_ADD\033[0m, \033[1mleft:\033[0m ASTNumberNode{\033[1mtype:\033[0;33m ND_NUMBER\033[0m, \033[1mvalue:\033[0m NumberConstant{\033[1mas.int64:\033[0;34m 2\033[0m}}, \033[1mright:\033[0m ASTBinaryNode{\033[1mtype:\033[0;33m ND_ADD\033[0m, \033[1mleft:\033[0m ASTNumberNode{\033[1mtype:\033[0;33m ND_NUMBER\033[0m, \033[1mvalue:\033[0m NumberConstant{\033[1mas.int64:\033[0;34m 2\033[0m}}, \033[1mright:\033[0m ASTNumberNode{\033[1mtype:\033[0;33m ND_NUMBER\033[0m, \033[1mvalue:\033[0m NumberConstant{\033[1mas.int64:\033[0;34m 3\033[0m}}}}}}}}]}], \033[1msymbols:\033[0m SymbolTable{\033[1msymbols:\033[0m [Symbol{\033[1mid:\033[0;34m 0\033[0m, \033[1mvalue:\033[0m 'void'}, Symbol{\033[1mid:\033[0;34m 1\033[0m, \033[1mvalue:\033[0m DataType{\033[1mname:\033[0m \033[34m0\033[0m, \033[1msize:\033[0m \033[34m0\033[0m, \033[1mis_signed:\033[0m false}}, Symbol{\033[1mid:\033[0;34m 2\033[0m, \033[1mvalue:\033[0m 'i32'}, Symbol{\033[1mid:\033[0;34m 3\033[0m, \033[1mvalue:\033[0m DataType{\033[1mname:\033[0m \033[34m2\033[0m, \033[1msize:\033[0m \033[34m32\033[0m, \033[1mis_signed:\033[0m true}}, Symbol{\033[1mid:\033[0;34m 4\033[0m, \033[1mvalue:\033[0m 'u32'}, Symbol{\033[1mid:\033[0;34m 5\033[0m, \033[1mvalue:\033[0m DataType{\033[1mname:\033[0m \033[34m4\033[0m, \033[1msize:\033[0m \033[34m32\033[0m, \033[1mis_signed:\033[0m false}}, Symbol{\033[1mid:\033[0;34m 6\033[0m, \033[1mvalue:\033[0m '___root___'}, Symbol{\033[1mid:\033[0;34m 7\033[0m, \033[1mvalue:\033[0m 'test'}]}}";
-
-    // create a temporary file for the source
-    char tmp_file_name[] = "ilc_parser_test_XXXXXX";
-    int fd = mkstemp(tmp_file_name);
-    CHECK(fd != -1);
-    if(fd == -1) {
-        LOG_F("Failed to create a temporary file: %s", strerror(errno));
-        return;
-    }
-    usize input_length = strlen(input);
-    isize written = write(fd, (void *)input, input_length);
-    close(fd);
-    CHECK(written == (isize)input_length);
-    if(written != (isize)input_length) {
-        LOG("Failed to write to temporary file!");
-        return;
-    }
-
-    // initialize everything
-    Compiler c;
-    Scanner s;
-    Parser p;
-    ASTProgram prog;
-    compilerInit(&c);
-    scannerInit(&s, &c);
-    parserInit(&p, &c);
-    astInitProgram(&prog);
-
-    // add the source
-    compilerAddFile(&c, tmp_file_name);
-
-    // parse and check that no errors occured
-    ASSERT(parserParse(&p, &s, &prog));
-
-    // stringify the output
-    char *output = NULL;
-    usize length = 0;
-    FILE *f = open_memstream(&output, &length);
-    astPrintProgram(f, &prog);
-    fclose(f);
-
-    // check that it matches the expected output
-    CHECK(strncmp(output, expected, length) == 0);
-
-    // clean up
-    free(output);
-    astFreeProgram(&prog);
-    parserFree(&p);
-    scannerFree(&s);
-    compilerFree(&c);
-    remove(tmp_file_name);
-}
-
 Test tests[] = {
     {"Strings", test_strings, NULL},
     {"Array", test_array, NULL},
     {"Table", test_table, NULL},
-    {"Symbols", test_symbols, NULL},
     {"Scanner", test_scanner, NULL},
-    {"Parser", test_parser, NULL},
     {NULL, NULL, NULL}
 };
 
