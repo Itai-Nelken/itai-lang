@@ -7,16 +7,18 @@ add_compile_options(-Wall -Wextra)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(sources
-    src/utilities.c
-    src/Table.c
-    src/Strings.c
+    src/Arena.c
     src/Array.c
-    src/Token.c
     src/Ast.c
-    src/Error.c
     src/Compiler.c
-    src/Scanner.c
+    src/Error.c
+    src/memory.c
     src/Parser.c
+    src/Scanner.c
+    src/Table.c
+    src/Token.c
+    src/utilities.c
+    src/Strings.c
 )
 
 add_library(compiler ${sources})

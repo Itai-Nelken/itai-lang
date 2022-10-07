@@ -1,6 +1,6 @@
-#include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include "memory.h"
 #include "Arena.h"
 
 union align {
@@ -14,42 +14,42 @@ union align {
 	long double ld;
 };
 
-static ArenaBlock *newBlock(size_t size) {
-	ArenaBlock *b = calloc(1, sizeof(*b));
-	b->data = calloc(size, sizeof(*b->data));
+static ArenaBlock *new_block(size_t size) {
+	ArenaBlock *b = CALLOC(1, sizeof(*b));
+	b->data = CALLOC(size, sizeof(*b->data));
 	b->current = b->data;
 	b->size = size;
 	b->next = NULL;
 	return b;
 }
 
-static void freeBlocks(ArenaBlock *blocks) {
+static void free_blocks(ArenaBlock *blocks) {
 	while(blocks != NULL) {
 		ArenaBlock *next = blocks->next;
-		free(blocks->data);
-		free(blocks);
+		FREE(blocks->data);
+		FREE(blocks);
 		blocks = next;
 	}
 }
 
-void initArena(Arena *a, size_t block_size) {
-	a->blocks = newBlock(block_size);
+void arenaInit(Arena *a, size_t block_size) {
+	a->blocks = new_block(block_size);
 	a->block_size = block_size;
 	a->block_count = 1;
 	a->bytes_allocated = 0;
 }
 
-void freeArena(Arena *a) {
-	freeBlocks(a->blocks);
+void arenaFree(Arena *a) {
+	free_blocks(a->blocks);
 	a->blocks = NULL;
 	a->block_size = a->block_count = a->bytes_allocated = 0;
 }
 
-static void addBlock(Arena *a, size_t size_needed) {
+static void add_block(Arena *a, size_t size_needed) {
 	if(size_needed >= a->block_size) {
 		a->block_size += size_needed;
 	}
-	ArenaBlock *b = newBlock(a->block_size);
+	ArenaBlock *b = new_block(a->block_size);
 	a->blocks->next = b;
 	a->blocks = b;
 	a->block_count++;
@@ -70,7 +70,7 @@ static void *allocate(Arena *a, size_t element_count, size_t element_size, size_
 	// round the size up to an alignment boundary.
 	size_t size = (((element_count * element_size) + sizeof(union align) - 1) / (sizeof(union align)) * sizeof(union align));
 	if((size_t)((a->blocks->current + size) - a->blocks->data) > a->blocks->size) {
-		addBlock(a, size);
+		add_block(a, size);
 	}
 	a->bytes_allocated += size;
 	a->blocks->current += size + 2 * element_size;

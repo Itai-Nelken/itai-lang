@@ -32,14 +32,14 @@ typedef struct arena_info {
  * @param a A Arena to initialize.
  * @param block_size the initial size for each block.
  ***/
-void initArena(Arena *a, size_t block_size);
+void arenaInit(Arena *a, size_t block_size);
 
 /***
  * Free an initialized Arena.
  * 
  * @param a An initialized Arena to free.
  ***/
-void freeArena(Arena *a);
+void arenaFree(Arena *a);
 
 /***
  * Get information about an Arena.
@@ -71,5 +71,8 @@ void *arenaAllocate(Arena *a, size_t size);
  * @return A pointer to the start of the allocated space.
  ***/
 void *arenaClearAllocate(Arena *a, size_t count, size_t size);
+
+#define ARENA_NEW(arena, o) ((o) = arenaAllocate((arena), sizeof(*o)))
+#define ARENA_NEW0(arena, o) ((o) = arenaClearAllocate((arena), 1, sizeof(*o)))
 
 #endif // ARENA_H
