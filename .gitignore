@@ -3,4 +3,5 @@ compiler/.vscode/**
 compiler/.cache/**
 compiler/src/ilc
 compiler/tests
+compiler/tester/tester
 
