@@ -1,2 +1,1 @@
-- Improve symbol table so adding symbols will be better than the current O(n).
-- Add better tests.
+- Find out the best way to store parsed variable declarations.
