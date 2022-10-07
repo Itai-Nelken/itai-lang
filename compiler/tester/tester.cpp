@@ -44,7 +44,7 @@ std::string get_ilc_path() {
     } else if(d == "build") {
         p.append("ilc");
         return std::string(p.c_str());
-    } else if(d == "tests") {
+    } else if(d == "tester") {
         p.append("../build/ilc");
         return std::string(p.c_str());
     }
