@@ -4,9 +4,10 @@
 #include "common.h"
 #include "memory.h"
 #include "Token.h"
+#include "Ast.h"
 #include "Compiler.h"
 #include "Scanner.h"
-
+#include "Parser.h"
 
 typedef struct options {
     const char *file_path;
@@ -42,8 +43,12 @@ int main(int argc, char **argv) {
     int return_value = 0;
     Compiler c;
     Scanner s;
+    Parser p;
+    ASTProgram prog;
     compilerInit(&c);
     scannerInit(&s, &c);
+    parserInit(&p, &s, &c);
+    astProgramInit(&prog);
 
     Options opts = {
         .file_path = "./test.ilc"
@@ -55,17 +60,21 @@ int main(int argc, char **argv) {
 
     compilerAddFile(&c, opts.file_path);
 
-    Token tk;
-    for(tk = scannerNextToken(&s); tk.type != TK_EOF; tk = scannerNextToken(&s)) {
-        tokenPrint(stdout, &tk);
-        putc('\n', stdout);
-    }
+    //Token tk;
+    //for(tk = scannerNextToken(&s); tk.type != TK_EOF; tk = scannerNextToken(&s)) {
+    //    tokenPrint(stdout, &tk);
+    //    putc('\n', stdout);
+    //}
+
+    parserParse(&p, &prog);
 
     if(compilerHadError(&c)) {
         compilerPrintErrors(&c);
     }
 
 end:
+    astProgramFree(&prog);
+    parserFree(&p);
     scannerFree(&s);
     compilerFree(&c);
     return return_value;

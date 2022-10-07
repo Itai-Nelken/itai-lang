@@ -20,6 +20,8 @@ typedef struct location {
  ***/
 Location locationNew(u64 start, u64 end, FileID file);
 
+#define EMPTY_LOCATION() (locationNew(0, 0, 0))
+
 /***
  * Merge to Locations into a new Location.
  * NOTE: it is a checked runtime error:
@@ -90,7 +92,7 @@ Token tokenNew(TokenType type, Location location, char *lexeme, u32 length);
  * @param to The stream to print to.
  * @param loc The Location to print.
  ***/
-void printLocation(FILE *to, Location loc);
+void locationPrint(FILE *to, Location loc);
 
 /***
  * Print a Token.
