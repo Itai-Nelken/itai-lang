@@ -77,6 +77,7 @@ public:
     void summary() {
         for(auto [test, idx] : tests) {
             std::cout << "(" << idx + 1 << "/" << tests.size() << ") " << test.name << ": ";
+            // TODO: always print compiler output.
             if(test.compiler_failed) {
                 std::cout << "\x1b[1;31mFailed\x1b[0m\n"
                           << "ilc exit status: " << test.ilc_exit_status << '\n'
@@ -86,6 +87,12 @@ public:
             } else if(test.tester_failed) {
                 std::cout << "\x1b[1;31mTest parsing failed:\x1b[0m\n"
                           << "reason:\n"
+                          << test.output
+                          << '\n';
+            } else if(test.output.length() > 0) { // This case catches any cases that the 2 above cases don't catch.
+                std::cout << "\x1b[1;31mFailed\x1b[0m\n"
+                          << "ilc exit status: " << test.ilc_exit_status << '\n'
+                          << "output:\n"
                           << test.output
                           << '\n';
             } else {
