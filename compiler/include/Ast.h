@@ -6,7 +6,6 @@
 #include "Token.h" // Location
 #include "Strings.h"
 #include "Table.h"
-#include "Arena.h"
 
 /** Types **/
 // forward declarations
@@ -104,7 +103,6 @@ typedef struct ast_module {
 // An ASTProgram holds all the information
 // belonging to a program like functions & types.
 typedef struct ast_program {
-    Arena ast_allocator;
     // holds a single copy of each string in the entire program.
     Table strings; // Table<char *, String>
     Array modules; // Array<ASTModule *>

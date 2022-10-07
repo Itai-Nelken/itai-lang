@@ -3,6 +3,9 @@
 
 #include "common.h"
 
+// Always add one more than needed for the default allocator.
+#define MAX_ALLOCATORS 3
+
 typedef struct allocator {
     void *(*allocate)(void *user_data, usize size);
     void *(*callocate)(void *user_data, usize nmemb, usize size);
@@ -11,17 +14,20 @@ typedef struct allocator {
     void *user_data;
 } Allocator;
 
-void *allocatorAllocate(Allocator *a, usize size);
-void *allocatorCAllocate(Allocator *a, usize nmemb, usize size);
-void *allocatorReallocate(Allocator *a, void *ptr, usize size);
-void allocatorFree(Allocator *a, void *ptr);
+typedef u32 AllocatorID;
 
-extern Allocator __default_allocator;
+AllocatorID allocatorAddAllocator(Allocator *a);
 
-#define ALLOC(size) allocatorAllocate(&__default_allocator, (size));
-#define CALLOC(nmemb, size) allocatorCAllocate(&__default_allocator, (nmemb), (size))
-#define REALLOC(ptr, size) allocatorReallocate(&__default_allocator, (ptr), (size))
-#define FREE(p) allocatorFree(&__default_allocator, (p))
+void *allocatorAllocate(AllocatorID id, usize size);
+void *allocatorCAllocate(AllocatorID id, usize nmemb, usize size);
+void *allocatorReallocate(AllocatorID id, void *ptr, usize size);
+void allocatorFree(AllocatorID id, void *ptr);
+
+// 0 is the default allocators AllocatorID.
+#define ALLOC(size) allocatorAllocate(0, (size));
+#define CALLOC(nmemb, size) allocatorCAllocate(0, (nmemb), (size))
+#define REALLOC(ptr, size) allocatorReallocate(0, (ptr), (size))
+#define FREE(p) allocatorFree(0, (p))
 
 // uses 'o' only once
 #define NEW(o) ((o) = ALLOC(sizeof(*o)))
