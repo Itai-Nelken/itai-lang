@@ -7,12 +7,10 @@ add_compile_options(-Wall -Wextra)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(sources
-    src/Arena.c
     src/Array.c
     src/Ast.c
     src/Compiler.c
     src/Error.c
-    src/memory.c
     src/Parser.c
     src/Scanner.c
     src/Table.c
@@ -21,7 +19,7 @@ set(sources
     src/Strings.c
 )
 
-add_library(compiler ${sources})
+add_library(compiler OBJECT ${sources})
 
 add_executable(ilc src/main.c)
 target_link_libraries(ilc compiler)
