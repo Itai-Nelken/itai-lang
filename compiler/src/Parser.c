@@ -217,7 +217,7 @@ static ASTNode *parse_variable_decl(Parser *p, Array *obj_array) {
 
     ASTNode *initializer = NULL;
     if(match(p, TK_EQUAL)) {
-        initializer = parse_expression(p);
+        initializer = TRY(ASTNode *, parse_expression(p));
     }
 
     // FIXME: free 'initializer' on fail (if needed).
