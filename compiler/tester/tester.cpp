@@ -67,7 +67,7 @@ public:
             } catch(ParseError &err) {
                 test.tester_failed = true;
                 test.output = err.what();
-                return;
+                continue;
             }
             execute(test);
             check(test, expected);
