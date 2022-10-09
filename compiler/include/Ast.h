@@ -110,11 +110,13 @@ typedef struct ast_program {
 
 /** Functions **/
 
-ASTModule *astNewModule(ASTString name);
-void astFreeModule(ASTModule *module);
+ASTModule *astModuleNew(ASTString name);
+void astModuleFree(ASTModule *module);
+void astModulePrint(FILE *to, ASTModule *module);
 
 void astProgramInit(ASTProgram *prog);
 void astProgramFree(ASTProgram *prog);
+void astProgramPrint(FILE *to, ASTProgram *prog);
 // If 'str' is a 'String', ownership of it is taken.
 ASTString astProgramAddString(ASTProgram *prog, char *str);
 ModuleID astProgramAddModule(ASTProgram *prog, ASTModule *module);
@@ -126,8 +128,8 @@ ASTNode *astNewBinaryNode(ASTNodeType type, Location loc, ASTNode *lhs, ASTNode 
 ASTNode *astNewLiteralValueNode(ASTNodeType type, Location loc, LiteralValue value);
 // Ownership of 'obj' is NOT taken.
 ASTNode *astNewObjNode(ASTNodeType type, Location loc, ASTObj *obj);
-void astFreeNode(ASTNode *n);
-void astPrintNode(FILE *to, ASTNode *n);
+void astNodeFree(ASTNode *n);
+void astNodePrint(FILE *to, ASTNode *n);
 
 ASTObj *astNewObj(ASTObjType type, Location loc);
 void astFreeObj(ASTObj *obj);

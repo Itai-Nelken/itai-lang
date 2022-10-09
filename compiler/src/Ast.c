@@ -16,7 +16,7 @@ static void free_string_callback(TableItem *item, bool is_last, void *cl) {
 
 static void free_node_callback(void *node, void *cl) {
     UNUSED(cl);
-    astFreeNode(AS_NODE(node));
+    astNodeFree(AS_NODE(node));
 }
 
 static void free_object_callback(void *object, void *cl) {
@@ -132,7 +132,7 @@ ASTNode *astNewObjNode(ASTNodeType type, Location loc, ASTObj *obj) {
     return AS_NODE(n);
 }
 
-void astFreeNode(ASTNode *n) {
+void astNodeFree(ASTNode *n) {
     if(n == NULL) {
         return;
     }
@@ -142,8 +142,8 @@ void astFreeNode(ASTNode *n) {
             // nothing
         break;
         case ND_ASSIGN:
-            astFreeNode(AS_BINARY_NODE(n)->lhs);
-            astFreeNode(AS_BINARY_NODE(n)->rhs);
+            astNodeFree(AS_BINARY_NODE(n)->lhs);
+            astNodeFree(AS_BINARY_NODE(n)->rhs);
             break;
         default:
             UNREACHABLE();
@@ -173,7 +173,7 @@ static const char *node_type_name(ASTNodeType type) {
     return names[type];
 }
 
-void astPrintNode(FILE *to, ASTNode *n) {
+void astNodePrint(FILE *to, ASTNode *n) {
     if(n == NULL) {
         fputs("(null)", to);
         return;
@@ -192,9 +192,9 @@ void astPrintNode(FILE *to, ASTNode *n) {
             break;
         case ND_ASSIGN:
             fputs(", \x1b[1mlhs:\x1b[0m ", to);
-            astPrintNode(to, AS_BINARY_NODE(n)->lhs);
+            astNodePrint(to, AS_BINARY_NODE(n)->lhs);
             fputs(", \x1b[1mrhs:\x1b[0m ", to);
-            astPrintNode(to, AS_BINARY_NODE(n)->rhs);
+            astNodePrint(to, AS_BINARY_NODE(n)->rhs);
             break;
         default:
             UNREACHABLE();
