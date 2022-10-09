@@ -11,11 +11,13 @@
 
 typedef struct options {
     const char *file_path;
+    bool dump_ast;
 } Options;
 
 bool parse_arguments(Options *opts, int argc, char **argv) {
     struct option long_options[] = {
         {"help",     no_argument, 0, 'h'},
+        {"dump-ast", no_argument, 0, 'd'},
         {0,          0,           0,  0}
     };
     int c;
@@ -24,6 +26,9 @@ bool parse_arguments(Options *opts, int argc, char **argv) {
             case 'h':
                 printf("Usage: %s [-h] file\n", argv[0]);
                 return false;
+            case 'd':
+                opts->dump_ast = true;
+                break;
         }
     }
         if(optind >= argc) {
@@ -51,7 +56,8 @@ int main(int argc, char **argv) {
     astProgramInit(&prog);
 
     Options opts = {
-        .file_path = "./test.ilc"
+        .file_path = "./test.ilc",
+        .dump_ast = false
     };
     if(!parse_arguments(&opts, argc, argv)) {
         return_value = 1;
@@ -72,8 +78,10 @@ int main(int argc, char **argv) {
         compilerPrintErrors(&c);
         return_value = 1;
     } else {
-        astProgramPrint(stdout, &prog);
-        fputc('\n', stdout);
+        if(opts.dump_ast) {
+            astProgramPrint(stdout, &prog);
+            fputc('\n', stdout);
+        }
     }
 
 end:
