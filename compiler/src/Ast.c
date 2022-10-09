@@ -26,25 +26,58 @@ static void free_object_callback(void *object, void *cl) {
 
 static void free_module_callback(void *module, void *cl) {
     UNUSED(cl);
-    astFreeModule((ASTModule *)module);
+    astModuleFree((ASTModule *)module);
+}
+
+static void print_string_table_callback(TableItem *item, bool is_last, void *stream) {
+    FILE *to = (FILE *)stream;
+    String s = (String)item->key;
+    fprintf(to, "\"%s\"", s);
+    if(!is_last) {
+        fputs(", ", to);
+    }
 }
 
 /** ASTModule **/
-ASTModule *astNewModule(ASTString name) {
+ASTModule *astModuleNew(ASTString name) {
     ASTModule *m;
     NEW0(m);
     m->name = name;
     arrayInit(&m->objects);
-    arrayInit(&m->global_initializers);
+    arrayInit(&m->globals);
     return m;
 }
 
-void astFreeModule(ASTModule *module) {
+void astModuleFree(ASTModule *module) {
     arrayMap(&module->objects, free_object_callback, NULL);
     arrayFree(&module->objects);
-    arrayMap(&module->global_initializers, free_node_callback, NULL);
-    arrayFree(&module->global_initializers);
+    arrayMap(&module->globals, free_node_callback, NULL);
+    arrayFree(&module->globals);
     FREE(module);
+}
+
+void astModulePrint(FILE *to, ASTModule *module) {
+    fprintf(to, "ASTModule{\x1b[1mname:\x1b[0m '%s', \x1b[1mobjects:\x1b[0m [", module->name);
+    for(usize i = 0 ; i < module->objects.used; ++i) {
+        ASTObj *o = ARRAY_GET_AS(ASTObj *, &module->objects, i);
+        astPrintObj(to, o);
+        // If not last, add a ',' (comma).
+        if(i + 1 < module->objects.used) {
+            fputs(", ", to);
+        }
+    }
+
+    fputs("], \x1b[1mglobals:\x1b[0m [", to);
+    for(usize i = 0 ; i < module->globals.used; ++i) {
+        ASTNode *n = ARRAY_GET_AS(ASTNode *, &module->globals, i);
+        astNodePrint(to, n);
+        // If not last, add a ',' (comma).
+        if(i + 1 < module->globals.used) {
+            fputs(", ", to);
+        }
+    }
+
+    fputs("]}", to);
 }
 
 /** ASTProgram **/
@@ -59,6 +92,23 @@ void astProgramFree(ASTProgram *prog) {
     tableFree(&prog->strings);
     arrayMap(&prog->modules, free_module_callback, NULL);
     arrayFree(&prog->modules);
+}
+
+void astProgramPrint(FILE *to, ASTProgram *prog) {
+    fputs("ASTProgram{\x1b[1mmodules:\x1b[0m [", to);
+    for(usize i = 0 ; i < prog->modules.used; ++i) {
+        ASTModule *m = ARRAY_GET_AS(ASTModule *, &prog->modules, i);
+        astModulePrint(to, m);
+        // If not last, add a ',' (comma).
+        if(i + 1 < prog->modules.used) {
+            fputs(", ", to);
+        }
+    }
+    fputc(']', to);
+
+    fputs(", \x1b[1mstrings:\x1b[0m [", to);
+    tableMap(&prog->strings, print_string_table_callback, (void *)to);
+    fputs("]}", to);
 }
 
 ASTString astProgramAddString(ASTProgram *prog, char *str) {

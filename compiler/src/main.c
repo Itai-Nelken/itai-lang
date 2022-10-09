@@ -71,6 +71,9 @@ int main(int argc, char **argv) {
     if(compilerHadError(&c)) {
         compilerPrintErrors(&c);
         return_value = 1;
+    } else {
+        astProgramPrint(stdout, &prog);
+        fputc('\n', stdout);
     }
 
 end:
