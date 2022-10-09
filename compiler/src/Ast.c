@@ -222,6 +222,7 @@ void astFreeObj(ASTObj *obj) {
         default:
             UNREACHABLE();
     }
+    FREE(obj);
 }
 
 static const char *obj_type_name(ASTObjType type) {
