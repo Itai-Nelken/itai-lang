@@ -96,7 +96,7 @@ typedef struct ast_obj {
 typedef struct ast_module {
     ASTString name;
     Array objects; // Array<ASTObj *>
-    Array global_initializers; // Array<ASTNode *>
+    Array globals; // Array<ASTNode *> (ND_VARIABLE or ND_ASSIGN)
     // Array types; // or something similar.
 } ASTModule;
 

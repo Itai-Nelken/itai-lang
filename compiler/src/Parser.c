@@ -205,6 +205,40 @@ static inline ASTNode *parse_expression(Parser *p) {
     return parse_precedence(p, PREC_LOWEST);
 }
 
+// variable_decl -> 'var' identifier (':' typename)? ('=' expression)? ';'
+static ASTNode *parse_variable_decl(Parser *p, Array *obj_array) {
+    // Assumes 'var' was already consumed.
+    Location var_loc = previous(p).location;
+
+    ASTString name = TRY(ASTString, parse_identifier(p));
+    Location name_loc = previous(p).location;
+
+    // TODO: type.
+
+    ASTNode *initializer = NULL;
+    if(match(p, TK_EQUAL)) {
+        initializer = parse_expression(p);
+    }
+
+    // FIXME: free 'initializer' on fail (if needed).
+    TRY_CONSUME(p, TK_SEMICOLON);
+
+    ASTObj *var = astNewObj(OBJ_VAR, locationMerge(var_loc, name_loc));
+    var->as.var.name = name;
+
+    // Add the variable object.
+    arrayPush(obj_array, (void *)var);
+
+    // includes everything from the 'var' to the ';'.
+    Location full_loc = locationMerge(var_loc, previous(p).location);
+    ASTNode *var_node = astNewObjNode(ND_VARIABLE, locationMerge(var_loc, name_loc), var);
+    if(initializer != NULL) {
+        return astNewBinaryNode(ND_ASSIGN, full_loc, var_node, initializer);
+    }
+    return var_node;
+}
+
+#undef TRY_CONSUME
 #undef TRY
 
 // synchronize to declaration boundaries.
@@ -236,11 +270,17 @@ bool parserParse(Parser *p, ASTProgram *prog) {
     }
 
     // Create the root module.
-    ASTModule *root_module = astNewModule(astProgramAddString(prog, "___root___"));
+    ASTModule *root_module = astModuleNew(astProgramAddString(prog, "___root___"));
     astProgramAddModule(prog, root_module);
 
     while(!is_eof(p)) {
         if(match(p, TK_VAR)) {
+            ASTNode *global = parse_variable_decl(p, &root_module->objects);
+            if(global != NULL) {
+                arrayPush(&root_module->globals, (void *)global);
+            } else {
+                synchronize(p);
+            }
         } else {
             error_at(p, current(p).location, stringFormat("Expected one of ['var'], but got '%s'.", tokenTypeString(current(p).type)));
             synchronize(p);
