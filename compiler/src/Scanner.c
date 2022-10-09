@@ -40,6 +40,14 @@ static inline Token make_token(Scanner *s, TokenType type) {
     return tokenNew(type, locationNew(s->start, s->current, compilerGetCurrentFileID(s->compiler)), s->source + s->start, (u32)(s->current - s->start));
 }
 
+inline bool isDigit(char c) {
+    return c >= '0' && c <= '9';
+}
+
+inline bool isAscii(char c) {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+}
+
 static inline bool is_end(Scanner *s) {
     return s->source[s->current] == '\0';
 }
