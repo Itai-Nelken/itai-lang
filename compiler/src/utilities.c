@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h> // abort()
-#include <stdbool.h>
 #include "utilities.h"
 
 inline int alignTo(int n, int align) {
