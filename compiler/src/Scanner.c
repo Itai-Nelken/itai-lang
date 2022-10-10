@@ -2,7 +2,6 @@
 #include <stdbool.h>
 #include "common.h"
 #include "memory.h"
-#include "utilities.h"
 #include "Compiler.h"
 #include "Error.h"
 #include "Array.h"
@@ -40,11 +39,11 @@ static inline Token make_token(Scanner *s, TokenType type) {
     return tokenNew(type, locationNew(s->start, s->current, compilerGetCurrentFileID(s->compiler)), s->source + s->start, (u32)(s->current - s->start));
 }
 
-inline bool isDigit(char c) {
+static inline bool isDigit(char c) {
     return c >= '0' && c <= '9';
 }
 
-inline bool isAscii(char c) {
+static inline bool isAscii(char c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 }
 

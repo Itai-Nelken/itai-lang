@@ -69,8 +69,8 @@ typedef struct ast_obj_node {
 // A ModuleID is an index into the ASTProgram::modules array.
 typedef usize ModuleID;
 
-// An ASTString represents an interned string,
-// and it can be used interchangeably with String as long
+// An ASTString represents an interned string.
+// an ASTString can be used interchangeably with String as long
 // as it isn't freed.
 typedef char *ASTString;
 
