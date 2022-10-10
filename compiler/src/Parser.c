@@ -94,14 +94,15 @@ static bool match(Parser *p, TokenType expected) {
 
 /* Helper macros */
 
-#define TRY(type, result) ({ \
+#define TRY(type, result, on_null) ({ \
  type _tmp = (result);\
  if(!_tmp) { \
+    astNodeFree((on_null)); \
     return NULL; \
  } \
 _tmp;})
 
-#define TRY_CONSUME(parser, expected) TRY(bool, consume(parser, expected))
+#define TRY_CONSUME(parser, expected, on_null) TRY(bool, consume(parser, expected), on_null)
 
 /** Expression parser ***/
 
@@ -166,7 +167,7 @@ static ParseRule *get_rule(TokenType type) {
 }
 
 static ASTString parse_identifier(Parser *p) {
-    TRY_CONSUME(p, TK_IDENTIFIER);
+    TRY_CONSUME(p, TK_IDENTIFIER, 0);
     return astProgramAddString(p->program, stringNCopy(previous(p).lexeme, previous(p).length));
 }
 
@@ -210,18 +211,17 @@ static ASTNode *parse_variable_decl(Parser *p, Array *obj_array) {
     // Assumes 'var' was already consumed.
     Location var_loc = previous(p).location;
 
-    ASTString name = TRY(ASTString, parse_identifier(p));
+    ASTString name = TRY(ASTString, parse_identifier(p), 0);
     Location name_loc = previous(p).location;
 
     // TODO: type.
 
     ASTNode *initializer = NULL;
     if(match(p, TK_EQUAL)) {
-        initializer = TRY(ASTNode *, parse_expression(p));
+        initializer = TRY(ASTNode *, parse_expression(p), 0);
     }
 
-    // FIXME: free 'initializer' on fail (if needed).
-    TRY_CONSUME(p, TK_SEMICOLON);
+    TRY_CONSUME(p, TK_SEMICOLON, initializer);
 
     ASTObj *var = astNewObj(OBJ_VAR, locationMerge(var_loc, name_loc));
     var->as.var.name = name;
