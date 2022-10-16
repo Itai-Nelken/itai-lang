@@ -4,6 +4,7 @@
 #include "Strings.h"
 #include "Array.h"
 #include "Table.h"
+#include "Types.h"
 #include "Ast.h"
 
 /** callbacks **/
@@ -27,6 +28,35 @@ static void free_object_callback(void *object, void *cl) {
 static void free_module_callback(void *module, void *cl) {
     UNUSED(cl);
     astModuleFree((ASTModule *)module);
+}
+
+static unsigned hash_type(void *type) {
+    Type *ty = (Type *)type;
+    // The hash will overflow unsigned, so it will wrap around.
+    unsigned hash = (unsigned)(ty->type ^ (u64)type >> 3);
+    return hash;
+}
+
+static bool compare_type(void *type1, void *type2) {
+    Type *ty1 = (Type *)type1;
+    Type *ty2 = (Type *)type2;
+    return typeEqual(ty1, ty2);
+}
+
+static void free_type_callback(TableItem *item, bool is_last, void *cl) {
+    UNUSED(is_last);
+    UNUSED(cl);
+    Type *ty = (Type *)item->key;
+    FREE(ty);
+}
+
+static void print_type_table_callback(TableItem *item, bool is_last, void *stream) {
+    FILE *to = (FILE *)stream;
+    Type *ty = (Type *)item->key;
+    typePrint(to, ty);
+    if(!is_last) {
+        fputs(", ", to);
+    }
 }
 
 static void print_string_table_callback(TableItem *item, bool is_last, void *stream) {
@@ -82,14 +112,26 @@ void astModulePrint(FILE *to, ASTModule *module) {
 
 /** ASTProgram **/
 
+static void init_primitive_types(ASTProgram *prog) {
+#define DEF(typename, type_, size_) {Type *ty; NEW0(ty); ty->type = type_; ty->size = size_; prog->primitives.typename = astProgramAddType(prog, ty);}
+
+    DEF(int32, TY_I32, 4);
+
+#undef DEF
+}
+
 void astProgramInit(ASTProgram *prog) {
     tableInit(&prog->strings, NULL, NULL);
+    tableInit(&prog->type_table, hash_type, compare_type);
+    init_primitive_types(prog);
     arrayInit(&prog->modules);
 }
 
 void astProgramFree(ASTProgram *prog) {
     tableMap(&prog->strings, free_string_callback, NULL);
     tableFree(&prog->strings);
+    tableMap(&prog->type_table, free_type_callback, NULL);
+    tableFree(&prog->type_table);
     arrayMap(&prog->modules, free_module_callback, NULL);
     arrayFree(&prog->modules);
 }
@@ -108,6 +150,8 @@ void astProgramPrint(FILE *to, ASTProgram *prog) {
 
     fputs(", \x1b[1mstrings:\x1b[0m [", to);
     tableMap(&prog->strings, print_string_table_callback, (void *)to);
+    fputs("], \x1b[1mtype_table:\x1b[0m [", to);
+    tableMap(&prog->type_table, print_type_table_callback, (void *)to);
     fputs("]}", to);
 }
 
@@ -133,6 +177,16 @@ ModuleID astProgramAddModule(ASTProgram *prog, ASTModule *module) {
 ASTModule *astProgramGetModule(ASTProgram *prog, ModuleID id) {
     // arrayGet() handles the id being out of bounds.
     return ARRAY_GET_AS(ASTModule *, &prog->modules, id);
+}
+
+Type *astProgramAddType(ASTProgram *prog, Type *ty) {
+    TableItem *existing_item;
+    if((existing_item = tableGet(&prog->type_table, (void *)ty)) != NULL) {
+        FREE(ty);
+        return (Type *)existing_item->key;
+    }
+    tableSet(&prog->type_table, (void *)ty, NULL);
+    return ty;
 }
 
 /** ASTNode **/
@@ -295,6 +349,8 @@ void astPrintObj(FILE *to, ASTObj *obj) {
     switch(obj->type) {
         case OBJ_VAR:
             fprintf(to, ", \x1b[1mname:\x1b[0m '%s'", obj->as.var.name);
+            fputs(", \x1b[1mtype:\x1b[0m ", to);
+            typePrint(to, obj->as.var.type);
             break;
         default:
             UNREACHABLE();

@@ -6,6 +6,7 @@
 #include "Token.h" // Location
 #include "Strings.h"
 #include "Table.h"
+#include "Types.h"
 
 /** Types **/
 // forward declarations
@@ -87,6 +88,7 @@ typedef struct ast_obj {
     union {
         struct {
             ASTString name;
+            Type *type;
         } var;
     } as;
 } ASTObj;
@@ -103,8 +105,13 @@ typedef struct ast_module {
 // An ASTProgram holds all the information
 // belonging to a program like functions & types.
 typedef struct ast_program {
-    // holds a single copy of each string in the entire program.
+    struct {
+        Type *int32;
+    } primitives;
+    // Holds a single copy of each string in the entire program.
     Table strings; // Table<char *, String>
+    // Holds a single copy of each type in the entire program.
+    Table type_table;   // Table<Type *, void>
     Array modules; // Array<ASTModule *>
 } ASTProgram;
 
@@ -121,6 +128,8 @@ void astProgramPrint(FILE *to, ASTProgram *prog);
 ASTString astProgramAddString(ASTProgram *prog, char *str);
 ModuleID astProgramAddModule(ASTProgram *prog, ASTModule *module);
 ASTModule *astProgramGetModule(ASTProgram *prog, ModuleID id);
+// 'ty' MUST be heap allocated. ownership of it is taken.
+Type *astProgramAddType(ASTProgram *prog, Type *ty);
 
 void literalValuePrint(FILE *to, LiteralValue value);
 

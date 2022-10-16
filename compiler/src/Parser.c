@@ -206,6 +206,29 @@ static inline ASTNode *parse_expression(Parser *p) {
     return parse_precedence(p, PREC_LOWEST);
 }
 
+// simple_type -> i32
+static Type *parse_simple_type(Parser *p) {
+    if(match(p, TK_I32)) {
+        return p->program->primitives.int32;
+    }
+    return NULL;
+}
+
+// complex_type -> array_type | struct_type | enum_type | custom_type | fn_type
+static Type *parse_complex_type(Parser *p) {
+    error_at(p, current(p).location, "Expected typename.");
+    return NULL;
+}
+
+// type -> simple_type | complex_type
+static Type *parse_type(Parser *p) {
+    Type *ty = parse_simple_type(p);
+    if(!ty) {
+        ty = TRY(Type *, parse_complex_type(p), 0);
+    }
+    return ty;
+}
+
 // variable_decl -> 'var' identifier (':' typename)? ('=' expression)? ';'
 static ASTNode *parse_variable_decl(Parser *p, Array *obj_array) {
     // Assumes 'var' was already consumed.
@@ -214,7 +237,10 @@ static ASTNode *parse_variable_decl(Parser *p, Array *obj_array) {
     ASTString name = TRY(ASTString, parse_identifier(p), 0);
     Location name_loc = previous(p).location;
 
-    // TODO: type.
+    Type *type = NULL;
+    if(match(p, TK_COLON)) {
+        type = TRY(Type *, parse_type(p), 0);
+    }
 
     ASTNode *initializer = NULL;
     if(match(p, TK_EQUAL)) {
@@ -225,6 +251,7 @@ static ASTNode *parse_variable_decl(Parser *p, Array *obj_array) {
 
     ASTObj *var = astNewObj(OBJ_VAR, locationMerge(var_loc, name_loc));
     var->as.var.name = name;
+    var->as.var.type = type;
 
     // Add the variable object.
     arrayPush(obj_array, (void *)var);

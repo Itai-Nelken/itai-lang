@@ -15,6 +15,7 @@ set(sources
     src/Scanner.c
     src/Table.c
     src/Token.c
+    src/Types.c
     src/utilities.c
     src/Strings.c
 )
