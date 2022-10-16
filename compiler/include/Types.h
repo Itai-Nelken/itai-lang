@@ -5,7 +5,7 @@
 #include <stdbool.h>
 
 typedef enum type_type {
-    TY_I32,
+    TY_I32, TY_U32,
     //TY_PTR,
     //TY_FN
 } TypeType;

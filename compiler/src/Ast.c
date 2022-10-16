@@ -116,6 +116,7 @@ static void init_primitive_types(ASTProgram *prog) {
 #define DEF(typename, type_, size_) {Type *ty; NEW0(ty); ty->type = type_; ty->size = size_; prog->primitives.typename = astProgramAddType(prog, ty);}
 
     DEF(int32, TY_I32, 4);
+    DEF(uint32, TY_U32, 4);
 
 #undef DEF
 }

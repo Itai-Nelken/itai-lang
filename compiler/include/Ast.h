@@ -107,6 +107,7 @@ typedef struct ast_module {
 typedef struct ast_program {
     struct {
         Type *int32;
+        Type *uint32;
     } primitives;
     // Holds a single copy of each string in the entire program.
     Table strings; // Table<char *, String>

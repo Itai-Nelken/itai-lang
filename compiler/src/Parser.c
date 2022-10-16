@@ -210,6 +210,8 @@ static inline ASTNode *parse_expression(Parser *p) {
 static Type *parse_simple_type(Parser *p) {
     if(match(p, TK_I32)) {
         return p->program->primitives.int32;
+    } else if(match(p, TK_U32)) {
+        return p->program->primitives.uint32;
     }
     return NULL;
 }
