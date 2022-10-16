@@ -25,7 +25,7 @@ struct Test {
 
     std::string name, output;
     fs::path path;
-        bool compiler_failed = false, tester_failed = false;
+    bool compiler_failed = false, tester_failed = false;
     struct {
         bool should_fail = false;
         bool should_succeed = false;

@@ -229,7 +229,7 @@ static Type *parse_type(Parser *p) {
     return ty;
 }
 
-// variable_decl -> 'var' identifier (':' typename)? ('=' expression)? ';'
+// variable_decl -> 'var' identifier (':' type)? ('=' expression)? ';'
 static ASTNode *parse_variable_decl(Parser *p, Array *obj_array) {
     // Assumes 'var' was already consumed.
     Location var_loc = previous(p).location;
