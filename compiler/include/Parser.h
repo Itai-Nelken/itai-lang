@@ -12,6 +12,9 @@ typedef struct parser {
     Scanner *scanner;
     ASTProgram *program;
 
+    // current module/function
+    ModuleID current_module; // TODO: should be a stack.
+
     // state
     Token previous_token, current_token;
     bool had_error;

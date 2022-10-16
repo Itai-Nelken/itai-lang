@@ -12,6 +12,7 @@ void parserInit(Parser *p, Scanner *s, Compiler *c) {
     p->compiler = c;
     p->scanner = s;
     p->program = NULL;
+    p->current_module = 0;
     // FIXME: Shoud the tokens have an empty Location as well?
     p->previous_token.type = TK_GARBAGE;
     p->current_token.type = TK_GARBAGE;
@@ -216,7 +217,7 @@ static Type *parse_simple_type(Parser *p) {
     return NULL;
 }
 
-// complex_type -> array_type | struct_type | enum_type | custom_type | fn_type
+// complex_type -> structs, enums, functions, custom types
 static Type *parse_complex_type(Parser *p) {
     error_at(p, current(p).location, "Expected typename.");
     return NULL;
@@ -278,6 +279,8 @@ static void synchronize(Parser *p) {
             //case TK_FN:
             case TK_VAR:
             //case TK_IMPORT:
+            //case TK_MODULE:
+            //case TK_PUBLIC:
                 return;
             default:
                 advance(p);
@@ -300,7 +303,7 @@ bool parserParse(Parser *p, ASTProgram *prog) {
 
     // Create the root module.
     ASTModule *root_module = astModuleNew(astProgramAddString(prog, "___root___"));
-    astProgramAddModule(prog, root_module);
+    p->current_module = astProgramAddModule(prog, root_module);
 
     while(!is_eof(p)) {
         if(match(p, TK_VAR)) {
