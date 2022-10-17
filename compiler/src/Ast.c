@@ -69,12 +69,14 @@ static void print_string_table_callback(TableItem *item, bool is_last, void *str
 }
 
 /** ASTModule **/
+
 ASTModule *astModuleNew(ASTString name) {
     ASTModule *m;
     NEW0(m);
     m->name = name;
     arrayInit(&m->objects);
     arrayInit(&m->globals);
+    tableInit(&m->types, hash_type, compare_type);
     return m;
 }
 
@@ -83,7 +85,19 @@ void astModuleFree(ASTModule *module) {
     arrayFree(&module->objects);
     arrayMap(&module->globals, free_node_callback, NULL);
     arrayFree(&module->globals);
+    tableMap(&module->types, free_type_callback, NULL);
+    tableFree(&module->types);
     FREE(module);
+}
+
+Type *astModuleAddType(ASTModule *module, Type *ty) {
+    TableItem *existing_item;
+    if((existing_item = tableGet(&module->types, (void *)ty)) != NULL) {
+        FREE(ty);
+        return (Type *)existing_item->key;
+    }
+    tableSet(&module->types, (void *)ty, NULL);
+    return ty;
 }
 
 void astModulePrint(FILE *to, ASTModule *module) {
@@ -107,32 +121,25 @@ void astModulePrint(FILE *to, ASTModule *module) {
         }
     }
 
+    fputs("], \x1b[1mtypes:\x1b[0m [", to);
+    tableMap(&module->types, print_type_table_callback, (void *)to);
     fputs("]}", to);
 }
 
 /** ASTProgram **/
 
-static void init_primitive_types(ASTProgram *prog) {
-#define DEF(typename, type_, size_) {Type *ty; NEW0(ty); ty->type = type_; ty->size = size_; prog->primitives.typename = astProgramAddType(prog, ty);}
-
-    DEF(int32, TY_I32, 4);
-    DEF(uint32, TY_U32, 4);
-
-#undef DEF
-}
-
 void astProgramInit(ASTProgram *prog) {
     tableInit(&prog->strings, NULL, NULL);
-    tableInit(&prog->type_table, hash_type, compare_type);
-    init_primitive_types(prog);
     arrayInit(&prog->modules);
+#define NULL_TY(name) prog->primitives.name = NULL;
+    NULL_TY(int32);
+    NULL_TY(uint32);
+#undef NULL_TY
 }
 
 void astProgramFree(ASTProgram *prog) {
     tableMap(&prog->strings, free_string_callback, NULL);
     tableFree(&prog->strings);
-    tableMap(&prog->type_table, free_type_callback, NULL);
-    tableFree(&prog->type_table);
     arrayMap(&prog->modules, free_module_callback, NULL);
     arrayFree(&prog->modules);
 }
@@ -151,8 +158,6 @@ void astProgramPrint(FILE *to, ASTProgram *prog) {
 
     fputs(", \x1b[1mstrings:\x1b[0m [", to);
     tableMap(&prog->strings, print_string_table_callback, (void *)to);
-    fputs("], \x1b[1mtype_table:\x1b[0m [", to);
-    tableMap(&prog->type_table, print_type_table_callback, (void *)to);
     fputs("]}", to);
 }
 
@@ -178,16 +183,6 @@ ModuleID astProgramAddModule(ASTProgram *prog, ASTModule *module) {
 ASTModule *astProgramGetModule(ASTProgram *prog, ModuleID id) {
     // arrayGet() handles the id being out of bounds.
     return ARRAY_GET_AS(ASTModule *, &prog->modules, id);
-}
-
-Type *astProgramAddType(ASTProgram *prog, Type *ty) {
-    TableItem *existing_item;
-    if((existing_item = tableGet(&prog->type_table, (void *)ty)) != NULL) {
-        FREE(ty);
-        return (Type *)existing_item->key;
-    }
-    tableSet(&prog->type_table, (void *)ty, NULL);
-    return ty;
 }
 
 /** ASTNode **/

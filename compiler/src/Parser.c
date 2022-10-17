@@ -289,6 +289,15 @@ static void synchronize(Parser *p) {
     }
 }
 
+static void init_primitive_types(ASTProgram *prog, ASTModule *root_module) {
+#define DEF(typename, type_, size_) {Type *ty; NEW0(ty); ty->type = type_; ty->size = size_; prog->primitives.typename = astModuleAddType(root_module, ty);}
+
+    DEF(int32, TY_I32, 4);
+    DEF(uint32, TY_U32, 4);
+
+#undef DEF
+}
+
 bool parserParse(Parser *p, ASTProgram *prog) {
     p->program = prog;
 
@@ -304,6 +313,7 @@ bool parserParse(Parser *p, ASTProgram *prog) {
     // Create the root module.
     ASTModule *root_module = astModuleNew(astProgramAddString(prog, "___root___"));
     p->current_module = astProgramAddModule(prog, root_module);
+    init_primitive_types(prog, root_module);
 
     while(!is_eof(p)) {
         if(match(p, TK_VAR)) {

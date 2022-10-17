@@ -103,20 +103,20 @@ typedef struct ast_module {
     ASTString name;
     Array objects; // Array<ASTObj *>
     Array globals; // Array<ASTNode *> (ND_VARIABLE or ND_ASSIGN)
-    // Array types; // or something similar.
+    Table types; // Table<Type *, void>
 } ASTModule;
 
 // An ASTProgram holds all the information
 // belonging to a program like functions & types.
 typedef struct ast_program {
     struct {
+        // Primitive types (belong to the root module).
         Type *int32;
         Type *uint32;
     } primitives;
     // Holds a single copy of each string in the entire program.
     Table strings; // Table<char *, String>
     // Holds a single copy of each type in the entire program.
-    Table type_table;   // Table<Type *, void>
     Array modules; // Array<ASTModule *>
 } ASTProgram;
 
@@ -124,6 +124,8 @@ typedef struct ast_program {
 
 ASTModule *astModuleNew(ASTString name);
 void astModuleFree(ASTModule *module);
+// 'ty' MUST be heap allocated. ownership of it is taken.
+Type *astModuleAddType(ASTModule *module, Type *ty);
 void astModulePrint(FILE *to, ASTModule *module);
 
 void astProgramInit(ASTProgram *prog);
@@ -133,8 +135,6 @@ void astProgramPrint(FILE *to, ASTProgram *prog);
 ASTString astProgramAddString(ASTProgram *prog, char *str);
 ModuleID astProgramAddModule(ASTProgram *prog, ASTModule *module);
 ASTModule *astProgramGetModule(ASTProgram *prog, ModuleID id);
-// 'ty' MUST be heap allocated. ownership of it is taken.
-Type *astProgramAddType(ASTProgram *prog, Type *ty);
 
 void literalValuePrint(FILE *to, LiteralValue value);
 
