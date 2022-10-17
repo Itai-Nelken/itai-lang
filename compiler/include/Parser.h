@@ -13,7 +13,7 @@ typedef struct parser {
     ASTProgram *program;
 
     // current module/function
-    ModuleID current_module; // TODO: should be a stack.
+    ModuleID current_module; // TODO: should be a stack (when multiple modules support is added).
 
     // state
     Token previous_token, current_token;

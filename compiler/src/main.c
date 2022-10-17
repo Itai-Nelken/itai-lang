@@ -24,11 +24,16 @@ bool parse_arguments(Options *opts, int argc, char **argv) {
     while((c = getopt_long(argc, argv, "hd", long_options, NULL)) != -1) {
         switch(c) {
             case 'h':
-                printf("Usage: %s [-h] file\n", argv[0]);
+                printf("Usage: %s [options] file\n", argv[0]);
+                printf("Options:\n");
+                printf("\t--help,     -h    Print this help.\n");
+                printf("\t--dump-ast, -d    Dump the parsed AST.\n");
                 return false;
             case 'd':
                 opts->dump_ast = true;
                 break;
+            default:
+                return false;
         }
     }
         if(optind >= argc) {
