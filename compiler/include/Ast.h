@@ -38,7 +38,10 @@ typedef enum ast_node_type {
     ND_VARIABLE, // ASTObjNode
 
     // Binary nodes
-    ND_ASSIGN
+    ND_ASSIGN,
+
+    // other
+    ND_TYPE_COUNT
 } ASTNodeType;
 
 typedef struct ast_node {
@@ -78,7 +81,8 @@ typedef char *ASTString;
 // An ASTObj holds a object which in this context
 // means functions, variables, structs, enums etc.
 typedef enum ast_obj_type {
-    OBJ_VAR
+    OBJ_VAR,
+    OBJ_TYPE_COUNT
 } ASTObjType;
 
 typedef struct ast_obj {

@@ -7,7 +7,8 @@
 typedef enum type_type {
     TY_I32, TY_U32,
     //TY_PTR,
-    //TY_FN
+    //TY_FN,
+    TY_COUNT
 } TypeType;
 
 // Update typeEqual() when adding new fields.

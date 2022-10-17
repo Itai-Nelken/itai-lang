@@ -15,8 +15,10 @@ bool typeEqual(Type *a, Type *b) {
 
 static const char *type_type_name(TypeType type) {
     static const char *names[] = {
-        [TY_I32] = "TY_I32"
+        [TY_I32] = "TY_I32",
+        [TY_U32] = "TY_U32"
     };
+    _Static_assert(sizeof(names)/sizeof(names[0]) == TY_COUNT, "Missing type(s) in type_type_name()");
     return names[type];
 }
 

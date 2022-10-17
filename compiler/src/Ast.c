@@ -275,6 +275,7 @@ static const char *node_type_name(ASTNodeType type) {
         [ND_VARIABLE]       = "ND_VARIABLE",
         [ND_ASSIGN]         = "ND_ASSIGN"
     };
+    _Static_assert(sizeof(names)/sizeof(names[0]) == ND_TYPE_COUNT, "Missing type(s) in node_type_name()");
     return names[type];
 }
 
@@ -334,6 +335,7 @@ static const char *obj_type_name(ASTObjType type) {
     static const char *names[] = {
         [OBJ_VAR] = "OBJ_VAR"
     };
+    _Static_assert(sizeof(names)/sizeof(names[0]) == OBJ_TYPE_COUNT, "Missing type(s) in obj_type_name()");
     return names[type];
 }
 
