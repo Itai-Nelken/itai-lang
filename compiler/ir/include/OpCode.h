@@ -16,9 +16,11 @@ typedef enum op_type {
     OP_SR, // SR <value>
     OP_LR, // LR (push the value in the register)
     OP_CALL, // CALL <global index>
-    OP_POP, // POP
     //OP_JMP // JMP <bytecode array idx>
+    OP_COUNT
 } OpType;
+
+_Static_assert(OP_COUNT < 16, "Too many opcodes");
 
 // 4 bits for opcode, 12 bits for argument
 typedef uint16_t OpCode;

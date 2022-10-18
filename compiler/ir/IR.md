@@ -9,11 +9,12 @@
 There are 3 registers:
 - `sp`  - The stack pointer, not accesible.
 - `bp`  - The base pointer, not accesible.
-- `reg` - The general purpose register, read-only.
+- `r` - The general purpose register, read/write.
 
 ## Function definition
 To begin a function, `ENT` must be executed with the number of bytes to reserve for locals provided.\
-To leave a function, `LEV` or `RET` must be executed (they rewind the stack to the way it was before `ENT` was executed. `RET` also saves the current stack top in `reg`.
+To leave a function, `LEV` must be executed.\
+Return values are saved in the `r` register using the `SR` instruction. To load the returned value the `LR` instruction is used.
 
 ### Function arguments
 The arguments to a function have to be pushed to the stack before calling the function.\
@@ -31,9 +32,10 @@ fn test() -> i32 { // idx: 2
 
 > ENT 0 // [<return address>]
 > IMM 42 // [..., 42]
-> LEV // [42]
+> SR // [...]
+> LEV // []
 
-fn do_stuff() { // idx: 5
+fn do_stuff() { // idx: 6
     a = a + 1;
 }
 
@@ -43,7 +45,7 @@ fn do_stuff() { // idx: 5
 > ST 0 // [...]
 > LEV // []
 
-fn main() -> i32 { // idx: 10
+fn main() -> i32 { // idx: 11
     do_stuff();
     a = test();
     return a;
@@ -53,6 +55,7 @@ fn main() -> i32 { // idx: 10
 > CALL 5 // [...]
 > CALL 2 // [..., 42]
 > ST 0 // [...]
-> LD 0 /// [..., 42]
-> LEV // [42]
+> LD 0 // [..., 42]
+> SR // [...]
+> LEV // []
 ```
