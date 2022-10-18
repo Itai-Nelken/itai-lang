@@ -7,8 +7,6 @@ typedef enum op_type {
     OP_IMM, // IMM <i64>
     OP_ST, // ST <global index>
     OP_LD, // LD <global index>
-    //OP_STL, // STL <local index>
-    //OP_LDL, // LDL <local index>
     OP_ADD, //OP_SUB, // ADD/SUB
     //OP_MUL, OP_DIV, // MUL/DIV
     OP_ENT, // ENT <local byte count>
