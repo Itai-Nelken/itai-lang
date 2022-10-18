@@ -1,11 +1,13 @@
 #include <stdio.h>
 #include <assert.h>
+#include <stdbool.h>
 #include "OpCode.h"
 
 static int globals[256];
 static int stack[256];
 static int sp = 0;
 static int bp = 0;
+static int reg = 0;
 
 static void push(int value) { assert(sp < 256); stack[sp++] = value; }
 static int pop() { assert(sp > 0); return stack[--sp]; }
@@ -24,11 +26,10 @@ static void print_stack() {
 static int get_global(int idx) { assert(idx >= 0 && idx < 256); return globals[idx]; }
 static void set_global(int idx, int value) { assert(idx >= 0 && idx < 256); globals[idx] = value; }
 
-int execute(OpCode program[], int length, int entry_point) {
+int execute(OpCode program[], int length, int entry_point, bool debug_dump) {
     int pc = entry_point;
+    if(debug_dump) printf("pc: %d\n", pc);
     while(pc < length) {
-        //printf("pc: %d\nbp: %d\n", pc, bp);
-        //print_stack();
         OpCode op = program[pc];
         switch(DECODE(op)) {
             #define PA(name) printf("> " name " %d\n", DECODE_ARG(op))
@@ -36,6 +37,16 @@ int execute(OpCode program[], int length, int entry_point) {
             case OP_IMM: PA("imm"); push(DECODE_ARG(op)); break;
             case OP_ST: PA("st"); set_global(DECODE_ARG(op), pop()); break;
             case OP_LD: PA("ld"); push(get_global(DECODE_ARG(op))); break;
+            case OP_ARG:
+                PA("arg");
+                //               - arg  - 1  \/ <- bp
+                // stack frame: [args][old_bp][old_pc]
+                push(stack[bp - 1 - DECODE_ARG(op)]);
+                break;
+            case OP_ADJ:
+                PA("adj");
+                sp -= DECODE_ARG(op);
+                break;
             case OP_ADD: P("add"); push(pop() + pop()); break;
             case OP_ENT: PA("ent"); sp += DECODE_ARG(op); break;
             case OP_LEV:
@@ -45,16 +56,14 @@ int execute(OpCode program[], int length, int entry_point) {
                 sp = bp; // also pops the saved pc.
                 bp = pop(); // restore bp
                 break;
-            case OP_RET: {
-                P("ret");
-                // restore pc and sp
-                int ret_val = pop();
-                pc = stack[bp];
-                sp = bp;
-                bp = pop(bp); // restore bp
-                push(ret_val);
+            case OP_SR:
+                P("sr");
+                reg = pop();
                 break;
-            }
+            case OP_LR:
+                P("lr");
+                push(reg);
+                break;
             case OP_CALL:
                 PA("call");
                 // set up a call frame
@@ -67,6 +76,10 @@ int execute(OpCode program[], int length, int entry_point) {
             default: assert(0);
             #undef P
             #undef PA
+        }
+        if(debug_dump) {
+            printf("pc: %d\nbp: %d\nr: %d\n", pc, bp, reg);
+            print_stack();
         }
         pc += 1;
     }

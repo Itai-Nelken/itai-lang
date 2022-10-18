@@ -5,11 +5,19 @@
 * Globals are stored in an indexed collection (An array for example).
 * Functions are stored in the bytecode array. The index of a function is the index of its first instruction (`ENT`).
 
+## Registers
+There are 3 registers:
+- `sp`  - The stack pointer, not accesible.
+- `bp`  - The base pointer, not accesible.
+- `reg` - The general purpose register, read-only.
+
 ## Function definition
-To begin a function, `ENT` must be executed with the number of bytes to reserve for locals provided.
-To leave a function, `LEV` or `RET` must be executed (they rewind the stack to the way it was before `ENT` was executed. `RET` also saves the current stack top as the return value.
+To begin a function, `ENT` must be executed with the number of bytes to reserve for locals provided.\
+To leave a function, `LEV` or `RET` must be executed (they rewind the stack to the way it was before `ENT` was executed. `RET` also saves the current stack top in `reg`.
 
-
+### Function arguments
+The arguments to a function have to be pushed to the stack before calling the function.\
+After the function returns, the arguments must be removed. That is achieved using the `ADJ <num params to pop>` instruction.
 
 ```rust
 var a = 41;
