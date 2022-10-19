@@ -126,18 +126,22 @@ typedef enum precedence {
     PREC_PRIMARY    = 12  // highest
 } Precedence;
 
-typedef ASTNode *(*ParseFn)(Parser *p);
+typedef ASTNode *(*PrefixParseFn)(Parser *p);
+typedef ASTNode *(*InfixParseFn)(Parser *p, ASTNode *lhs);
 
 typedef struct parse_rule {
     Precedence precedence;
-    ParseFn prefix, infix;
+    PrefixParseFn prefix;
+    InfixParseFn infix;
 } ParseRule;
 
 /* Parse functions forward-declarations */
+static ASTNode *parse_expression(Parser *p);
 static ASTNode *parse_number_literal(Parser *p);
+static ASTNode *parse_grouping_expr(Parser *p);
 
 static ParseRule rules[] = {
-    [TK_LPAREN]      = {PREC_LOWEST, NULL, NULL},
+    [TK_LPAREN]      = {PREC_LOWEST, parse_grouping_expr, NULL},
     [TK_RPAREN]      = {PREC_LOWEST, NULL, NULL},
     [TK_LBRACE]      = {PREC_LOWEST, NULL, NULL},
     [TK_RBRACE]      = {PREC_LOWEST, NULL, NULL},
@@ -181,29 +185,35 @@ static ASTNode *parse_number_literal(Parser *p) {
     return astNewLiteralValueNode(ND_NUMBER_LITERAL, previous(p).location, LITERAL_VALUE(LIT_NUMBER, number, value));
 }
 
+static ASTNode *parse_grouping_expr(Parser *p) {
+    ASTNode *expr = TRY(ASTNode *, parse_expression(p), 0);
+    TRY_CONSUME(p, TK_RPAREN, expr);
+    return expr;
+}
+
 static ASTNode *parse_precedence(Parser *p, Precedence min_prec) {
     advance(p);
-    ParseFn prefix = get_rule(previous(p).type)->prefix;
+    PrefixParseFn prefix = get_rule(previous(p).type)->prefix;
     if(prefix == NULL) {
         error(p, stringFormat("Expected an expression but got '%s'.", tokenTypeString(previous(p).type)));
         return NULL;
     }
-    ASTNode *lhs = prefix(p);
-    if(!lhs) {
+    ASTNode *tree = prefix(p);
+    if(!tree) {
         // Assume the error was already reported.
         return NULL;
     }
     while(!is_eof(p) && min_prec < get_rule(current(p).type)->precedence) {
         advance(p);
-        ParseFn infix = get_rule(previous(p).type)->infix;
-        lhs = infix(p);
-        if(!lhs) {
+        InfixParseFn infix = get_rule(previous(p).type)->infix;
+        tree = infix(p, tree);
+        if(!tree) {
             // Assume the error was already reported.
             return NULL;
         }
     }
 
-    return lhs;
+    return tree;
 }
 
 static inline ASTNode *parse_expression(Parser *p) {
