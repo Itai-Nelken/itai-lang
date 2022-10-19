@@ -13,9 +13,12 @@ void parserInit(Parser *p, Scanner *s, Compiler *c) {
     p->scanner = s;
     p->program = NULL;
     p->current_module = 0;
-    // FIXME: Shoud the tokens have an empty Location as well?
+    // set current and previous tokens to TK_GARBAGE with empty locations
+    // so errors can be reported using them.
     p->previous_token.type = TK_GARBAGE;
+    p->previous_token.location = locationNew(0, 0, 0);
     p->current_token.type = TK_GARBAGE;
+    p->current_token.location = locationNew(0, 0, 0);
     p->had_error = false;
 }
 
@@ -207,8 +210,8 @@ static inline ASTNode *parse_expression(Parser *p) {
     return parse_precedence(p, PREC_LOWEST);
 }
 
-// simple_type -> i32
-static Type *parse_simple_type(Parser *p) {
+// orimitive_type -> i32 | u32
+static Type *parse_primitive_type(Parser *p) {
     if(match(p, TK_I32)) {
         return p->program->primitives.int32;
     } else if(match(p, TK_U32)) {
@@ -223,9 +226,9 @@ static Type *parse_complex_type(Parser *p) {
     return NULL;
 }
 
-// type -> simple_type | complex_type
+// type -> primitive_type | complex_type
 static Type *parse_type(Parser *p) {
-    Type *ty = parse_simple_type(p);
+    Type *ty = parse_primitive_type(p);
     if(!ty) {
         ty = TRY(Type *, parse_complex_type(p), 0);
     }
