@@ -52,7 +52,7 @@ fn main() -> i32 { // idx: 11
 }
 
 > ENT 4 // [<return address>]
-> CALL 5 // [...]
+> CALL 6 // [...]
 > CALL 2 // [..., 42]
 > ST 0 // [...]
 > LD 0 // [..., 42]
