@@ -63,14 +63,16 @@ void compilerInit(Compiler *c) {
     c->current_file_contents = NULL;
 }
 
-static void free_file_callback(void *f, void *cl) {
+static void free_file_callback(void *f, usize idx, void *cl) {
     UNUSED(cl);
+    UNUSED(idx);
     fileFree((File *)f);
     FREE(f);
 }
 
-static void free_error_callback(void *err, void *cl) {
+static void free_error_callback(void *err, usize idx, void *cl) {
     UNUSED(cl);
+    UNUSED(idx);
     errorFree((Error *)err);
     FREE(err);
 }

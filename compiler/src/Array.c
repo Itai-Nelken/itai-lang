@@ -48,8 +48,8 @@ void arrayCopy(Array *dest, Array *src) {
     }
 }
 
-void arrayMap(Array *a, void(*callback)(void *item, void *cl), void *cl) {
+void arrayMap(Array *a, void(*callback)(void *item, size_t index, void *cl), void *cl) {
     for(size_t i = 0; i < a->used; ++i) {
-        callback(a->data[i], cl);
+        callback(a->data[i], i, cl);
     }
 }

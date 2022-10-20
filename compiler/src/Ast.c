@@ -15,13 +15,15 @@ static void free_string_callback(TableItem *item, bool is_last, void *cl) {
     stringFree((String)item->value);
 }
 
-static void free_node_callback(void *node, void *cl) {
+static void free_node_callback(void *node, usize index, void *cl) {
     UNUSED(cl);
+    UNUSED(index);
     astNodeFree(AS_NODE(node));
 }
 
-static void free_object_callback(void *object, void *cl) {
+static void free_object_callback(void *object, usize index, void *cl) {
     UNUSED(cl);
+    UNUSED(index);
     astFreeObj((ASTObj *)object);
 }
 

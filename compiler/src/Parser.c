@@ -220,7 +220,7 @@ static inline ASTNode *parse_expression(Parser *p) {
     return parse_precedence(p, PREC_LOWEST);
 }
 
-// orimitive_type -> i32 | u32
+// primitive_type -> i32 | u32
 static Type *parse_primitive_type(Parser *p) {
     if(match(p, TK_I32)) {
         return p->program->primitives.int32;
