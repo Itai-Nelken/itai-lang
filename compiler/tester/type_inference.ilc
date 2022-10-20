@@ -1,0 +1,7 @@
+/// expect success
+
+var a = 42; // i32
+var b = a; // i32
+var c: i32; // i32
+var d = c; // i32
+
