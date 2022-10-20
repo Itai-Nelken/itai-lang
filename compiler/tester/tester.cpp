@@ -21,9 +21,9 @@ struct ParseError final : public std::exception {
 };
 
 struct Test {
-    Test(const char *name, const char *file) : name(name), path(file), output("") {}
+    Test(const char *name, const char *file) : name(name), path(file), tester_output(""), output("") {}
 
-    std::string name, output;
+    std::string name, tester_output, output;
     fs::path path;
     bool compiler_failed = false, tester_failed = false;
     struct {
@@ -34,21 +34,33 @@ struct Test {
 };
 
 std::string get_ilc_path() {
-    char *cwd = getcwd(NULL, 0);
-    fs::path p(cwd);
-    free(cwd);
-    auto d = p.filename();
-    if(d == "compiler") {
-        p.append("build/ilc");
-        return std::string(p.c_str());
-    } else if(d == "build") {
-        p.append("ilc");
-        return std::string(p.c_str());
-    } else if(d == "tester") {
-        p.append("../build/ilc");
-        return std::string(p.c_str());
+    std::string path;
+    const char *env_path = getenv("TESTER_ILC_PATH");
+    if(env_path) {
+        path = env_path;
+    } else {
+        char *cwd = getcwd(NULL, 0);
+        fs::path p(cwd);
+        free(cwd);
+        auto d = p.filename();
+        if(d == "compiler") {
+            p.append("build/ilc");
+            path = std::string(p.c_str());
+        } else if(d == "build") {
+            p.append("ilc");
+            path = std::string(p.c_str());
+        } else if(d == "tester") {
+            p.append("../build/ilc");
+            path = std::string(p.c_str());
+        } else {
+            throw std::runtime_error("Unknown directory in get_ilc_path()");
+        }
     }
-    throw std::runtime_error("Unknown directory in get_ilc_path()");
+
+    if(!fs::exists(path)) {
+        throw std::runtime_error("Failed to find ilc");
+    }
+    return path;
 }
 
 class Tester {
@@ -66,7 +78,7 @@ public:
                 expected = parse_expected(test);
             } catch(ParseError &err) {
                 test.tester_failed = true;
-                test.output = err.what();
+                test.tester_output = err.what();
                 continue;
             }
             execute(test);
@@ -75,31 +87,31 @@ public:
     }
 
     void summary() {
+        int failed = 0, passed = 0;
         for(auto [test, idx] : tests) {
             std::cout << "(" << idx + 1 << "/" << tests.size() << ") " << test.name << ": ";
-            // TODO: always print compiler output.
             if(test.compiler_failed) {
+                failed++;
                 std::cout << "\x1b[1;31mFailed\x1b[0m\n"
                           << "ilc exit status: " << test.ilc_exit_status << '\n'
-                          << "output:\n"
-                          << test.output
+                          << (test.tester_output.length() > 0 ? std::string("reason:\n" + test.tester_output + '\n') : std::string(""))
+                          << (test.output.length() > 0 ? test.output : "")
                           << '\n';
             } else if(test.tester_failed) {
+                failed++;
                 std::cout << "\x1b[1;31mTest parsing failed:\x1b[0m\n"
                           << "reason:\n"
                           << test.output
                           << '\n';
-            } else if(test.output.length() > 0) { // This case catches any cases that the 2 above cases don't catch.
-                std::cout << "\x1b[1;31mFailed\x1b[0m\n"
-                          << "ilc exit status: " << test.ilc_exit_status << '\n'
-                          << "output:\n"
-                          << test.output
-                          << '\n';
             } else {
+                passed++;
                 std::cout << "\x1b[1;32mPassed\x1b[0m";
             }
             std::cout << '\n';
         }
+        std::cout << "\x1b[1mSummary:\x1b[0m\n";
+        std::cout << passed << '/' << tests.size() << " tests \x1b[32mpassed\x1b[0m.\n";
+        std::cout << failed << '/' << tests.size() << " tests \x1b[31mfailed\x1b[0m.\n";
     }
 private:
     void execute(Test &test) {
@@ -134,12 +146,12 @@ private:
         // so it will fail in the else if below.
         if(test.options.should_fail && test.ilc_exit_status == 0) {
             test.compiler_failed = true;
-            test.output = std::string("Test should have failed!");
+            test.tester_output = std::string("Test should have failed!");
             return;
         } else if(test.options.should_succeed) {
             if(test.ilc_exit_status != 0) {
                 test.compiler_failed = true;
-                test.output = std::string("Test should have succeded!");
+                test.tester_output = std::string("Test should have succeded!");
             }
             return;
         } else if(test.output != expected) {
