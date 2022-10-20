@@ -32,7 +32,6 @@ static inline char *to_str(size_t *ptr) {
 }
 
 String stringNew(size_t capacity) {
-    VERIFY(capacity > 0);
     size_t *ptr = ALLOC(sizeof(size_t) * SLOT_COUNT + sizeof(char) * (capacity + 1));
     memset(ptr, 0, capacity + 1);
     ptr[CAPACITY] = capacity + 1; // capacity
