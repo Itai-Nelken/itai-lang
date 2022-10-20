@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include "OpCode.h"
 
-static int globals[256];
+static int data[256];
 static int stack[256];
 static int sp = 0;
 static int bp = 0;
@@ -23,8 +23,8 @@ static void print_stack() {
     putchar('\n');
 }
 
-static int get_global(int idx) { assert(idx >= 0 && idx < 256); return globals[idx]; }
-static void set_global(int idx, int value) { assert(idx >= 0 && idx < 256); globals[idx] = value; }
+static int get_data(int idx) { assert(idx >= 0 && idx < 256); return data[idx]; }
+static void set_data(int idx, int value) { assert(idx >= 0 && idx < 256); data[idx] = value; }
 
 int execute(OpCode program[], int length, int entry_point, bool debug_dump) {
     int pc = entry_point;
@@ -35,13 +35,16 @@ int execute(OpCode program[], int length, int entry_point, bool debug_dump) {
             #define PA(name) printf("> " name " %d\n", DECODE_ARG(op))
             #define P(name) puts("> " name)
             case OP_IMM: PA("imm"); push(DECODE_ARG(op)); break;
-            case OP_ST: PA("st"); set_global(DECODE_ARG(op), pop()); break;
-            case OP_LD: PA("ld"); push(get_global(DECODE_ARG(op))); break;
+            case OP_ST: PA("st"); set_data(DECODE_ARG(op), pop()); break;
+            case OP_LD: PA("ld"); push(get_data(DECODE_ARG(op))); break;
+            case OP_STL: PA("stl"); stack[bp + 1 + DECODE_ARG(op)] = pop(); break;
+            case OP_LDL: PA("ldl"); push(stack[bp + 1 + DECODE_ARG(op)]); break;
             case OP_ARG:
                 PA("arg");
                 //               - arg  - 1  \/ <- bp
                 // stack frame: [args][old_bp][old_pc]
-                push(stack[bp - 1 - DECODE_ARG(op)]);
+                // -2 instead of -1 so that the first index can be 0.
+                push(stack[bp - 2 - DECODE_ARG(op)]);
                 break;
             case OP_ADJ:
                 PA("adj");

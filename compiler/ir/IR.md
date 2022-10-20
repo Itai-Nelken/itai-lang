@@ -1,8 +1,8 @@
 # IR
 
 ## Data structures
-* Temporary values are loaded into a stack (for example `IMM`).
-* Globals are stored in an indexed collection (An array for example).
+* Temporary values along with stack (call) frames are loaded into a stack.
+* Global data (global variables, strings etc.) is stored in an indexed collection (An array for example).
 * Functions are stored in the bytecode array. The index of a function is the index of its first instruction (`ENT`).
 
 ## Registers
@@ -19,6 +19,21 @@ Return values are saved in the `r` register using the `SR` instruction. To load 
 ### Function arguments
 The arguments to a function have to be pushed to the stack before calling the function.\
 After the function returns, the arguments must be removed. That is achieved using the `ADJ <num params to pop>` instruction.
+
+## Instructions
+|  Name  |     Usage      |  Notes  |
+| :----: |     :---:      |  :---:  |
+| `IMM`  |  `imm <num>`   | The argument is 12 bits. only positive numbers are supproted. |
+|  `ST`  |   `st <idx>`   | `<idx>` is an index into the data section. |
+|  `LD`  |   `ld <idx>`   | `<idx>` is an index into the data section. |
+| `ARG`  |  `arg <n>`     | `<n>` is the argument to get (1 -> 1st arg, 2 -> 2nd arg etc.). |
+| `ADJ`  |  `adj <count>` | `<count>` is the number of arguments to remove from the stack. |
+| `ADD`  |  `add`         | The 2 operands are poped from the stack. |
+| `ENT`  | `ent <locals>` | `<locals>` is the number of locals so space can be reserved in the call frame. |
+| `LEV`  |  `lev`         | - |
+|  `SR`  |   `sr`         | - |
+|  `LR`  |   `lr`         | - |
+| `CALL` |  `call <idx>`  | `<idx>` is the index of the `ent` instruction of the function to call. |
 
 ```rust
 var a = 41;
