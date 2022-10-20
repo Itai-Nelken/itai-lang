@@ -2,6 +2,7 @@
 #define STRINGS_H
 
 #include <stddef.h> // size_t
+#include <stdarg.h>
 #include <stdbool.h>
 
 // NOTES
@@ -90,6 +91,15 @@ String stringDuplicate(String s);
  * @return true if equal, false if not
  ***/
 bool stringEqual(char *s1, char *s2);
+
+/***
+ * Format a string with the arguments in 'ap' and return it.
+ *
+ * @param format The format string.
+ * @param ap The vaargs.
+ * @return A new String containing the formatted format string.
+ ***/
+String stringVFormat(const char *format, va_list ap);
 
 /***
  * Format a string (using printf-like format specifiers) and return it.

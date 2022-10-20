@@ -102,7 +102,7 @@ bool stringEqual(char *s1, char *s2) {
     return memcmp(s1, s2, length1) == 0;
 }
 
-static String vformat(const char *format, va_list ap) {
+String stringVFormat(const char *format, va_list ap) {
     va_list copy;
     va_copy(copy, ap);
     // Get the total length of the formatted string.
@@ -120,7 +120,7 @@ String stringFormat(const char *format, ...) {
     va_list ap;
 
     va_start(ap, format);
-    String s = vformat(format, ap);
+    String s = stringVFormat(format, ap);
     va_end(ap);
     return s;
 }
@@ -130,7 +130,7 @@ void stringAppend(String *dest, const char *format, ...) {
     va_list ap;
 
     va_start(ap, format);
-    String buffer = vformat(format, ap);
+    String buffer = stringVFormat(format, ap);
     va_end(ap);
 
     if((size_t)(stringLength(buffer) + 1) > from_str(*dest)[CAPACITY]) {
