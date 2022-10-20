@@ -234,13 +234,22 @@ ASTNode *astNewObjNode(ASTNodeType type, Location loc, ASTObj *obj) {
     return AS_NODE(n);
 }
 
+ASTNode *astNewIdentifierNode(Location loc, ASTString str) {
+    ASTIdentifierNode *n;
+    NEW0(n);
+    n->header = make_header(ND_IDENTIFIER, loc);
+    n->identifier = str;
+    return AS_NODE(n);
+}
+
 void astNodeFree(ASTNode *n) {
     if(n == NULL) {
         return;
     }
     switch(n->node_type) {
         case ND_VARIABLE: // fallthrough
-        case ND_NUMBER_LITERAL:
+        case ND_NUMBER_LITERAL: // fallthrough
+        case ND_IDENTIFIER:
             // nothing
         break;
         case ND_ASSIGN:
@@ -261,6 +270,8 @@ static const char *node_name(ASTNodeType type) {
             return "ASTObjNode";
         case ND_ASSIGN:
             return "ASTBinaryNode";
+        case ND_IDENTIFIER:
+            return "ASTIdentifierNode";
         default:
             UNREACHABLE();
     }
@@ -270,7 +281,8 @@ static const char *node_type_name(ASTNodeType type) {
     static const char *names[] = {
         [ND_NUMBER_LITERAL] = "ND_NUMBER_LIERAL",
         [ND_VARIABLE]       = "ND_VARIABLE",
-        [ND_ASSIGN]         = "ND_ASSIGN"
+        [ND_ASSIGN]         = "ND_ASSIGN",
+        [ND_IDENTIFIER]     = "ND_IDENTIFIER"
     };
     _Static_assert(sizeof(names)/sizeof(names[0]) == ND_TYPE_COUNT, "Missing type(s) in node_type_name()");
     return names[type];
@@ -298,6 +310,9 @@ void astNodePrint(FILE *to, ASTNode *n) {
             astNodePrint(to, AS_BINARY_NODE(n)->lhs);
             fputs(", \x1b[1mrhs:\x1b[0m ", to);
             astNodePrint(to, AS_BINARY_NODE(n)->rhs);
+            break;
+        case ND_IDENTIFIER:
+            fprintf(to, ", \x1b[1midentifier:\x1b[0m '%s'", AS_IDENTIFIER_NODE(n)->identifier);
             break;
         default:
             UNREACHABLE();

@@ -8,6 +8,14 @@
 #include "Compiler.h"
 #include "Scanner.h"
 #include "Parser.h"
+#include "Validator.h"
+
+enum return_values {
+    RET_SUCCESS = 0,
+    RET_ARG_PARSE_FAILURE,
+    RET_PARSE_FAILURE,
+    RET_VALIDATE_ERROR
+};
 
 typedef struct options {
     const char *file_path;
@@ -50,14 +58,16 @@ bool parse_arguments(Options *opts, int argc, char **argv) {
 
 
 int main(int argc, char **argv) {
-    int return_value = 0;
+    int return_value = RET_SUCCESS;
     Compiler c;
     Scanner s;
     Parser p;
+    Validator v;
     ASTProgram prog;
     compilerInit(&c);
     scannerInit(&s, &c);
     parserInit(&p, &s, &c);
+    validatorInit(&v, &c);
     astProgramInit(&prog);
 
     Options opts = {
@@ -65,7 +75,7 @@ int main(int argc, char **argv) {
         .dump_ast = false
     };
     if(!parse_arguments(&opts, argc, argv)) {
-        return_value = 1;
+        return_value = RET_ARG_PARSE_FAILURE;
         goto end;
     }
 
@@ -77,20 +87,34 @@ int main(int argc, char **argv) {
     //    putc('\n', stdout);
     //}
 
-    parserParse(&p, &prog);
-
-    if(compilerHadError(&c)) {
-        compilerPrintErrors(&c);
-        return_value = 1;
-    } else {
-        if(opts.dump_ast) {
-            astProgramPrint(stdout, &prog);
-            fputc('\n', stdout);
+    if(!parserParse(&p, &prog)) {
+        if(compilerHadError(&c)) {
+            compilerPrintErrors(&c);
+        } else {
+            fputs("\x1b[1;31mError:\x1b[0m Parser failed with no errors!\n", stderr);
         }
+        return_value = RET_PARSE_FAILURE;
+        goto end;
+    }
+
+    if(!validatorValidate(&v, &prog)) {
+        if(compilerHadError(&c)) {
+            compilerPrintErrors(&c);
+        } else {
+            fputs("\x1b[1;31mError: Validator failed with no errors!\n", stderr);
+        }
+        return_value = RET_VALIDATE_ERROR;
+        goto end;
+    }
+
+    if(opts.dump_ast) {
+        astProgramPrint(stdout, &prog);
+        fputc('\n', stdout);
     }
 
 end:
     astProgramFree(&prog);
+    validatorFree(&v);
     parserFree(&p);
     scannerFree(&s);
     compilerFree(&c);

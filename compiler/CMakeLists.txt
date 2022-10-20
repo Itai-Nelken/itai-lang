@@ -17,6 +17,7 @@ set(sources
     src/Token.c
     src/Types.c
     src/utilities.c
+    src/Validator.c
     src/Strings.c
 )
 

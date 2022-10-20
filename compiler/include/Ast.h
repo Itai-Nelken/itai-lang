@@ -9,6 +9,11 @@
 #include "Types.h"
 
 /** Types **/
+// An ASTString represents an interned string.
+// an ASTString can be used interchangeably with String as long
+// as it isn't freed.
+typedef char *ASTString;
+
 // forward declarations
 typedef struct ast_obj ASTObj;
 
@@ -41,6 +46,11 @@ typedef enum ast_node_type {
     ND_ASSIGN,
 
     // other
+    // An identifier will usually be replaced with an object.
+    // It exists because the parser doesn't always have all the information
+    // needed to build an object, so the identifier can be used instead
+    // and later the validator/typechecker replaces it with an object.
+    ND_IDENTIFIER,
     ND_TYPE_COUNT
 } ASTNodeType;
 
@@ -64,19 +74,20 @@ typedef struct ast_obj_node {
     ASTObj *obj;
 } ASTObjNode;
 
+typedef struct ast_identifier_node {
+    ASTNode header;
+    ASTString identifier;
+} ASTIdentifierNode;
+
 #define NODE_IS(node, type) ((node)->node_type == (type))
 #define AS_NODE(node) ((ASTNode *)(node))
 #define AS_BINARY_NODE(node) ((ASTBinaryNode *)(node))
 #define AS_LITERAL_NODE(node) ((ASTLiteralValueNode *)(node))
 #define AS_OBJ_NODE(node) ((ASTObjNode *)(node))
+#define AS_IDENTIFIER_NODE(node) ((ASTIdentifierNode *)(node))
 
 // A ModuleID is an index into the ASTProgram::modules array.
 typedef usize ModuleID;
-
-// An ASTString represents an interned string.
-// an ASTString can be used interchangeably with String as long
-// as it isn't freed.
-typedef char *ASTString;
 
 // An ASTObj holds a object which in this context
 // means functions, variables, structs, enums etc.
@@ -142,6 +153,8 @@ ASTNode *astNewBinaryNode(ASTNodeType type, Location loc, ASTNode *lhs, ASTNode 
 ASTNode *astNewLiteralValueNode(ASTNodeType type, Location loc, LiteralValue value);
 // Ownership of 'obj' is NOT taken.
 ASTNode *astNewObjNode(ASTNodeType type, Location loc, ASTObj *obj);
+ASTNode *astNewIdentifierNode(Location loc, ASTString str);
+
 void astNodeFree(ASTNode *n);
 void astNodePrint(FILE *to, ASTNode *n);
 

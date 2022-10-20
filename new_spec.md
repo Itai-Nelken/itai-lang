@@ -221,3 +221,8 @@ fn main() {
     derived_as_base.print(); // still "Derived".
 }
 ```
+
+## Global/function definition order
+
+* Functions can be used before they are defined.
+* Globals must be defined before they are used.
