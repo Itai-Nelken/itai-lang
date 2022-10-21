@@ -133,7 +133,7 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
             Type *lhs_ty = get_expr_type(v, AS_BINARY_NODE(n)->lhs);
             Type *rhs_ty = get_expr_type(v, AS_BINARY_NODE(n)->rhs);
             CHECK(check_types(v, n->location, lhs_ty, rhs_ty));
-            return true;
+            break;
         }
         // ignored nodes (no typechecking to do).
         case ND_NUMBER_LITERAL:
@@ -144,6 +144,7 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
         default:
             UNREACHABLE();
     }
+    return true;
 }
 
 static void global_variable_typecheck_callback(void *global, void *validator) {
@@ -157,11 +158,13 @@ static void global_variable_typecheck_callback(void *global, void *validator) {
                 return;
             }
             break;
-        case ND_ASSIGN:
-            // The validating pass already typechecked the variable against the initializer expression,
-            // so all that is left to do is to typecheck the initializer.
+        case ND_ASSIGN: {
             typecheck_ast(v, AS_BINARY_NODE(g)->rhs);
+            Type *lhs_ty = AS_OBJ_NODE(AS_BINARY_NODE(g)->lhs)->obj->as.var.type;
+            Type *rhs_ty = get_expr_type(v, AS_BINARY_NODE(g)->rhs);
+            check_types(v, g->location, lhs_ty, rhs_ty);
             break;
+        }
         default:
             UNREACHABLE();
     }

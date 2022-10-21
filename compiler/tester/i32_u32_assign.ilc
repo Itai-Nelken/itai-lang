@@ -1,6 +1,5 @@
-/// expect success
+/// expect error: Error: Type mismatch (Expected 'u32' but got 'i32').
 
-fn main() {
-	var a: u32 = 1;
-}
+var a: i32 = 42;
+var b: u32 = a;
 
