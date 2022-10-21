@@ -4,6 +4,9 @@
 #include <stdio.h> // FILE
 #include <stdbool.h>
 
+// Can't include Ast.h ast it includes this file.
+typedef char *ASTString; // from Ast.h
+
 typedef enum type_type {
     TY_I32, TY_U32,
     //TY_PTR,
@@ -14,6 +17,7 @@ typedef enum type_type {
 // Update typeEqual() when adding new fields.
 typedef struct type {
     TypeType type;
+    ASTString name;
     int size;
     //int align;
     //union {
@@ -22,7 +26,7 @@ typedef struct type {
     //    } ptr;
     //    struct {
     //        struct ast_type *return_type;
-    //        Array parameter_types; // Array<ASTType>
+    //        Array parameter_types; // Array<Type *>
     //    } fn;
     //} as;
 } Type;
@@ -32,9 +36,10 @@ typedef struct type {
  *
  * @param ty The Type to initialize.
  * @param type The type of the Type.
+ * @param name The type's name.
  * @param size The size of the type.
  ***/
-void typeInit(Type *ty, TypeType type, int size);
+void typeInit(Type *ty, TypeType type, ASTString name, int size);
 
 /***
  * Check if two Types are equal.

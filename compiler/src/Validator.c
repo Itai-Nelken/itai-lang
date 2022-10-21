@@ -37,18 +37,11 @@ static void error(Validator *v, Location loc, const char *format, ...) {
     compilerAddError(v->compiler, err);
 }
 
-static const char *type_name(Type *ty) {
-    // FIXME: This won't work for custom types.
-    static const char *names[] = {
-        [TY_I32] = "i32",
-        [TY_U32] = "u32"
-    };
-    _Static_assert(sizeof(names)/sizeof(names[0]) == TY_COUNT, "Too many types in type_name().");
-
+static inline const char *type_name(Type *ty) {
     if(ty == NULL) {
         return "none";
     }
-    return names[ty->type];
+    return (const char *)ty->name;
 }
 
 static ASTObj *find_global_var(Validator *v, ASTString name) {
