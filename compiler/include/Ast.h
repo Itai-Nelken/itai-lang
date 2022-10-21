@@ -44,12 +44,14 @@ typedef enum ast_node_type {
 
     // Binary nodes
     ND_ASSIGN,
+    ND_ADD,
 
-    // other
+    // other nodes
+
     // An identifier will usually be replaced with an object.
     // It exists because the parser doesn't always have all the information
     // needed to build an object, so the identifier can be used instead
-    // and later the validator/typechecker replaces it with an object.
+    // and later the validator/typechecker replaces it with an object if needed.
     ND_IDENTIFIER,
     ND_TYPE_COUNT
 } ASTNodeType;

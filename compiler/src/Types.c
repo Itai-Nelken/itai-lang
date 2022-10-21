@@ -13,7 +13,7 @@ bool typeEqual(Type *a, Type *b) {
     //       pointers - base types,
     //       functions - signature
     //       etc.
-    if(a->type != b->type) {
+    if(!a || !b || a->type != b->type) {
         return false;
     }
     return true;

@@ -139,14 +139,15 @@ typedef struct parse_rule {
 static ASTNode *parse_expression(Parser *p);
 static ASTNode *parse_number_literal(Parser *p);
 static ASTNode *parse_grouping_expr(Parser *p);
-static ASTNode *parse_identifier_node(Parser *p);
+static ASTNode *parse_identifier_expr(Parser *p);
+static ASTNode *parse_term_expr(Parser *p, ASTNode *lhs);
 
 static ParseRule rules[] = {
     [TK_LPAREN]      = {PREC_LOWEST, parse_grouping_expr, NULL},
     [TK_RPAREN]      = {PREC_LOWEST, NULL, NULL},
     [TK_LBRACE]      = {PREC_LOWEST, NULL, NULL},
     [TK_RBRACE]      = {PREC_LOWEST, NULL, NULL},
-    [TK_PLUS]        = {PREC_LOWEST, NULL, NULL},
+    [TK_PLUS]        = {PREC_TERM,   NULL, parse_term_expr},
     [TK_STAR]        = {PREC_LOWEST, NULL, NULL},
     [TK_SLASH]       = {PREC_LOWEST, NULL, NULL},
     [TK_SEMICOLON]   = {PREC_LOWEST, NULL, NULL},
@@ -166,7 +167,7 @@ static ParseRule rules[] = {
     [TK_I32]         = {PREC_LOWEST, NULL, NULL},
     [TK_VAR]         = {PREC_LOWEST, NULL, NULL},
     [TK_U32]         = {PREC_LOWEST, NULL, NULL},
-    [TK_IDENTIFIER]  = {PREC_LOWEST, parse_identifier_node, NULL},
+    [TK_IDENTIFIER]  = {PREC_LOWEST, parse_identifier_expr, NULL},
     [TK_GARBAGE]     = {PREC_LOWEST, NULL, NULL},
     [TK_EOF]         = {PREC_LOWEST, NULL, NULL}
 };
@@ -180,7 +181,7 @@ static ASTString parse_identifier(Parser *p) {
     return astProgramAddString(p->program, stringNCopy(previous(p).lexeme, previous(p).length));
 }
 
-static ASTNode *parse_identifier_node(Parser *p) {
+static ASTNode *parse_identifier_expr(Parser *p) {
     ASTString str = astProgramAddString(p->program, stringNCopy(previous(p).lexeme, previous(p).length));
     return astNewIdentifierNode(previous(p).location, str);
 }
@@ -195,6 +196,18 @@ static ASTNode *parse_grouping_expr(Parser *p) {
     ASTNode *expr = TRY(ASTNode *, parse_expression(p), 0);
     TRY_CONSUME(p, TK_RPAREN, expr);
     return expr;
+}
+
+static ASTNode *parse_term_expr(Parser *p, ASTNode *lhs) {
+    TokenType op = previous(p).type;
+    ASTNode *rhs = TRY(ASTNode *, parse_expression(p), lhs);
+
+    ASTNodeType node_type;
+    switch(op) {
+        case TK_PLUS: node_type = ND_ADD; break;
+        default: UNREACHABLE();
+    }
+    return astNewBinaryNode(node_type, locationMerge(lhs->location, rhs->location), lhs, rhs);
 }
 
 static ASTNode *parse_precedence(Parser *p, Precedence min_prec) {

@@ -251,6 +251,7 @@ void astNodeFree(ASTNode *n) {
             // nothing
         break;
         case ND_ASSIGN:
+        case ND_ADD:
             astNodeFree(AS_BINARY_NODE(n)->lhs);
             astNodeFree(AS_BINARY_NODE(n)->rhs);
             break;
@@ -266,7 +267,8 @@ static const char *node_name(ASTNodeType type) {
             return "ASTLiteralValueNode";
         case ND_VARIABLE:
             return "ASTObjNode";
-        case ND_ASSIGN:
+        case ND_ASSIGN: // fallthrough
+        case ND_ADD:
             return "ASTBinaryNode";
         case ND_IDENTIFIER:
             return "ASTIdentifierNode";
@@ -280,6 +282,7 @@ static const char *node_type_name(ASTNodeType type) {
         [ND_NUMBER_LITERAL] = "ND_NUMBER_LIERAL",
         [ND_VARIABLE]       = "ND_VARIABLE",
         [ND_ASSIGN]         = "ND_ASSIGN",
+        [ND_ADD]            = "ND_ADD",
         [ND_IDENTIFIER]     = "ND_IDENTIFIER"
     };
     _Static_assert(sizeof(names)/sizeof(names[0]) == ND_TYPE_COUNT, "Missing type(s) in node_type_name()");
@@ -303,7 +306,8 @@ void astNodePrint(FILE *to, ASTNode *n) {
             fputs(", \x1b[1mobj:\x1b[0m ", to);
             astPrintObj(to, AS_OBJ_NODE(n)->obj);
             break;
-        case ND_ASSIGN:
+        case ND_ASSIGN: // fallthrough
+        case ND_ADD:
             fputs(", \x1b[1mlhs:\x1b[0m ", to);
             astNodePrint(to, AS_BINARY_NODE(n)->lhs);
             fputs(", \x1b[1mrhs:\x1b[0m ", to);
