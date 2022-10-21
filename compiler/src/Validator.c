@@ -97,6 +97,8 @@ static void global_variable_callback(void *global, void *validator) {
         if(var->as.var.type != NULL) {
             Type *rhs_type = get_expr_type(v, AS_BINARY_NODE(g)->rhs);
             if(var->as.var.type != rhs_type) {
+                // There are no implicit conversions.
+                // So if the types don't match, there is a type mismatch.
                 error(v, g->location, "Type mismatch (expected '%s' but got '%s').", type_name(var->as.var.type), type_name(rhs_type));
                 return;
             }

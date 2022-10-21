@@ -226,3 +226,8 @@ fn main() {
 
 * Functions can be used before they are defined.
 * Globals must be defined before they are used.
+
+## Type conversions/casts
+
+* There are no implicit type conversions.
+* To cast a value to another type, the `as<T>(T)` operator is used. It will panic if the conversion fails (overflow, underflow, incompatible types etc.). Some casts can be and are typechecked at compile-time.
