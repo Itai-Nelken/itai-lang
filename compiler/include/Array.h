@@ -73,7 +73,16 @@ void arrayCopy(Array *dest, Array *src);
  * @param callback The callback.
  * @param cl Custom data passed to the callback.
  ***/
-void arrayMap(Array *a, void(*callback)(void *item, size_t index, void *cl), void *cl);
+void arrayMap(Array *a, void (*callback)(void *item, void *cl), void *cl);
+
+/***
+ * Call 'callback' for every element in the Array passing the index of the element.
+ *
+ * @param a The Array to use.
+ * @param callback The callback.
+ * @param cl Custom data passed to the callback.
+ ***/
+void arrayMapIndex(Array *a, void (*callback)(void *item, size_t index, void *cl), void *cl);
 
 /***
  * Pop a value from an Array and cast it to type 'type'.

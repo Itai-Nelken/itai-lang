@@ -87,8 +87,7 @@ static Type *get_expr_type(Validator *v, ASTNode *expr) {
     return ty;
 }
 
-static void global_variable_callback(void *global, usize index, void *validator) {
-    UNUSED(index);
+static void global_variable_callback(void *global, void *validator) {
     ASTNode *g = AS_NODE(global);
     Validator *v = (Validator *)validator;
 
@@ -130,7 +129,7 @@ static void module_callback(void *module, usize index, void *validator) {
 bool validatorValidate(Validator *v, ASTProgram *prog) {
     v->program = prog;
 
-    arrayMap(&v->program->modules, module_callback, (void *)v);
+    arrayMapIndex(&v->program->modules, module_callback, (void *)v);
 
     v->program = NULL;
     return !v->had_error;
