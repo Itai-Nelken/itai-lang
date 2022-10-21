@@ -35,6 +35,6 @@ void typePrint(FILE *to, Type *ty) {
     }
 
     fprintf(to, "Type{\x1b[1mtype:\x1b[0m %s", type_type_name(ty->type));
-    fprintf(to, ", \x1bp1mname:]x1b[0m %s", ty->name);
+    fprintf(to, ", \x1b[1mname:\x1b[0m %s", ty->name);
     fprintf(to, ", \x1b[1msize:\x1b[0m %d}", ty->size);
 }

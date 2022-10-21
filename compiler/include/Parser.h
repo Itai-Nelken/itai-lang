@@ -25,6 +25,7 @@ typedef struct parser {
  *
  * @param p The parser to initialize.
  * @param s A Scanner.
+ * @param c A Compiler.
  ***/
 void parserInit(Parser *p, Scanner *s, Compiler *c);
 

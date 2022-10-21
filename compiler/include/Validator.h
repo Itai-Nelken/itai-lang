@@ -12,8 +12,27 @@ typedef struct validator {
     bool had_error;
 } Validator;
 
+/***
+ * Initialize A Validator.
+ *
+ * @param v The Validator to initialize.
+ * @param c A Compiler.
+ ***/
 void validatorInit(Validator *v, Compiler *c);
+
+/***
+ * Free a Validator.
+ *
+ * @param v The Validator to free.
+ ***/
 void validatorFree(Validator *v);
+
+/***
+ * Validate an ASTProgram.
+ *
+ * @param v The Validatpr to use.
+ * @param prog The ASTProgram to validate.
+ ***/
 bool validatorValidate(Validator *v, ASTProgram *prog);
 
 #endif // VALIDATOR_H
