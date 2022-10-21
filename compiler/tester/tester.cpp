@@ -144,9 +144,15 @@ private:
         // no need to check if the compiler failed
         // if it shouldn't, as the output won't be the same
         // so it will fail in the else if below.
-        if(test.options.should_fail && test.ilc_exit_status == 0) {
-            test.compiler_failed = true;
-            test.tester_output = std::string("Test should have failed!");
+        if(test.options.should_fail) {
+            if(test.ilc_exit_status == 0) {
+                test.compiler_failed = true;
+                test.tester_output = std::string("Test should have failed!");
+            } else {
+                // When checking that the expected error exists,
+                // only the first line (the description of the error) is checked.
+                test.tester_failed = test.output == expected.substr(0, expected.find_first_of('\n'));
+            }
             return;
         } else if(test.options.should_succeed) {
             if(test.ilc_exit_status != 0) {
