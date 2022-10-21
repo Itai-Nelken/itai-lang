@@ -330,7 +330,7 @@ bool parserParse(Parser *p, ASTProgram *prog) {
     }
 
     // Create the root module.
-    ASTModule *root_module = astModuleNew(astProgramAddString(prog, "___root___"));
+    ASTModule *root_module = astModuleNew(astProgramAddString(prog, "___root_module___"));
     p->current_module = astProgramAddModule(prog, root_module);
     init_primitive_types(prog, root_module);
 
