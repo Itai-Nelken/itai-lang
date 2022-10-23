@@ -1,0 +1,4 @@
+/// expect success
+
+var a: u32 = 123;
+
