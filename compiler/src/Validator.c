@@ -163,9 +163,9 @@ static void global_variable_typecheck_callback(void *global, void *validator) {
             Type *lhs_ty = AS_OBJ_NODE(AS_BINARY_NODE(g)->lhs)->obj->as.var.type;
             Type *rhs_ty = get_expr_type(v, AS_BINARY_NODE(g)->rhs);
             // allow assigning number literals to u32 variables.
-            if(lhs_ty->type == TY_U32
-                && AS_BINARY_NODE(g)->rhs->node_type == ND_NUMBER_LITERAL
-                && rhs_ty->type == TY_I32) {
+            if(IS_UNSIGNED(*lhs_ty)
+                && IS_SIGNED(*rhs_ty)
+                && AS_BINARY_NODE(g)->rhs->node_type == ND_NUMBER_LITERAL) {
                     break;
             }
             check_types(v, g->location, lhs_ty, rhs_ty);

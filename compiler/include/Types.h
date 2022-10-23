@@ -31,6 +31,22 @@ typedef struct type {
     //} as;
 } Type;
 
+#define IS_NUMERIC(ty) ({bool __res; switch((ty).type) { \
+    case TY_I32: \
+    case TY_U32: __res = true; break; \
+    default: \
+    __res = false; break; \
+    } __res;})
+
+#define IS_UNSIGNED(ty) ({Type *__t = &(ty); VERIFY(IS_NUMERIC(*__t)); \
+    bool __res; \
+    switch(__t->type) { \
+    case TY_U32: __res = true; break; \
+    default: __res = false; break; \
+ } __res;})
+
+#define IS_SIGNED(ty) (!IS_UNSIGNED(ty))
+
 /***
  * Initialize a Type.
  *
