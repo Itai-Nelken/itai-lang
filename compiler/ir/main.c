@@ -111,21 +111,31 @@ void gen_arm64(Program *p) {
             case OP_IMM: printf("mov x1, %u\nstr x1, [sp, -16]!\n", DECODE_ARG(op)); break;
             case OP_ST: L(DECODE_ARG(op)); printf("ldr x1, [sp], 16\nadrp x2, %s\nadd x2, x2, :lo12:%s\nstr x1, [x2]\n", labels[DECODE_ARG(op)], labels[DECODE_ARG(op)]); break;
             case OP_LD: L(DECODE_ARG(op)); printf("adrp x1, %s\nadd x1, x1, :lo12:%s\nldr x1, [x1]\nstr x1, [sp, -16]!\n", labels[DECODE_ARG(op)], labels[DECODE_ARG(op)]); break;
-            //case OP_STL: stack[bp + 1 + DECODE_ARG(op)] = pop(); break;
-            //case OP_LDL: push(stack[bp + 1 + DECODE_ARG(op)]); break;
+            case OP_STL:
+                // stack[bp + 1 + DECODE_ARG(op)] = pop();
+                //    (+) \/ <- fp (-)
+                // [fp][lr][local1][local2]...
+                puts("ldr x2, [sp], 16");
+                printf("str x1, [fp, -%u]\n", DECODE_ARG(op) * 16);
+                break;
+            case OP_LDL:
+                //push(stack[bp + 1 + DECODE_ARG(op)]);
+                printf("ldr x1, [fp, -%u]\n", DECODE_ARG(op) * 16);
+                puts("str x1, [sp, -16]!");
+                break;
             case OP_ARG:
                 //           (+) \/ <- fp (-)
                 // [args] [fp][lr]...
-                printf("ldr x1, [fp, #(16 + %u)]\n", DECODE_ARG(op) * 8);
+                printf("ldr x1, [fp, #(16 + %u)]\n", DECODE_ARG(op) * 16);
                 puts("str x1, [sp, -16]!");
                 break;
             case OP_ADJ:
-                printf("sub sp, sp, #(16 + %u)\n", DECODE_ARG(op));
+                printf("sub sp, sp, %u\n", DECODE_ARG(op) * 16);
                 break;
             case OP_ADD: printf("ldr x1, [sp], 16\nldr x2, [sp], 16\nadd x1, x1, x2\nstr x1, [sp, -16]!\n"); break;
             case OP_ENT:
                 printf("fn_%u:\n", pc);
-                printf("sub sp, sp, #%u\n", DECODE_ARG(op));
+                printf("sub sp, sp, #%u\n", 16 * DECODE_ARG(op));
                 break;
             case OP_LEV:
                 puts("ret");
@@ -172,6 +182,6 @@ int main(int argc, char **argv) {
     //int result = execute(prog2.code, prog2.length, prog2.entry_point, debug_dump);
     //int result = execute(prog3.code, prog3.length, prog3.entry_point, debug_dump);
     //printf("result = %d\n", result);
-    gen_arm64(&prog2);
+    gen_arm64(&prog3);
     return 0;
 }
