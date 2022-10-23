@@ -21,7 +21,7 @@ struct ParseError final : public std::exception {
 };
 
 struct Test {
-    Test(const char *name, const char *file) : name(name), path(file), tester_output(""), output("") {}
+    Test(const char *name, const char *file) : name(name), tester_output(""), output(""), path(file) {}
 
     std::string name, tester_output, output;
     fs::path path;
@@ -129,7 +129,6 @@ private:
         std::string output;
         for(auto it = test.output.begin(); it != test.output.end(); ++it) {
             if(*it == '\x1b') {
-                auto begin = std::string::iterator(it);
                 while(*it != 'm') { ++it; }
                 // the 'm' is consumed by the loop.
             } else {
@@ -183,7 +182,7 @@ private:
                 while(contents.at(pos) == ' ') {
                     pos++;
                 }
-            } catch(std::out_of_range) {
+            } catch(std::out_of_range&) {
                 throw ParseError("Unexpected end of file!");
             }
         };
