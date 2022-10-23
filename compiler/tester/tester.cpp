@@ -209,7 +209,6 @@ private:
     std::vector<std::pair<Test, int>> tests;
 };
 
-// TODO: compile the outputed C and check its output/return value.
 int main(void) {
     Tester t;
     for(const auto &dir : fs::directory_iterator(".")) {
