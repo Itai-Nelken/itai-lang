@@ -26,7 +26,7 @@ After the function returns, the arguments must be removed. That is achieved usin
 | `IMM`  |  `imm <num>`   | The argument is 12 bits. only positive numbers are supproted. |
 |  `ST`  |   `st <idx>`   | `<idx>` is an index into the data section. |
 |  `LD`  |   `ld <idx>`   | `<idx>` is an index into the data section. |
-| `ARG`  |  `arg <n>`     | `<n>` is the argument to get (1 -> 1st arg, 2 -> 2nd arg etc.). |
+| `ARG`  |  `arg <n>`     | `<n>` is the argument to get (0 -> last arg, 1 -> one before last arg etc.). |
 | `ADJ`  |  `adj <count>` | `<count>` is the number of arguments to remove from the stack. |
 | `ADD`  |  `add`         | The 2 operands are poped from the stack. |
 | `ENT`  | `ent <locals>` | `<locals>` is the number of locals so space can be reserved in the call frame. |

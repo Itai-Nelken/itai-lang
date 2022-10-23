@@ -61,8 +61,8 @@ Program prog2 = {
 OpCode program3[] = {
     // fn sum(a: i32, b: i32) -> i32 { return a + b; }
     ENCODE_ARG(OP_ENT, 0), // idx: 0
-    ENCODE_ARG(OP_ARG, 0),
     ENCODE_ARG(OP_ARG, 1),
+    ENCODE_ARG(OP_ARG, 0),
     ENCODE(OP_ADD),
     ENCODE(OP_SR),
     ENCODE(OP_LEV),
