@@ -113,16 +113,16 @@ void gen_arm64(Program *p) {
             case OP_LD: L(DECODE_ARG(op)); printf("adrp x1, %s\nadd x1, x1, :lo12:%s\nldr x1, [x1]\nstr x1, [sp, -16]!\n", labels[DECODE_ARG(op)], labels[DECODE_ARG(op)]); break;
             //case OP_STL: stack[bp + 1 + DECODE_ARG(op)] = pop(); break;
             //case OP_LDL: push(stack[bp + 1 + DECODE_ARG(op)]); break;
-            //case OP_ARG:
-            //    //               - arg  - 1  \/ <- bp
-            //    // stack frame: [args][old_bp][old_pc]
-            //    // -2 instead of -1 so that the first index can be 0.
-            //    push(stack[bp - 2 - DECODE_ARG(op)]);
-            //    break;
-            case OP_ADJ:
-                printf("sub sp, sp, #%u\n", DECODE_ARG(op));
+            case OP_ARG:
+                //           (+) \/ <- fp (-)
+                // [args] [fp][lr]...
+                printf("ldr x1, [fp, #(16 + %u)]\n", DECODE_ARG(op) * 8);
+                puts("str x1, [sp, -16]!");
                 break;
-            case OP_ADD: printf("ldr x1, [sp], 16\nldr x2, [sp], 16\n add x1, x1, x2\nstr x1, [sp, -16]!\n"); break;
+            case OP_ADJ:
+                printf("sub sp, sp, #(16 + %u)\n", DECODE_ARG(op));
+                break;
+            case OP_ADD: printf("ldr x1, [sp], 16\nldr x2, [sp], 16\nadd x1, x1, x2\nstr x1, [sp, -16]!\n"); break;
             case OP_ENT:
                 printf("fn_%u:\n", pc);
                 printf("sub sp, sp, #%u\n", DECODE_ARG(op));
@@ -172,6 +172,6 @@ int main(int argc, char **argv) {
     //int result = execute(prog2.code, prog2.length, prog2.entry_point, debug_dump);
     //int result = execute(prog3.code, prog3.length, prog3.entry_point, debug_dump);
     //printf("result = %d\n", result);
-    gen_arm64(&prog1);
+    gen_arm64(&prog2);
     return 0;
 }
