@@ -180,8 +180,9 @@ int main(int argc, char **argv) {
     }
     //int result = execute(prog1.code, prog1.length, prog1.entry_point, debug_dump);
     //int result = execute(prog2.code, prog2.length, prog2.entry_point, debug_dump);
-    //int result = execute(prog3.code, prog3.length, prog3.entry_point, debug_dump);
-    //printf("result = %d\n", result);
+    int result = execute(prog3.code, prog3.length, prog3.entry_point, debug_dump);
+    printf("/// expected result: %d\n", result);
+    puts("/// arm64 assembly to calculate expected result:");
     gen_arm64(&prog3);
     return 0;
 }

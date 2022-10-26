@@ -32,8 +32,8 @@ int execute(OpCode program[], int length, int entry_point, bool debug_dump) {
     while(pc < length) {
         OpCode op = program[pc];
         switch(DECODE(op)) {
-            #define PA(name) printf("> " name " %d\n", DECODE_ARG(op))
-            #define P(name) puts("> " name)
+            #define PA(name) ({if(debug_dump) printf("> " name " %d\n", DECODE_ARG(op));})
+            #define P(name) ({if(debug_dump) puts("> " name);})
             case OP_IMM: PA("imm"); push(DECODE_ARG(op)); break;
             case OP_ST: PA("st"); set_data(DECODE_ARG(op), pop()); break;
             case OP_LD: PA("ld"); push(get_data(DECODE_ARG(op))); break;
