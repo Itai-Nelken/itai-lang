@@ -50,7 +50,9 @@ static Token advance(Parser *p) {
     // We don't know how to handle them, and the Scanner
     // has already reported errors for them anyway.
     Token tk;
-    while((tk = scannerNextToken(p->scanner)).type == TK_GARBAGE) /* nothing */ ;
+    while((tk = scannerNextToken(p->scanner)).type == TK_GARBAGE) {
+        p->had_error = true;
+    }
     p->previous_token = p->current_token;
     p->current_token = tk;
     return tk;
