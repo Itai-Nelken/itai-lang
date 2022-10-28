@@ -144,6 +144,25 @@ static void print_line(FILE *to, Error *err, String contents, struct line *line,
     fputc('\n', to);
 }
 
+/* FIXME:
+
+The error created by the following output:
+'''
+1| fn test() -> i32
+2|
+'''
+prints like this:
+'''
+Error: Expected '{' but got '<eof>'.
+---- 1.ilc:3:0
+ 2 | 
+ 3 | 
+     ^~ Expected '{' but got '<eof>'.
+----
+'''
+which is wrong.
+*/
+
 /* 
 Error: reason
 ---- file.ext:<line>:<char>

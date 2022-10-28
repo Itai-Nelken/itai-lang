@@ -97,22 +97,42 @@ static Type *get_expr_type(Validator *v, ASTNode *expr) {
     return ty;
 }
 
-static void global_variable_validate_callback(void *global, void *validator) {
-    ASTNode *g = AS_NODE(global);
+static void variable_validate_callback(void *variable, void *validator) {
+    ASTNode *var = AS_NODE(variable);
     Validator *v = (Validator *)validator;
 
     // If the expression is assignment, verify that the type is set or try to infer it if it isn't.
-    if(g->node_type == ND_ASSIGN) {
-        ASTObj *var = AS_OBJ_NODE(AS_BINARY_NODE(g)->lhs)->obj;
-        VERIFY(var->type == OBJ_VAR);
-        if(var->as.var.type == NULL) {
-            Type *rhs_ty = get_expr_type(v, AS_BINARY_NODE(g)->rhs);
+    if(var->node_type == ND_ASSIGN) {
+        ASTObj *var_obj = AS_OBJ_NODE(AS_BINARY_NODE(var)->lhs)->obj;
+        VERIFY(var_obj->type == OBJ_VAR);
+        if(var_obj->as.var.type == NULL) {
+            Type *rhs_ty = get_expr_type(v, AS_BINARY_NODE(var)->rhs);
             if(!rhs_ty) {
                 error(v, var->location, "Failed to infer type (Hint: consider adding an explicit type).");
                 return;
             }
-            var->as.var.type = rhs_ty;
+            var_obj->as.var.type = rhs_ty;
         }
+    }
+}
+
+static void validate_function(Validator *v, ASTObj *fn) {
+    VERIFY(fn->type == OBJ_FN);
+
+    for(usize i = 0; i < fn->as.fn.body->nodes.used; ++i) {
+        ASTNode *n = ARRAY_GET_AS(ASTNode *, &fn->as.fn.body->nodes, i);
+        if(n->node_type == ND_ASSIGN) {
+            variable_validate_callback((void *)n, (void *)v);
+        }
+    }
+}
+
+static void validate_object_callback(void *object, void *validator) {
+    ASTObj *obj = (ASTObj *)object;
+    Validator *v = (Validator *)validator;
+
+    if(obj->type == OBJ_FN) {
+        validate_function(v, obj);
     }
 }
 
@@ -121,7 +141,8 @@ static void module_validate_callback(void *module, usize index, void *validator)
     Validator *v = (Validator *)validator;
 
     v->current_module = (ModuleID)index;
-    arrayMap(&m->globals, global_variable_validate_callback, validator);
+    arrayMap(&m->globals, variable_validate_callback, validator);
+    arrayMap(&m->objects, validate_object_callback, validator);
 }
 
 
@@ -135,6 +156,16 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
             CHECK(check_types(v, n->location, lhs_ty, rhs_ty));
             break;
         }
+        case ND_BLOCK: {
+            // typecheck all nodes in the block, even if some fail.
+            bool failed = false;
+            for(usize i = 0; i < AS_LIST_NODE(n)->nodes.used; ++i) {
+                failed = typecheck_ast(v, ARRAY_GET_AS(ASTNode *, &AS_LIST_NODE(n)->nodes, i));
+            }
+            // failed == false -> success (return true).
+            // failed == true -> failure (return false).
+            return !failed;
+        }
         // ignored nodes (no typechecking to do).
         case ND_NUMBER_LITERAL:
         case ND_VARIABLE:
@@ -147,32 +178,48 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
     return true;
 }
 
-static void global_variable_typecheck_callback(void *global, void *validator) {
-    ASTNode *g = AS_NODE(global);
+static void variable_typecheck_callback(void *variable, void *validator) {
+    ASTNode *var = AS_NODE(variable);
     Validator *v = (Validator *)validator;
 
-    switch(g->node_type) {
+    switch(var->node_type) {
         case ND_VARIABLE:
-            if(AS_OBJ_NODE(g)->obj->as.var.type == NULL) {
-                error(v, g->location, "Variable '%s' has no type (Hint: consider adding an explicit type).", AS_OBJ_NODE(g)->obj->as.var.name);
+            if(AS_OBJ_NODE(var)->obj->as.var.type == NULL) {
+                error(v, var->location, "Variable '%s' has no type (Hint: consider adding an explicit type).", AS_OBJ_NODE(var)->obj->as.var.name);
                 return;
             }
             break;
         case ND_ASSIGN: {
-            typecheck_ast(v, AS_BINARY_NODE(g)->rhs);
-            Type *lhs_ty = AS_OBJ_NODE(AS_BINARY_NODE(g)->lhs)->obj->as.var.type;
-            Type *rhs_ty = get_expr_type(v, AS_BINARY_NODE(g)->rhs);
+            typecheck_ast(v, AS_BINARY_NODE(var)->rhs);
+            Type *lhs_ty = AS_OBJ_NODE(AS_BINARY_NODE(var)->lhs)->obj->as.var.type;
+            Type *rhs_ty = get_expr_type(v, AS_BINARY_NODE(var)->rhs);
             // allow assigning number literals to u32 variables.
             if(IS_UNSIGNED(*lhs_ty)
                 && IS_SIGNED(*rhs_ty)
-                && AS_BINARY_NODE(g)->rhs->node_type == ND_NUMBER_LITERAL) {
+                && AS_BINARY_NODE(var)->rhs->node_type == ND_NUMBER_LITERAL) {
                     break;
             }
-            check_types(v, g->location, lhs_ty, rhs_ty);
+            check_types(v, var->location, lhs_ty, rhs_ty);
             break;
         }
         default:
             UNREACHABLE();
+    }
+}
+
+static bool typecheck_function(Validator *v, ASTObj *fn) {
+    VERIFY(fn->type == OBJ_FN);
+
+    // TODO: check return type once return stmt is implemented.
+    return typecheck_ast(v, AS_NODE(fn->as.fn.body));
+}
+
+static void typecheck_object_callback(void *object, void *validator) {
+    ASTObj *obj = (ASTObj *)object;
+    Validator *v = (Validator *)validator;
+
+    if(obj->type == OBJ_FN) {
+        typecheck_function(v, obj); // We don't care if the typecheck failed because we want to check all functions.
     }
 }
 
@@ -181,7 +228,8 @@ static void module_typecheck_callback(void *module, usize index, void *validator
     Validator *v = (Validator *)validator;
 
     v->current_module = (ModuleID)index;
-    arrayMap(&m->globals, global_variable_typecheck_callback, validator);
+    arrayMap(&m->globals, variable_typecheck_callback, validator);
+    arrayMap(&m->objects, typecheck_object_callback, validator);
 }
 
 

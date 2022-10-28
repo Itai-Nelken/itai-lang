@@ -36,15 +36,18 @@ typedef struct literal_value {
 // for example, 1 + 2 is represented as:
 // binary(op(+), literal(1), literal(2)).
 typedef enum ast_node_type {
-    // LiteralNodes
+    // Literal nodes
     ND_NUMBER_LITERAL, // ASTLiteralNode
 
-    // ObjNodes
+    // Obj nodes
     ND_VARIABLE, // ASTObjNode
 
     // Binary nodes
     ND_ASSIGN,
     ND_ADD,
+
+    // list nodes
+    ND_BLOCK,
 
     // other nodes
 
@@ -81,12 +84,18 @@ typedef struct ast_identifier_node {
     ASTString identifier;
 } ASTIdentifierNode;
 
+typedef struct ast_list_node {
+    ASTNode header;
+    Array nodes; // Array<ASTNode *>
+} ASTListNode;
+
 #define NODE_IS(node, type) ((node)->node_type == (type))
 #define AS_NODE(node) ((ASTNode *)(node))
 #define AS_BINARY_NODE(node) ((ASTBinaryNode *)(node))
 #define AS_LITERAL_NODE(node) ((ASTLiteralValueNode *)(node))
 #define AS_OBJ_NODE(node) ((ASTObjNode *)(node))
 #define AS_IDENTIFIER_NODE(node) ((ASTIdentifierNode *)(node))
+#define AS_LIST_NODE(node) ((ASTListNode *)(node))
 
 // A ModuleID is an index into the ASTProgram::modules array.
 typedef usize ModuleID;
@@ -94,7 +103,7 @@ typedef usize ModuleID;
 // An ASTObj holds a object which in this context
 // means functions, variables, structs, enums etc.
 typedef enum ast_obj_type {
-    OBJ_VAR,
+    OBJ_VAR, OBJ_FN,
     OBJ_TYPE_COUNT
 } ASTObjType;
 
@@ -107,6 +116,11 @@ typedef struct ast_obj {
             ASTString name;
             Type *type;
         } var;
+        struct {
+            ASTString name;
+            Type *return_type;
+            ASTListNode *body;
+        } fn;
     } as;
 } ASTObj;
 
@@ -156,6 +170,7 @@ ASTNode *astNewLiteralValueNode(ASTNodeType type, Location loc, LiteralValue val
 // Ownership of 'obj' is NOT taken.
 ASTNode *astNewObjNode(ASTNodeType type, Location loc, ASTObj *obj);
 ASTNode *astNewIdentifierNode(Location loc, ASTString str);
+ASTNode *astNewListNode(ASTNodeType type, Location loc);
 
 void astNodeFree(ASTNode *n);
 void astNodePrint(FILE *to, ASTNode *n);
