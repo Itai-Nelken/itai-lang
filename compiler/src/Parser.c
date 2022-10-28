@@ -12,7 +12,8 @@ void parserInit(Parser *p, Scanner *s, Compiler *c) {
     p->compiler = c;
     p->scanner = s;
     p->program = NULL;
-    p->current_module = 0;
+    p->current.module = 0;
+    p->current.function = NULL;
     // set current and previous tokens to TK_GARBAGE with empty locations
     // so errors can be reported using them.
     p->previous_token.type = TK_GARBAGE;
@@ -20,15 +21,19 @@ void parserInit(Parser *p, Scanner *s, Compiler *c) {
     p->current_token.type = TK_GARBAGE;
     p->current_token.location = locationNew(0, 0, 0);
     p->had_error = false;
+    p->need_synchronize = false;
 }
 
 void parserFree(Parser *p) {
     p->compiler = NULL;
     p->scanner = NULL;
     p->program = NULL;
+    p->current.module = 0;
+    p->current.function = NULL;
     p->previous_token.type = TK_GARBAGE;
     p->current_token.type = TK_GARBAGE;
     p->had_error = false;
+    p->need_synchronize = false;
 }
 
 /** Parser helpers **/
@@ -68,6 +73,7 @@ static void add_error(Parser *p, bool has_location, Location loc, char *message)
         stringFree(message);
     }
     p->had_error = true;
+    p->need_synchronize = true;
 }
 
 // NOTE: If 'message' is a valid String, it will be freed.
@@ -96,6 +102,14 @@ static bool match(Parser *p, TokenType expected) {
     }
     advance(p);
     return true;
+}
+
+static inline void enter_function(Parser *p, ASTObj *fn) {
+    p->current.function = fn;
+}
+
+static inline void leave_function(Parser *p) {
+    p->current.function = NULL;
 }
 
 /* Helper macros */
@@ -241,6 +255,47 @@ static inline ASTNode *parse_expression(Parser *p) {
     return parse_precedence(p, PREC_LOWEST);
 }
 
+// DOES consume the '{'.
+static ASTNode *parse_block(Parser *p, ASTNode *(*parse_callback)(Parser *p)) {
+    TRY_CONSUME(p, TK_LBRACE, 0);
+    ASTListNode *n = AS_LIST_NODE(astNewListNode(ND_BLOCK, locationNew(0, 0, 0)));
+    Location start = previous(p).location;
+
+    while(!is_eof(p) && current(p).type != TK_RBRACE) {
+        ASTNode *node = parse_callback(p);
+        if(node) {
+            arrayPush(&n->nodes, (void *)node);
+        } else {
+            // synchronize to statement boundaries
+            // (statements also include variable declarations in this context).
+            while(!is_eof(p) && current(p).type != TK_RBRACE) {
+                TokenType c = current(p).type;
+                if(c == TK_VAR) {
+                    break;
+                } else {
+                    advance(p);
+                }
+            }
+        }
+    }
+    TRY_CONSUME(p, TK_RBRACE, AS_NODE(n));
+
+    n->header.location = locationMerge(start, previous(p).location);
+    return AS_NODE(n);
+}
+
+static ASTNode *parse_expression_stmt(Parser *p) {
+    ASTNode *expr = TRY(ASTNode *, parse_expression(p), 0);
+    TRY_CONSUME(p, TK_SEMICOLON, expr);
+    return expr;
+}
+
+static ASTNode *parse_statement(Parser *p) {
+    ASTNode *result = NULL;
+    result = TRY(ASTNode *, parse_expression_stmt(p), 0);
+    return result;
+}
+
 // primitive_type -> i32 | u32
 static Type *parse_primitive_type(Parser *p) {
     if(match(p, TK_I32)) {
@@ -251,7 +306,7 @@ static Type *parse_primitive_type(Parser *p) {
     return NULL;
 }
 
-// complex_type -> structs, enums, functions, custom types
+// complex_type -> arrays, structs, enums, functions, custom types
 static Type *parse_complex_type(Parser *p) {
     error_at(p, current(p).location, "Expected typename.");
     return NULL;
@@ -302,6 +357,46 @@ static ASTNode *parse_variable_decl(Parser *p, Array *obj_array) {
     return var_node;
 }
 
+static ASTNode *parse_function_body(Parser *p) {
+    VERIFY(p->current.function);
+
+    ASTNode *result = NULL;
+    result = TRY(ASTNode *, parse_statement(p), 0);
+    return result;
+}
+
+// function_decl -> 'fn' identifier '(' parameter_list? ')' ('->' type)? block(fn_body)
+static ASTObj *parse_function_decl(Parser *p) {
+    // Assumes 'fn' was already consumed.
+    Location location = previous(p).location;
+
+    ASTString name = TRY(ASTString, parse_identifier(p), 0);
+
+    TRY_CONSUME(p, TK_LPAREN, 0);
+    // TODO: parameters.
+    TRY_CONSUME(p, TK_RPAREN, 0);
+
+    Type *return_type = NULL;
+    if(match(p, TK_ARROW)) {
+        return_type = TRY(Type *, parse_type(p), 0);
+    }
+    location = locationMerge(location, previous(p).location);
+
+    ASTObj *fn = astNewObj(OBJ_FN, location);
+    fn->as.fn.name = name;
+    fn->as.fn.return_type = return_type;
+
+    enter_function(p, fn);
+    fn->as.fn.body = AS_LIST_NODE(parse_block(p, parse_function_body));
+    leave_function(p);
+    if(!fn->as.fn.body) {
+        astFreeObj(fn);
+        return NULL;
+    }
+
+    return fn;
+}
+
 #undef TRY_CONSUME
 #undef TRY
 
@@ -310,7 +405,7 @@ static ASTNode *parse_variable_decl(Parser *p, Array *obj_array) {
 static void synchronize(Parser *p) {
     while(!is_eof(p)) {
         switch(current(p).type) {
-            //case TK_FN:
+            case TK_FN:
             case TK_VAR:
             //case TK_IMPORT:
             //case TK_MODULE:
@@ -346,19 +441,25 @@ bool parserParse(Parser *p, ASTProgram *prog) {
 
     // Create the root module.
     ASTModule *root_module = astModuleNew(astProgramAddString(prog, "___root_module___"));
-    p->current_module = astProgramAddModule(prog, root_module);
+    p->current.module = astProgramAddModule(prog, root_module);
     init_primitive_types(prog, root_module);
 
     while(!is_eof(p)) {
-        if(match(p, TK_VAR)) {
+        if(match(p, TK_FN)) {
+            ASTObj *fn = parse_function_decl(p);
+            if(fn != NULL) {
+                arrayPush(&root_module->objects, (void *)fn);
+            }
+        } else if(match(p, TK_VAR)) {
             ASTNode *global = parse_variable_decl(p, &root_module->objects);
             if(global != NULL) {
                 arrayPush(&root_module->globals, (void *)global);
-            } else {
-                synchronize(p);
             }
         } else {
-            error_at(p, current(p).location, stringFormat("Expected one of ['var'], but got '%s'.", tokenTypeString(current(p).type)));
+            error_at(p, current(p).location, stringFormat("Expected one of ['fn', 'var'], but got '%s'.", tokenTypeString(current(p).type)));
+        }
+        if(p->need_synchronize) {
+            p->need_synchronize = false;
             synchronize(p);
         }
     }

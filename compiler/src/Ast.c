@@ -68,6 +68,14 @@ static void print_string_table_callback(TableItem *item, bool is_last, void *str
     }
 }
 
+#define PRINT_ARRAY(type, print_fn, stream, array) for(usize i = 0; i < (array).used; ++i) { \
+    print_fn((stream), ARRAY_GET_AS(type, &(array), i)); \
+    if(i + 1 < (array).used) { \
+        fputs(", ", (stream)); \
+        } \
+    }
+
+
 /** ASTModule **/
 
 ASTModule *astModuleNew(ASTString name) {
@@ -102,25 +110,9 @@ Type *astModuleAddType(ASTModule *module, Type *ty) {
 
 void astModulePrint(FILE *to, ASTModule *module) {
     fprintf(to, "ASTModule{\x1b[1mname:\x1b[0m '%s', \x1b[1mobjects:\x1b[0m [", module->name);
-    for(usize i = 0 ; i < module->objects.used; ++i) {
-        ASTObj *o = ARRAY_GET_AS(ASTObj *, &module->objects, i);
-        astPrintObj(to, o);
-        // If not last, add a ',' (comma).
-        if(i + 1 < module->objects.used) {
-            fputs(", ", to);
-        }
-    }
-
+    PRINT_ARRAY(ASTObj *, astPrintObj, to, module->objects);
     fputs("], \x1b[1mglobals:\x1b[0m [", to);
-    for(usize i = 0 ; i < module->globals.used; ++i) {
-        ASTNode *n = ARRAY_GET_AS(ASTNode *, &module->globals, i);
-        astNodePrint(to, n);
-        // If not last, add a ',' (comma).
-        if(i + 1 < module->globals.used) {
-            fputs(", ", to);
-        }
-    }
-
+    PRINT_ARRAY(ASTNode *, astNodePrint, to, module->globals);
     fputs("], \x1b[1mtypes:\x1b[0m [", to);
     tableMap(&module->types, print_type_table_callback, (void *)to);
     fputs("]}", to);
@@ -146,14 +138,7 @@ void astProgramFree(ASTProgram *prog) {
 
 void astProgramPrint(FILE *to, ASTProgram *prog) {
     fputs("ASTProgram{\x1b[1mmodules:\x1b[0m [", to);
-    for(usize i = 0 ; i < prog->modules.used; ++i) {
-        ASTModule *m = ARRAY_GET_AS(ASTModule *, &prog->modules, i);
-        astModulePrint(to, m);
-        // If not last, add a ',' (comma).
-        if(i + 1 < prog->modules.used) {
-            fputs(", ", to);
-        }
-    }
+    PRINT_ARRAY(ASTModule *, astModulePrint, to, prog->modules);
     fputc(']', to);
 
     fputs(", \x1b[1mstrings:\x1b[0m [", to);
@@ -240,6 +225,15 @@ ASTNode *astNewIdentifierNode(Location loc, ASTString str) {
     return AS_NODE(n);
 }
 
+ASTNode *astNewListNode(ASTNodeType type, Location loc) {
+    ASTListNode *n;
+    NEW0(n);
+    n->header = make_header(type, loc);
+    arrayInit(&n->nodes);
+
+    return AS_NODE(n);
+}
+
 void astNodeFree(ASTNode *n) {
     if(n == NULL) {
         return;
@@ -254,6 +248,10 @@ void astNodeFree(ASTNode *n) {
         case ND_ADD:
             astNodeFree(AS_BINARY_NODE(n)->lhs);
             astNodeFree(AS_BINARY_NODE(n)->rhs);
+            break;
+        case ND_BLOCK:
+            arrayMap(&AS_LIST_NODE(n)->nodes, free_node_callback, NULL);
+            arrayFree(&AS_LIST_NODE(n)->nodes);
             break;
         default:
             UNREACHABLE();
@@ -272,6 +270,8 @@ static const char *node_name(ASTNodeType type) {
             return "ASTBinaryNode";
         case ND_IDENTIFIER:
             return "ASTIdentifierNode";
+        case ND_BLOCK:
+            return "ASTListNode";
         default:
             UNREACHABLE();
     }
@@ -283,6 +283,7 @@ static const char *node_type_name(ASTNodeType type) {
         [ND_VARIABLE]       = "ND_VARIABLE",
         [ND_ASSIGN]         = "ND_ASSIGN",
         [ND_ADD]            = "ND_ADD",
+        [ND_BLOCK]          = "ND_BLOCK",
         [ND_IDENTIFIER]     = "ND_IDENTIFIER"
     };
     _Static_assert(sizeof(names)/sizeof(names[0]) == ND_TYPE_COUNT, "Missing type(s) in node_type_name()");
@@ -316,6 +317,11 @@ void astNodePrint(FILE *to, ASTNode *n) {
         case ND_IDENTIFIER:
             fprintf(to, ", \x1b[1midentifier:\x1b[0m '%s'", AS_IDENTIFIER_NODE(n)->identifier);
             break;
+        case ND_BLOCK:
+            fputs(", \x1b[1mnodes:\x1b[0m [", to);
+            PRINT_ARRAY(ASTNode *, astNodePrint, to, AS_LIST_NODE(n)->nodes);
+            fputc(']', to);
+            break;
         default:
             UNREACHABLE();
     }
@@ -327,6 +333,16 @@ ASTObj *astNewObj(ASTObjType type, Location loc) {
     NEW0(o);
     o->type = type;
     o->location = loc;
+
+    switch(type) {
+        case OBJ_VAR:
+        case OBJ_FN:
+            // nothing
+            break;
+        default:
+            UNREACHABLE();
+    }
+
     return o;
 }
 
@@ -339,6 +355,9 @@ void astFreeObj(ASTObj *obj) {
         case OBJ_VAR:
             // nothing
             break;
+        case OBJ_FN:
+            astNodeFree(AS_NODE(obj->as.fn.body));
+            break;
         default:
             UNREACHABLE();
     }
@@ -347,7 +366,8 @@ void astFreeObj(ASTObj *obj) {
 
 static const char *obj_type_name(ASTObjType type) {
     static const char *names[] = {
-        [OBJ_VAR] = "OBJ_VAR"
+        [OBJ_VAR] = "OBJ_VAR",
+        [OBJ_FN]  = "OBJ_FN"
     };
     _Static_assert(sizeof(names)/sizeof(names[0]) == OBJ_TYPE_COUNT, "Missing type(s) in obj_type_name()");
     return names[type];
@@ -369,8 +389,17 @@ void astPrintObj(FILE *to, ASTObj *obj) {
             fputs(", \x1b[1mtype:\x1b[0m ", to);
             typePrint(to, obj->as.var.type);
             break;
+        case OBJ_FN:
+            fprintf(to, ", \x1b[1mname:\x1b[0m '%s'", obj->as.fn.name);
+            fputs(", \x1b[1mreturn_type:\x1b[0m ", to);
+            typePrint(to, obj->as.fn.return_type);
+            fputs(", \x1b[1mbody:\x1b[0m ", to);
+            astNodePrint(to, AS_NODE(obj->as.fn.body));
+            break;
         default:
             UNREACHABLE();
     }
     fputc('}', to);
 }
+
+#undef PRINT_ARRAY

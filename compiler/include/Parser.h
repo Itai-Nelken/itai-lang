@@ -13,11 +13,14 @@ typedef struct parser {
     ASTProgram *program;
 
     // current module/function
-    ModuleID current_module; // TODO: should be a stack (when multiple modules support is added).
+    struct {
+        ModuleID module; // TODO: should be a stack (when multiple modules support is added).
+        ASTObj *function; // NOTE: should be a stack when closures are supported?
+    } current;
 
     // state
     Token previous_token, current_token;
-    bool had_error;
+    bool had_error, need_synchronize;
 } Parser;
 
 /***
