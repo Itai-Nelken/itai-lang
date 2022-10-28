@@ -173,6 +173,7 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
         case ND_IDENTIFIER:
             return true;
         default:
+            printf("%d\n", n->node_type);
             UNREACHABLE();
     }
     return true;
