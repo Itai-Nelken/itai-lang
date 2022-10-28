@@ -1,4 +1,4 @@
-/// expect error: Error: Type mismatch: Expected 'u32' but got 'i32'.
+/// expect error: Error: Type mismatch: expected 'u32' but got 'i32'.
 
 var a: i32 = 42;
 var b: u32 = a;

@@ -150,7 +150,7 @@ private:
             } else {
                 // When checking that the expected error exists,
                 // only the first line (the description of the error) is checked.
-                test.tester_failed = test.output == expected.substr(0, expected.find_first_of('\n'));
+                test.tester_failed = test.output.substr(0, test.output.find_first_of('\n')) != expected;
             }
             return;
         } else if(test.options.should_succeed) {
