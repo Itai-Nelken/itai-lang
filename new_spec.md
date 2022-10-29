@@ -21,7 +21,6 @@ They don't have destructors, so they have to be manually freed.
 ### Example usage of raw pointers
 ```rust
 import "std/memory";
-using memory::{new, free};
 {
     using memory::{new, free};
     var i: &i32 = new(42); // fn new<T>(T) -> &T;
@@ -38,11 +37,11 @@ Optionals are declared by appending a `?` (question mark) to a type (e.g `i64?` 
 An empty optional contains an error (`Error` or derived structs), empty errors are represented by `Error::new("")` or the shorthand `None`.<br>
 To get the state of an optional, the `is_error() -> bool` bound function is used.
 
-An optional must be unwraped to access the value stored in it, there are three ways to do so:
-1) Force unwrap: panic if there is no value.
-2) `or` blocks: executed on error, and they have a special variable named `err` containing the error. `or` blocks must return.
-3) Propagate the error using the `?` operator: used to let caller handle the error.
-4) Using the `value_or(T) -> T` bound function: for default values.
+An optional must be unwrapped to access the value stored in it, there are three ways to do so: \
+1) Force unwrap: panic if there is no value. \
+2) `or` blocks: executed on error, and provided with the error which is accessible using the parameter. `or` blocks must return. \
+3) Propagate the error using the `?` operator: used to let caller handle the error. \
+4) Using the `value_or(T) -> T` bound function: for default values. \
 
 ```rust
 import "std/errors";
@@ -92,7 +91,8 @@ fn test() -> i64? {
 }
 
 fn main() {
-    var value = test() or {
+	// '&err' is syntactic sugar for 'err: &Error'.
+    var value = test() or &err {
         eprintln("Error: %s", err.what());
         return 1;
     }
@@ -132,7 +132,7 @@ fn add<T(ops::Add<T, T>)>add(a: T, b: T) -> T {
     return a + b;
 }
 ```
-Now only types that implement `std::traits::operators::Add<Rhs, Output>` will be accepted as arguments.
+Now only types that implement `std::traits::operators::Add<T, T>` will be accepted as arguments.
 
 Multiple traits can be required:
 ```rust
@@ -146,15 +146,15 @@ fn make_table<K(Equality, Hashable), V>() -> Table<K, V> {
 It is also possible to limit generic types to one of a list of types:
 ```rust
 fn to_i32<T(str, String)>(string: T) -> i32 {
-    return string.covert_to<i32>();
+    return string.convert_to<i32>();
 }
 ```
 **Traits:**<br>
 
-A trait defines functions the implementing type must implement.
-Traits are used for generic type constraints.<br>
-A trait can have generic types, but they can't be limited.<br>
-The `This` type is an alias for the implementing type.<br>
+A trait defines functions that implementing types must implement.
+Traits are used for generic type constraints. \
+A trait can have generic types, but they can't be limited. \
+The `This` type is an alias for the implementing type. \
 Functions defined in traits must not be private, so they are automatically marked as public.
 
 ```rust
@@ -176,7 +176,7 @@ struct NumberList implements Printable, Add<[i32], This> {
     public fn add(&this, rhs: [i32]) -> This {
         var new_list = NumberList{numbers: []};
         new_list.numbers.append_array(.numbers);
-        new_list.numbers.append_array(b);
+        new_list.numbers.append_array(rhs);
 
         return new_list;
     }
@@ -224,8 +224,7 @@ fn main() {
 
 ## Global/function definition order
 
-* Functions can be used before they are defined.
-* Globals must be defined before they are used.
+Functions and global variables can be used before they are defined although this should be avoided unless necessary because it makes code unreadable.
 
 ## Type conversions/casts
 
