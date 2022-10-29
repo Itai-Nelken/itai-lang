@@ -14,6 +14,10 @@ void arrayFree(Array *a) {
     a->used = a->capacity = 0;
 }
 
+size_t arrayLength(Array *a) {
+    return a->used;
+}
+
 size_t arrayPush(Array *a, void *value) {
     if(a->used + 1 > a->capacity) {
         a->capacity *= 2;

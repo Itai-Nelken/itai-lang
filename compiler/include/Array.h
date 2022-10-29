@@ -25,6 +25,16 @@ void arrayInit(Array *a);
 void arrayFree(Array *a);
 
 /***
+ * Return the length (element count) of an Array.
+ * NOTE: The element count and NOT the last index are returned.
+ *       to get the index of the last element, subtract 1 from the returned value.
+ *
+ * @param a An Array.
+ * @return The length of the Array.
+ ***/
+size_t arrayLength(Array *a);
+
+/***
  * Push a value to an Array.
  *
  * @param a The Array to use.
