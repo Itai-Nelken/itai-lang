@@ -406,7 +406,7 @@ void astObjPrint(FILE *to, ASTObj *obj) {
         return;
     }
 
-    fprintf(to, "ASTObj{\x1b[1mtype:\x1b[0m %s", obj_type_name(obj->type));
+    fprintf(to, "ASTObj{\x1b[1mtype: \x1b[36m%s\x1b[0m", obj_type_name(obj->type));
     fputs(", \x1b[1mlocation:\x1b[0m ", to);
     locationPrint(to, obj->location);
 
