@@ -30,7 +30,6 @@ typedef struct literal_value {
     } as;
 } LiteralValue;
 
-#define LITERAL_VALUE(literal_type, value_name, value) ((LiteralValue){.type = (literal_type), .as.value_name = (value)})
 
 // An ASTNode holds an expression.
 // for example, 1 + 2 is represented as:
@@ -157,37 +156,223 @@ typedef struct ast_program {
 
 /** Functions **/
 
+/* ASTModule */
+
+/***
+ * Create a new ASTModule.
+ *
+ * @param name The ASTString containing the module's name.
+ * @return A new module.
+ ***/
 ASTModule *astModuleNew(ASTString name);
+
+/***
+ * Free an ASTModule.
+ *
+ * @param module The module to free.
+ ***/
 void astModuleFree(ASTModule *module);
-// 'ty' MUST be heap allocated. ownership of it is taken.
+
+/***
+ * Intern a type saving it in 'module's type table.
+ * NOTE: 'ty' MUST be heap allocated. ownership of it is taken.
+ *
+ * @param module The module to save the type in.
+ * @param ty A heap allocated type to intern.
+ ****/
 Type *astModuleAddType(ASTModule *module, Type *ty);
+
+/***
+ * Print an ASTModule.
+ *
+ * @param to The stream to print to.
+ * @param module The module to print.
+ ****/
 void astModulePrint(FILE *to, ASTModule *module);
 
+/* ASTProgram */
+
+/***
+ * Initialize an ASTProgram.
+ *
+ * @param prog The program to initialize.
+ ***/
 void astProgramInit(ASTProgram *prog);
+
+/***
+ * Free an ASTProgram.
+ *
+ * @param prog The program to free.
+ ***/
 void astProgramFree(ASTProgram *prog);
+
+/***
+ * Print an ASTProgram.
+ *
+ * @param to The stream to print to.
+ * @param prog The program to print.
+ ***/
 void astProgramPrint(FILE *to, ASTProgram *prog);
-// If 'str' is a 'String', ownership of it is taken.
+
+/***
+ * Intern a string.
+ * NOTE: If 'str' is a String, ownership of it is taken.
+ *
+ * @param prog The ASTProgram to save the string in.
+ * @param str The string to intern (if 'str' is a String, ownership of it is taken).
+ ***/
 ASTString astProgramAddString(ASTProgram *prog, char *str);
+
+/***
+ * Add an ASTModule to an ASTProgram and return its id.
+ * NOTE: ownership of 'module' is taken.
+ *
+ * @param prog The ASTProgram to add the module to.
+ * @param module The module to add (ownership of it is taken).
+ * @return The ModuleID of the added module.
+ ***/
 ModuleID astProgramAddModule(ASTProgram *prog, ASTModule *module);
+
+/***
+ * Get an ASTModule using its ModuleID from an ASTProgram.
+ *
+ * @param prog The ASTProgram to get the module from.
+ * @param id The ModuleID of the module to get.
+ * @return A pointer to the module or NULL if the id is out of bounds.
+ ***/
 ASTModule *astProgramGetModule(ASTProgram *prog, ModuleID id);
 
+
+/* LiteralValue */
+
+/***
+ * Create a new LiteralValue.
+ *
+ * @param literal_type (type: LiteralValueType) The type of the value.
+ * @param value_name (type: C identifier) The name of the value's field in the 'as' union.
+ * @param value (type: any) The value itself (must be a constexpr).
+ ***/
+#define LITERAL_VALUE(literal_type, value_name, value) ((LiteralValue){.type = (literal_type), .as.value_name = (value)})
+
+/***
+ * Print a LiteralValue.
+ *
+ * @param to The stream to print to.
+ * @param value The value to print.
+ ***/
 void literalValuePrint(FILE *to, LiteralValue value);
 
+
+/* ASTNode */
+
+/***
+ * Create a new ASTBinaryNode.
+ *
+ * @param type The node type.
+ * @param loc The Location of the node.
+ * @param lhs The left child.
+ * @param rhs The right child.
+ * @return The node as an ASTNode.
+ ***/
 ASTNode *astNewBinaryNode(ASTNodeType type, Location loc, ASTNode *lhs, ASTNode *rhs);
+
+/***
+ * Create a new ASTLiteralValueNode.
+ *
+ * @param type The node type.
+ * @param loc The Location of the node.
+ * @param value The LiteralValue to store in the node.
+ * @return The node as an ASTNode.
+ ***/
 ASTNode *astNewLiteralValueNode(ASTNodeType type, Location loc, LiteralValue value);
-// Ownership of 'obj' is NOT taken.
+
+/***
+ * Create a new ASTObjNode.
+ * NOTE: Ownership of 'obj' is NOT taken.
+ *
+ * @param type The node type.
+ * @param loc The Location of the node.
+ * @param obj The ASTObj to store in the node.
+ * @return The node as an ASTNode.
+ ***/
 ASTNode *astNewObjNode(ASTNodeType type, Location loc, ASTObj *obj);
+
+/***
+ * Create a new ASTIdentifierNode (node type: ND_IDENTIFIER).
+ *
+ * @param loc The Location of the node.
+ * @param str The ASTString containing the identifier.
+ * @return The node as an ASTNode.
+ ***/
 ASTNode *astNewIdentifierNode(Location loc, ASTString str);
+
+/***
+ * Create a new ASTListNode.
+ *
+ * @param type The node type.
+ * @param loc The Location of the node.
+ * @return The node as an ASTNode.
+ ***/
 ASTNode *astNewListNode(ASTNodeType type, Location loc);
 
+/***
+ * Free an AST.
+ *
+ * @param n The root node of the tree.
+ ***/
 void astNodeFree(ASTNode *n);
+
+/***
+ * Print an AST.
+ *
+ * @param to The stream to print to.
+ * @param n The root node of the tree.
+ ***/
 void astNodePrint(FILE *to, ASTNode *n);
 
+
+/* BlockScope */
+
+/***
+ * Create a new BlockScope.
+ *
+ * @param parent_scope The previous scope.
+ * @return The new scope.
+ ***/
 BlockScope *blockScopeNew(BlockScope *parent_scope);
+
+/***
+ * Free a list of BlockScopes's.
+ *
+ * @param scope_list The head of the scope list.
+ ***/
 void blockScopeFree(BlockScope *scope_list);
 
+
+/* ASTObj */
+
+/***
+ * Create a new ASTObj.
+ *
+ * @param type The type of the object.
+ * @param loc The location of the object.
+ * @return The new object.
+ ***/
 ASTObj *astNewObj(ASTObjType type, Location loc);
+
+/***
+ * Free an ASTObj.
+ *
+ * @param obj The object to free.
+ ***/
 void astObjFree(ASTObj *obj);
+
+/***
+ * Print an ASTObj.
+ *
+ * @param to The stream to print to.
+ * @param obj The object to print.
+ ***/
 void astObjPrint(FILE *to, ASTObj *obj);
 
 #endif // AST_H
