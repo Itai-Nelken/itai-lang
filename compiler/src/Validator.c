@@ -174,6 +174,8 @@ static void module_validate_callback(void *module, usize index, void *validator)
     arrayMap(&m->objects, validate_object_callback, validator);
 }
 
+// typechecker forward declarations
+static void variable_typecheck_callback(void *variable_node, void *validator);
 
 static bool typecheck_ast(Validator *v, ASTNode *n) {
     switch(n->node_type) {
@@ -195,9 +197,16 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
             // failed == true -> failure (return false).
             return !failed;
         }
+        case ND_VARIABLE: {
+            bool old_had_error = v->had_error;
+            variable_typecheck_callback((void *)n, (void *)v);
+            if(old_had_error != v->had_error) {
+                return false;
+            }
+            break;
+        }
         // ignored nodes (no typechecking to do).
         case ND_NUMBER_LITERAL:
-        case ND_VARIABLE:
         case ND_ASSIGN:
         case ND_IDENTIFIER:
             return true;
@@ -207,8 +216,8 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
     return true;
 }
 
-static void variable_typecheck_callback(void *variable, void *validator) {
-    ASTNode *var = AS_NODE(variable);
+static void variable_typecheck_callback(void *variable_node, void *validator) {
+    ASTNode *var = AS_NODE(variable_node);
     Validator *v = (Validator *)validator;
 
     switch(var->node_type) {
