@@ -188,6 +188,6 @@ void blockScopeFree(BlockScope *scope_list);
 
 ASTObj *astNewObj(ASTObjType type, Location loc);
 void astObjFree(ASTObj *obj);
-void astPrintObj(FILE *to, ASTObj *obj);
+void astObjPrint(FILE *to, ASTObj *obj);
 
 #endif // AST_H

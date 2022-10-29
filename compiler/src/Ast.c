@@ -110,7 +110,7 @@ Type *astModuleAddType(ASTModule *module, Type *ty) {
 
 void astModulePrint(FILE *to, ASTModule *module) {
     fprintf(to, "ASTModule{\x1b[1mname:\x1b[0m '%s', \x1b[1mobjects:\x1b[0m [", module->name);
-    PRINT_ARRAY(ASTObj *, astPrintObj, to, module->objects);
+    PRINT_ARRAY(ASTObj *, astObjPrint, to, module->objects);
     fputs("], \x1b[1mglobals:\x1b[0m [", to);
     PRINT_ARRAY(ASTNode *, astNodePrint, to, module->globals);
     fputs("], \x1b[1mtypes:\x1b[0m [", to);
@@ -305,7 +305,7 @@ void astNodePrint(FILE *to, ASTNode *n) {
             break;
         case ND_VARIABLE:
             fputs(", \x1b[1mobj:\x1b[0m ", to);
-            astPrintObj(to, AS_OBJ_NODE(n)->obj);
+            astObjPrint(to, AS_OBJ_NODE(n)->obj);
             break;
         case ND_ASSIGN: // fallthrough
         case ND_ADD:
@@ -400,7 +400,7 @@ static const char *obj_type_name(ASTObjType type) {
     return names[type];
 }
 
-void astPrintObj(FILE *to, ASTObj *obj) {
+void astObjPrint(FILE *to, ASTObj *obj) {
     if(obj == NULL) {
         fprintf(to, "(null)");
         return;
@@ -421,7 +421,7 @@ void astPrintObj(FILE *to, ASTObj *obj) {
             fputs(", \x1b[1mreturn_type:\x1b[0m ", to);
             typePrint(to, obj->as.fn.return_type);
             fputs(", \x1b[1mlocals:\x1b[0m [", to);
-            PRINT_ARRAY(ASTObj *, astPrintObj, to, obj->as.fn.locals);
+            PRINT_ARRAY(ASTObj *, astObjPrint, to, obj->as.fn.locals);
             fputs("], \x1b[1mbody:\x1b[0m ", to);
             astNodePrint(to, AS_NODE(obj->as.fn.body));
             break;
