@@ -22,7 +22,7 @@ static void free_node_callback(void *node, void *cl) {
 
 static void free_object_callback(void *object, void *cl) {
     UNUSED(cl);
-    astFreeObj((ASTObj *)object);
+    astObjFree((ASTObj *)object);
 }
 
 static void free_module_callback(void *module, void *cl) {
@@ -68,7 +68,7 @@ static void print_string_table_callback(TableItem *item, bool is_last, void *str
     }
 }
 
-#define PRINT_ARRAY(type, print_fn, stream, array) for(usize i = 0; i < (array).used; ++i) { \
+#define PRINT_ARRAY(type, print_fn, stream, array) for(usize i = 0; i < arrayLength(&(array)); ++i) { \
     print_fn((stream), ARRAY_GET_AS(type, &(array), i)); \
     if(i + 1 < (array).used) { \
         fputs(", ", (stream)); \
@@ -328,6 +328,28 @@ void astNodePrint(FILE *to, ASTNode *n) {
     fputc('}', to);
 }
 
+BlockScope *blockScopeNew(BlockScope *parent_scope) {
+    BlockScope *sc;
+    NEW0(sc);
+    tableInit(&sc->visible_locals, NULL, NULL);
+    sc->parent = parent_scope;
+    return sc;
+}
+
+void blockScopeFree(BlockScope *scope_list) {
+    while(scope_list) {
+        BlockScope *parent = scope_list->parent;
+        // No need to free the strings in the table as they are
+        // ASTString's which are owned by the ASTProgram
+        // being used for the parse.
+        // The same applies to the objects, but they are owned
+        // by the parent function of the scope.
+        tableFree(&scope_list->visible_locals);
+        FREE(scope_list);
+        scope_list = parent;
+    }
+}
+
 ASTObj *astNewObj(ASTObjType type, Location loc) {
     ASTObj *o;
     NEW0(o);
@@ -336,8 +358,10 @@ ASTObj *astNewObj(ASTObjType type, Location loc) {
 
     switch(type) {
         case OBJ_VAR:
-        case OBJ_FN:
             // nothing
+            break;
+        case OBJ_FN:
+            arrayInit(&o->as.fn.locals);
             break;
         default:
             UNREACHABLE();
@@ -346,7 +370,7 @@ ASTObj *astNewObj(ASTObjType type, Location loc) {
     return o;
 }
 
-void astFreeObj(ASTObj *obj) {
+void astObjFree(ASTObj *obj) {
     if(obj == NULL) {
         return;
     }
@@ -356,6 +380,9 @@ void astFreeObj(ASTObj *obj) {
             // nothing
             break;
         case OBJ_FN:
+            arrayMap(&obj->as.fn.locals, free_object_callback, NULL);
+            arrayFree(&obj->as.fn.locals);
+            blockScopeFree(obj->as.fn.scopes);
             astNodeFree(AS_NODE(obj->as.fn.body));
             break;
         default:
@@ -393,7 +420,9 @@ void astPrintObj(FILE *to, ASTObj *obj) {
             fprintf(to, ", \x1b[1mname:\x1b[0m '%s'", obj->as.fn.name);
             fputs(", \x1b[1mreturn_type:\x1b[0m ", to);
             typePrint(to, obj->as.fn.return_type);
-            fputs(", \x1b[1mbody:\x1b[0m ", to);
+            fputs(", \x1b[1mlocals:\x1b[0m [", to);
+            PRINT_ARRAY(ASTObj *, astPrintObj, to, obj->as.fn.locals);
+            fputs("], \x1b[1mbody:\x1b[0m ", to);
             astNodePrint(to, AS_NODE(obj->as.fn.body));
             break;
         default:

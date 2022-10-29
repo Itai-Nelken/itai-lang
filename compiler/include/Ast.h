@@ -107,6 +107,12 @@ typedef enum ast_obj_type {
     OBJ_TYPE_COUNT
 } ASTObjType;
 
+typedef struct block_scope {
+    Table visible_locals; // Table<ASTString, ASTObj *>
+    // Table type_aliases;???
+    struct block_scope *parent;
+} BlockScope;
+
 typedef struct ast_obj {
     ASTObjType type;
     Location location;
@@ -119,6 +125,8 @@ typedef struct ast_obj {
         struct {
             ASTString name;
             Type *return_type;
+            BlockScope *scopes;
+            Array locals; // Array<ASTObj *>
             ASTListNode *body;
         } fn;
     } as;
@@ -175,8 +183,11 @@ ASTNode *astNewListNode(ASTNodeType type, Location loc);
 void astNodeFree(ASTNode *n);
 void astNodePrint(FILE *to, ASTNode *n);
 
+BlockScope *blockScopeNew(BlockScope *parent_scope);
+void blockScopeFree(BlockScope *scope_list);
+
 ASTObj *astNewObj(ASTObjType type, Location loc);
-void astFreeObj(ASTObj *obj);
+void astObjFree(ASTObj *obj);
 void astPrintObj(FILE *to, ASTObj *obj);
 
 #endif // AST_H

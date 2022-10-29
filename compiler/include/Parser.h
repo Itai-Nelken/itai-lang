@@ -16,6 +16,7 @@ typedef struct parser {
     struct {
         ModuleID module; // TODO: should be a stack (when multiple modules support is added).
         ASTObj *function; // NOTE: should be a stack when closures are supported?
+        BlockScope *scope;
     } current;
 
     // state

@@ -3,6 +3,8 @@
 #include "common.h"
 #include "memory.h"
 #include "Strings.h"
+#include "Array.h"
+#include "Table.h"
 #include "Error.h"
 #include "Ast.h"
 #include "Scanner.h"
@@ -14,6 +16,7 @@ void parserInit(Parser *p, Scanner *s, Compiler *c) {
     p->program = NULL;
     p->current.module = 0;
     p->current.function = NULL;
+    p->current.scope = NULL;
     // set current and previous tokens to TK_GARBAGE with empty locations
     // so errors can be reported using them.
     p->previous_token.type = TK_GARBAGE;
@@ -104,12 +107,43 @@ static bool match(Parser *p, TokenType expected) {
     return true;
 }
 
+static inline void enter_scope(Parser *p) {
+    VERIFY(p->current.function);
+    p->current.function->as.fn.scopes = blockScopeNew(p->current.function->as.fn.scopes);
+    p->current.scope = p->current.function->as.fn.scopes;
+}
+
+static void leave_scope(Parser *p) {
+    VERIFY(p->current.scope != NULL); // depth > 0 (global/file/module scope).
+    p->current.scope = p->current.scope->parent;
+}
+
+static inline void add_local_to_current_scope(Parser *p, ASTObj *local) {
+    VERIFY(p->current.scope != NULL);
+    VERIFY(tableSet(&p->current.scope->visible_locals, (void *)local->as.var.name, (void *)local) == NULL);
+}
+
+static ASTObj *find_local(Parser *p, ASTString name) {
+    VERIFY(p->current.scope != NULL);
+    BlockScope *scope = p->current.scope;
+    while(scope) {
+        TableItem *i = tableGet(&scope->visible_locals, (void *)name);
+        if(i) {
+            return (ASTObj *)i->value;
+        }
+        scope = scope->parent;
+    }
+    return NULL;
+}
+
 static inline void enter_function(Parser *p, ASTObj *fn) {
     p->current.function = fn;
+    enter_scope(p);
 }
 
 static inline void leave_function(Parser *p) {
     p->current.function = NULL;
+    leave_scope(p);
 }
 
 /* Helper macros */
@@ -346,6 +380,10 @@ static ASTNode *parse_variable_decl(Parser *p, Array *obj_array) {
     var->as.var.type = type;
 
     // Add the variable object.
+    // NOTE: The object is being pushed to the array
+    //       only AFTER all the parsing is done.
+    //       This is so that "ghost" objects that belong to half-parsed
+    //       variables won't be in the array and cause weird problems later on.
     arrayPush(obj_array, (void *)var);
 
     // includes everything from the 'var' to the ';'.
@@ -361,7 +399,30 @@ static ASTNode *parse_function_body(Parser *p) {
     VERIFY(p->current.function);
 
     ASTNode *result = NULL;
-    result = TRY(ASTNode *, parse_statement(p), 0);
+    if(match(p, TK_VAR)) {
+        ASTNode *var_node = TRY(ASTNode *, parse_variable_decl(p, &p->current.function->as.fn.locals), 0);
+        // Get the name of the variable to push to check
+        // for redefinitions and to save in the current scope.
+        ASTObj *var_obj = ARRAY_GET_AS(ASTObj *, &p->current.function->as.fn.locals, arrayLength(&p->current.function->as.fn.locals) - 1);
+        VERIFY(var_obj->type == OBJ_VAR);
+        ASTObj *existing_obj = find_local(p, var_obj->as.var.name);
+        if(existing_obj) {
+            // TODO: emit hint of previous declaration using 'exisiting_obj.location'.
+            error(p, stringFormat("Redfinition of local variable '%s'.", var_obj->as.var.name));
+            astNodeFree(var_node);
+            // NOTE: arrayPop() is used even though we already have a reference
+            //       to the object we want to free because we also want to remove
+            //       the object from the array.
+            astObjFree((ASTObj *)arrayPop(&p->current.function->as.fn.locals));
+            return NULL;
+        }
+        add_local_to_current_scope(p, var_obj);
+        result = var_node;
+    } else {
+        // no need for TRY() here as nothing is done with the result node
+        // other than return it.
+        result = parse_statement(p);
+    }
     return result;
 }
 
@@ -390,7 +451,7 @@ static ASTObj *parse_function_decl(Parser *p) {
     fn->as.fn.body = AS_LIST_NODE(parse_block(p, parse_function_body));
     leave_function(p);
     if(!fn->as.fn.body) {
-        astFreeObj(fn);
+        astObjFree(fn);
         return NULL;
     }
 

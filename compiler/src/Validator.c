@@ -12,6 +12,7 @@ void validatorInit(Validator *v, Compiler *c) {
     v->compiler = c;
     v->program = NULL;
     v->current_module = 0;
+    v->current_fn_root_scope = NULL;
     v->had_error = false;
 }
 
@@ -19,6 +20,7 @@ void validatorFree(Validator *v) {
     v->compiler = NULL;
     v->program = NULL;
     v->current_module = 0;
+    v->current_fn_root_scope = NULL;
     v->had_error = false;
 }
 
@@ -69,6 +71,30 @@ static ASTObj *find_global_var(Validator *v, ASTString name) {
     return NULL;
 }
 
+static ASTObj *find_local_var(Validator *v, ASTString name) {
+    VERIFY(v->current_fn_root_scope != NULL); // depth > 0.
+    BlockScope *scope = v->current_fn_root_scope;
+    while(scope) {
+        TableItem *i = tableGet(&scope->visible_locals, (void *)name);
+        if(i) {
+            return (ASTObj *)i->value;
+        }
+        scope = scope->parent;
+    }
+    return NULL;
+}
+
+static ASTObj *find_variable(Validator *v, ASTString name) {
+    ASTObj *result = NULL;
+    // If the scope depth is larger than 0 (meaning we are inside a function),
+    // search for a local variable first.
+    if(v->current_fn_root_scope && (result = find_local_var(v, name)) != NULL) {
+        return result;
+    }
+    // otherwise search for a global variable.
+    return find_global_var(v, name);
+}
+
 static Type *get_expr_type(Validator *v, ASTNode *expr) {
     Type *ty = NULL;
     switch(expr->node_type) {
@@ -76,8 +102,7 @@ static Type *get_expr_type(Validator *v, ASTNode *expr) {
             ty = v->program->primitives.int32;
             break;
         case ND_IDENTIFIER: {
-            // TODO: when local variables are added, check for them first.
-            ASTObj *var = find_global_var(v, AS_IDENTIFIER_NODE(expr)->identifier);
+            ASTObj *var = find_variable(v, AS_IDENTIFIER_NODE(expr)->identifier);
             if(!var) {
                 error(v, expr->location, "Variable '%s' not found.", AS_IDENTIFIER_NODE(expr)->identifier);
                 break;
@@ -119,12 +144,16 @@ static void variable_validate_callback(void *variable, void *validator) {
 static void validate_function(Validator *v, ASTObj *fn) {
     VERIFY(fn->type == OBJ_FN);
 
+    v->current_fn_root_scope = fn->as.fn.scopes;
+
     for(usize i = 0; i < fn->as.fn.body->nodes.used; ++i) {
         ASTNode *n = ARRAY_GET_AS(ASTNode *, &fn->as.fn.body->nodes, i);
         if(n->node_type == ND_ASSIGN) {
             variable_validate_callback((void *)n, (void *)v);
         }
     }
+
+    v->current_fn_root_scope = NULL;
 }
 
 static void validate_object_callback(void *object, void *validator) {
@@ -210,8 +239,14 @@ static void variable_typecheck_callback(void *variable, void *validator) {
 static bool typecheck_function(Validator *v, ASTObj *fn) {
     VERIFY(fn->type == OBJ_FN);
 
+    v->current_fn_root_scope = fn->as.fn.scopes;
+
     // TODO: check return type once return stmt is implemented.
-    return typecheck_ast(v, AS_NODE(fn->as.fn.body));
+    bool result = typecheck_ast(v, AS_NODE(fn->as.fn.body));
+
+    v->current_fn_root_scope = NULL;;
+
+    return result;
 }
 
 static void typecheck_object_callback(void *object, void *validator) {
