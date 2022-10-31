@@ -37,11 +37,11 @@ Optionals are declared by appending a `?` (question mark) to a type (e.g `i64?` 
 An empty optional contains an error (`Error` or derived structs), empty errors are represented by `Error::new("")` or the shorthand `None`.<br>
 To get the state of an optional, the `is_error() -> bool` bound function is used.
 
-An optional must be unwrapped to access the value stored in it, there are three ways to do so: \
-1) Force unwrap: panic if there is no value. \
-2) `or` blocks: executed on error, and provided with the error which is accessible using the parameter. `or` blocks must return. \
-3) Propagate the error using the `?` operator: used to let caller handle the error. \
-4) Using the `value_or(T) -> T` bound function: for default values. \
+An optional must be unwrapped to access the value stored in it, there are three ways to do so:
+1) Force unwrap: panic if there is no value.
+2) `or` blocks: executed on error, and provided with the error which is accessible using the parameter. `or` blocks must return.
+3) Propagate the error using the `?` operator: used to let caller handle the error.
+4) Using the `value_or(T) -> T` bound function: for default values.
 
 ```rust
 import "std/errors";

@@ -276,7 +276,7 @@ static const char *node_name(ASTNodeType type) {
         case ND_IDENTIFIER:
             return "ASTIdentifierNode";
         case ND_BLOCK:
-            return "ASTListNode";
+            return "ASTBlockNode";
         default:
             UNREACHABLE();
     }
