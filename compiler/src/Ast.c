@@ -230,10 +230,10 @@ ASTNode *astNewIdentifierNode(Location loc, ASTString str) {
     return AS_NODE(n);
 }
 
-ASTNode *astNewListNode(ASTNodeType type, Location loc) {
-    ASTListNode *n;
+ASTNode *astNewBlockNode(Location loc) {
+    ASTBlockNode *n;
     NEW0(n);
-    n->header = make_header(type, loc);
+    n->header = make_header(ND_BLOCK, loc);
     arrayInit(&n->nodes);
 
     return AS_NODE(n);
@@ -255,8 +255,8 @@ void astNodeFree(ASTNode *n) {
             astNodeFree(AS_BINARY_NODE(n)->rhs);
             break;
         case ND_BLOCK:
-            arrayMap(&AS_LIST_NODE(n)->nodes, free_node_callback, NULL);
-            arrayFree(&AS_LIST_NODE(n)->nodes);
+            arrayMap(&AS_BLOCK_NODE(n)->nodes, free_node_callback, NULL);
+            arrayFree(&AS_BLOCK_NODE(n)->nodes);
             break;
         default:
             UNREACHABLE();
@@ -324,7 +324,7 @@ void astNodePrint(FILE *to, ASTNode *n) {
             break;
         case ND_BLOCK:
             fputs(", \x1b[1mnodes:\x1b[0m [", to);
-            PRINT_ARRAY(ASTNode *, astNodePrint, to, AS_LIST_NODE(n)->nodes);
+            PRINT_ARRAY(ASTNode *, astNodePrint, to, AS_BLOCK_NODE(n)->nodes);
             fputc(']', to);
             break;
         default:

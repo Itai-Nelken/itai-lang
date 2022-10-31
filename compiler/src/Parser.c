@@ -300,7 +300,7 @@ static inline ASTNode *parse_expression(Parser *p) {
 // DOES consume the '{'.
 static ASTNode *parse_block(Parser *p, ASTNode *(*parse_callback)(Parser *p)) {
     TRY_CONSUME(p, TK_LBRACE, 0);
-    ASTListNode *n = AS_LIST_NODE(astNewListNode(ND_BLOCK, locationNew(0, 0, 0)));
+    ASTBlockNode *n = AS_BLOCK_NODE(astNewBlockNode(locationNew(0, 0, 0)));
     Location start = previous(p).location;
 
     while(!is_eof(p) && current(p).type != TK_RBRACE) {
@@ -456,7 +456,7 @@ static ASTObj *parse_function_decl(Parser *p) {
     fn->as.fn.return_type = return_type;
 
     enter_function(p, fn);
-    fn->as.fn.body = AS_LIST_NODE(parse_block(p, parse_function_body));
+    fn->as.fn.body = AS_BLOCK_NODE(parse_block(p, parse_function_body));
     leave_function(p);
     if(!fn->as.fn.body) {
         astObjFree(fn);

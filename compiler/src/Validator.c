@@ -188,8 +188,8 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
         case ND_BLOCK: {
             // typecheck all nodes in the block, even if some fail.
             bool failed = false;
-            for(usize i = 0; i < AS_LIST_NODE(n)->nodes.used; ++i) {
-                failed = typecheck_ast(v, ARRAY_GET_AS(ASTNode *, &AS_LIST_NODE(n)->nodes, i));
+            for(usize i = 0; i < AS_BLOCK_NODE(n)->nodes.used; ++i) {
+                failed = typecheck_ast(v, ARRAY_GET_AS(ASTNode *, &AS_BLOCK_NODE(n)->nodes, i));
             }
             // failed == false -> success (return true).
             // failed == true -> failure (return false).

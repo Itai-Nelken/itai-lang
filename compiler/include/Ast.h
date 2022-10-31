@@ -86,7 +86,7 @@ typedef struct ast_identifier_node {
 typedef struct ast_list_node {
     ASTNode header;
     Array nodes; // Array<ASTNode *>
-} ASTListNode;
+} ASTBlockNode;
 
 #define NODE_IS(node, type) ((node)->node_type == (type))
 #define AS_NODE(node) ((ASTNode *)(node))
@@ -94,7 +94,7 @@ typedef struct ast_list_node {
 #define AS_LITERAL_NODE(node) ((ASTLiteralValueNode *)(node))
 #define AS_OBJ_NODE(node) ((ASTObjNode *)(node))
 #define AS_IDENTIFIER_NODE(node) ((ASTIdentifierNode *)(node))
-#define AS_LIST_NODE(node) ((ASTListNode *)(node))
+#define AS_BLOCK_NODE(node) ((ASTBlockNode *)(node))
 
 // A ModuleID is an index into the ASTProgram::modules array.
 typedef usize ModuleID;
@@ -133,7 +133,7 @@ typedef struct ast_obj {
             Type *return_type;
             BlockScope *scopes;
             Array locals; // Array<ASTObj *>
-            ASTListNode *body;
+            ASTBlockNode *body;
         } fn;
     } as;
 } ASTObj;
@@ -314,13 +314,12 @@ ASTNode *astNewObjNode(ASTNodeType type, Location loc, ASTObj *obj);
 ASTNode *astNewIdentifierNode(Location loc, ASTString str);
 
 /***
- * Create a new ASTListNode.
+ * Create a new ASTBlockNode.
  *
- * @param type The node type.
  * @param loc The Location of the node.
  * @return The node as an ASTNode.
  ***/
-ASTNode *astNewListNode(ASTNodeType type, Location loc);
+ASTNode *astNewBlockNode(Location loc);
 
 /***
  * Free an AST.
