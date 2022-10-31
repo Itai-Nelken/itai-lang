@@ -73,13 +73,11 @@ static ASTObj *find_global_var(Validator *v, ASTString name) {
 
 static ASTObj *find_local_var(Validator *v, ASTString name) {
     VERIFY(v->current_fn_root_scope != NULL); // depth > 0.
+    VERIFY(v->current_fn_root_scope->children.used == 0); // FIXME: properly handle childern scopes.
     BlockScope *scope = v->current_fn_root_scope;
-    while(scope) {
-        TableItem *i = tableGet(&scope->visible_locals, (void *)name);
-        if(i) {
-            return (ASTObj *)i->value;
-        }
-        scope = scope->parent;
+    TableItem *i = tableGet(&scope->visible_locals, (void *)name);
+    if(i) {
+        return (ASTObj *)i->value;
     }
     return NULL;
 }

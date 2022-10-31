@@ -107,10 +107,17 @@ typedef enum ast_obj_type {
 } ASTObjType;
 
 typedef struct block_scope {
+    u32 depth;
     Table visible_locals; // Table<ASTString, ASTObj *>
     // Table type_aliases;???
     struct block_scope *parent;
+    Array children; // Array<BlockScope *>
 } BlockScope;
+
+typedef struct scope_id {
+    u32 depth;
+    usize index;
+} ScopeID;
 
 typedef struct ast_obj {
     ASTObjType type;
@@ -337,9 +344,28 @@ void astNodePrint(FILE *to, ASTNode *n);
  * Create a new BlockScope.
  *
  * @param parent_scope The previous scope.
+ * @param depth The depth of the scope.
  * @return The new scope.
  ***/
-BlockScope *blockScopeNew(BlockScope *parent_scope);
+BlockScope *blockScopeNew(BlockScope *parent_scope, u32 depth);
+
+/***
+ * Add a child to a BlockScope.
+ *
+ * @param parent The parent scope.
+ * @param child The child scope to add.
+ * @return The ScopeID of the added scope.
+ ***/
+ScopeID blockScopeAddChild(BlockScope *parent, BlockScope *child);
+
+/***
+ * Get a child BlockScope.
+ *
+ * @param parent The parent scope.
+ * @param child_id The ScopeID of the child.
+ * @return The child scope (always, panics on invalid scopeID);
+ ***/
+BlockScope *blockScopeGetChild(BlockScope *parent, ScopeID child_id);
 
 /***
  * Free a list of BlockScopes's.

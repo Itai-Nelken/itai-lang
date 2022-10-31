@@ -30,6 +30,11 @@ static void free_module_callback(void *module, void *cl) {
     astModuleFree((ASTModule *)module);
 }
 
+static void free_block_scope_callback(void *scope, void *cl) {
+    UNUSED(cl);
+    blockScopeFree((BlockScope *)scope);
+}
+
 static unsigned hash_type(void *type) {
     Type *ty = (Type *)type;
     // The hash will overflow unsigned, so it will wrap around.
@@ -328,26 +333,40 @@ void astNodePrint(FILE *to, ASTNode *n) {
     fputc('}', to);
 }
 
-BlockScope *blockScopeNew(BlockScope *parent_scope) {
+BlockScope *blockScopeNew(BlockScope *parent_scope, u32 depth) {
     BlockScope *sc;
     NEW0(sc);
     tableInit(&sc->visible_locals, NULL, NULL);
+    arrayInit(&sc->children);
+    sc->depth = depth;
     sc->parent = parent_scope;
     return sc;
 }
 
+ScopeID blockScopeAddChild(BlockScope *parent, BlockScope *child) {
+    ScopeID id;
+    id.depth = child->depth;
+    id.index = arrayPush(&parent->children, (void *)child);
+    return id;
+}
+
+BlockScope *blockScopeGetChild(BlockScope *parent, ScopeID child_id) {
+    VERIFY(parent->depth < child_id.depth);
+    BlockScope *child = ARRAY_GET_AS(BlockScope *, &parent->children, child_id.index);
+    VERIFY(child);
+    return child;
+}
+
 void blockScopeFree(BlockScope *scope_list) {
-    while(scope_list) {
-        BlockScope *parent = scope_list->parent;
-        // No need to free the strings in the table as they are
-        // ASTString's which are owned by the ASTProgram
-        // being used for the parse.
-        // The same applies to the objects, but they are owned
-        // by the parent function of the scope.
-        tableFree(&scope_list->visible_locals);
-        FREE(scope_list);
-        scope_list = parent;
-    }
+    // No need to free the strings in the table as they are
+    // ASTString's which are owned by the ASTProgram
+    // being used for the parse.
+    // The same applies to the objects, but they are owned
+    // by the parent function of the scope.
+    tableFree(&scope_list->visible_locals);
+    arrayMap(&scope_list->children, free_block_scope_callback, NULL);
+    arrayFree(&scope_list->children);
+    FREE(scope_list);
 }
 
 ASTObj *astNewObj(ASTObjType type, Location loc) {

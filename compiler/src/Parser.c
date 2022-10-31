@@ -107,10 +107,18 @@ static bool match(Parser *p, TokenType expected) {
     return true;
 }
 
-static inline void enter_scope(Parser *p) {
+static inline ScopeID enter_scope(Parser *p) {
     VERIFY(p->current.function);
-    p->current.function->as.fn.scopes = blockScopeNew(p->current.function->as.fn.scopes);
-    p->current.scope = p->current.function->as.fn.scopes;
+    if(p->current.scope == NULL) {
+        // Function scope, depth always == 1.
+        p->current.scope = p->current.function->as.fn.scopes = blockScopeNew(NULL, 1);
+        return (ScopeID){0, 1};
+    }
+    // Block scope (meaning scopes inside a function scope).
+    BlockScope *child = blockScopeNew(p->current.scope, p->current.scope->depth + 1);
+    ScopeID id = blockScopeAddChild(p->current.scope, child);
+    p->current.scope = child;
+    return id;
 }
 
 static void leave_scope(Parser *p) {
