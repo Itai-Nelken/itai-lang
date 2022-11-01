@@ -91,8 +91,9 @@ Token tokenNew(TokenType type, Location location, char *lexeme, u32 length);
  *
  * @param to The stream to print to.
  * @param loc The Location to print.
+ * @param compact Print the location in a compact way.
  ***/
-void locationPrint(FILE *to, Location loc);
+void locationPrint(FILE *to, Location loc, bool compact);
 
 /***
  * Print a Token.

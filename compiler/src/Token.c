@@ -61,14 +61,18 @@ static const char *token_type_name(TokenType type) {
     return names[(i32)type];
 }
 
-void locationPrint(FILE *to, Location loc) {
-    fprintf(to, "Location{\x1b[1mstart:\x1b[0;34m %ld\x1b[0m, \x1b[1mend:\x1b[0;34m %ld\x1b[0m, \x1b[1mfile:\x1b[0;34m %zu\x1b[0m}", loc.start, loc.end, loc.file);
+void locationPrint(FILE *to, Location loc, bool compact) {
+    if(compact) {
+        fprintf(to, "Location{\x1b[34m%lu\x1b[0m..\x1b[34m%lu\x1b[0m @ \x1b[34m%zu\x1b[0m}", loc.start, loc.end, loc.file);
+    } else {
+        fprintf(to, "Location{\x1b[1mstart:\x1b[0;34m %lu\x1b[0m, \x1b[1mend:\x1b[0;34m %lu\x1b[0m, \x1b[1mfile:\x1b[0;34m %zu\x1b[0m}", loc.start, loc.end, loc.file);
+    }
 }
 
 void tokenPrint(FILE *to, Token *t) {
     VERIFY(t);
     fprintf(to, "Token{\x1b[1mtype:\x1b[0;33m %s\x1b[0m, \x1b[1mlocation:\x1b[0m ", token_type_name(t->type));
-    locationPrint(to, t->location);
+    locationPrint(to, t->location, false);
     fprintf(to, ", \x1b[1mlexeme:\x1b[0m '%.*s'", t->length, t->lexeme);
     fprintf(to, ", \x1b[1mlength:\x1b[0;34m %u\x1b[0m", t->length);
     fprintf(to, "}");

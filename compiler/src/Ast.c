@@ -302,7 +302,7 @@ void astNodePrint(FILE *to, ASTNode *n) {
     }
     fprintf(to, "%s{\x1b[1mnode_type: \x1b[33m%s\x1b[0m", node_name(n->node_type), node_type_name(n->node_type));
     fputs(", \x1b[1mlocation:\x1b[0m ", to);
-    locationPrint(to, n->location);
+    locationPrint(to, n->location, true);
     switch(n->node_type) {
         case ND_NUMBER_LITERAL:
             fprintf(to, ", \x1b[1mvalue:\x1b[0m ");
@@ -427,7 +427,7 @@ void astObjPrint(FILE *to, ASTObj *obj) {
 
     fprintf(to, "ASTObj{\x1b[1mtype: \x1b[36m%s\x1b[0m", obj_type_name(obj->type));
     fputs(", \x1b[1mlocation:\x1b[0m ", to);
-    locationPrint(to, obj->location);
+    locationPrint(to, obj->location, true);
 
     switch(obj->type) {
         case OBJ_VAR:
