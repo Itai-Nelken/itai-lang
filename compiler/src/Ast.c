@@ -81,7 +81,8 @@ static void print_string_table_callback(TableItem *item, bool is_last, void *str
     }
 
 
-/** ASTModule **/
+
+/* ASTModule */
 
 ASTModule *astModuleNew(ASTString name) {
     ASTModule *m;
@@ -124,7 +125,7 @@ void astModulePrint(FILE *to, ASTModule *module) {
 }
 
 
-/** ASTProgram **/
+/* ASTProgram */
 
 void astProgramInit(ASTProgram *prog) {
     tableInit(&prog->strings, NULL, NULL);
@@ -230,7 +231,8 @@ void blockScopeFree(BlockScope *scope_list) {
     FREE(scope_list);
 }
 
-/** ASTNode **/
+
+/* ASTNode */
 
 static inline ASTNode make_header(ASTNodeType type, Location loc) {
     return (ASTNode){
@@ -376,6 +378,8 @@ void astNodePrint(FILE *to, ASTNode *n) {
     fputc('}', to);
 }
 
+
+/* ASTObj */
 
 ASTObj *astNewObj(ASTObjType type, Location loc) {
     ASTObj *o;

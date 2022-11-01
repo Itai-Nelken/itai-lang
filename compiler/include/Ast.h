@@ -9,13 +9,20 @@
 #include "Types.h"
 
 /** Types **/
+
+// forward declarations
+typedef struct ast_obj ASTObj;
+
+
+/* ASTString */
+
 // An ASTString represents an interned string.
 // an ASTString can be used interchangeably with String as long
 // as it isn't freed.
 typedef char *ASTString;
 
-// forward declarations
-typedef struct ast_obj ASTObj;
+
+/* LiteralValue */
 
 // A LiteralValue holds, well, a literal value.
 // For example number literals & strings.
@@ -31,6 +38,8 @@ typedef struct literal_value {
 } LiteralValue;
 
 
+/* BlockScope */
+
 typedef struct block_scope {
     u32 depth;
     Table visible_locals; // Table<ASTString, ASTObj *>
@@ -44,6 +53,8 @@ typedef struct scope_id {
     usize index;
 } ScopeID;
 
+
+/* ASTNode */
 
 // An ASTNode holds an expression.
 // for example, 1 + 2 is represented as:
@@ -111,8 +122,14 @@ typedef struct ast_list_node {
 #define AS_IDENTIFIER_NODE(node) ((ASTIdentifierNode *)(node))
 #define AS_BLOCK_NODE(node) ((ASTBlockNode *)(node))
 
+
+/* ASTModule (1) */
+
 // A ModuleID is an index into the ASTProgram::modules array.
 typedef usize ModuleID;
+
+
+/* ASTObj */
 
 // An ASTObj holds a object which in this context
 // means functions, variables, structs, enums etc.
@@ -140,6 +157,9 @@ typedef struct ast_obj {
     } as;
 } ASTObj;
 
+
+/* ASTModule (2) */
+
 // An ASTModule holds all of a modules data
 // which includes functions, structs, enums, global variables, types etc.
 typedef struct ast_module {
@@ -162,6 +182,7 @@ typedef struct ast_program {
     // Holds a single copy of each type in the entire program.
     Array modules; // Array<ASTModule *>
 } ASTProgram;
+
 
 /** Functions **/
 
@@ -198,6 +219,7 @@ Type *astModuleAddType(ASTModule *module, Type *ty);
  * @param module The module to print.
  ****/
 void astModulePrint(FILE *to, ASTModule *module);
+
 
 /* ASTProgram */
 
@@ -270,6 +292,7 @@ ASTModule *astProgramGetModule(ASTProgram *prog, ModuleID id);
  * @param value The value to print.
  ***/
 void literalValuePrint(FILE *to, LiteralValue value);
+
 
 /* BlockScope */
 
