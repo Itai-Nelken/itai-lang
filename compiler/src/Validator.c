@@ -89,8 +89,8 @@ static ASTObj *find_global_var(Validator *v, ASTString name) {
 }
 
 static ASTObj *find_local_var(Validator *v, ASTString name) {
-    VERIFY(v->current_function && v->current_scope); // depth > 0.
-    BlockScope *scope = v->current_scope;
+    VERIFY(v->current_function); // inside a function.
+    BlockScope *scope = v->current_scope ? v->current_scope : v->current_function->as.fn.scopes;
     while(scope) {
         TableItem *i = tableGet(&scope->visible_locals, (void *)name);
         if(i) {
@@ -102,9 +102,8 @@ static ASTObj *find_local_var(Validator *v, ASTString name) {
 
 static ASTObj *find_variable(Validator *v, ASTString name) {
     ASTObj *result = NULL;
-    // If the scope depth is larger than 0 (meaning we are inside a function),
-    // search for a local variable first.
-    if((v->current_function && v->current_scope) && (result = find_local_var(v, name)) != NULL) {
+    // If we are inside a function, search for a local variable first.
+    if((v->current_function) && (result = find_local_var(v, name)) != NULL) {
         return result;
     }
     // otherwise search for a global variable.
