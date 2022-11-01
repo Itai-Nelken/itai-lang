@@ -96,6 +96,7 @@ static ASTObj *find_local_var(Validator *v, ASTString name) {
         if(i) {
             return (ASTObj *)i->value;
         }
+        scope = scope->parent;
     }
     return NULL;
 }
