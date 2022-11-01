@@ -220,6 +220,9 @@ BlockScope *blockScopeGetChild(BlockScope *parent, ScopeID child_id) {
 }
 
 void blockScopeFree(BlockScope *scope_list) {
+    if(scope_list == NULL) {
+        return;
+    }
     // No need to free the strings in the table as they are
     // ASTString's which are owned by the ASTProgram
     // being used for the parse.
