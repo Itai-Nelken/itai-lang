@@ -196,6 +196,9 @@ static void validate_function(Validator *v, ASTObj *fn) {
 
     v->current_function = fn;
 
+    // Because validate_ast() enters the block node's scope, it cannot use it here
+    // because function scope isn't represented with a ScopeID.
+    // So the only remaining option is to manually iterate over the body.
     for(usize i = 0; i < fn->as.fn.body->nodes.used; ++i) {
         ASTNode *n = ARRAY_GET_AS(ASTNode *, &fn->as.fn.body->nodes, i);
         validate_ast(v, n);
@@ -301,6 +304,8 @@ static void typecheck_function(Validator *v, ASTObj *fn) {
     v->current_function = fn;
 
     // TODO: check return type once return stmt is implemented.
+    // See comment in validate_function() for an explanation of why
+    // it isn't possible to call typecheck_ast() on the body directly.
     for(usize i = 0; i < fn->as.fn.body->nodes.used; ++i) {
         ASTNode *n = ARRAY_GET_AS(ASTNode *, &fn->as.fn.body->nodes, i);
         typecheck_ast(v, n);
