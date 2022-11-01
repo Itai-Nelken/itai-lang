@@ -113,6 +113,7 @@ public:
         std::cout << passed << '/' << tests.size() << " tests \x1b[32mpassed\x1b[0m.\n";
         std::cout << failed << '/' << tests.size() << " tests \x1b[31mfailed\x1b[0m.\n";
     }
+
 private:
     void execute(Test &test) {
         FILE *p = popen(std::string(get_ilc_path() + " " + test.path.c_str() + " 2>&1").c_str(), "r");
