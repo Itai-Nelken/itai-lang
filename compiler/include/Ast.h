@@ -31,6 +31,20 @@ typedef struct literal_value {
 } LiteralValue;
 
 
+typedef struct block_scope {
+    u32 depth;
+    Table visible_locals; // Table<ASTString, ASTObj *>
+    // Table type_aliases;???
+    struct block_scope *parent;
+    Array children; // Array<BlockScope *>
+} BlockScope;
+
+typedef struct scope_id {
+    u32 depth;
+    usize index;
+} ScopeID;
+
+
 // An ASTNode holds an expression.
 // for example, 1 + 2 is represented as:
 // binary(op(+), literal(1), literal(2)).
@@ -85,6 +99,7 @@ typedef struct ast_identifier_node {
 
 typedef struct ast_list_node {
     ASTNode header;
+    ScopeID scope;
     Array nodes; // Array<ASTNode *>
 } ASTBlockNode;
 
@@ -105,19 +120,6 @@ typedef enum ast_obj_type {
     OBJ_VAR, OBJ_FN,
     OBJ_TYPE_COUNT
 } ASTObjType;
-
-typedef struct block_scope {
-    u32 depth;
-    Table visible_locals; // Table<ASTString, ASTObj *>
-    // Table type_aliases;???
-    struct block_scope *parent;
-    Array children; // Array<BlockScope *>
-} BlockScope;
-
-typedef struct scope_id {
-    u32 depth;
-    usize index;
-} ScopeID;
 
 typedef struct ast_obj {
     ASTObjType type;
@@ -269,6 +271,42 @@ ASTModule *astProgramGetModule(ASTProgram *prog, ModuleID id);
  ***/
 void literalValuePrint(FILE *to, LiteralValue value);
 
+/* BlockScope */
+
+/***
+ * Create a new BlockScope.
+ *
+ * @param parent_scope The previous scope.
+ * @param depth The depth of the scope.
+ * @return The new scope.
+ ***/
+BlockScope *blockScopeNew(BlockScope *parent_scope, u32 depth);
+
+/***
+ * Add a child to a BlockScope.
+ *
+ * @param parent The parent scope.
+ * @param child The child scope to add.
+ * @return The ScopeID of the added scope.
+ ***/
+ScopeID blockScopeAddChild(BlockScope *parent, BlockScope *child);
+
+/***
+ * Get a child BlockScope.
+ *
+ * @param parent The parent scope.
+ * @param child_id The ScopeID of the child.
+ * @return The child scope (always, panics on invalid scopeID);
+ ***/
+BlockScope *blockScopeGetChild(BlockScope *parent, ScopeID child_id);
+
+/***
+ * Free a list of BlockScopes's.
+ *
+ * @param scope_list The head of the scope list.
+ ***/
+void blockScopeFree(BlockScope *scope_list);
+
 
 /* ASTNode */
 
@@ -317,9 +355,10 @@ ASTNode *astNewIdentifierNode(Location loc, ASTString str);
  * Create a new ASTBlockNode.
  *
  * @param loc The Location of the node.
+ * @param scope The ScopeID of the block the node represents.
  * @return The node as an ASTNode.
  ***/
-ASTNode *astNewBlockNode(Location loc);
+ASTNode *astNewBlockNode(Location loc, ScopeID scope);
 
 /***
  * Free an AST.
@@ -335,43 +374,6 @@ void astNodeFree(ASTNode *n);
  * @param n The root node of the tree.
  ***/
 void astNodePrint(FILE *to, ASTNode *n);
-
-
-/* BlockScope */
-
-/***
- * Create a new BlockScope.
- *
- * @param parent_scope The previous scope.
- * @param depth The depth of the scope.
- * @return The new scope.
- ***/
-BlockScope *blockScopeNew(BlockScope *parent_scope, u32 depth);
-
-/***
- * Add a child to a BlockScope.
- *
- * @param parent The parent scope.
- * @param child The child scope to add.
- * @return The ScopeID of the added scope.
- ***/
-ScopeID blockScopeAddChild(BlockScope *parent, BlockScope *child);
-
-/***
- * Get a child BlockScope.
- *
- * @param parent The parent scope.
- * @param child_id The ScopeID of the child.
- * @return The child scope (always, panics on invalid scopeID);
- ***/
-BlockScope *blockScopeGetChild(BlockScope *parent, ScopeID child_id);
-
-/***
- * Free a list of BlockScopes's.
- *
- * @param scope_list The head of the scope list.
- ***/
-void blockScopeFree(BlockScope *scope_list);
 
 
 /* ASTObj */

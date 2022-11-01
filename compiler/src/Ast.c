@@ -123,6 +123,7 @@ void astModulePrint(FILE *to, ASTModule *module) {
     fputs("]}", to);
 }
 
+
 /** ASTProgram **/
 
 void astProgramInit(ASTProgram *prog) {
@@ -175,7 +176,8 @@ ASTModule *astProgramGetModule(ASTProgram *prog, ModuleID id) {
     return ARRAY_GET_AS(ASTModule *, &prog->modules, id);
 }
 
-/** ASTNode **/
+
+/* LiteralValue */
 
 void literalValuePrint(FILE *to, LiteralValue value) {
     fprintf(to, "LiteralValue{\x1b[1mvalue:\x1b[0m ");
@@ -189,6 +191,46 @@ void literalValuePrint(FILE *to, LiteralValue value) {
     fputc('}', to);
 }
 
+
+/* BlockScope */
+
+BlockScope *blockScopeNew(BlockScope *parent_scope, u32 depth) {
+    BlockScope *sc;
+    NEW0(sc);
+    tableInit(&sc->visible_locals, NULL, NULL);
+    arrayInit(&sc->children);
+    sc->depth = depth;
+    sc->parent = parent_scope;
+    return sc;
+}
+
+ScopeID blockScopeAddChild(BlockScope *parent, BlockScope *child) {
+    ScopeID id;
+    id.depth = child->depth;
+    id.index = arrayPush(&parent->children, (void *)child);
+    return id;
+}
+
+BlockScope *blockScopeGetChild(BlockScope *parent, ScopeID child_id) {
+    VERIFY(parent->depth < child_id.depth);
+    BlockScope *child = ARRAY_GET_AS(BlockScope *, &parent->children, child_id.index);
+    VERIFY(child);
+    return child;
+}
+
+void blockScopeFree(BlockScope *scope_list) {
+    // No need to free the strings in the table as they are
+    // ASTString's which are owned by the ASTProgram
+    // being used for the parse.
+    // The same applies to the objects, but they are owned
+    // by the parent function of the scope.
+    tableFree(&scope_list->visible_locals);
+    arrayMap(&scope_list->children, free_block_scope_callback, NULL);
+    arrayFree(&scope_list->children);
+    FREE(scope_list);
+}
+
+/** ASTNode **/
 
 static inline ASTNode make_header(ASTNodeType type, Location loc) {
     return (ASTNode){
@@ -230,10 +272,11 @@ ASTNode *astNewIdentifierNode(Location loc, ASTString str) {
     return AS_NODE(n);
 }
 
-ASTNode *astNewBlockNode(Location loc) {
+ASTNode *astNewBlockNode(Location loc, ScopeID scope) {
     ASTBlockNode *n;
     NEW0(n);
     n->header = make_header(ND_BLOCK, loc);
+    n->scope = scope;
     arrayInit(&n->nodes);
 
     return AS_NODE(n);
@@ -333,41 +376,6 @@ void astNodePrint(FILE *to, ASTNode *n) {
     fputc('}', to);
 }
 
-BlockScope *blockScopeNew(BlockScope *parent_scope, u32 depth) {
-    BlockScope *sc;
-    NEW0(sc);
-    tableInit(&sc->visible_locals, NULL, NULL);
-    arrayInit(&sc->children);
-    sc->depth = depth;
-    sc->parent = parent_scope;
-    return sc;
-}
-
-ScopeID blockScopeAddChild(BlockScope *parent, BlockScope *child) {
-    ScopeID id;
-    id.depth = child->depth;
-    id.index = arrayPush(&parent->children, (void *)child);
-    return id;
-}
-
-BlockScope *blockScopeGetChild(BlockScope *parent, ScopeID child_id) {
-    VERIFY(parent->depth < child_id.depth);
-    BlockScope *child = ARRAY_GET_AS(BlockScope *, &parent->children, child_id.index);
-    VERIFY(child);
-    return child;
-}
-
-void blockScopeFree(BlockScope *scope_list) {
-    // No need to free the strings in the table as they are
-    // ASTString's which are owned by the ASTProgram
-    // being used for the parse.
-    // The same applies to the objects, but they are owned
-    // by the parent function of the scope.
-    tableFree(&scope_list->visible_locals);
-    arrayMap(&scope_list->children, free_block_scope_callback, NULL);
-    arrayFree(&scope_list->children);
-    FREE(scope_list);
-}
 
 ASTObj *astNewObj(ASTObjType type, Location loc) {
     ASTObj *o;

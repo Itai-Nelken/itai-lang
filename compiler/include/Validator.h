@@ -9,7 +9,8 @@ typedef struct validator {
     Compiler *compiler;
     ASTProgram *program;
     ModuleID current_module;
-    BlockScope *current_fn_root_scope;
+    ASTObj *current_function;
+    BlockScope *current_scope;
     bool had_error;
 } Validator;
 

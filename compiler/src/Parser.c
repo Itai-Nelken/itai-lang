@@ -112,6 +112,7 @@ static inline ScopeID enter_scope(Parser *p) {
     if(p->current.scope == NULL) {
         // Function scope, depth always == 1.
         p->current.scope = p->current.function->as.fn.scopes = blockScopeNew(NULL, 1);
+        // FIXME: how to represent function scope.
         return (ScopeID){0, 1};
     }
     // Block scope (meaning scopes inside a function scope).
@@ -131,22 +132,18 @@ static inline void add_local_to_current_scope(Parser *p, ASTObj *local) {
     VERIFY(tableSet(&p->current.scope->visible_locals, (void *)local->as.var.name, (void *)local) == NULL);
 }
 
-static ASTObj *find_local(Parser *p, ASTString name) {
+static ASTObj *find_local_in_current_scope(Parser *p, ASTString name) {
     VERIFY(p->current.scope != NULL);
-    BlockScope *scope = p->current.scope;
-    while(scope) {
-        TableItem *i = tableGet(&scope->visible_locals, (void *)name);
-        if(i) {
-            return (ASTObj *)i->value;
-        }
-        scope = scope->parent;
+    TableItem *i = tableGet(&p->current.scope->visible_locals, (void *)name);
+    if(i) {
+        return (ASTObj *)i->value;
     }
     return NULL;
 }
 
-static inline void enter_function(Parser *p, ASTObj *fn) {
+static inline ScopeID enter_function(Parser *p, ASTObj *fn) {
     p->current.function = fn;
-    enter_scope(p);
+    return enter_scope(p);
 }
 
 static inline void leave_function(Parser *p) {
@@ -297,10 +294,9 @@ static inline ASTNode *parse_expression(Parser *p) {
     return parse_precedence(p, PREC_LOWEST);
 }
 
-// DOES consume the '{'.
-static ASTNode *parse_block(Parser *p, ASTNode *(*parse_callback)(Parser *p)) {
-    TRY_CONSUME(p, TK_LBRACE, 0);
-    ASTBlockNode *n = AS_BLOCK_NODE(astNewBlockNode(locationNew(0, 0, 0)));
+static ASTNode *parse_block(Parser *p, ScopeID scope, ASTNode *(*parse_callback)(Parser *p)) {
+    // Assume '{' was already consumed.
+    ASTBlockNode *n = AS_BLOCK_NODE(astNewBlockNode(locationNew(0, 0, 0), scope));
     Location start = previous(p).location;
 
     while(!is_eof(p) && current(p).type != TK_RBRACE) {
@@ -332,9 +328,16 @@ static ASTNode *parse_expression_stmt(Parser *p) {
     return expr;
 }
 
+static ASTNode *parse_function_body(Parser *p);
 static ASTNode *parse_statement(Parser *p) {
     ASTNode *result = NULL;
-    result = TRY(ASTNode *, parse_expression_stmt(p), 0);
+    if(match(p, TK_LBRACE)) {
+        ScopeID scope = enter_scope(p);
+        result = parse_block(p, scope, parse_function_body);
+        leave_scope(p);
+    } else {
+        result = parse_expression_stmt(p);
+    }
     return result;
 }
 
@@ -413,10 +416,10 @@ static ASTNode *parse_function_body(Parser *p) {
         // for redefinitions and to save in the current scope.
         ASTObj *var_obj = ARRAY_GET_AS(ASTObj *, &p->current.function->as.fn.locals, arrayLength(&p->current.function->as.fn.locals) - 1);
         VERIFY(var_obj->type == OBJ_VAR);
-        ASTObj *existing_obj = find_local(p, var_obj->as.var.name);
+        ASTObj *existing_obj = find_local_in_current_scope(p, var_obj->as.var.name);
         if(existing_obj) {
             // TODO: emit hint of previous declaration using 'exisiting_obj.location'.
-            error_at(p, var_node->location ,stringFormat("Redfinition of local variable '%s'.", var_obj->as.var.name));
+            error_at(p, var_node->location, stringFormat("Redfinition of local variable '%s'.", var_obj->as.var.name));
             astNodeFree(var_node);
             // NOTE: arrayPop() is used even though we already have a reference
             //       to the object we want to free because we also want to remove
@@ -455,8 +458,12 @@ static ASTObj *parse_function_decl(Parser *p) {
     fn->as.fn.name = name;
     fn->as.fn.return_type = return_type;
 
-    enter_function(p, fn);
-    fn->as.fn.body = AS_BLOCK_NODE(parse_block(p, parse_function_body));
+    if(!consume(p, TK_LBRACE)) {
+        astObjFree(fn);
+        return NULL;
+    }
+    ScopeID scope = enter_function(p, fn);
+    fn->as.fn.body = AS_BLOCK_NODE(parse_block(p, scope, parse_function_body));
     leave_function(p);
     if(!fn->as.fn.body) {
         astObjFree(fn);
