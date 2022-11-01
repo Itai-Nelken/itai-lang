@@ -231,6 +231,14 @@ void blockScopeFree(BlockScope *scope_list) {
     FREE(scope_list);
 }
 
+void scopeIDPrint(FILE *to, ScopeID scope_id, bool compact) {
+    if(compact) {
+        fprintf(to, "ScopeID{\x1b[1md\x1b[0;34m%u\x1b[0m,\x1b[1mi\x1b[0;34m%zu\x1b[0m}", scope_id.depth, scope_id.index);
+    } else {
+        fprintf(to, "ScopeID{\x1b[1mdepth:\x1b[0;34m %u\x1b[0m, \x1b[1mindex:\x1b[0;34m %zu\x1b[0m}", scope_id.depth, scope_id.index);
+    }
+}
+
 
 /* ASTNode */
 
@@ -239,6 +247,14 @@ static inline ASTNode make_header(ASTNodeType type, Location loc) {
         .node_type = type,
         .location = loc
     };
+}
+
+ASTNode *astNewUnaryNode(ASTNodeType type, Location loc, ASTNode *operand) {
+    ASTUnaryNode *n;
+    NEW0(n);
+    n->header = make_header(type, loc);
+    n->operand = operand;
+    return AS_NODE(n);
 }
 
 ASTNode *astNewBinaryNode(ASTNodeType type, Location loc, ASTNode *lhs, ASTNode *rhs) {
@@ -299,6 +315,9 @@ void astNodeFree(ASTNode *n) {
             astNodeFree(AS_BINARY_NODE(n)->lhs);
             astNodeFree(AS_BINARY_NODE(n)->rhs);
             break;
+        case ND_RETURN:
+            astNodeFree(AS_UNARY_NODE(n)->operand);
+            break;
         case ND_BLOCK:
             arrayMap(&AS_BLOCK_NODE(n)->nodes, free_node_callback, NULL);
             arrayFree(&AS_BLOCK_NODE(n)->nodes);
@@ -318,6 +337,8 @@ static const char *node_name(ASTNodeType type) {
         case ND_ASSIGN: // fallthrough
         case ND_ADD:
             return "ASTBinaryNode";
+        case ND_RETURN:
+            return "ASTUnaryNode";
         case ND_IDENTIFIER:
             return "ASTIdentifierNode";
         case ND_BLOCK:
@@ -333,6 +354,7 @@ static const char *node_type_name(ASTNodeType type) {
         [ND_VARIABLE]       = "ND_VARIABLE",
         [ND_ASSIGN]         = "ND_ASSIGN",
         [ND_ADD]            = "ND_ADD",
+        [ND_RETURN]         = "ND_RETURN",
         [ND_BLOCK]          = "ND_BLOCK",
         [ND_IDENTIFIER]     = "ND_IDENTIFIER"
     };
@@ -364,10 +386,16 @@ void astNodePrint(FILE *to, ASTNode *n) {
             fputs(", \x1b[1mrhs:\x1b[0m ", to);
             astNodePrint(to, AS_BINARY_NODE(n)->rhs);
             break;
+        case ND_RETURN:
+            fputs(", \x1b[1moperand:\x1b[0m ", to);
+            astNodePrint(to, AS_UNARY_NODE(n)->operand);
+            break;
         case ND_IDENTIFIER:
             fprintf(to, ", \x1b[1midentifier:\x1b[0m '%s'", AS_IDENTIFIER_NODE(n)->identifier);
             break;
         case ND_BLOCK:
+            fputs(", \x1b[1mscope:\x1b[0m ", to);
+            scopeIDPrint(to, AS_BLOCK_NODE(n)->scope, true);
             fputs(", \x1b[1mnodes:\x1b[0m [", to);
             PRINT_ARRAY(ASTNode *, astNodePrint, to, AS_BLOCK_NODE(n)->nodes);
             fputc(']', to);

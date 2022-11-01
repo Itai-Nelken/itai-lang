@@ -180,6 +180,13 @@ static bool validate_ast(Validator *v, ASTNode *n) {
             }
             break;
         }
+        case ND_RETURN:
+            if(v->current_function->as.fn.return_type && !AS_UNARY_NODE(n)->operand) {
+                error(v, n->location, "'return' with no value in function '%s' returning '%s'.",
+                      v->current_function->as.fn.name, type_name(v->current_function->as.fn.return_type));
+                return false;
+            }
+            break;
         // ignored nodes (no typechecking to do).
         case ND_NUMBER_LITERAL:
         case ND_IDENTIFIER:
@@ -259,6 +266,10 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
             }
             break;
         }
+        case ND_RETURN:
+            CHECK(check_types(v, AS_UNARY_NODE(n)->operand->location,
+                              v->current_function->as.fn.return_type, get_expr_type(v, AS_UNARY_NODE(n)->operand)));
+            break;
         // ignored nodes (no typechecking to do).
         case ND_NUMBER_LITERAL:
         case ND_IDENTIFIER:
@@ -303,7 +314,7 @@ static void typecheck_function(Validator *v, ASTObj *fn) {
 
     v->current_function = fn;
 
-    // TODO: check return type once return stmt is implemented.
+    // TODO: check that function returns a value (if expected).
     // See comment in validate_function() for an explanation of why
     // it isn't possible to call typecheck_ast() on the body directly.
     for(usize i = 0; i < fn->as.fn.body->nodes.used; ++i) {

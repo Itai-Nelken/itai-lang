@@ -328,6 +328,18 @@ static ASTNode *parse_expression_stmt(Parser *p) {
     return expr;
 }
 
+static ASTNode *parse_return_stmt(Parser *p) {
+    // Assume 'return' is already consumed.
+    Location start = previous(p).location;
+    ASTNode *operand = NULL;
+    if(current(p).type != TK_SEMICOLON) {
+        operand = TRY(ASTNode *, parse_expression(p), 0);
+    }
+    TRY_CONSUME(p, TK_SEMICOLON, operand);
+
+    return astNewUnaryNode(ND_RETURN, locationMerge(start, previous(p).location), operand);
+}
+
 static ASTNode *parse_function_body(Parser *p);
 static ASTNode *parse_statement(Parser *p) {
     ASTNode *result = NULL;
@@ -335,6 +347,8 @@ static ASTNode *parse_statement(Parser *p) {
         ScopeID scope = enter_scope(p);
         result = parse_block(p, scope, parse_function_body);
         leave_scope(p);
+    } else if(match(p, TK_RETURN)) {
+        result = parse_return_stmt(p);
     } else {
         result = parse_expression_stmt(p);
     }

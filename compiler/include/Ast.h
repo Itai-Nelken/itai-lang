@@ -70,6 +70,9 @@ typedef enum ast_node_type {
     ND_ASSIGN,
     ND_ADD,
 
+    // Unary nodes
+    ND_RETURN,
+
     // list nodes
     ND_BLOCK,
 
@@ -87,6 +90,11 @@ typedef struct ast_node {
     ASTNodeType node_type;
     Location location;
 } ASTNode;
+
+typedef struct ast_unary_node {
+    ASTNode header;
+    ASTNode *operand;
+} ASTUnaryNode;
 
 typedef struct ast_binary_node {
     ASTNode header;
@@ -108,7 +116,7 @@ typedef struct ast_identifier_node {
     ASTString identifier;
 } ASTIdentifierNode;
 
-typedef struct ast_list_node {
+typedef struct ast_block_node {
     ASTNode header;
     ScopeID scope;
     Array nodes; // Array<ASTNode *>
@@ -116,6 +124,7 @@ typedef struct ast_list_node {
 
 #define NODE_IS(node, type) ((node)->node_type == (type))
 #define AS_NODE(node) ((ASTNode *)(node))
+#define AS_UNARY_NODE(node) ((ASTUnaryNode *)(node))
 #define AS_BINARY_NODE(node) ((ASTBinaryNode *)(node))
 #define AS_LITERAL_NODE(node) ((ASTLiteralValueNode *)(node))
 #define AS_OBJ_NODE(node) ((ASTObjNode *)(node))
@@ -330,8 +339,27 @@ BlockScope *blockScopeGetChild(BlockScope *parent, ScopeID child_id);
  ***/
 void blockScopeFree(BlockScope *scope_list);
 
+/***
+ * Print a ScopeID.
+ *
+ * @param to The stream to print to.
+ * @param scope_id The ScopeID to print.
+ * @param compact Print a compact version.
+ ***/
+void scopeIDPrint(FILE *to, ScopeID scope_id, bool compact);
+
 
 /* ASTNode */
+
+/***
+ * Create a new ASTUnaryNode.
+ *
+ * @param type The node type.
+ * @param loc The Location of the node.
+ * @param operand The operand.
+ * @return The node as an ASTNode.
+ ***/
+ASTNode *astNewUnaryNode(ASTNodeType type, Location loc, ASTNode *operand);
 
 /***
  * Create a new ASTBinaryNode.
