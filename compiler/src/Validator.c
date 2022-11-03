@@ -142,12 +142,15 @@ static void variable_validate_callback(void *variable, void *validator) {
     ASTNode *var = AS_NODE(variable);
     Validator *v = (Validator *)validator;
 
-    // TODO: convert var.lhs from identifier to obj if needed.
-    // If the expression is assignment, verify that the type is set or try to infer it if it isn't.
     if(var->node_type == ND_ASSIGN) {
         VERIFY(AS_BINARY_NODE(var)->lhs->node_type == ND_VARIABLE);
         ASTObj *var_obj = AS_OBJ_NODE(AS_BINARY_NODE(var)->lhs)->obj;
         VERIFY(var_obj->type == OBJ_VAR);
+        if(NODE_IS(AS_BINARY_NODE(var)->rhs, ND_IDENTIFIER)
+        && find_variable(v, AS_IDENTIFIER_NODE(AS_BINARY_NODE(var)->rhs)->identifier) == var_obj) {
+            error(v, AS_BINARY_NODE(var)->rhs->location, "Variable '%s' is assigned to itself.", var_obj->as.var.name);
+            return;
+        }
         if(var_obj->as.var.type == NULL) {
             Type *rhs_ty = get_expr_type(v, AS_BINARY_NODE(var)->rhs);
             if(!rhs_ty) {
@@ -174,6 +177,8 @@ static bool validate_ast(Validator *v, ASTNode *n) {
             return !failed;
         }
         case ND_ASSIGN: // fallthrough
+            // TODO: convert var.lhs from identifier to obj if needed.
+            // If the expression is assignment, verify that the type is set or try to infer it if it isn't.
         case ND_VARIABLE: {
             bool old_had_error = v->had_error;
             variable_validate_callback((void *)n, (void *)v);

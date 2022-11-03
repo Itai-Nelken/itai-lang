@@ -1,0 +1,6 @@
+/// expect error: Error: Variable 'a' is assigned to itself.
+
+fn main() {
+	var a = a;
+}
+
