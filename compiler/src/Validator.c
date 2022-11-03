@@ -143,6 +143,8 @@ static void variable_validate_callback(void *variable, void *validator) {
     Validator *v = (Validator *)validator;
 
     if(var->node_type == ND_ASSIGN) {
+        // TODO: convert var.lhs from identifier to obj if needed.
+        // If the expression is assignment, verify that the type is set or try to infer it if it isn't.
         VERIFY(AS_BINARY_NODE(var)->lhs->node_type == ND_VARIABLE);
         ASTObj *var_obj = AS_OBJ_NODE(AS_BINARY_NODE(var)->lhs)->obj;
         VERIFY(var_obj->type == OBJ_VAR);
@@ -177,8 +179,6 @@ static bool validate_ast(Validator *v, ASTNode *n) {
             return !failed;
         }
         case ND_ASSIGN: // fallthrough
-            // TODO: convert var.lhs from identifier to obj if needed.
-            // If the expression is assignment, verify that the type is set or try to infer it if it isn't.
         case ND_VARIABLE: {
             bool old_had_error = v->had_error;
             variable_validate_callback((void *)n, (void *)v);
