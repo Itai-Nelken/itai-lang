@@ -127,6 +127,8 @@ static Type *get_expr_type(Validator *v, ASTNode *expr) {
             ty = var->as.var.type;
             break;
         }
+        case ND_VARIABLE:
+            return AS_OBJ_NODE(expr)->obj->as.var.type;
         case ND_ADD:
             // The type of a binary expression is the type of the left side
             // (e.g. in 'a+b' the type of 'a' is the type of the expression).
@@ -138,21 +140,45 @@ static Type *get_expr_type(Validator *v, ASTNode *expr) {
     return ty;
 }
 
+static bool replace_identifier_with_obj(Validator *v, ASTNode **node_to_replace) {
+    VERIFY(NODE_IS((*node_to_replace), ND_IDENTIFIER));
+    ASTObj *var_obj = find_variable(v, AS_IDENTIFIER_NODE(*node_to_replace)->identifier);
+    if(!var_obj) {
+        error(v, (*node_to_replace)->location, "Variable '%s' not found.", AS_IDENTIFIER_NODE(*node_to_replace)->identifier);
+        return false;
+    }
+    ASTNode *var_node = astNewObjNode(ND_VARIABLE, (*node_to_replace)->location, var_obj);
+    astNodeFree(*node_to_replace);
+    *node_to_replace = var_node;
+    return true;
+}
+
 static void variable_validate_callback(void *variable, void *validator) {
     ASTNode *var = AS_NODE(variable);
     Validator *v = (Validator *)validator;
 
     if(var->node_type == ND_ASSIGN) {
-        // TODO: convert var.lhs from identifier to obj if needed.
-        // If the expression is assignment, verify that the type is set or try to infer it if it isn't.
-        VERIFY(AS_BINARY_NODE(var)->lhs->node_type == ND_VARIABLE);
+        VERIFY(NODE_IS(AS_BINARY_NODE(var)->lhs, ND_VARIABLE));
         ASTObj *var_obj = AS_OBJ_NODE(AS_BINARY_NODE(var)->lhs)->obj;
         VERIFY(var_obj->type == OBJ_VAR);
-        if(NODE_IS(AS_BINARY_NODE(var)->rhs, ND_IDENTIFIER)
-        && find_variable(v, AS_IDENTIFIER_NODE(AS_BINARY_NODE(var)->rhs)->identifier) == var_obj) {
+
+        // If the value is an identifier, replace it with the variable object
+        // the identifier refers to.
+        if(NODE_IS(AS_BINARY_NODE(var)->rhs, ND_IDENTIFIER)) {
+            if(!replace_identifier_with_obj(v, &(AS_BINARY_NODE(var)->rhs))) {
+                v->had_error = true;
+                return;
+            }
+        }
+
+        // Check that the variable isn't being assigned to itself.
+        if(NODE_IS(AS_BINARY_NODE(var)->rhs, ND_VARIABLE)
+        && AS_OBJ_NODE(AS_BINARY_NODE(var)->rhs)->obj == var_obj) {
             error(v, AS_BINARY_NODE(var)->rhs->location, "Variable '%s' is assigned to itself.", var_obj->as.var.name);
             return;
         }
+
+        // Try to infer the variable's type if necceary
         if(var_obj->as.var.type == NULL) {
             Type *rhs_ty = get_expr_type(v, AS_BINARY_NODE(var)->rhs);
             if(!rhs_ty) {
@@ -178,7 +204,16 @@ static bool validate_ast(Validator *v, ASTNode *n) {
             // failed == true -> failure (return false).
             return !failed;
         }
-        case ND_ASSIGN: // fallthrough
+        case ND_IDENTIFIER:
+            return replace_identifier_with_obj(v, &n);
+        case ND_ASSIGN:
+            // Replace identifier nodes with variable nodes.
+            if(NODE_IS(AS_BINARY_NODE(n)->lhs, ND_IDENTIFIER)) {
+                if(!replace_identifier_with_obj(v, &(AS_BINARY_NODE(n)->lhs))) {
+                    return false;
+                }
+            }
+            // fallthrough
         case ND_VARIABLE: {
             bool old_had_error = v->had_error;
             variable_validate_callback((void *)n, (void *)v);
@@ -196,7 +231,6 @@ static bool validate_ast(Validator *v, ASTNode *n) {
             break;
         // ignored nodes (no validating to do).
         case ND_NUMBER_LITERAL:
-        case ND_IDENTIFIER:
         case ND_ADD:
             return true;
         default:
@@ -300,6 +334,7 @@ static void variable_typecheck_callback(void *variable_node, void *validator) {
             break;
         case ND_ASSIGN: {
             typecheck_ast(v, AS_BINARY_NODE(var)->rhs);
+            VERIFY(NODE_IS(AS_BINARY_NODE(var)->lhs, ND_VARIABLE));
             Type *lhs_ty = AS_OBJ_NODE(AS_BINARY_NODE(var)->lhs)->obj->as.var.type;
             Type *rhs_ty = get_expr_type(v, AS_BINARY_NODE(var)->rhs);
             // allow assigning number literals to u32 variables.

@@ -192,7 +192,7 @@ typedef struct parse_rule {
 
 /* Parse functions forward-declarations */
 static ASTNode *parse_expression(Parser *p);
-static ASTNode *parse_number_literal(Parser *p);
+static ASTNode *parse_number_literal_expr(Parser *p);
 static ASTNode *parse_grouping_expr(Parser *p);
 static ASTNode *parse_identifier_expr(Parser *p);
 static ASTNode *parse_term_expr(Parser *p, ASTNode *lhs);
@@ -213,7 +213,7 @@ static ParseRule rules[] = {
     [TK_EQUAL_EQUAL] = {PREC_LOWEST, NULL, NULL},
     [TK_BANG]        = {PREC_LOWEST, NULL, NULL},
     [TK_BANG_EQUAL]  = {PREC_LOWEST, NULL, NULL},
-    [TK_NUMBER]      = {PREC_LOWEST, parse_number_literal, NULL},
+    [TK_NUMBER]      = {PREC_LOWEST, parse_number_literal_expr, NULL},
     [TK_IF]          = {PREC_LOWEST, NULL, NULL},
     [TK_ELSE]        = {PREC_LOWEST, NULL, NULL},
     [TK_WHILE]       = {PREC_LOWEST, NULL, NULL},
@@ -239,10 +239,15 @@ static ASTString parse_identifier(Parser *p) {
 
 static ASTNode *parse_identifier_expr(Parser *p) {
     ASTString str = astProgramAddString(p->program, stringNCopy(previous(p).lexeme, previous(p).length));
-    return astNewIdentifierNode(previous(p).location, str);
+    ASTNode *id_node = astNewIdentifierNode(previous(p).location, str);
+    if(match(p, TK_EQUAL)) {
+        ASTNode *rhs = TRY(ASTNode *, parse_expression(p), id_node);
+        return astNewBinaryNode(ND_ASSIGN, locationMerge(id_node->location, rhs->location), id_node, rhs);
+    }
+    return id_node;
 }
 
-static ASTNode *parse_number_literal(Parser *p) {
+static ASTNode *parse_number_literal_expr(Parser *p) {
     // TODO: Support hex, octal & binary.
     u64 value = strtoul(previous(p).lexeme, NULL, 10);
     return astNewLiteralValueNode(ND_NUMBER_LITERAL, previous(p).location, LITERAL_VALUE(LIT_NUMBER, number, value));
