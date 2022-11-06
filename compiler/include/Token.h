@@ -65,7 +65,8 @@ typedef enum token_type {
 
     // Other
     TK_GARBAGE,
-    TK_EOF
+    TK_EOF,
+    TK_TYPE_COUNT
 } TokenType;
 
 typedef struct token {

@@ -226,6 +226,7 @@ static ParseRule rules[] = {
     [TK_GARBAGE]     = {PREC_LOWEST, NULL, NULL},
     [TK_EOF]         = {PREC_LOWEST, NULL, NULL}
 };
+_Static_assert(sizeof(rules)/sizeof(rules[0]) == TK_TYPE_COUNT, "Missing token type(s) in parser rule table!");
 
 static ParseRule *get_rule(TokenType type) {
     return &rules[type];
