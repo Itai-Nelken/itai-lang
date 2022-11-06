@@ -129,6 +129,7 @@ static Type *get_expr_type(Validator *v, ASTNode *expr) {
         }
         case ND_VARIABLE:
             return AS_OBJ_NODE(expr)->obj->as.var.type;
+        case ND_ASSIGN:
         case ND_ADD:
             // The type of a binary expression is the type of the left side
             // (e.g. in 'a+b' the type of 'a' is the type of the expression).
@@ -140,19 +141,6 @@ static Type *get_expr_type(Validator *v, ASTNode *expr) {
     return ty;
 }
 
-static bool replace_identifier_with_obj(Validator *v, ASTNode **node_to_replace) {
-    VERIFY(NODE_IS((*node_to_replace), ND_IDENTIFIER));
-    ASTObj *var_obj = find_variable(v, AS_IDENTIFIER_NODE(*node_to_replace)->identifier);
-    if(!var_obj) {
-        error(v, (*node_to_replace)->location, "Variable '%s' not found.", AS_IDENTIFIER_NODE(*node_to_replace)->identifier);
-        return false;
-    }
-    ASTNode *var_node = astNewObjNode(ND_VARIABLE, (*node_to_replace)->location, var_obj);
-    astNodeFree(*node_to_replace);
-    *node_to_replace = var_node;
-    return true;
-}
-
 static void variable_validate_callback(void *variable, void *validator) {
     ASTNode *var = AS_NODE(variable);
     Validator *v = (Validator *)validator;
@@ -161,15 +149,6 @@ static void variable_validate_callback(void *variable, void *validator) {
         VERIFY(NODE_IS(AS_BINARY_NODE(var)->lhs, ND_VARIABLE));
         ASTObj *var_obj = AS_OBJ_NODE(AS_BINARY_NODE(var)->lhs)->obj;
         VERIFY(var_obj->type == OBJ_VAR);
-
-        // If the value is an identifier, replace it with the variable object
-        // the identifier refers to.
-        if(NODE_IS(AS_BINARY_NODE(var)->rhs, ND_IDENTIFIER)) {
-            if(!replace_identifier_with_obj(v, &(AS_BINARY_NODE(var)->rhs))) {
-                v->had_error = true;
-                return;
-            }
-        }
 
         // Check that the variable isn't being assigned to itself.
         if(NODE_IS(AS_BINARY_NODE(var)->rhs, ND_VARIABLE)
@@ -204,16 +183,7 @@ static bool validate_ast(Validator *v, ASTNode *n) {
             // failed == true -> failure (return false).
             return !failed;
         }
-        case ND_IDENTIFIER:
-            return replace_identifier_with_obj(v, &n);
         case ND_ASSIGN:
-            // Replace identifier nodes with variable nodes.
-            if(NODE_IS(AS_BINARY_NODE(n)->lhs, ND_IDENTIFIER)) {
-                if(!replace_identifier_with_obj(v, &(AS_BINARY_NODE(n)->lhs))) {
-                    return false;
-                }
-            }
-            // fallthrough
         case ND_VARIABLE: {
             bool old_had_error = v->had_error;
             variable_validate_callback((void *)n, (void *)v);
@@ -229,10 +199,52 @@ static bool validate_ast(Validator *v, ASTNode *n) {
                 return false;
             }
             break;
+        case ND_ADD:
+            if(!validate_ast(v, AS_BINARY_NODE(n)->lhs)) {
+                return false;
+            }
+            return validate_ast(v, AS_BINARY_NODE(n)->rhs);
         // ignored nodes (no validating to do).
         case ND_NUMBER_LITERAL:
-        case ND_ADD:
             return true;
+        case ND_IDENTIFIER:
+        default:
+            UNREACHABLE();
+    }
+    return true;
+}
+
+static bool replace_all_ids_with_objs(Validator *v, ASTNode **tree) {
+    switch((*tree)->node_type) {
+        case ND_BLOCK: {
+            bool success = true;
+            for(usize i = 0; i < AS_BLOCK_NODE(*tree)->nodes.used; ++i) {
+                ASTNode **n = (ASTNode **)(AS_BLOCK_NODE(*tree)->nodes.data + i);
+                success = !success ? false : replace_all_ids_with_objs(v, n);
+            }
+            return success;
+        }
+        case ND_ADD:
+        case ND_ASSIGN: {
+            bool lhs_result = replace_all_ids_with_objs(v, &(AS_BINARY_NODE(*tree)->lhs));
+            bool rhs_result = replace_all_ids_with_objs(v, &(AS_BINARY_NODE(*tree)->rhs));
+            return !lhs_result || !rhs_result ? false : true;
+        }
+        case ND_IDENTIFIER: {
+            ASTObj *var_obj = find_variable(v, AS_IDENTIFIER_NODE(*tree)->identifier);
+            if(!var_obj) {
+                error(v, (*tree)->location, "Variable '%s' not found.", AS_IDENTIFIER_NODE(*tree)->identifier);
+                return false;
+            }
+            ASTNode *var_node = astNewObjNode(ND_VARIABLE, (*tree)->location, var_obj);
+            astNodeFree(*tree);
+            *tree = var_node;
+            break;
+        }
+        case ND_NUMBER_LITERAL:
+        case ND_VARIABLE:
+        case ND_RETURN:
+            break;
         default:
             UNREACHABLE();
     }
@@ -244,12 +256,14 @@ static void validate_function(Validator *v, ASTObj *fn) {
 
     v->current_function = fn;
 
-    // Because validate_ast() enters the block node's scope, it cannot use it here
-    // because function scope isn't represented with a ScopeID.
-    // So the only remaining option is to manually iterate over the body.
+    // Manually iterate over the body because validate_ast() enters the block node's scope,
+    // so it cannot used here because function scope isn't represented with a ScopeID.
+    // Another reason is that we need the address of the pointer to the memory of the nodes
+    // so we can reallocate the nodes (if their type has to be changed).
     for(usize i = 0; i < fn->as.fn.body->nodes.used; ++i) {
-        ASTNode *n = ARRAY_GET_AS(ASTNode *, &fn->as.fn.body->nodes, i);
-        validate_ast(v, n);
+        ASTNode **n = (ASTNode **)(fn->as.fn.body->nodes.data + i);
+        replace_all_ids_with_objs(v, n);
+        validate_ast(v, *n);
     }
 
     v->current_function = NULL;
