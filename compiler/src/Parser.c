@@ -17,6 +17,7 @@ void parserInit(Parser *p, Scanner *s, Compiler *c) {
     p->current.module = 0;
     p->current.function = NULL;
     p->current.scope = NULL;
+    p->can_assign = false;
     // set current and previous tokens to TK_GARBAGE with empty locations
     // so errors can be reported using them.
     p->previous_token.type = TK_GARBAGE;
@@ -33,6 +34,7 @@ void parserFree(Parser *p) {
     p->program = NULL;
     p->current.module = 0;
     p->current.function = NULL;
+    p->can_assign = false;
     p->previous_token.type = TK_GARBAGE;
     p->current_token.type = TK_GARBAGE;
     p->had_error = false;
@@ -191,6 +193,7 @@ typedef struct parse_rule {
 } ParseRule;
 
 /* Parse functions forward-declarations */
+static ASTNode *parse_precedence(Parser *p, Precedence min_prec);
 static ASTNode *parse_expression(Parser *p);
 static ASTNode *parse_number_literal_expr(Parser *p);
 static ASTNode *parse_grouping_expr(Parser *p);
@@ -240,7 +243,7 @@ static ASTString parse_identifier(Parser *p) {
 static ASTNode *parse_identifier_expr(Parser *p) {
     ASTString str = astProgramAddString(p->program, stringNCopy(previous(p).lexeme, previous(p).length));
     ASTNode *id_node = astNewIdentifierNode(previous(p).location, str);
-    if(match(p, TK_EQUAL)) {
+    if(p->can_assign && match(p, TK_EQUAL)) {
         ASTNode *rhs = TRY(ASTNode *, parse_expression(p), id_node);
         return astNewBinaryNode(ND_ASSIGN, locationMerge(id_node->location, rhs->location), id_node, rhs);
     }
@@ -278,6 +281,8 @@ static ASTNode *parse_precedence(Parser *p, Precedence min_prec) {
         error(p, stringFormat("Expected an expression but got '%s'.", tokenTypeString(previous(p).type)));
         return NULL;
     }
+    bool old_can_assign = p->can_assign;
+    p->can_assign = min_prec <= PREC_ASSIGNMENT;
     ASTNode *tree = prefix(p);
     if(!tree) {
         // Assume the error was already reported.
@@ -289,9 +294,19 @@ static ASTNode *parse_precedence(Parser *p, Precedence min_prec) {
         tree = infix(p, tree);
         if(!tree) {
             // Assume the error was already reported.
-            return NULL;
+            // tree is already NULL, so we will return NULL after the label.
+            goto parse_precedence_end;
         }
     }
+
+    if(p->can_assign && match(p, TK_EQUAL)) {
+        error_at(p, tree->location, "Invalid assignmet target.");
+        astNodeFree(tree);
+        // Don't return here as we need to restore 'can_assign'.
+        tree = NULL;
+    }
+parse_precedence_end:
+    p->can_assign = old_can_assign;
 
     return tree;
 }

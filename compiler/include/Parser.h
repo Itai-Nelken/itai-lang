@@ -20,6 +20,7 @@ typedef struct parser {
     } current;
 
     // state
+    bool can_assign; // If changed, the old value has to be saved and restored.
     Token previous_token, current_token;
     bool had_error, need_synchronize;
 } Parser;

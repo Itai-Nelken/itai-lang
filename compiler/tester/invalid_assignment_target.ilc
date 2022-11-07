@@ -1,0 +1,8 @@
+/// expect error: Error: Invalid assignmet target.
+
+var a = 123;
+
+fn main() {
+	a+a = a+a;
+}
+
