@@ -58,7 +58,7 @@ static void free_type_callback(TableItem *item, bool is_last, void *cl) {
 static void print_type_table_callback(TableItem *item, bool is_last, void *stream) {
     FILE *to = (FILE *)stream;
     Type *ty = (Type *)item->key;
-    typePrint(to, ty);
+    typePrint(to, ty, false);
     if(!is_last) {
         fputs(", ", to);
     }
@@ -236,7 +236,7 @@ void blockScopeFree(BlockScope *scope_list) {
 
 void scopeIDPrint(FILE *to, ScopeID scope_id, bool compact) {
     if(compact) {
-        fprintf(to, "ScopeID{\x1b[1md\x1b[0;34m%u\x1b[0m,\x1b[1mi\x1b[0;34m%zu\x1b[0m}", scope_id.depth, scope_id.index);
+        fprintf(to, "ScopeID{\x1b[1md:\x1b[0;34m%u\x1b[0m,\x1b[1mi:\x1b[0;34m%zu\x1b[0m}", scope_id.depth, scope_id.index);
     } else {
         fprintf(to, "ScopeID{\x1b[1mdepth:\x1b[0;34m %u\x1b[0m, \x1b[1mindex:\x1b[0;34m %zu\x1b[0m}", scope_id.depth, scope_id.index);
     }
@@ -476,12 +476,12 @@ void astObjPrint(FILE *to, ASTObj *obj) {
         case OBJ_VAR:
             fprintf(to, ", \x1b[1mname:\x1b[0m '%s'", obj->as.var.name);
             fputs(", \x1b[1mtype:\x1b[0m ", to);
-            typePrint(to, obj->as.var.type);
+            typePrint(to, obj->as.var.type, true);
             break;
         case OBJ_FN:
             fprintf(to, ", \x1b[1mname:\x1b[0m '%s'", obj->as.fn.name);
             fputs(", \x1b[1mreturn_type:\x1b[0m ", to);
-            typePrint(to, obj->as.fn.return_type);
+            typePrint(to, obj->as.fn.return_type, true);
             fputs(", \x1b[1mlocals:\x1b[0m [", to);
             PRINT_ARRAY(ASTObj *, astObjPrint, to, obj->as.fn.locals);
             fputs("], \x1b[1mbody:\x1b[0m ", to);

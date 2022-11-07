@@ -28,13 +28,17 @@ static const char *type_type_name(TypeType type) {
     return names[type];
 }
 
-void typePrint(FILE *to, Type *ty) {
+void typePrint(FILE *to, Type *ty, bool compact) {
     if(ty == NULL) {
         fputs("(null)", to);
         return;
     }
 
-    fprintf(to, "Type{\x1b[1mtype:\x1b[0m %s", type_type_name(ty->type));
-    fprintf(to, ", \x1b[1mname:\x1b[0m %s", ty->name);
-    fprintf(to, ", \x1b[1msize:\x1b[0m %d}", ty->size);
+    if(compact) {
+        fprintf(to, "Type{\x1b[1m%s\x1b[0m}", type_type_name(ty->type));
+    } else {
+        fprintf(to, "Type{\x1b[1mtype:\x1b[0m %s", type_type_name(ty->type));
+        fprintf(to, ", \x1b[1mname:\x1b[0m %s", ty->name);
+        fprintf(to, ", \x1b[1msize:\x1b[0m %d}", ty->size);
+    }
 }

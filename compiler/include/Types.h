@@ -71,7 +71,8 @@ bool typeEqual(Type *a, Type *b);
  *
  * @param to The stream to print to.
  * @param ty The Type to print.
+ * @param compact Print a compact version.
  ****/
-void typePrint(FILE *to, Type *ty);
+void typePrint(FILE *to, Type *ty, bool compact);
 
 #endif // TYPES_H
