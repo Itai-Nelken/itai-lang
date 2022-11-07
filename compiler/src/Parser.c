@@ -264,7 +264,8 @@ static ASTNode *parse_grouping_expr(Parser *p) {
 
 static ASTNode *parse_term_expr(Parser *p, ASTNode *lhs) {
     TokenType op = previous(p).type;
-    ASTNode *rhs = TRY(ASTNode *, parse_expression(p), lhs);
+    ParseRule *rule = get_rule(op);
+    ASTNode *rhs = TRY(ASTNode *, parse_precedence(p, rule->precedence), lhs);
 
     ASTNodeType node_type;
     switch(op) {
