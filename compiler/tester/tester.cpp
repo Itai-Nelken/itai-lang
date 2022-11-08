@@ -117,7 +117,7 @@ private:
     }
 
     void execute(Test &test) {
-        FILE *p = popen(std::string(get_ilc_path() + " " + test.path.c_str() + " 2>&1").c_str(), "r");
+        FILE *p = popen(std::string_view(get_ilc_path() + " " + test.path.c_str() + " 2>&1").data(), "r");
         char buffer[4096] = {0};
         while(fgets(buffer, sizeof(buffer), p) != nullptr) {
             test.output.append(buffer);
