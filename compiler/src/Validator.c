@@ -76,8 +76,9 @@ static inline void leave_scope(Validator *v) {
 }
 
 static ASTObj *find_global_var(Validator *v, ASTString name) {
-    for(usize i = 0; i < astProgramGetModule(v->program, v->current_module)->globals.used; ++i) {
-        ASTNode *g = ARRAY_GET_AS(ASTNode *, &astProgramGetModule(v->program, v->current_module)->globals, i);
+    ASTModule *current_module = astProgramGetModule(v->program, v->current_module);
+    for(usize i = 0; i < current_module->globals.used; ++i) {
+        ASTNode *g = ARRAY_GET_AS(ASTNode *, &current_module->globals, i);
         VERIFY(g->node_type == ND_ASSIGN || g->node_type == ND_VARIABLE);
         ASTObj *var = AS_OBJ_NODE(g->node_type == ND_ASSIGN ? AS_BINARY_NODE(g)->lhs : g)->obj;
         VERIFY(var->type == OBJ_VAR);
@@ -111,24 +112,42 @@ static ASTObj *find_variable(Validator *v, ASTString name) {
     return find_global_var(v, name);
 }
 
+static ASTObj *find_function(Validator *v, ASTString name) {
+    ASTModule *current_module = astProgramGetModule(v->program, v->current_module);
+    for(usize i = 0; i < current_module->objects.used; ++i) {
+        ASTObj *obj = ARRAY_GET_AS(ASTObj *, &current_module->objects, i);
+        if(obj->type == OBJ_FN && obj->as.fn.name == name) {
+            return obj;
+        }
+    }
+    return NULL;
+}
+
 static Type *get_expr_type(Validator *v, ASTNode *expr) {
     Type *ty = NULL;
     switch(expr->node_type) {
         case ND_NUMBER_LITERAL: // The default number literal type is i32.
             ty = v->program->primitives.int32;
             break;
-        case ND_IDENTIFIER: {
-            ASTObj *var = find_variable(v, AS_IDENTIFIER_NODE(expr)->identifier);
-            if(!var) {
-                error(v, expr->location, "Variable '%s' not found.", AS_IDENTIFIER_NODE(expr)->identifier);
-                break;
-            }
-            VERIFY(var->type == OBJ_VAR);
-            ty = var->as.var.type;
-            break;
-        }
+        //case ND_IDENTIFIER: {
+        //    ASTObj *var = find_variable(v, AS_IDENTIFIER_NODE(expr)->identifier);
+        //    if(!var) {
+        //        error(v, expr->location, "Variable '%s' not found.", AS_IDENTIFIER_NODE(expr)->identifier);
+        //        break;
+        //    }
+        //    VERIFY(var->type == OBJ_VAR);
+        //    ty = var->as.var.type;
+        //    break;
+        //}
         case ND_VARIABLE:
-            return AS_OBJ_NODE(expr)->obj->as.var.type;
+            ty = AS_OBJ_NODE(expr)->obj->as.var.type;
+            break;
+        case ND_FUNCTION:
+            ty = AS_OBJ_NODE(expr)->obj->as.fn.return_type;
+            break;
+        case ND_CALL:
+            ty = get_expr_type(v, AS_UNARY_NODE(expr)->operand);
+            break;
         case ND_ASSIGN:
         case ND_ADD:
             // The type of a binary expression is the type of the left side
@@ -141,10 +160,7 @@ static Type *get_expr_type(Validator *v, ASTNode *expr) {
     return ty;
 }
 
-static void variable_validate_callback(void *variable, void *validator) {
-    ASTNode *var = AS_NODE(variable);
-    Validator *v = (Validator *)validator;
-
+static bool validate_variable(Validator *v, ASTNode *var) {
     if(var->node_type == ND_ASSIGN) {
         VERIFY(NODE_IS(AS_BINARY_NODE(var)->lhs, ND_VARIABLE));
         ASTObj *var_obj = AS_OBJ_NODE(AS_BINARY_NODE(var)->lhs)->obj;
@@ -154,7 +170,7 @@ static void variable_validate_callback(void *variable, void *validator) {
         if(NODE_IS(AS_BINARY_NODE(var)->rhs, ND_VARIABLE)
         && AS_OBJ_NODE(AS_BINARY_NODE(var)->rhs)->obj == var_obj) {
             error(v, AS_BINARY_NODE(var)->rhs->location, "Variable '%s' is assigned to itself.", var_obj->as.var.name);
-            return;
+            return false;
         }
 
         // Try to infer the variable's type if necceary
@@ -162,11 +178,12 @@ static void variable_validate_callback(void *variable, void *validator) {
             Type *rhs_ty = get_expr_type(v, AS_BINARY_NODE(var)->rhs);
             if(!rhs_ty) {
                 error(v, var->location, "Failed to infer type (Hint: consider adding an explicit type).");
-                return;
+                return false;
             }
             var_obj->as.var.type = rhs_ty;
         }
     }
+    return true;
 }
 
 static bool validate_ast(Validator *v, ASTNode *n) {
@@ -184,14 +201,8 @@ static bool validate_ast(Validator *v, ASTNode *n) {
             return !failed;
         }
         case ND_ASSIGN:
-        case ND_VARIABLE: {
-            bool old_had_error = v->had_error;
-            variable_validate_callback((void *)n, (void *)v);
-            if(old_had_error != v->had_error) {
-                return false;
-            }
-            break;
-        }
+        case ND_VARIABLE:
+            return validate_variable(v, n);
         case ND_RETURN:
             if(v->current_function->as.fn.return_type && !AS_UNARY_NODE(n)->operand) {
                 error(v, n->location, "'return' with no value in function '%s' returning '%s'.",
@@ -206,44 +217,68 @@ static bool validate_ast(Validator *v, ASTNode *n) {
             return validate_ast(v, AS_BINARY_NODE(n)->rhs);
         // ignored nodes (no validating to do).
         case ND_NUMBER_LITERAL:
+        case ND_FUNCTION:
+        case ND_CALL:
             return true;
         case ND_IDENTIFIER:
+            // identifier nodes should be replaced before calling validate_ast().
+            // fallthrough
         default:
             UNREACHABLE();
     }
     return true;
 }
 
-static bool replace_all_ids_with_objs(Validator *v, ASTNode **tree) {
+// NOTE: NEVER call with is_call set to true. the parameter is for recursive calls
+//       performed by this function.
+static bool replace_all_ids_with_objs(Validator *v, ASTNode **tree, bool is_call) {
     switch((*tree)->node_type) {
         case ND_BLOCK: {
             bool success = true;
             for(usize i = 0; i < AS_BLOCK_NODE(*tree)->nodes.used; ++i) {
                 ASTNode **n = (ASTNode **)(AS_BLOCK_NODE(*tree)->nodes.data + i);
-                success = !success ? false : replace_all_ids_with_objs(v, n);
+                success = !success ? false : replace_all_ids_with_objs(v, n, false);
             }
             return success;
         }
         case ND_ADD:
         case ND_ASSIGN: {
-            bool lhs_result = replace_all_ids_with_objs(v, &(AS_BINARY_NODE(*tree)->lhs));
-            bool rhs_result = replace_all_ids_with_objs(v, &(AS_BINARY_NODE(*tree)->rhs));
+            bool lhs_result = replace_all_ids_with_objs(v, &(AS_BINARY_NODE(*tree)->lhs), false);
+            bool rhs_result = replace_all_ids_with_objs(v, &(AS_BINARY_NODE(*tree)->rhs), false);
             return !lhs_result || !rhs_result ? false : true;
         }
         case ND_IDENTIFIER: {
-            ASTObj *var_obj = find_variable(v, AS_IDENTIFIER_NODE(*tree)->identifier);
-            if(!var_obj) {
-                error(v, (*tree)->location, "Variable '%s' not found.", AS_IDENTIFIER_NODE(*tree)->identifier);
-                return false;
+            if(is_call) {
+                ASTObj *fn_obj = find_function(v, AS_IDENTIFIER_NODE(*tree)->identifier);
+                if(!fn_obj) {
+                    error(v, (*tree)->location, "Function '%s' doesn't exist.", AS_IDENTIFIER_NODE(*tree)->identifier);
+                    return false;
+                }
+                ASTNode *fn_node = astNewObjNode(ND_FUNCTION, (*tree)->location, fn_obj);
+                astNodeFree(*tree);
+                *tree = fn_node;
+            } else {
+                ASTObj *var_obj = find_variable(v, AS_IDENTIFIER_NODE(*tree)->identifier);
+                if(!var_obj) {
+                    error(v, (*tree)->location, "Variable '%s' doesn't exist.", AS_IDENTIFIER_NODE(*tree)->identifier);
+                    return false;
+                }
+                ASTNode *var_node = astNewObjNode(ND_VARIABLE, (*tree)->location, var_obj);
+                astNodeFree(*tree);
+                *tree = var_node;
             }
-            ASTNode *var_node = astNewObjNode(ND_VARIABLE, (*tree)->location, var_obj);
-            astNodeFree(*tree);
-            *tree = var_node;
             break;
         }
+        // unary nodes
+        case ND_RETURN:
+            if(AS_UNARY_NODE(*tree)->operand == NULL) {
+                break;
+            }
+            // fallthrough
+        case ND_CALL:
+            return replace_all_ids_with_objs(v, &(AS_UNARY_NODE(*tree)->operand), (*tree)->node_type == ND_CALL);
         case ND_NUMBER_LITERAL:
         case ND_VARIABLE:
-        case ND_RETURN:
             break;
         default:
             UNREACHABLE();
@@ -262,7 +297,7 @@ static void validate_function(Validator *v, ASTObj *fn) {
     // so we can reallocate the nodes (if their type has to be changed).
     for(usize i = 0; i < fn->as.fn.body->nodes.used; ++i) {
         ASTNode **n = (ASTNode **)(fn->as.fn.body->nodes.data + i);
-        replace_all_ids_with_objs(v, n);
+        replace_all_ids_with_objs(v, n, false);
         validate_ast(v, *n);
     }
 
@@ -283,7 +318,11 @@ static void module_validate_callback(void *module, usize index, void *validator)
     Validator *v = (Validator *)validator;
 
     v->current_module = (ModuleID)index;
-    arrayMap(&m->globals, variable_validate_callback, validator);
+    for(usize i = 0; i < m->globals.used; ++i) {
+        ASTNode **g = (ASTNode **)(m->globals.data + i);
+        replace_all_ids_with_objs(v, g, false);
+        validate_variable(v, *g);
+    }
     arrayMap(&m->objects, validate_object_callback, validator);
 }
 
@@ -322,13 +361,21 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
             break;
         }
         case ND_RETURN:
+            if(AS_UNARY_NODE(n)->operand == NULL) {
+                break;
+            }
             CHECK(check_types(v, AS_UNARY_NODE(n)->operand->location,
-                              v->current_function->as.fn.return_type, get_expr_type(v, AS_UNARY_NODE(n)->operand)));
+                              v->current_function->as.fn.return_type,
+                              get_expr_type(v, AS_UNARY_NODE(n)->operand)));
             break;
         // ignored nodes (no typechecking to do).
         case ND_NUMBER_LITERAL:
-        case ND_IDENTIFIER:
+        case ND_FUNCTION:
+        case ND_CALL:
             return true;
+        case ND_IDENTIFIER:
+            // see note in validate_ast() for the reason this node is an error here.
+            // fallthrough
         default:
             UNREACHABLE();
     }

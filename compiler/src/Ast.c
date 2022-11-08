@@ -308,8 +308,9 @@ void astNodeFree(ASTNode *n) {
         return;
     }
     switch(n->node_type) {
-        case ND_VARIABLE: // fallthrough
-        case ND_NUMBER_LITERAL: // fallthrough
+        case ND_FUNCTION:
+        case ND_VARIABLE:
+        case ND_NUMBER_LITERAL:
         case ND_IDENTIFIER:
             // nothing
         break;
@@ -319,6 +320,7 @@ void astNodeFree(ASTNode *n) {
             astNodeFree(AS_BINARY_NODE(n)->rhs);
             break;
         case ND_RETURN:
+        case ND_CALL:
             astNodeFree(AS_UNARY_NODE(n)->operand);
             break;
         case ND_BLOCK:
@@ -336,11 +338,13 @@ static const char *node_name(ASTNodeType type) {
         case ND_NUMBER_LITERAL:
             return "ASTLiteralValueNode";
         case ND_VARIABLE:
+        case ND_FUNCTION:
             return "ASTObjNode";
-        case ND_ASSIGN: // fallthrough
+        case ND_ASSIGN:
         case ND_ADD:
             return "ASTBinaryNode";
         case ND_RETURN:
+        case ND_CALL:
             return "ASTUnaryNode";
         case ND_IDENTIFIER:
             return "ASTIdentifierNode";
@@ -355,12 +359,16 @@ static const char *node_type_name(ASTNodeType type) {
     static const char *names[] = {
         [ND_NUMBER_LITERAL] = "ND_NUMBER_LIERAL",
         [ND_VARIABLE]       = "ND_VARIABLE",
+        [ND_FUNCTION]       = "ND_FUNCTION",
         [ND_ASSIGN]         = "ND_ASSIGN",
         [ND_ADD]            = "ND_ADD",
         [ND_RETURN]         = "ND_RETURN",
+        [ND_CALL]           = "ND_CALL",
         [ND_BLOCK]          = "ND_BLOCK",
         [ND_IDENTIFIER]     = "ND_IDENTIFIER"
     };
+    // FIXME?: this static assert only fails if new node types are appended
+    // to the end of the node type enum, something which almost never happens.
     _Static_assert(sizeof(names)/sizeof(names[0]) == ND_TYPE_COUNT, "Missing type(s) in node_type_name()");
     return names[type];
 }
@@ -379,10 +387,11 @@ void astNodePrint(FILE *to, ASTNode *n) {
             literalValuePrint(to, AS_LITERAL_NODE(n)->value);
             break;
         case ND_VARIABLE:
+        case ND_FUNCTION:
             fputs(", \x1b[1mobj:\x1b[0m ", to);
             astObjPrint(to, AS_OBJ_NODE(n)->obj);
             break;
-        case ND_ASSIGN: // fallthrough
+        case ND_ASSIGN:
         case ND_ADD:
             fputs(", \x1b[1mlhs:\x1b[0m ", to);
             astNodePrint(to, AS_BINARY_NODE(n)->lhs);
@@ -390,6 +399,7 @@ void astNodePrint(FILE *to, ASTNode *n) {
             astNodePrint(to, AS_BINARY_NODE(n)->rhs);
             break;
         case ND_RETURN:
+        case ND_CALL:
             fputs(", \x1b[1moperand:\x1b[0m ", to);
             astNodePrint(to, AS_UNARY_NODE(n)->operand);
             break;

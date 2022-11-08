@@ -61,10 +61,11 @@ typedef struct scope_id {
 // binary(op(+), literal(1), literal(2)).
 typedef enum ast_node_type {
     // Literal nodes
-    ND_NUMBER_LITERAL, // ASTLiteralNode
+    ND_NUMBER_LITERAL,
 
     // Obj nodes
-    ND_VARIABLE, // ASTObjNode
+    ND_VARIABLE,
+    ND_FUNCTION,
 
     // Binary nodes
     ND_ASSIGN,
@@ -72,6 +73,7 @@ typedef enum ast_node_type {
 
     // Unary nodes
     ND_RETURN,
+    ND_CALL, // TODO: make a binary node: Node{lhs: callee, rhs: arguments}
 
     // list nodes
     ND_BLOCK,

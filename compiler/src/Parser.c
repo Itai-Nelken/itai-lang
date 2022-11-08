@@ -187,9 +187,9 @@ typedef ASTNode *(*PrefixParseFn)(Parser *p);
 typedef ASTNode *(*InfixParseFn)(Parser *p, ASTNode *lhs);
 
 typedef struct parse_rule {
-    Precedence precedence;
     PrefixParseFn prefix;
     InfixParseFn infix;
+    Precedence precedence;
 } ParseRule;
 
 /* Parse functions forward-declarations */
@@ -199,35 +199,36 @@ static ASTNode *parse_number_literal_expr(Parser *p);
 static ASTNode *parse_grouping_expr(Parser *p);
 static ASTNode *parse_identifier_expr(Parser *p);
 static ASTNode *parse_term_expr(Parser *p, ASTNode *lhs);
+static ASTNode *parse_call_expr(Parser *p, ASTNode *callee);
 
 static ParseRule rules[] = {
-    [TK_LPAREN]      = {PREC_LOWEST, parse_grouping_expr, NULL},
-    [TK_RPAREN]      = {PREC_LOWEST, NULL, NULL},
-    [TK_LBRACE]      = {PREC_LOWEST, NULL, NULL},
-    [TK_RBRACE]      = {PREC_LOWEST, NULL, NULL},
-    [TK_PLUS]        = {PREC_TERM,   NULL, parse_term_expr},
-    [TK_STAR]        = {PREC_LOWEST, NULL, NULL},
-    [TK_SLASH]       = {PREC_LOWEST, NULL, NULL},
-    [TK_SEMICOLON]   = {PREC_LOWEST, NULL, NULL},
-    [TK_COLON]       = {PREC_LOWEST, NULL, NULL},
-    [TK_MINUS]       = {PREC_LOWEST, NULL, NULL},
-    [TK_ARROW]       = {PREC_LOWEST, NULL, NULL},
-    [TK_EQUAL]       = {PREC_LOWEST, NULL, NULL},
-    [TK_EQUAL_EQUAL] = {PREC_LOWEST, NULL, NULL},
-    [TK_BANG]        = {PREC_LOWEST, NULL, NULL},
-    [TK_BANG_EQUAL]  = {PREC_LOWEST, NULL, NULL},
-    [TK_NUMBER]      = {PREC_LOWEST, parse_number_literal_expr, NULL},
-    [TK_IF]          = {PREC_LOWEST, NULL, NULL},
-    [TK_ELSE]        = {PREC_LOWEST, NULL, NULL},
-    [TK_WHILE]       = {PREC_LOWEST, NULL, NULL},
-    [TK_FN]          = {PREC_LOWEST, NULL, NULL},
-    [TK_RETURN]      = {PREC_LOWEST, NULL, NULL},
-    [TK_I32]         = {PREC_LOWEST, NULL, NULL},
-    [TK_VAR]         = {PREC_LOWEST, NULL, NULL},
-    [TK_U32]         = {PREC_LOWEST, NULL, NULL},
-    [TK_IDENTIFIER]  = {PREC_LOWEST, parse_identifier_expr, NULL},
-    [TK_GARBAGE]     = {PREC_LOWEST, NULL, NULL},
-    [TK_EOF]         = {PREC_LOWEST, NULL, NULL}
+    [TK_LPAREN]      = {parse_grouping_expr, parse_call_expr, PREC_CALL},
+    [TK_RPAREN]      = {NULL, NULL, PREC_LOWEST},
+    [TK_LBRACE]      = {NULL, NULL, PREC_LOWEST},
+    [TK_RBRACE]      = {NULL, NULL, PREC_LOWEST},
+    [TK_PLUS]        = {NULL, parse_term_expr, PREC_TERM},
+    [TK_STAR]        = {NULL, NULL, PREC_LOWEST},
+    [TK_SLASH]       = {NULL, NULL, PREC_LOWEST},
+    [TK_SEMICOLON]   = {NULL, NULL, PREC_LOWEST},
+    [TK_COLON]       = {NULL, NULL, PREC_LOWEST},
+    [TK_MINUS]       = {NULL, NULL, PREC_LOWEST},
+    [TK_ARROW]       = {NULL, NULL, PREC_LOWEST},
+    [TK_EQUAL]       = {NULL, NULL, PREC_LOWEST},
+    [TK_EQUAL_EQUAL] = {NULL, NULL, PREC_LOWEST},
+    [TK_BANG]        = {NULL, NULL, PREC_LOWEST},
+    [TK_BANG_EQUAL]  = {NULL, NULL, PREC_LOWEST},
+    [TK_NUMBER]      = {parse_number_literal_expr, NULL, PREC_LOWEST},
+    [TK_IF]          = {NULL, NULL, PREC_LOWEST},
+    [TK_ELSE]        = {NULL, NULL, PREC_LOWEST},
+    [TK_WHILE]       = {NULL, NULL, PREC_LOWEST},
+    [TK_FN]          = {NULL, NULL, PREC_LOWEST},
+    [TK_RETURN]      = {NULL, NULL, PREC_LOWEST},
+    [TK_I32]         = {NULL, NULL, PREC_LOWEST},
+    [TK_VAR]         = {NULL, NULL, PREC_LOWEST},
+    [TK_U32]         = {NULL, NULL, PREC_LOWEST},
+    [TK_IDENTIFIER]  = {parse_identifier_expr, NULL, PREC_LOWEST},
+    [TK_GARBAGE]     = {NULL, NULL, PREC_LOWEST},
+    [TK_EOF]         = {NULL, NULL, PREC_LOWEST}
 };
 _Static_assert(sizeof(rules)/sizeof(rules[0]) == TK_TYPE_COUNT, "Missing token type(s) in parser rule table!");
 
@@ -273,6 +274,12 @@ static ASTNode *parse_term_expr(Parser *p, ASTNode *lhs) {
         default: UNREACHABLE();
     }
     return astNewBinaryNode(node_type, locationMerge(lhs->location, rhs->location), lhs, rhs);
+}
+
+static ASTNode *parse_call_expr(Parser *p, ASTNode *callee) {
+    // TODO: arguments.
+    TRY_CONSUME(p, TK_RPAREN, callee);
+    return astNewUnaryNode(ND_CALL, locationMerge(callee->location, previous(p).location), callee);
 }
 
 static ASTNode *parse_precedence(Parser *p, Precedence min_prec) {
