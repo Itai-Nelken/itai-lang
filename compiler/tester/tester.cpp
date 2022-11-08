@@ -72,7 +72,7 @@ public:
     }
 
     void run() {
-        for(auto &[test, _idx] : tests) {
+        for(auto &[test, idx] : tests) {
             std::string expected;
             try {
                 expected = parse_expected(test);
@@ -83,38 +83,39 @@ public:
             }
             execute(test);
             check(test, expected);
+            test_summary(test, idx);
         }
     }
 
     void summary() {
-        int failed = 0, passed = 0;
-        for(auto [test, idx] : tests) {
-            std::cout << "(" << idx + 1 << "/" << tests.size() << ") " << test.name << ": ";
+        std::cout << "\x1b[1mSummary:\x1b[0m\n";
+        std::cout << total_passed_tests << '/' << tests.size() << " tests \x1b[32mpassed\x1b[0m.\n";
+        std::cout << total_failed_tests << '/' << tests.size() << " tests \x1b[31mfailed\x1b[0m.\n";
+    }
+
+private:
+    void test_summary(Test &test, int idx) {
+        std::cout << "(" << idx + 1 << "/" << tests.size() << ") " << test.name << ": ";
             if(test.compiler_failed) {
-                failed++;
+                total_failed_tests++;
                 std::cout << "\x1b[1;31mFailed\x1b[0m\n"
                           << "ilc exit status: " << test.ilc_exit_status << '\n'
                           << (test.tester_output.length() > 0 ? std::string("reason:\n" + test.tester_output + '\n') : std::string(""))
                           << (test.output.length() > 0 ? test.output : "")
                           << '\n';
             } else if(test.tester_failed) {
-                failed++;
+                total_failed_tests++;
                 std::cout << "\x1b[1;31mTest parsing failed:\x1b[0m\n"
                           << "reason:\n"
                           << test.output
                           << '\n';
             } else {
-                passed++;
+                total_passed_tests++;
                 std::cout << "\x1b[1;32mPassed\x1b[0m";
             }
             std::cout << '\n';
-        }
-        std::cout << "\x1b[1mSummary:\x1b[0m\n";
-        std::cout << passed << '/' << tests.size() << " tests \x1b[32mpassed\x1b[0m.\n";
-        std::cout << failed << '/' << tests.size() << " tests \x1b[31mfailed\x1b[0m.\n";
     }
 
-private:
     void execute(Test &test) {
         FILE *p = popen(std::string(get_ilc_path() + " " + test.path.c_str() + " 2>&1").c_str(), "r");
         char buffer[4096] = {0};
@@ -207,6 +208,8 @@ private:
         return contents.substr(pos);
     }
 
+    int total_failed_tests = 0;
+    int total_passed_tests = 0;
     std::vector<std::pair<Test, int>> tests;
 };
 
