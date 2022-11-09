@@ -540,6 +540,7 @@ static void synchronize(Parser *p) {
 static void init_primitive_types(ASTProgram *prog, ASTModule *root_module) {
 #define DEF(typename, type, name, size) {Type *ty; NEW0(ty); typeInit(ty, (type), astProgramAddString(prog, (name)), (size)); prog->primitives.typename = astModuleAddType(root_module, ty);}
 
+    // NOTE: Update IS_PRIMITIVE() in Types.h when adding new primitives.
     DEF(int32, TY_I32, "i32", 4);
     DEF(uint32, TY_U32, "u32", 4);
 

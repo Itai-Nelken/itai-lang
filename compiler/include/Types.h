@@ -47,6 +47,10 @@ typedef struct type {
 
 #define IS_SIGNED(ty) (!IS_UNSIGNED(ty))
 
+#define IS_PRIMITIVE(ty) ({Type *_t = &(ty); _t->type == TY_I32 || _t->type == TY_U32;})
+
+
+
 /***
  * Initialize a Type.
  *
