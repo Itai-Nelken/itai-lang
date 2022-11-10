@@ -10,7 +10,7 @@ typedef char *ASTString; // from Ast.h
 typedef enum type_type {
     TY_I32, TY_U32,
     //TY_PTR,
-    //TY_FN,
+    TY_FN,
     TY_COUNT
 } TypeType;
 
@@ -20,15 +20,15 @@ typedef struct type {
     ASTString name;
     int size;
     //int align;
-    //union {
-    //    struct {
-    //        struct ast_type *base;
-    //    } ptr;
-    //    struct {
-    //        struct ast_type *return_type;
-    //        Array parameter_types; // Array<Type *>
-    //    } fn;
-    //} as;
+    union {
+        //struct {
+        //    struct ast_type *base;
+        //} ptr;
+        struct {
+            struct type *return_type;
+            //Array parameter_types; // Array<Type *>
+        } fn;
+    } as;
 } Type;
 
 #define IS_NUMERIC(ty) ({bool __res; switch((ty).type) { \
@@ -49,7 +49,7 @@ typedef struct type {
 
 #define IS_PRIMITIVE(ty) ({Type *_t = &(ty); _t->type == TY_I32 || _t->type == TY_U32;})
 
-
+#define IS_FUNCTION(ty) ({Type *_t = &(ty); _t->type == TY_FN;})
 
 /***
  * Initialize a Type.

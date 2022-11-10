@@ -500,6 +500,7 @@ static ASTObj *parse_function_decl(Parser *p) {
     ASTObj *fn = astNewObj(OBJ_FN, location);
     fn->as.fn.name = name;
     fn->as.fn.return_type = return_type;
+    fn->as.fn.type = new_fn_type(p, return_type);
 
     if(!consume(p, TK_LBRACE)) {
         astObjFree(fn);

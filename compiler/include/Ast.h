@@ -152,6 +152,7 @@ typedef enum ast_obj_type {
 typedef struct ast_obj {
     ASTObjType type;
     Location location;
+    // TODO: take type and name out of the union.
 
     union {
         struct {
@@ -160,6 +161,7 @@ typedef struct ast_obj {
         } var;
         struct {
             ASTString name;
+            Type *type;
             Type *return_type;
             BlockScope *scopes;
             Array locals; // Array<ASTObj *>
