@@ -497,6 +497,13 @@ bool validatorValidate(Validator *v, ASTProgram *prog) {
 
     // Validating pass - finish building the AST.
     arrayMapIndex(&v->program->modules, module_validate_callback, (void *)v);
+    if(!v->found_main) {
+        Error *err;
+        NEW0(err);
+        errorInit(err, ERR_ERROR, false, locationNew(0, 0, 0), "No entry point (hint: Consider adding a 'main' function).");
+        v->had_error = true;
+        compilerAddError(v->compiler, err);
+    }
 
     if(!v->had_error) {
         // Typechecking pass - typecheck the AST.
