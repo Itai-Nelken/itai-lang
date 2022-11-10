@@ -73,10 +73,19 @@ void tableMap(Table *t, void (*callback)(TableItem *item, bool is_last, void *cl
 
 /***
  * Delete an item in a table.
- * 
+ *
  * @param t An initialized table.
  * @param key The key of the item to delete.
  ***/
 void tableDelete(Table *t, void *key);
+
+/***
+ * Delete all items in a table.
+ *
+ * @param t An initialized table.
+ * @param free_item_callback The callback to call on every item before deleting it (can be NULL).
+ * @param cl Custom data for the callback (can be NULL).
+ ***/
+void tableClear(Table *t, void (*free_item_callback)(TableItem *item, void *cl), void *cl);
 
 #endif // TABLE_H

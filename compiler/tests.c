@@ -265,7 +265,7 @@ struct table_test_expected {
 struct table_test {
     Table t;
     struct table_test_expected *expected;
-    size_t expected_length;
+    size_t expected_length, actual_length;
 };
 static long find_value_for_key(struct table_test *t, char *key) {
     for(int i = 0; i < (int)t->expected_length; ++i) {
@@ -279,6 +279,12 @@ static void test_table_callback(TableItem *item, bool is_last, void *cl) {
     UNUSED(is_last);
     struct table_test *t = (struct table_test *)cl;
     CHECK(((long)item->value) == find_value_for_key(t, (char *)item->key));
+}
+static void table_calculate_length_callback(TableItem *item, bool is_last, void *cl) {
+    UNUSED(item);
+    UNUSED(is_last);
+    struct table_test *t = (struct table_test *)cl;
+    t->actual_length++;
 }
 static void test_table(void *a) {
     UNUSED(a);
@@ -303,7 +309,8 @@ static void test_table(void *a) {
     };
     struct table_test t = {
         .expected = expected,
-        .expected_length = sizeof(expected)/sizeof(expected[0])
+        .expected_length = sizeof(expected)/sizeof(expected[0]),
+        .actual_length = 0
     };
     tableInit(&t.t, NULL, NULL);
 
@@ -317,6 +324,10 @@ static void test_table(void *a) {
     CHECK(tableGet(&t.t, (void *)"k") == NULL);
 
     tableMap(&t.t, test_table_callback, (void *)&t);
+    tableClear(&t.t, NULL, NULL);
+    tableMap(&t.t, table_calculate_length_callback, (void *)&t);
+    CHECK(t.actual_length == 0);
+    CHECK(t.t.used == t.actual_length);
 
     tableFree(&t.t);
 }

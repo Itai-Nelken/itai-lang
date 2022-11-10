@@ -162,6 +162,20 @@ void tableDelete(Table *t, void *key) {
     item->is_empty = true;
     item->key = NULL;
     item->value = (void *)0xDEADC0DE;
+    t->used--;
+}
+
+void tableClear(Table *t, void (*free_item_callback)(TableItem *item, void *cl), void *cl) {
+    for(size_t i = 0; i < t->capacity; ++i) {
+        Item *item = &t->items[i];
+        if(item->is_empty) {
+            continue;
+        }
+        if(free_item_callback) {
+            free_item_callback(item, cl);
+        }
+        tableDelete(t, (void *)item->key);
+    }
 }
 
 #undef Item
