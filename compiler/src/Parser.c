@@ -409,6 +409,17 @@ static Type *parse_type(Parser *p) {
     return ty;
 }
 
+static Type *new_fn_type(Parser *p, Type *return_type) {
+    Type *ty;
+    NEW0(ty);
+    ASTString name = astProgramAddString(p->program, stringFormat("fn() -> %s", return_type ? return_type->name : "void"));
+    // FIXME: What should be the size of a function type?
+    //        zero because functions cannot be stored (copied/cloned)?
+    //        but what about closures/lambdas? the size of the implementing struct?
+    typeInit(ty, TY_FN, name, 0);
+    return astModuleAddType(astProgramGetModule(p->program, p->current.module), ty);
+}
+
 // variable_decl -> 'var' identifier (':' type)? ('=' expression)? ';'
 static ASTNode *parse_variable_decl(Parser *p, Array *obj_array) {
     // Assumes 'var' was already consumed.
