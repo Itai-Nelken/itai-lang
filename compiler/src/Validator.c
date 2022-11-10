@@ -3,9 +3,13 @@
 #include "common.h"
 #include "memory.h"
 #include "Error.h"
+#include "Array.h"
+#include "Table.h"
+#include "Strings.h"
 #include "Compiler.h"
 #include "Token.h" // Location
 #include "Ast.h"
+#include "Types.h"
 #include "Validator.h"
 
 void validatorInit(Validator *v, Compiler *c) {
