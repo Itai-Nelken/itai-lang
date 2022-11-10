@@ -1,2 +1,2 @@
-/// expect error: Error: No entry point! (Hint: Add a 'main' function).
+/// expect error: Error: No entry point (hint: Consider adding a 'main' function).
 

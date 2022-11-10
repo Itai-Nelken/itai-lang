@@ -1,4 +1,6 @@
 /// expect success
 
-var a: u32 = 123;
+fn main() {
+	var a: u32 = 123;
+}
 
