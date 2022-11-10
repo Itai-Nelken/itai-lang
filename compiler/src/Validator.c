@@ -53,6 +53,10 @@ static inline const char *type_name(Type *ty) {
 }
 
 static bool check_types(Validator *v, Location loc, Type *a, Type *b) {
+    if(!a || !b) {
+        error(v, loc, "Type mismatch: expected '%s' but got '%s'.", type_name(a), type_name(b));
+        return false;
+    }
     // Equal types might not have equal addresses if they are stored in different modules.
     // The only types that will always be equal if they have equal addresses are primitive types
     // which are stored only in the root module.
