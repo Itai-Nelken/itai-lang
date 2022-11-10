@@ -18,7 +18,9 @@ void validatorInit(Validator *v, Compiler *c) {
     v->current_module = 0;
     v->current_function = NULL;
     v->current_scope = NULL;
+    v->found_main = false;
     v->had_error = false;
+    tableInit(&v->global_ids_in_current_module, NULL, NULL);
 }
 
 void validatorFree(Validator *v) {
@@ -27,7 +29,9 @@ void validatorFree(Validator *v) {
     v->current_module = 0;
     v->current_function = NULL;
     v->current_scope = NULL;
+    v->found_main = false;
     v->had_error = false;
+    tableFree(&v->global_ids_in_current_module);
 }
 
 static void error(Validator *v, Location loc, const char *format, ...) {
@@ -136,6 +140,14 @@ static ASTObj *find_function(Validator *v, ASTString name) {
         }
     }
     return NULL;
+}
+
+static inline void add_global_id(Validator *v, ASTString id) {
+    VERIFY(tableSet(&v->global_ids_in_current_module, (void *)id, NULL) == NULL);
+}
+
+static inline bool global_id_exists(Validator *v, ASTString id) {
+    return tableGet(&v->global_ids_in_current_module, (void *)id) != NULL;
 }
 
 static Type *get_expr_type(Validator *v, ASTNode *expr) {
@@ -304,6 +316,10 @@ static bool replace_all_ids_with_objs(Validator *v, ASTNode **tree, bool is_call
 static void validate_function(Validator *v, ASTObj *fn) {
     VERIFY(fn->type == OBJ_FN);
 
+    if(stringEqual(fn->as.fn.name, "main")) {
+        v->found_main = true;
+    }
+
     v->current_function = fn;
 
     // Manually iterate over the body because validate_ast() enters the block node's scope,
@@ -324,6 +340,11 @@ static void validate_object_callback(void *object, void *validator) {
     Validator *v = (Validator *)validator;
 
     if(obj->type == OBJ_FN) {
+        if(global_id_exists(v, obj->as.var.name)) {
+            error(v, obj->location, "Symbol '%s' already exists.", obj->as.var.name);
+        } else {
+            add_global_id(v, obj->as.fn.name);
+        }
         validate_function(v, obj);
     }
 }
@@ -335,10 +356,17 @@ static void module_validate_callback(void *module, usize index, void *validator)
     v->current_module = (ModuleID)index;
     for(usize i = 0; i < m->globals.used; ++i) {
         ASTNode **g = (ASTNode **)(m->globals.data + i);
+        ASTObj *var = NODE_IS(*g, ND_ASSIGN) ? AS_OBJ_NODE(AS_BINARY_NODE(*g)->lhs)->obj : AS_OBJ_NODE(*g)->obj;
+        if(global_id_exists(v, var->as.var.name)) {
+            error(v, var->location, "Symbol '%s' already exists.", var->as.var.name);
+        } else {
+            add_global_id(v, var->as.var.name);
+        }
         replace_all_ids_with_objs(v, g, false);
         validate_variable(v, *g);
     }
     arrayMap(&m->objects, validate_object_callback, validator);
+    tableClear(&v->global_ids_in_current_module, NULL, NULL);
 }
 
 // typechecker forward declarations
