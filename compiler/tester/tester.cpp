@@ -35,7 +35,7 @@ struct Test {
     int ilc_exit_status = 0;
 };
 
-std::string get_ilc_path() {
+static std::string get_ilc_path() {
     std::string path;
     const char *env_path = getenv("TESTER_ILC_PATH");
     if(env_path) {
@@ -63,6 +63,15 @@ std::string get_ilc_path() {
         throw std::runtime_error("Failed to find ilc");
     }
     return path;
+}
+
+static unsigned number_width(unsigned value) {
+    unsigned width = 1;
+    while(value > 9) {
+        width++;
+        value /= 10;
+    }
+    return width;
 }
 
 class Tester {
@@ -94,10 +103,11 @@ public:
     }
 
     void summary() {
+        unsigned width = number_width(tests.size());
         std::cout << "\x1b[1mSummary:\x1b[0m\n";
-        std::cout << total_skipped_tests << '/' << tests.size() << " tests \x1b[33mskipped\x1b[0m.\n";
-        std::cout << total_passed_tests << '/' << tests.size() << " tests \x1b[32mpassed\x1b[0m.\n";
-        std::cout << total_failed_tests << '/' << tests.size() << " tests \x1b[31mfailed\x1b[0m.\n";
+        std::cout << std::setw(width) << total_skipped_tests << '/' << tests.size() << " tests \x1b[33mskipped\x1b[0m.\n";
+        std::cout << std::setw(width) << total_passed_tests << '/' << tests.size() << " tests \x1b[32mpassed\x1b[0m.\n";
+        std::cout << std::setw(width) << total_failed_tests << '/' << tests.size() << " tests \x1b[31mfailed\x1b[0m.\n";
     }
 
 private:
