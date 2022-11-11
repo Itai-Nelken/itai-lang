@@ -69,7 +69,7 @@ fn do_stuff(values: &[i32]) -> i64? {
         sum += value / 2;
     }
 
-    // 'sum' is automatically wrapped in a optional.
+    // 'sum' is automatically wrapped in an optional.
     return sum;
 }
 

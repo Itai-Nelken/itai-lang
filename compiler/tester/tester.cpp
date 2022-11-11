@@ -26,10 +26,11 @@ struct Test {
 
     std::string name, tester_output, output;
     fs::path path;
-    bool compiler_failed = false, tester_failed = false;
+    bool compiler_failed = false, test_parsing_failed = false, output_doesnt_match = false;
     struct {
         bool should_fail = false;
         bool should_succeed = false;
+        bool skip = false;
     } options;
     int ilc_exit_status = 0;
 };
@@ -74,11 +75,15 @@ public:
 
     void run() {
         for(auto &[test, idx] : tests) {
+            if(test.options.skip) {
+                test_summary(test, idx);
+                continue;
+            }
             std::string expected;
             try {
                 expected = parse_expected(test);
             } catch(ParseError &err) {
-                test.tester_failed = true;
+                test.test_parsing_failed = true;
                 test.tester_output = err.what();
                 continue;
             }
@@ -90,6 +95,7 @@ public:
 
     void summary() {
         std::cout << "\x1b[1mSummary:\x1b[0m\n";
+        std::cout << total_skipped_tests << '/' << tests.size() << " tests \x1b[33mskipped\x1b[0m.\n";
         std::cout << total_passed_tests << '/' << tests.size() << " tests \x1b[32mpassed\x1b[0m.\n";
         std::cout << total_failed_tests << '/' << tests.size() << " tests \x1b[31mfailed\x1b[0m.\n";
     }
@@ -97,24 +103,27 @@ public:
 private:
     void test_summary(Test &test, int idx) {
         std::cout << "(" << idx + 1 << "/" << tests.size() << ") " << test.name << ": ";
-            if(test.compiler_failed) {
-                total_failed_tests++;
-                std::cout << "\x1b[1;31mFailed\x1b[0m\n"
-                          << "ilc exit status: " << test.ilc_exit_status << '\n'
-                          << (test.tester_output.length() > 0 ? std::string("reason:\n" + test.tester_output + '\n') : std::string(""))
-                          << (test.output.length() > 0 ? test.output : "")
-                          << '\n';
-            } else if(test.tester_failed) {
-                total_failed_tests++;
-                std::cout << "\x1b[1;31mTest parsing failed:\x1b[0m\n"
-                          << "reason:\n"
-                          << test.output
-                          << '\n';
-            } else {
-                total_passed_tests++;
-                std::cout << "\x1b[1;32mPassed\x1b[0m";
-            }
-            std::cout << '\n';
+        if(test.options.skip) {
+            total_skipped_tests++;
+            std::cout << "\x1b[1;33mSkipped\x1b[0m";
+        } else if(test.compiler_failed || test.output_doesnt_match) {
+            total_failed_tests++;
+            std::cout << "\x1b[1;31mFailed\x1b[0m\n"
+                      << "ilc exit status: " << test.ilc_exit_status << '\n'
+                      << (test.tester_output.length() > 0 ? std::string("reason:\n" + test.tester_output + '\n') : std::string(""))
+                      << (test.output.length() > 0 ? test.output : "")
+                      << '\n';
+        } else if(test.test_parsing_failed) {
+            total_failed_tests++;
+            std::cout << "\x1b[1;31mTest parsing failed:\x1b[0m\n"
+                      << "reason:\n"
+                      << test.tester_output
+                      << '\n';
+        } else {
+            total_passed_tests++;
+            std::cout << "\x1b[1;32mPassed\x1b[0m";
+        }
+        std::cout << '\n';
     }
 
     void execute(Test &test) {
@@ -153,7 +162,7 @@ private:
             } else {
                 // When checking that the expected error exists,
                 // only the first line (the description of the error) is checked.
-                test.tester_failed = test.output.substr(0, test.output.find_first_of('\n')) != expected;
+                test.output_doesnt_match = test.output.substr(0, test.output.find_first_of('\n')) != expected;
             }
             return;
         } else if(test.options.should_succeed) {
@@ -174,6 +183,13 @@ private:
         file.close();
 
         size_t pos = 0;
+        auto match = [&contents, &pos](std::string expected) -> bool {
+            if(contents.length() < pos || contents.substr(pos, expected.length()) != expected) {
+                return false;
+            }
+            pos += expected.length();
+            return true;
+        };
         auto parse = [&contents, &pos](std::string expected) {
             if(contents.length() < pos || contents.substr(pos, expected.length()) != expected) {
                 throw ParseError(std::string("Expected '" + expected + "'").c_str());
@@ -190,7 +206,7 @@ private:
             }
         };
 
-        // expect -> '///' 'expect' ((('error')? ':' <output>) | 'success')
+        // expect -> '///' 'expect' ((('error')? ':' <output>) | 'success' | 'skip')
         parse("///");
         skip_whitespace();
         parse("expect");
@@ -199,8 +215,13 @@ private:
             parse("error:");
             test.options.should_fail = true;
         } else if(contents.at(pos) == 's') {
-            parse("success");
-            test.options.should_succeed = true;
+            if(match("skip")) {
+                parse("skip");
+                test.options.skip = true;
+            } else {
+                parse("success");
+                test.options.should_succeed = true;
+            }
             return "";
         } else {
             parse(":");
@@ -209,6 +230,7 @@ private:
         return contents.substr(pos);
     }
 
+    int total_skipped_tests = 0;
     int total_failed_tests = 0;
     int total_passed_tests = 0;
     std::vector<std::pair<Test, int>> tests;
