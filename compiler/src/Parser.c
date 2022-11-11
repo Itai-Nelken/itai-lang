@@ -131,7 +131,7 @@ static void leave_scope(Parser *p) {
 
 static inline void add_local_to_current_scope(Parser *p, ASTObj *local) {
     VERIFY(p->current.scope != NULL);
-    VERIFY(tableSet(&p->current.scope->visible_locals, (void *)local->as.var.name, (void *)local) == NULL);
+    VERIFY(tableSet(&p->current.scope->visible_locals, (void *)local->name, (void *)local) == NULL);
 }
 
 static ASTObj *find_local_in_current_scope(Parser *p, ASTString name) {
@@ -440,9 +440,7 @@ static ASTNode *parse_variable_decl(Parser *p, Array *obj_array) {
 
     TRY_CONSUME(p, TK_SEMICOLON, initializer);
 
-    ASTObj *var = astNewObj(OBJ_VAR, locationMerge(var_loc, name_loc));
-    var->as.var.name = name;
-    var->as.var.type = type;
+    ASTObj *var = astNewObj(OBJ_VAR, locationMerge(var_loc, name_loc), name, type);
 
     // Add the variable object.
     // NOTE: The object is being pushed to the array
@@ -470,10 +468,10 @@ static ASTNode *parse_function_body(Parser *p) {
         // for redefinitions and to save in the current scope.
         ASTObj *var_obj = ARRAY_GET_AS(ASTObj *, &p->current.function->as.fn.locals, arrayLength(&p->current.function->as.fn.locals) - 1);
         VERIFY(var_obj->type == OBJ_VAR);
-        ASTObj *existing_obj = find_local_in_current_scope(p, var_obj->as.var.name);
+        ASTObj *existing_obj = find_local_in_current_scope(p, var_obj->name);
         if(existing_obj) {
             // TODO: emit hint of previous declaration using 'exisiting_obj.location'.
-            error_at(p, var_node->location, stringFormat("Redfinition of local variable '%s'.", var_obj->as.var.name));
+            error_at(p, var_node->location, stringFormat("Redfinition of local variable '%s'.", var_obj->name));
             astNodeFree(var_node);
             // NOTE: arrayPop() is used even though we already have a reference
             //       to the object we want to free because we also want to remove
@@ -508,10 +506,8 @@ static ASTObj *parse_function_decl(Parser *p) {
     }
     location = locationMerge(location, previous(p).location);
 
-    ASTObj *fn = astNewObj(OBJ_FN, location);
-    fn->as.fn.name = name;
+    ASTObj *fn = astNewObj(OBJ_FN, location, name, new_fn_type(p, return_type));
     fn->as.fn.return_type = return_type;
-    fn->as.fn.type = new_fn_type(p, return_type);
 
     if(!consume(p, TK_LBRACE)) {
         astObjFree(fn);

@@ -422,12 +422,13 @@ void astNodePrint(FILE *to, ASTNode *n) {
 
 /* ASTObj */
 
-ASTObj *astNewObj(ASTObjType type, Location loc) {
+ASTObj *astNewObj(ASTObjType type, Location loc, ASTString name, Type *data_type) {
     ASTObj *o;
     NEW0(o);
     o->type = type;
     o->location = loc;
-
+    o->name = name;
+    o->data_type = data_type;
     switch(type) {
         case OBJ_VAR:
             // nothing
@@ -446,7 +447,8 @@ void astObjFree(ASTObj *obj) {
     if(obj == NULL) {
         return;
     }
-
+    // No need to free the name and type
+    // as they aren't owned by the object.
     switch(obj->type) {
         case OBJ_VAR:
             // nothing
@@ -482,14 +484,14 @@ void astObjPrint(FILE *to, ASTObj *obj) {
     fputs(", \x1b[1mlocation:\x1b[0m ", to);
     locationPrint(to, obj->location, true);
 
+    fprintf(to, ", \x1b[1mname:\x1b[0m '%s'", obj->name);
+    fputs(", \x1b[1mtype:\x1b[0m ", to);
+    typePrint(to, obj->data_type, true);
     switch(obj->type) {
         case OBJ_VAR:
-            fprintf(to, ", \x1b[1mname:\x1b[0m '%s'", obj->as.var.name);
-            fputs(", \x1b[1mtype:\x1b[0m ", to);
-            typePrint(to, obj->as.var.type, true);
+            // nothing
             break;
         case OBJ_FN:
-            fprintf(to, ", \x1b[1mname:\x1b[0m '%s'", obj->as.fn.name);
             fputs(", \x1b[1mreturn_type:\x1b[0m ", to);
             typePrint(to, obj->as.fn.return_type, true);
             fputs(", \x1b[1mlocals:\x1b[0m [", to);

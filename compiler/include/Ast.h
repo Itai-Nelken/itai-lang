@@ -152,16 +152,14 @@ typedef enum ast_obj_type {
 typedef struct ast_obj {
     ASTObjType type;
     Location location;
-    // TODO: take type and name out of the union.
+    ASTString name;
+    Type *data_type;
 
     union {
+        //struct {
+        //  bool is_const;
+        //} var;
         struct {
-            ASTString name;
-            Type *type;
-        } var;
-        struct {
-            ASTString name;
-            Type *type;
             Type *return_type;
             BlockScope *scopes;
             Array locals; // Array<ASTObj *>
@@ -438,9 +436,11 @@ void astNodePrint(FILE *to, ASTNode *n);
  *
  * @param type The type of the object.
  * @param loc The location of the object.
+ * @param name The name of the object.
+ * @param data_type The data type of the object.
  * @return The new object.
  ***/
-ASTObj *astNewObj(ASTObjType type, Location loc);
+ASTObj *astNewObj(ASTObjType type, Location loc, ASTString name, Type *data_type);
 
 /***
  * Free an ASTObj.

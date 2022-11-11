@@ -101,7 +101,7 @@ static ASTObj *find_global_var(Validator *v, ASTString name) {
         VERIFY(g->node_type == ND_ASSIGN || g->node_type == ND_VARIABLE);
         ASTObj *var = AS_OBJ_NODE(g->node_type == ND_ASSIGN ? AS_BINARY_NODE(g)->lhs : g)->obj;
         VERIFY(var->type == OBJ_VAR);
-        if(var->as.var.name == name) {
+        if(var->name == name) {
             return var;
         }
     }
@@ -135,7 +135,7 @@ static ASTObj *find_function(Validator *v, ASTString name) {
     ASTModule *current_module = astProgramGetModule(v->program, v->current_module);
     for(usize i = 0; i < current_module->objects.used; ++i) {
         ASTObj *obj = ARRAY_GET_AS(ASTObj *, &current_module->objects, i);
-        if(obj->type == OBJ_FN && obj->as.fn.name == name) {
+        if(obj->type == OBJ_FN && obj->name == name) {
             return obj;
         }
     }
@@ -167,7 +167,7 @@ static Type *get_expr_type(Validator *v, ASTNode *expr) {
         //    break;
         //}
         case ND_VARIABLE:
-            ty = AS_OBJ_NODE(expr)->obj->as.var.type;
+            ty = AS_OBJ_NODE(expr)->obj->data_type;
             break;
         case ND_FUNCTION:
             ty = AS_OBJ_NODE(expr)->obj->as.fn.return_type;
@@ -196,18 +196,18 @@ static bool validate_variable(Validator *v, ASTNode *var) {
         // Check that the variable isn't being assigned to itself.
         if(NODE_IS(AS_BINARY_NODE(var)->rhs, ND_VARIABLE)
         && AS_OBJ_NODE(AS_BINARY_NODE(var)->rhs)->obj == var_obj) {
-            error(v, AS_BINARY_NODE(var)->rhs->location, "Variable '%s' is assigned to itself.", var_obj->as.var.name);
+            error(v, AS_BINARY_NODE(var)->rhs->location, "Variable '%s' is assigned to itself.", var_obj->name);
             return false;
         }
 
         // Try to infer the variable's type if necceary
-        if(var_obj->as.var.type == NULL) {
+        if(var_obj->data_type == NULL) {
             Type *rhs_ty = get_expr_type(v, AS_BINARY_NODE(var)->rhs);
             if(!rhs_ty) {
                 error(v, var->location, "Failed to infer type (Hint: consider adding an explicit type).");
                 return false;
             }
-            var_obj->as.var.type = rhs_ty;
+            var_obj->data_type = rhs_ty;
         }
     }
     return true;
@@ -233,7 +233,7 @@ static bool validate_ast(Validator *v, ASTNode *n) {
         case ND_RETURN:
             if(v->current_function->as.fn.return_type && !AS_UNARY_NODE(n)->operand) {
                 error(v, n->location, "'return' with no value in function '%s' returning '%s'.",
-                      v->current_function->as.fn.name, type_name(v->current_function->as.fn.return_type));
+                      v->current_function->name, type_name(v->current_function->as.fn.return_type));
                 return false;
             }
             break;
@@ -316,7 +316,7 @@ static bool replace_all_ids_with_objs(Validator *v, ASTNode **tree, bool is_call
 static void validate_function(Validator *v, ASTObj *fn) {
     VERIFY(fn->type == OBJ_FN);
 
-    if(stringEqual(fn->as.fn.name, "main")) {
+    if(stringEqual(fn->name, "main")) {
         v->found_main = true;
     }
 
@@ -340,10 +340,10 @@ static void validate_object_callback(void *object, void *validator) {
     Validator *v = (Validator *)validator;
 
     if(obj->type == OBJ_FN) {
-        if(global_id_exists(v, obj->as.var.name)) {
-            error(v, obj->location, "Symbol '%s' already exists.", obj->as.var.name);
+        if(global_id_exists(v, obj->name)) {
+            error(v, obj->location, "Symbol '%s' already exists.", obj->name);
         } else {
-            add_global_id(v, obj->as.fn.name);
+            add_global_id(v, obj->name);
         }
         validate_function(v, obj);
     }
@@ -357,10 +357,10 @@ static void module_validate_callback(void *module, usize index, void *validator)
     for(usize i = 0; i < m->globals.used; ++i) {
         ASTNode **g = (ASTNode **)(m->globals.data + i);
         ASTObj *var = NODE_IS(*g, ND_ASSIGN) ? AS_OBJ_NODE(AS_BINARY_NODE(*g)->lhs)->obj : AS_OBJ_NODE(*g)->obj;
-        if(global_id_exists(v, var->as.var.name)) {
-            error(v, var->location, "Symbol '%s' already exists.", var->as.var.name);
+        if(global_id_exists(v, var->name)) {
+            error(v, var->location, "Symbol '%s' already exists.", var->name);
         } else {
-            add_global_id(v, var->as.var.name);
+            add_global_id(v, var->name);
         }
         replace_all_ids_with_objs(v, g, false);
         validate_variable(v, *g);
@@ -431,15 +431,15 @@ static void variable_typecheck_callback(void *variable_node, void *validator) {
 
     switch(var->node_type) {
         case ND_VARIABLE:
-            if(AS_OBJ_NODE(var)->obj->as.var.type == NULL) {
-                error(v, var->location, "Variable '%s' has no type (Hint: consider adding an explicit type).", AS_OBJ_NODE(var)->obj->as.var.name);
+            if(AS_OBJ_NODE(var)->obj->data_type == NULL) {
+                error(v, var->location, "Variable '%s' has no type (Hint: consider adding an explicit type).", AS_OBJ_NODE(var)->obj->name);
                 return;
             }
             break;
         case ND_ASSIGN: {
             typecheck_ast(v, AS_BINARY_NODE(var)->rhs);
             VERIFY(NODE_IS(AS_BINARY_NODE(var)->lhs, ND_VARIABLE));
-            Type *lhs_ty = AS_OBJ_NODE(AS_BINARY_NODE(var)->lhs)->obj->as.var.type;
+            Type *lhs_ty = AS_OBJ_NODE(AS_BINARY_NODE(var)->lhs)->obj->data_type;
             Type *rhs_ty = get_expr_type(v, AS_BINARY_NODE(var)->rhs);
             // allow assigning number literals to u32 variables.
             if(IS_UNSIGNED(*lhs_ty)
