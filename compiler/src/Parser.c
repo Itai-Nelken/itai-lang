@@ -417,6 +417,7 @@ static Type *new_fn_type(Parser *p, Type *return_type) {
     //        zero because functions cannot be stored (copied/cloned)?
     //        but what about closures/lambdas? the size of the implementing struct?
     typeInit(ty, TY_FN, name, 0);
+    ty->as.fn.return_type = return_type;
     return astModuleAddType(astProgramGetModule(p->program, p->current.module), ty);
 }
 

@@ -52,7 +52,7 @@ void typePrint(FILE *to, Type *ty, bool compact) {
         switch(ty->type) {
             case TY_FN:
                 fprintf(to, ", \x1b[1mreturn_type:\x1b[0m ");
-                typePrint(to, ty->as.fn.return_type, compact);
+                typePrint(to, ty->as.fn.return_type, true);
                 break;
             case TY_I32:
             case TY_U32:
