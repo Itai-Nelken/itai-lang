@@ -160,7 +160,7 @@ Error: Expected '{' but got '<eof>'.
      ^~ Expected '{' but got '<eof>'.
 ----
 '''
-which is wrong.
+which is wrong (there is no line 3).
 */
 
 /* 
