@@ -228,6 +228,8 @@ static bool validate_ast(Validator *v, ASTNode *n) {
             return !failed;
         }
         case ND_ASSIGN:
+            CHECK(validate_ast(v, AS_BINARY_NODE(n)->rhs));
+            // fallthrough
         case ND_VARIABLE:
             return validate_variable(v, n);
         case ND_RETURN:
@@ -406,7 +408,9 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
             // failed == true -> failure (return false).
             return !failed;
         }
-        case ND_ASSIGN: // fallthrough
+        case ND_ASSIGN:
+            CHECK(typecheck_ast(v, AS_BINARY_NODE(n)->rhs));
+            // fallthrough
         case ND_VARIABLE: {
             bool old_had_error = v->had_error;
             variable_typecheck_callback((void *)n, (void *)v);
