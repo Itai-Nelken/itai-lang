@@ -122,7 +122,7 @@ static inline ScopeID enter_scope(Parser *p) {
         // Function scope, depth always == 1.
         p->current.scope = p->current.function->as.fn.scopes = blockScopeNew(NULL, 1);
         // FIXME: how to represent function scope.
-        return (ScopeID){0, 1};
+        return (ScopeID){.depth = 1, .index = 0};
     }
     // Block scope (meaning scopes inside a function scope).
     BlockScope *child = blockScopeNew(p->current.scope, p->current.scope->depth + 1);
@@ -284,6 +284,7 @@ static ASTNode *parse_term_expr(Parser *p, ASTNode *lhs) {
 }
 
 static ASTNode *parse_call_expr(Parser *p, ASTNode *callee) {
+    // FIXME:How to represent an empty ScopeID?
     ASTListNode *arguments = AS_LIST_NODE(astNewListNode(ND_ARGS, current(p).location, (ScopeID){0, 0}));
     if(current(p).type != TK_RPAREN) {
         do {
