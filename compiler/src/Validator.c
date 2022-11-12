@@ -218,9 +218,9 @@ static bool validate_ast(Validator *v, ASTNode *n) {
         case ND_BLOCK: {
             // typecheck all nodes in the block, even if some fail.
             bool failed = false;
-            enter_scope(v, AS_BLOCK_NODE(n)->scope);
-            for(usize i = 0; i < AS_BLOCK_NODE(n)->nodes.used; ++i) {
-                failed = validate_ast(v, ARRAY_GET_AS(ASTNode *, &AS_BLOCK_NODE(n)->nodes, i));
+            enter_scope(v, AS_LIST_NODE(n)->scope);
+            for(usize i = 0; i < AS_LIST_NODE(n)->nodes.used; ++i) {
+                failed = validate_ast(v, ARRAY_GET_AS(ASTNode *, &AS_LIST_NODE(n)->nodes, i));
             }
             leave_scope(v);
             // failed == false -> success (return true).
@@ -262,8 +262,8 @@ static bool replace_all_ids_with_objs(Validator *v, ASTNode **tree, bool is_call
     switch((*tree)->node_type) {
         case ND_BLOCK: {
             bool success = true;
-            for(usize i = 0; i < AS_BLOCK_NODE(*tree)->nodes.used; ++i) {
-                ASTNode **n = (ASTNode **)(AS_BLOCK_NODE(*tree)->nodes.data + i);
+            for(usize i = 0; i < AS_LIST_NODE(*tree)->nodes.used; ++i) {
+                ASTNode **n = (ASTNode **)(AS_LIST_NODE(*tree)->nodes.data + i);
                 success = !success ? false : replace_all_ids_with_objs(v, n, false);
             }
             return success;
@@ -386,9 +386,9 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
         case ND_BLOCK: {
             // typecheck all nodes in the block, even if some fail.
             bool failed = false;
-            enter_scope(v, AS_BLOCK_NODE(n)->scope);
-            for(usize i = 0; i < AS_BLOCK_NODE(n)->nodes.used; ++i) {
-                failed = typecheck_ast(v, ARRAY_GET_AS(ASTNode *, &AS_BLOCK_NODE(n)->nodes, i));
+            enter_scope(v, AS_LIST_NODE(n)->scope);
+            for(usize i = 0; i < AS_LIST_NODE(n)->nodes.used; ++i) {
+                failed = typecheck_ast(v, ARRAY_GET_AS(ASTNode *, &AS_LIST_NODE(n)->nodes, i));
             }
             leave_scope(v);
             // failed == false -> success (return true).

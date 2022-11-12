@@ -118,11 +118,11 @@ typedef struct ast_identifier_node {
     ASTString identifier;
 } ASTIdentifierNode;
 
-typedef struct ast_block_node {
+typedef struct ast_list_node {
     ASTNode header;
     ScopeID scope;
     Array nodes; // Array<ASTNode *>
-} ASTBlockNode;
+} ASTListNode;
 
 #define NODE_IS(node, type) ((node)->node_type == (type))
 #define AS_NODE(node) ((ASTNode *)(node))
@@ -131,7 +131,7 @@ typedef struct ast_block_node {
 #define AS_LITERAL_NODE(node) ((ASTLiteralValueNode *)(node))
 #define AS_OBJ_NODE(node) ((ASTObjNode *)(node))
 #define AS_IDENTIFIER_NODE(node) ((ASTIdentifierNode *)(node))
-#define AS_BLOCK_NODE(node) ((ASTBlockNode *)(node))
+#define AS_LIST_NODE(node) ((ASTListNode *)(node))
 
 
 /* ASTModule (1) */
@@ -164,7 +164,7 @@ typedef struct ast_obj {
             Type *return_type;
             BlockScope *scopes;
             Array locals; // Array<ASTObj *>
-            ASTBlockNode *body;
+            ASTListNode *body;
         } fn;
     } as;
 } ASTObj;
@@ -406,13 +406,14 @@ ASTNode *astNewObjNode(ASTNodeType type, Location loc, ASTObj *obj);
 ASTNode *astNewIdentifierNode(Location loc, ASTString str);
 
 /***
- * Create a new ASTBlockNode.
+ * Create a new ASTListNode.
  *
+ * @param type The type of the node.
  * @param loc The Location of the node.
  * @param scope The ScopeID of the block the node represents.
  * @return The node as an ASTNode.
  ***/
-ASTNode *astNewBlockNode(Location loc, ScopeID scope);
+ASTNode *astNewListNode(ASTNodeType type, Location loc, ScopeID scope);
 
 /***
  * Free an AST.

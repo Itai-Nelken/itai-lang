@@ -332,7 +332,7 @@ static inline ASTNode *parse_expression(Parser *p) {
 
 static ASTNode *parse_block(Parser *p, ScopeID scope, ASTNode *(*parse_callback)(Parser *p)) {
     // Assume '{' was already consumed.
-    ASTBlockNode *n = AS_BLOCK_NODE(astNewBlockNode(locationNew(0, 0, 0), scope));
+    ASTListNode *n = AS_LIST_NODE(astNewListNode(ND_BLOCK, locationNew(0, 0, 0), scope));
     Location start = previous(p).location;
 
     while(!is_eof(p) && current(p).type != TK_RBRACE) {
@@ -556,7 +556,7 @@ static ASTObj *parse_function_decl(Parser *p) {
     for(usize i = 0; i < fn->as.fn.parameters.used; ++i) {
         add_local_to_current_scope(p, ARRAY_GET_AS(ASTObj *, &fn->as.fn.parameters, i));
     }
-    fn->as.fn.body = AS_BLOCK_NODE(parse_block(p, scope, parse_function_body));
+    fn->as.fn.body = AS_LIST_NODE(parse_block(p, scope, parse_function_body));
     leave_function(p);
     if(!fn->as.fn.body) {
         astObjFree(fn);
