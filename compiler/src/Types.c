@@ -1,17 +1,26 @@
+#include <stdio.h>
 #include <stdbool.h>
 #include "Ast.h"
+#include "Array.h"
 #include "Types.h"
 
 void typeInit(Type *ty, TypeType type, ASTString name, int size) {
     ty->type = type;
     ty->name = name;
     ty->size = size;
+    if(type == TY_FN) {
+        arrayInit(&ty->as.fn.parameter_types);
+    }
+}
+
+void typeFree(Type *ty) {
+    if(ty->type == TY_FN) {
+        // No need to free the actual types as ownership of them is not taken.
+        arrayFree(&ty->as.fn.parameter_types);
+    }
 }
 
 bool typeEqual(Type *a, Type *b) {
-    // TODO: Properly compare types:
-    //       pointers - base types,
-    //       etc.
     if(!a || !b) {
         return false;
     }
@@ -21,7 +30,20 @@ bool typeEqual(Type *a, Type *b) {
     }
     // from here on, both types have the same TY_* type.
     if(a->type == TY_FN) {
-        return typeEqual(a->as.fn.return_type, b->as.fn.return_type);
+        if(!typeEqual(a->as.fn.return_type, b->as.fn.return_type)) {
+            return false;
+        }
+        if(a->as.fn.parameter_types.used != b->as.fn.parameter_types.used) {
+            return false;
+        }
+        // past here, both function types have the same return type and parameter count.
+        for(usize i = 0; i < a->as.fn.parameter_types.used; ++i) {
+            Type *a_param = ARRAY_GET_AS(Type *, &a->as.fn.parameter_types, i);
+            Type *b_param = ARRAY_GET_AS(Type *, &b->as.fn.parameter_types, i);
+            if(!typeEqual(a_param, b_param)) {
+                return false;
+            }
+        }
     }
 
     return true;
@@ -53,6 +75,12 @@ void typePrint(FILE *to, Type *ty, bool compact) {
             case TY_FN:
                 fprintf(to, ", \x1b[1mreturn_type:\x1b[0m ");
                 typePrint(to, ty->as.fn.return_type, true);
+                fputs(", \x1b[1mparameter_types:\x1b[0m [", to);
+                for(usize i = 0; i < ty->as.fn.parameter_types.used; ++i) {
+                    Type *param_ty = ARRAY_GET_AS(Type *, &ty->as.fn.parameter_types, i);
+                    typePrint(to, param_ty, true);
+                }
+                fputc(']', to);
                 break;
             case TY_I32:
             case TY_U32:

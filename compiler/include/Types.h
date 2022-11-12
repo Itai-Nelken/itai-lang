@@ -26,7 +26,7 @@ typedef struct type {
         //} ptr;
         struct {
             struct type *return_type;
-            //Array parameter_types; // Array<Type *>
+            Array parameter_types; // Array<Type *>
         } fn;
     } as;
 } Type;
@@ -60,6 +60,13 @@ typedef struct type {
  * @param size The size of the type.
  ***/
 void typeInit(Type *ty, TypeType type, ASTString name, int size);
+
+/***
+ * Free a Type.
+ *
+ * @param ty The Type to free.
+ ***/
+void typeFree(Type *ty);
 
 /***
  * Check if two Types are equal.

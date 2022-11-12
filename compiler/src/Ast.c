@@ -52,6 +52,7 @@ static void free_type_callback(TableItem *item, bool is_last, void *cl) {
     UNUSED(is_last);
     UNUSED(cl);
     Type *ty = (Type *)item->key;
+    typeFree(ty);
     FREE(ty);
 }
 
