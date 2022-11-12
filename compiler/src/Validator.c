@@ -79,6 +79,10 @@ static bool check_types(Validator *v, Location loc, Type *a, Type *b) {
     return true;
 }
 
+static inline bool is_callable(ASTObj *obj) {
+    return obj->data_type->type == TY_FN;
+}
+
 static inline void enter_scope(Validator *v, ScopeID scope) {
     VERIFY(v->current_function);
     if(v->current_scope == NULL) {
@@ -160,10 +164,10 @@ static Type *get_expr_type(Validator *v, ASTNode *expr) {
             ty = AS_OBJ_NODE(expr)->obj->data_type;
             break;
         case ND_FUNCTION:
-            ty = AS_OBJ_NODE(expr)->obj->as.fn.return_type;
+            ty = AS_OBJ_NODE(expr)->obj->data_type;
             break;
         case ND_CALL:
-            ty = get_expr_type(v, AS_BINARY_NODE(expr)->lhs);
+            ty = AS_OBJ_NODE(AS_BINARY_NODE(expr)->lhs)->obj->data_type->as.fn.return_type;
             break;
         case ND_ASSIGN:
         case ND_ADD:
@@ -238,11 +242,16 @@ static bool validate_ast(Validator *v, ASTNode *n) {
             }
             return validate_ast(v, AS_BINARY_NODE(n)->rhs);
         case ND_CALL: {
-            ASTObj *fn = AS_OBJ_NODE(AS_BINARY_NODE(n)->lhs)->obj;
+            ASTObj *callee = AS_OBJ_NODE(AS_BINARY_NODE(n)->lhs)->obj;
             ASTListNode *arguments = AS_LIST_NODE(AS_BINARY_NODE(n)->rhs);
-            if(fn->as.fn.parameters.used != arguments->nodes.used) {
+            if(!is_callable(callee)) {
+                error(v, n->location, "'%s' isn't callable.", callee->name);
+                return false;
+            }
+            Array *parameters = &callee->data_type->as.fn.parameter_types;
+            if(parameters->used != arguments->nodes.used) {
                 error(v, arguments->header.location, "Expected %zu %s but got %zu.",
-                      fn->as.fn.parameters.used, fn->as.fn.parameters.used == 1 ? "argument" : "arguments",
+                      parameters->used, parameters->used == 1 ? "argument" : "arguments",
                       arguments->nodes.used);
             }
             break;
@@ -260,48 +269,36 @@ static bool validate_ast(Validator *v, ASTNode *n) {
     return true;
 }
 
-// NOTE: NEVER call with is_call set to true. the parameter is for recursive calls
-//       performed by this function.
-static bool replace_all_ids_with_objs(Validator *v, ASTNode **tree, bool is_call) {
+static bool replace_all_ids_with_objs(Validator *v, ASTNode **tree) {
     switch((*tree)->node_type) {
         case ND_ARGS:
         case ND_BLOCK: {
             bool success = true;
             for(usize i = 0; i < AS_LIST_NODE(*tree)->nodes.used; ++i) {
                 ASTNode **n = (ASTNode **)(AS_LIST_NODE(*tree)->nodes.data + i);
-                success = !success ? false : replace_all_ids_with_objs(v, n, false);
+                success = !success ? false : replace_all_ids_with_objs(v, n);
             }
             return success;
         }
         case ND_ADD:
         case ND_CALL:
         case ND_ASSIGN: {
-            bool lhs_result = replace_all_ids_with_objs(v, &(AS_BINARY_NODE(*tree)->lhs), (*tree)->node_type == ND_CALL);
-            bool rhs_result = replace_all_ids_with_objs(v, &(AS_BINARY_NODE(*tree)->rhs), (*tree)->node_type == ND_CALL);
+            bool lhs_result = replace_all_ids_with_objs(v, &(AS_BINARY_NODE(*tree)->lhs));
+            bool rhs_result = replace_all_ids_with_objs(v, &(AS_BINARY_NODE(*tree)->rhs));
             return !lhs_result || !rhs_result ? false : true;
         }
         case ND_IDENTIFIER: {
-            if(is_call) {
-                ASTObj *fn_obj = find_function(v, AS_IDENTIFIER_NODE(*tree)->identifier);
-                if(!fn_obj) {
-                    error(v, (*tree)->location, "Function '%s' doesn't exist.", AS_IDENTIFIER_NODE(*tree)->identifier);
+            ASTObj *obj = find_variable(v, AS_IDENTIFIER_NODE(*tree)->identifier);
+            if(!obj) {
+                obj = find_function(v, AS_IDENTIFIER_NODE(*tree)->identifier);
+                if(!obj) {
+                    error(v, (*tree)->location, "Symbol '%s' doesn't exist.", AS_IDENTIFIER_NODE(*tree)->identifier);
                     return false;
                 }
-                ASTNode *fn_node = astNewObjNode(ND_FUNCTION, (*tree)->location, fn_obj);
-                astNodeFree(*tree);
-                *tree = fn_node;
-            } else {
-                ASTObj *var_obj = find_variable(v, AS_IDENTIFIER_NODE(*tree)->identifier);
-                // FIXME: Search for functions if a variable is not found.
-                //        Along with this, also allow calling a variable that refers to a function.
-                if(!var_obj) {
-                    error(v, (*tree)->location, "Variable '%s' doesn't exist.", AS_IDENTIFIER_NODE(*tree)->identifier);
-                    return false;
-                }
-                ASTNode *var_node = astNewObjNode(ND_VARIABLE, (*tree)->location, var_obj);
-                astNodeFree(*tree);
-                *tree = var_node;
             }
+            ASTNode *node = astNewObjNode(obj->type == OBJ_VAR ? ND_VARIABLE : ND_FUNCTION, (*tree)->location, obj);
+            astNodeFree(*tree);
+            *tree = node;
             break;
         }
         // unary nodes
@@ -309,7 +306,7 @@ static bool replace_all_ids_with_objs(Validator *v, ASTNode **tree, bool is_call
             if(AS_UNARY_NODE(*tree)->operand == NULL) {
                 break;
             }
-            return replace_all_ids_with_objs(v, &(AS_UNARY_NODE(*tree)->operand), false);
+            return replace_all_ids_with_objs(v, &(AS_UNARY_NODE(*tree)->operand));
         case ND_NUMBER_LITERAL:
         case ND_VARIABLE:
             break;
@@ -334,7 +331,7 @@ static void validate_function(Validator *v, ASTObj *fn) {
     // so we can reallocate the nodes (if their type has to be changed).
     for(usize i = 0; i < fn->as.fn.body->nodes.used; ++i) {
         ASTNode **n = (ASTNode **)(fn->as.fn.body->nodes.data + i);
-        if(!replace_all_ids_with_objs(v, n, false)) {
+        if(!replace_all_ids_with_objs(v, n)) {
             // The validator expects no identifier nodes,
             // so if we failed to replace all of them we can't validate.
             continue;
@@ -373,7 +370,7 @@ static void module_validate_callback(void *module, usize index, void *validator)
         } else {
             add_global_id(v, var->name);
         }
-        replace_all_ids_with_objs(v, g, false);
+        replace_all_ids_with_objs(v, g);
         validate_variable(v, *g);
     }
     arrayMap(&m->objects, validate_object_callback, validator);
