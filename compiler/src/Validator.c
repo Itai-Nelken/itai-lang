@@ -342,7 +342,11 @@ static void validate_function(Validator *v, ASTObj *fn) {
     // so we can reallocate the nodes (if their type has to be changed).
     for(usize i = 0; i < fn->as.fn.body->nodes.used; ++i) {
         ASTNode **n = (ASTNode **)(fn->as.fn.body->nodes.data + i);
-        replace_all_ids_with_objs(v, n, false);
+        if(!replace_all_ids_with_objs(v, n, false)) {
+            // The validator expects no identifier nodes,
+            // so if we failed to replace all of them we can't validate.
+            continue;
+        }
         validate_ast(v, *n);
     }
     // TODO: If function returns a value, check that it returns in all control paths.
