@@ -173,7 +173,7 @@ static Type *get_expr_type(Validator *v, ASTNode *expr) {
             ty = AS_OBJ_NODE(expr)->obj->as.fn.return_type;
             break;
         case ND_CALL:
-            ty = get_expr_type(v, AS_UNARY_NODE(expr)->operand);
+            ty = get_expr_type(v, AS_BINARY_NODE(expr)->lhs);
             break;
         case ND_ASSIGN:
         case ND_ADD:
@@ -236,16 +236,27 @@ static bool validate_ast(Validator *v, ASTNode *n) {
                       v->current_function->name, type_name(v->current_function->as.fn.return_type));
                 return false;
             }
+            if(AS_UNARY_NODE(n)->operand) {
+                return validate_ast(v, AS_UNARY_NODE(n)->operand);
+            }
             break;
         case ND_ADD:
             if(!validate_ast(v, AS_BINARY_NODE(n)->lhs)) {
                 return false;
             }
             return validate_ast(v, AS_BINARY_NODE(n)->rhs);
+        case ND_CALL: {
+            ASTObj *fn = AS_OBJ_NODE(AS_BINARY_NODE(n)->lhs)->obj;
+            ASTListNode *arguments = AS_LIST_NODE(AS_BINARY_NODE(n)->rhs);
+            if(fn->as.fn.parameters.used != arguments->nodes.used) {
+                error(v, arguments->header.location, "Expected %zu arguments but got %zu.",
+                      fn->as.fn.parameters.used, arguments->nodes.used);
+            }
+            break;
+        }
         // ignored nodes (no validating to do).
         case ND_NUMBER_LITERAL:
         case ND_FUNCTION:
-        case ND_CALL:
             return true;
         case ND_IDENTIFIER:
             // identifier nodes should be replaced before calling validate_ast().
@@ -260,6 +271,7 @@ static bool validate_ast(Validator *v, ASTNode *n) {
 //       performed by this function.
 static bool replace_all_ids_with_objs(Validator *v, ASTNode **tree, bool is_call) {
     switch((*tree)->node_type) {
+        case ND_ARGS:
         case ND_BLOCK: {
             bool success = true;
             for(usize i = 0; i < AS_LIST_NODE(*tree)->nodes.used; ++i) {
@@ -269,9 +281,10 @@ static bool replace_all_ids_with_objs(Validator *v, ASTNode **tree, bool is_call
             return success;
         }
         case ND_ADD:
+        case ND_CALL:
         case ND_ASSIGN: {
-            bool lhs_result = replace_all_ids_with_objs(v, &(AS_BINARY_NODE(*tree)->lhs), false);
-            bool rhs_result = replace_all_ids_with_objs(v, &(AS_BINARY_NODE(*tree)->rhs), false);
+            bool lhs_result = replace_all_ids_with_objs(v, &(AS_BINARY_NODE(*tree)->lhs), (*tree)->node_type == ND_CALL);
+            bool rhs_result = replace_all_ids_with_objs(v, &(AS_BINARY_NODE(*tree)->rhs), (*tree)->node_type == ND_CALL);
             return !lhs_result || !rhs_result ? false : true;
         }
         case ND_IDENTIFIER: {
@@ -301,9 +314,7 @@ static bool replace_all_ids_with_objs(Validator *v, ASTNode **tree, bool is_call
             if(AS_UNARY_NODE(*tree)->operand == NULL) {
                 break;
             }
-            // fallthrough
-        case ND_CALL:
-            return replace_all_ids_with_objs(v, &(AS_UNARY_NODE(*tree)->operand), (*tree)->node_type == ND_CALL);
+            return replace_all_ids_with_objs(v, &(AS_UNARY_NODE(*tree)->operand), false);
         case ND_NUMBER_LITERAL:
         case ND_VARIABLE:
             break;
@@ -408,15 +419,30 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
             if(AS_UNARY_NODE(n)->operand == NULL) {
                 break;
             }
+            CHECK(typecheck_ast(v, AS_UNARY_NODE(n)->operand));
             CHECK(check_types(v, AS_UNARY_NODE(n)->operand->location,
                               v->current_function->as.fn.return_type,
                               get_expr_type(v, AS_UNARY_NODE(n)->operand)));
             break;
+        case ND_CALL: {
+            ASTObj *fn = AS_OBJ_NODE(AS_BINARY_NODE(n)->lhs)->obj;
+            ASTListNode *arguments = AS_LIST_NODE(AS_BINARY_NODE(n)->rhs);
+            bool had_error = false;
+            // The validating pass makes sure the correct amount of arguments is passed,
+            // so we can be sure that both arrays (params & args) are of equal length.
+            for(usize i = 0; i < fn->as.fn.parameters.used; ++i) {
+                ASTObj *param = ARRAY_GET_AS(ASTObj *, &fn->as.fn.parameters, i);
+                ASTNode *arg = ARRAY_GET_AS(ASTNode *, &arguments->nodes, i);
+                if(!check_types(v, arg->location, param->data_type, get_expr_type(v, arg))) {
+                    had_error = true;
+                }
+            }
+            return !had_error;
+        }
         // ignored nodes (no typechecking to do).
         case ND_NUMBER_LITERAL:
         case ND_FUNCTION:
-        case ND_CALL:
-            return true;
+            break;
         case ND_IDENTIFIER:
             // see note in validate_ast() for the reason this node is an error here.
             // fallthrough

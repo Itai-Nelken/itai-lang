@@ -315,15 +315,16 @@ void astNodeFree(ASTNode *n) {
             // nothing
         break;
         case ND_ASSIGN:
+        case ND_CALL:
         case ND_ADD:
             astNodeFree(AS_BINARY_NODE(n)->lhs);
             astNodeFree(AS_BINARY_NODE(n)->rhs);
             break;
         case ND_RETURN:
-        case ND_CALL:
             astNodeFree(AS_UNARY_NODE(n)->operand);
             break;
         case ND_BLOCK:
+        case ND_ARGS:
             arrayMap(&AS_LIST_NODE(n)->nodes, free_node_callback, NULL);
             arrayFree(&AS_LIST_NODE(n)->nodes);
             break;
@@ -341,15 +342,16 @@ static const char *node_name(ASTNodeType type) {
         case ND_FUNCTION:
             return "ASTObjNode";
         case ND_ASSIGN:
+        case ND_CALL:
         case ND_ADD:
             return "ASTBinaryNode";
         case ND_RETURN:
-        case ND_CALL:
             return "ASTUnaryNode";
         case ND_IDENTIFIER:
             return "ASTIdentifierNode";
         case ND_BLOCK:
-            return "ASTBlockNode";
+        case ND_ARGS:
+            return "ASTListNode";
         default:
             UNREACHABLE();
     }
@@ -361,10 +363,11 @@ static const char *node_type_name(ASTNodeType type) {
         [ND_VARIABLE]       = "ND_VARIABLE",
         [ND_FUNCTION]       = "ND_FUNCTION",
         [ND_ASSIGN]         = "ND_ASSIGN",
+        [ND_CALL]           = "ND_CALL",
         [ND_ADD]            = "ND_ADD",
         [ND_RETURN]         = "ND_RETURN",
-        [ND_CALL]           = "ND_CALL",
         [ND_BLOCK]          = "ND_BLOCK",
+        [ND_ARGS]           = "ND_ARGS",
         [ND_IDENTIFIER]     = "ND_IDENTIFIER"
     };
     // FIXME?: this static assert only fails if new node types are appended
@@ -392,6 +395,7 @@ void astNodePrint(FILE *to, ASTNode *n) {
             astObjPrint(to, AS_OBJ_NODE(n)->obj);
             break;
         case ND_ASSIGN:
+        case ND_CALL:
         case ND_ADD:
             fputs(", \x1b[1mlhs:\x1b[0m ", to);
             astNodePrint(to, AS_BINARY_NODE(n)->lhs);
@@ -399,7 +403,6 @@ void astNodePrint(FILE *to, ASTNode *n) {
             astNodePrint(to, AS_BINARY_NODE(n)->rhs);
             break;
         case ND_RETURN:
-        case ND_CALL:
             fputs(", \x1b[1moperand:\x1b[0m ", to);
             astNodePrint(to, AS_UNARY_NODE(n)->operand);
             break;
@@ -409,6 +412,8 @@ void astNodePrint(FILE *to, ASTNode *n) {
         case ND_BLOCK:
             fputs(", \x1b[1mscope:\x1b[0m ", to);
             scopeIDPrint(to, AS_LIST_NODE(n)->scope, true);
+            // fallthrough
+        case ND_ARGS:
             fputs(", \x1b[1mnodes:\x1b[0m [", to);
             PRINT_ARRAY(ASTNode *, astNodePrint, to, AS_LIST_NODE(n)->nodes);
             fputc(']', to);

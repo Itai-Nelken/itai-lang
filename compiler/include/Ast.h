@@ -69,14 +69,15 @@ typedef enum ast_node_type {
 
     // Binary nodes
     ND_ASSIGN,
+    ND_CALL,
     ND_ADD,
 
     // Unary nodes
     ND_RETURN,
-    ND_CALL, // TODO: make a binary node: Node{lhs: callee, rhs: arguments}
 
     // list nodes
     ND_BLOCK,
+    ND_ARGS,
 
     // other nodes
 
