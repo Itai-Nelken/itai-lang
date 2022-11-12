@@ -1,0 +1,7 @@
+/// expect error: Error: Called object 'a' of type 'i32' isn't callable.
+
+fn main() {
+	var a: i32;
+	a();
+}
+

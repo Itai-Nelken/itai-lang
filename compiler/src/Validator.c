@@ -245,7 +245,7 @@ static bool validate_ast(Validator *v, ASTNode *n) {
             ASTObj *callee = AS_OBJ_NODE(AS_BINARY_NODE(n)->lhs)->obj;
             ASTListNode *arguments = AS_LIST_NODE(AS_BINARY_NODE(n)->rhs);
             if(!is_callable(callee)) {
-                error(v, n->location, "'%s' isn't callable.", callee->name);
+                error(v, n->location, "Called object '%s' of type '%s' isn't callable.", callee->name, type_name(callee->data_type));
                 return false;
             }
             Array *parameters = &callee->data_type->as.fn.parameter_types;
