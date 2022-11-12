@@ -331,6 +331,7 @@ static void validate_function(Validator *v, ASTObj *fn) {
         replace_all_ids_with_objs(v, n, false);
         validate_ast(v, *n);
     }
+    // TODO: If function returns a value, check that it returns in all control paths.
 
     v->current_function = NULL;
 }
@@ -460,7 +461,6 @@ static void typecheck_function(Validator *v, ASTObj *fn) {
 
     v->current_function = fn;
 
-    // TODO: check that function returns a value (if expected).
     // See comment in validate_function() for an explanation of why
     // it isn't possible to call typecheck_ast() on the body directly.
     for(usize i = 0; i < fn->as.fn.body->nodes.used; ++i) {

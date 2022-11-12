@@ -112,7 +112,7 @@ public:
 
 private:
     void test_summary(Test &test, int idx) {
-        std::cout << "(" << idx + 1 << "/" << tests.size() << ") " << test.name << ": ";
+        std::cout << "(" << std::setw(number_width(tests.size())) << idx + 1 << "/" << tests.size() << ") " << test.name << ": ";
         if(test.options.skip) {
             total_skipped_tests++;
             std::cout << "\x1b[1;33mSkipped\x1b[0m";
