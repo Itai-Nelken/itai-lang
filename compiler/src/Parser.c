@@ -354,7 +354,7 @@ static ASTNode *parse_block(Parser *p, ScopeID scope, ASTNode *(*parse_callback)
             // (statements also include variable declarations in this context).
             while(!is_eof(p) && current(p).type != TK_RBRACE) {
                 TokenType c = current(p).type;
-                if(c == TK_VAR) {
+                if(c == TK_VAR || c == TK_RETURN || c == TK_IDENTIFIER) {
                     break;
                 } else {
                     advance(p);
@@ -586,7 +586,6 @@ static ASTObj *parse_function_decl(Parser *p) {
 #undef TRY
 
 // synchronize to declaration boundaries.
-// TODO: if inside a function, synchronize to statement boundaries.
 static void synchronize(Parser *p) {
     while(!is_eof(p)) {
         switch(current(p).type) {
