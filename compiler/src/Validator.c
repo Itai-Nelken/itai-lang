@@ -156,16 +156,6 @@ static Type *get_expr_type(Validator *v, ASTNode *expr) {
         case ND_NUMBER_LITERAL: // The default number literal type is i32.
             ty = v->program->primitives.int32;
             break;
-        //case ND_IDENTIFIER: {
-        //    ASTObj *var = find_variable(v, AS_IDENTIFIER_NODE(expr)->identifier);
-        //    if(!var) {
-        //        error(v, expr->location, "Variable '%s' not found.", AS_IDENTIFIER_NODE(expr)->identifier);
-        //        break;
-        //    }
-        //    VERIFY(var->type == OBJ_VAR);
-        //    ty = var->as.var.type;
-        //    break;
-        //}
         case ND_VARIABLE:
             ty = AS_OBJ_NODE(expr)->obj->data_type;
             break;
@@ -302,6 +292,8 @@ static bool replace_all_ids_with_objs(Validator *v, ASTNode **tree, bool is_call
                 *tree = fn_node;
             } else {
                 ASTObj *var_obj = find_variable(v, AS_IDENTIFIER_NODE(*tree)->identifier);
+                // FIXME: Search for functions if a variable is not found.
+                //        Along with this, also allow calling a variable that refers to a function.
                 if(!var_obj) {
                     error(v, (*tree)->location, "Variable '%s' doesn't exist.", AS_IDENTIFIER_NODE(*tree)->identifier);
                     return false;
