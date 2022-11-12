@@ -68,7 +68,7 @@ static bool check_types(Validator *v, Location loc, Type *a, Type *b) {
     // Equal types might not have equal addresses if they are stored in different modules.
     // The only types that will always be equal if they have equal addresses are primitive types
     // which are stored only in the root module.
-    if(IS_PRIMITIVE(*a) && IS_PRIMITIVE(*b)) {
+    if(IS_PRIMITIVE(a) && IS_PRIMITIVE(b)) {
         if(a != b) {
             error(v, loc, "Type mismatch: expected '%s' but got '%s'.", type_name(a), type_name(b));
             return false;
@@ -470,8 +470,8 @@ static void variable_typecheck_callback(void *variable_node, void *validator) {
             Type *lhs_ty = AS_OBJ_NODE(AS_BINARY_NODE(var)->lhs)->obj->data_type;
             Type *rhs_ty = get_expr_type(v, AS_BINARY_NODE(var)->rhs);
             // allow assigning number literals to u32 variables.
-            if(IS_UNSIGNED(*lhs_ty)
-                && IS_SIGNED(*rhs_ty)
+            if(IS_NUMERIC(lhs_ty) && IS_NUMERIC(rhs_ty) &&
+                IS_UNSIGNED(lhs_ty) && IS_SIGNED(rhs_ty)
                 && NODE_IS(AS_BINARY_NODE(var)->rhs, ND_NUMBER_LITERAL)) {
                     break;
             }

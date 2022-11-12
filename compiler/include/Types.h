@@ -31,25 +31,21 @@ typedef struct type {
     } as;
 } Type;
 
-#define IS_NUMERIC(ty) ({bool __res; switch((ty).type) { \
-    case TY_I32: \
-    case TY_U32: __res = true; break; \
-    default: \
-    __res = false; break; \
-    } __res;})
+bool typeIsNumeric(Type *ty);
+bool typeIsSigned(Type *ty);
+bool typeIsUnsigned(Type *ty);
+bool typeIsPrimitive(Type *ty);
+bool typeIsFunction(Type *ty);
 
-#define IS_UNSIGNED(ty) ({Type *__t = &(ty); VERIFY(IS_NUMERIC(*__t)); \
-    bool __res; \
-    switch(__t->type) { \
-    case TY_U32: __res = true; break; \
-    default: __res = false; break; \
- } __res;})
+#define IS_NUMERIC(ty) typeIsNumeric((ty))
 
-#define IS_SIGNED(ty) (!IS_UNSIGNED(ty))
+#define IS_UNSIGNED(ty) typeIsUnsigned((ty))
 
-#define IS_PRIMITIVE(ty) ({Type *_t = &(ty); _t->type == TY_I32 || _t->type == TY_U32;})
+#define IS_SIGNED(ty) typeIsSigned((ty))
 
-#define IS_FUNCTION(ty) ({Type *_t = &(ty); _t->type == TY_FN;})
+#define IS_PRIMITIVE(ty) typeIsPrimitive((ty))
+
+#define IS_FUNCTION(ty) typeIsFunction((ty))
 
 /***
  * Initialize a Type.

@@ -20,6 +20,54 @@ void typeFree(Type *ty) {
     }
 }
 
+bool typeIsNumeric(Type *ty) {
+    switch(ty->type) {
+        case TY_I32:
+        case TY_U32:
+            return true;
+        default:
+            break;
+    }
+    return false;
+}
+
+bool typeIsSigned(Type *ty) {
+    VERIFY(IS_NUMERIC(ty));
+    switch(ty->type) {
+        case TY_I32:
+            return true;
+        default:
+            break;
+    }
+    return false;
+}
+
+bool typeIsUnsigned(Type *ty) {
+    VERIFY(IS_NUMERIC(ty));
+    switch(ty->type) {
+        case TY_U32:
+            return true;
+        default:
+            break;
+    }
+    return false;
+}
+
+bool typeIsPrimitive(Type *ty) {
+    switch(ty->type) {
+        case TY_I32:
+        case TY_U32:
+            return true;
+        default:
+            break;
+    }
+    return false;
+}
+
+bool typeIsFunction(Type *ty) {
+    return ty->type == TY_FN;
+}
+
 bool typeEqual(Type *a, Type *b) {
     if(!a || !b) {
         return false;
