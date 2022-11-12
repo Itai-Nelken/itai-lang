@@ -261,7 +261,7 @@ static bool validate_ast(Validator *v, ASTNode *n) {
         case ND_FUNCTION:
             return true;
         case ND_IDENTIFIER:
-            // identifier nodes should be replaced before calling validate_ast().
+            // identifier nodes should be replaced with object nodes before calling validate_ast().
             // fallthrough
         default:
             UNREACHABLE();
@@ -321,6 +321,9 @@ static void validate_function(Validator *v, ASTObj *fn) {
 
     if(stringEqual(fn->name, "main")) {
         v->found_main = true;
+        // TODO: validate main()
+        //       - Return type
+        //       - Parameters
     }
 
     v->current_function = fn;
