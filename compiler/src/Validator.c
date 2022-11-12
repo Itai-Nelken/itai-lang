@@ -461,6 +461,17 @@ static void typecheck_function(Validator *v, ASTObj *fn) {
 
     v->current_function = fn;
 
+    for(usize i = 0; i < fn->as.fn.parameters.used; ++i) {
+        ASTObj *param = ARRAY_GET_AS(ASTObj *, &fn->as.fn.parameters, i);
+        VERIFY(param->type == OBJ_VAR);
+        if(param->data_type == NULL) {
+            error(v, param->location, "Parameter '%s' has no type!", param->name);
+        }
+    }
+    if(v->had_error) {
+        return;
+    }
+
     // See comment in validate_function() for an explanation of why
     // it isn't possible to call typecheck_ast() on the body directly.
     for(usize i = 0; i < fn->as.fn.body->nodes.used; ++i) {

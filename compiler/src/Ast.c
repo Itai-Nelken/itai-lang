@@ -434,6 +434,7 @@ ASTObj *astNewObj(ASTObjType type, Location loc, ASTString name, Type *data_type
             // nothing
             break;
         case OBJ_FN:
+            arrayInit(&o->as.fn.parameters);
             arrayInit(&o->as.fn.locals);
             break;
         default:
@@ -454,6 +455,8 @@ void astObjFree(ASTObj *obj) {
             // nothing
             break;
         case OBJ_FN:
+            arrayMap(&obj->as.fn.parameters, free_object_callback, NULL);
+            arrayFree(&obj->as.fn.parameters);
             arrayMap(&obj->as.fn.locals, free_object_callback, NULL);
             arrayFree(&obj->as.fn.locals);
             blockScopeFree(obj->as.fn.scopes);
@@ -467,8 +470,8 @@ void astObjFree(ASTObj *obj) {
 
 static const char *obj_type_name(ASTObjType type) {
     static const char *names[] = {
-        [OBJ_VAR] = "OBJ_VAR",
-        [OBJ_FN]  = "OBJ_FN"
+        [OBJ_VAR]   = "OBJ_VAR",
+        [OBJ_FN]    = "OBJ_FN"
     };
     _Static_assert(sizeof(names)/sizeof(names[0]) == OBJ_TYPE_COUNT, "Missing type(s) in obj_type_name()");
     return names[type];

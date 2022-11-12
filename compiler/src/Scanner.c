@@ -182,6 +182,7 @@ Token scan_token(Scanner *s) {
         case '/': return make_token(s, TK_SLASH);
         case ';': return make_token(s, TK_SEMICOLON);
         case ':': return make_token(s, TK_COLON);
+        case ',': return make_token(s, TK_COMMA);
         case '-': return make_token(s, match(s, '>') ? TK_ARROW : TK_MINUS);
         case '=': return make_token(s, match(s, '=') ? TK_EQUAL_EQUAL : TK_EQUAL);
         case '!': return make_token(s, match(s, '=') ? TK_BANG_EQUAL : TK_BANG);

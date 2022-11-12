@@ -41,6 +41,13 @@ void parserFree(Parser *p) {
     p->need_synchronize = false;
 }
 
+/** Callbacks **/
+
+static void free_object_callback(void *object, void *cl) {
+    UNUSED(cl);
+    astObjFree((ASTObj *)object);
+}
+
 /** Parser helpers **/
 
 static inline bool is_eof(Parser *p) {
@@ -422,9 +429,9 @@ static Type *new_fn_type(Parser *p, Type *return_type) {
 }
 
 // variable_decl -> 'var' identifier (':' type)? ('=' expression)? ';'
-static ASTNode *parse_variable_decl(Parser *p, Array *obj_array) {
+// NOTE: the semicolon at the end isn't consumed.
+static ASTNode *parse_variable_decl(Parser *p, bool allow_initializer, Array *obj_array) {
     // Assumes 'var' was already consumed.
-    Location var_loc = previous(p).location;
 
     ASTString name = TRY(ASTString, parse_identifier(p), 0);
     Location name_loc = previous(p).location;
@@ -435,13 +442,11 @@ static ASTNode *parse_variable_decl(Parser *p, Array *obj_array) {
     }
 
     ASTNode *initializer = NULL;
-    if(match(p, TK_EQUAL)) {
+    if(allow_initializer && match(p, TK_EQUAL)) {
         initializer = TRY(ASTNode *, parse_expression(p), 0);
     }
 
-    TRY_CONSUME(p, TK_SEMICOLON, initializer);
-
-    ASTObj *var = astNewObj(OBJ_VAR, locationMerge(var_loc, name_loc), name, type);
+    ASTObj *var = astNewObj(OBJ_VAR, name_loc, name, type);
 
     // Add the variable object.
     // NOTE: The object is being pushed to the array
@@ -451,8 +456,8 @@ static ASTNode *parse_variable_decl(Parser *p, Array *obj_array) {
     arrayPush(obj_array, (void *)var);
 
     // includes everything from the 'var' to the ';'.
-    Location full_loc = locationMerge(var_loc, previous(p).location);
-    ASTNode *var_node = astNewObjNode(ND_VARIABLE, locationMerge(var_loc, name_loc), var);
+    Location full_loc = locationMerge(name_loc, previous(p).location);
+    ASTNode *var_node = astNewObjNode(ND_VARIABLE, name_loc, var);
     if(initializer != NULL) {
         return astNewBinaryNode(ND_ASSIGN, full_loc, var_node, initializer);
     }
@@ -464,7 +469,8 @@ static ASTNode *parse_function_body(Parser *p) {
 
     ASTNode *result = NULL;
     if(match(p, TK_VAR)) {
-        ASTNode *var_node = TRY(ASTNode *, parse_variable_decl(p, &p->current.function->as.fn.locals), 0);
+        ASTNode *var_node = TRY(ASTNode *, parse_variable_decl(p, true, &p->current.function->as.fn.locals), 0);
+        TRY_CONSUME(p, TK_SEMICOLON, var_node);
         // Get the name of the variable to push to check
         // for redefinitions and to save in the current scope.
         ASTObj *var_obj = ARRAY_GET_AS(ASTObj *, &p->current.function->as.fn.locals, arrayLength(&p->current.function->as.fn.locals) - 1);
@@ -490,6 +496,25 @@ static ASTNode *parse_function_body(Parser *p) {
     return result;
 }
 
+static bool parse_parameter_list(Parser *p, Array *parameters) {
+    // Assume '(' already consumed.
+    bool had_error = false;
+    if(match(p, TK_RPAREN)) {
+        return true;
+    }
+    do {
+        ASTNode *param_var = parse_variable_decl(p, false, parameters);
+        if(!param_var) {
+            had_error = true;
+        }
+        astNodeFree(param_var);
+    } while(match(p, TK_COMMA));
+    if(!consume(p, TK_RPAREN)) {
+        return false;
+    }
+    return !had_error;
+}
+
 // function_decl -> 'fn' identifier '(' parameter_list? ')' ('->' type)? block(fn_body)
 static ASTObj *parse_function_decl(Parser *p) {
     // Assumes 'fn' was already consumed.
@@ -497,24 +522,40 @@ static ASTObj *parse_function_decl(Parser *p) {
 
     ASTString name = TRY(ASTString, parse_identifier(p), 0);
 
+    Array parameters;
+    arrayInit(&parameters);
     TRY_CONSUME(p, TK_LPAREN, 0);
-    // TODO: parameters.
-    TRY_CONSUME(p, TK_RPAREN, 0);
+    if(!parse_parameter_list(p, &parameters)) {
+        arrayMap(&parameters, free_object_callback, NULL);
+        arrayFree(&parameters);
+        return NULL;
+    }
 
     Type *return_type = NULL;
     if(match(p, TK_ARROW)) {
-        return_type = TRY(Type *, parse_type(p), 0);
+        return_type = parse_type(p);
+        if(!return_type) {
+            arrayMap(&parameters, free_object_callback, NULL);
+            arrayFree(&parameters);
+            return NULL;
+        }
     }
     location = locationMerge(location, previous(p).location);
 
     ASTObj *fn = astNewObj(OBJ_FN, location, name, new_fn_type(p, return_type));
     fn->as.fn.return_type = return_type;
+    arrayCopy(&fn->as.fn.parameters, &parameters);
+    arrayFree(&parameters); // No need to free the contens of the array as they are owned by the fn now.
 
     if(!consume(p, TK_LBRACE)) {
         astObjFree(fn);
         return NULL;
     }
     ScopeID scope = enter_function(p, fn);
+    // Add all parameters as locals.
+    for(usize i = 0; i < fn->as.fn.parameters.used; ++i) {
+        add_local_to_current_scope(p, ARRAY_GET_AS(ASTObj *, &fn->as.fn.parameters, i));
+    }
     fn->as.fn.body = AS_BLOCK_NODE(parse_block(p, scope, parse_function_body));
     leave_function(p);
     if(!fn->as.fn.body) {
@@ -580,7 +621,11 @@ bool parserParse(Parser *p, ASTProgram *prog) {
                 arrayPush(&root_module->objects, (void *)fn);
             }
         } else if(match(p, TK_VAR)) {
-            ASTNode *global = parse_variable_decl(p, &root_module->objects);
+            ASTNode *global = parse_variable_decl(p, true, &root_module->objects);
+            if(!consume(p, TK_SEMICOLON)) {
+                astNodeFree(global);
+                continue;
+            }
             if(global != NULL) {
                 arrayPush(&root_module->globals, (void *)global);
             }

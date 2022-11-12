@@ -42,6 +42,7 @@ typedef enum token_type {
     TK_PLUS,
     TK_STAR, TK_SLASH,
     TK_SEMICOLON, TK_COLON,
+    TK_COMMA,
 
     // one or two character tokens
     TK_MINUS, TK_ARROW,
