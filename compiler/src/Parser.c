@@ -412,8 +412,73 @@ static Type *parse_primitive_type(Parser *p) {
     return NULL;
 }
 
+// parameters: Array<ASTObj *>
+static Type *new_fn_type(Parser *p, Type *return_type, Array parameters) {
+    Type *ty;
+    NEW0(ty);
+    // FIXME: What should be the size of a function type?
+    //        zero because functions cannot be stored (copied/cloned)?
+    //        but what about closures/lambdas? the size of the implementing struct?
+    typeInit(ty, TY_FN, NULL, 0);
+    ty->as.fn.return_type = return_type;
+    
+    String name = stringCopy("fn(");
+    for(usize i = 0; i < parameters.used; ++i) {
+        ASTObj *param = ARRAY_GET_AS(ASTObj *, &parameters, i);
+        stringAppend(&name, "%s", param->data_type->name);
+        if(i + 1 < parameters.used) {
+            stringAppend(&name, ", ");
+        }
+        arrayPush(&ty->as.fn.parameter_types, param->data_type);
+    }
+    stringAppend(&name, ") -> %s", return_type ? return_type->name : "void");
+    ty->name = astProgramAddString(p->program, name);
+
+    //ASTString name = astProgramAddString(p->program, stringFormat("fn() -> %s", return_type ? return_type->name : "void"));
+    return astModuleAddType(astProgramGetModule(p->program, p->current.module), ty);
+}
+
+static Type *parse_type(Parser *p);
+
+static Type *parse_function_type(Parser *p) {
+    // Assume 'fn' was already consumed.
+    Type *ty = NULL;
+
+    TRY_CONSUME(p, TK_LPAREN, 0);
+    Array parameters; // Array<ASTObj *>
+    arrayInit(&parameters);
+    if(current(p).type != TK_RPAREN) {
+        do {
+            Type *ty = parse_type(p);
+            if(!ty) {
+                continue;
+            }
+            // Wrap the types in an ASTObj because of new_fn_type().
+            arrayPush(&parameters, (void *)astNewObj(OBJ_VAR, locationNew(0, 0, 0), "", ty));
+        } while(match(p, TK_COMMA));
+    }
+    if(!consume(p, TK_RPAREN)) {
+        goto free_param_array;
+    }
+    Type *return_type = NULL;
+    if(match(p, TK_ARROW)) {
+        if((return_type = parse_type(p)) == NULL) {
+            goto free_param_array;
+        }
+    }
+
+    ty = new_fn_type(p, return_type, parameters);
+free_param_array:
+    arrayMap(&parameters, free_object_callback, NULL);
+    arrayFree(&parameters);
+    return ty;
+}
+
 // complex_type -> arrays, structs, enums, functions, custom types
 static Type *parse_complex_type(Parser *p) {
+    if(match(p, TK_FN)) {
+        return TRY(Type *, parse_function_type(p), 0);
+    }
     error_at(p, current(p).location, "Expected typename.");
     return NULL;
 }
@@ -425,23 +490,6 @@ static Type *parse_type(Parser *p) {
         ty = TRY(Type *, parse_complex_type(p), 0);
     }
     return ty;
-}
-
-// parameters: Array<ASTObj *>
-static Type *new_fn_type(Parser *p, Type *return_type, Array parameters) {
-    Type *ty;
-    NEW0(ty);
-    ASTString name = astProgramAddString(p->program, stringFormat("fn() -> %s", return_type ? return_type->name : "void"));
-    // FIXME: What should be the size of a function type?
-    //        zero because functions cannot be stored (copied/cloned)?
-    //        but what about closures/lambdas? the size of the implementing struct?
-    typeInit(ty, TY_FN, name, 0);
-    ty->as.fn.return_type = return_type;
-    for(usize i = 0; i < parameters.used; ++i) {
-        ASTObj *param = ARRAY_GET_AS(ASTObj *, &parameters, i);
-        arrayPush(&ty->as.fn.parameter_types, param->data_type);
-    }
-    return astModuleAddType(astProgramGetModule(p->program, p->current.module), ty);
 }
 
 // variable_decl -> 'var' identifier (':' type)? ('=' expression)? ';'
@@ -512,6 +560,7 @@ static ASTNode *parse_function_body(Parser *p) {
     return result;
 }
 
+// parameter_list -> '(' (identifier ':' typename)+ (',' identifier ':' typename)* ')'
 // parameters: Array<ASTObj *>
 static bool parse_parameter_list(Parser *p, Array *parameters) {
     // Assume '(' already consumed.
