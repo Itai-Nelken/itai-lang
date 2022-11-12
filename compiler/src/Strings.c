@@ -59,9 +59,9 @@ String stringResize(String s, size_t newCapacity) {
     VERIFY(newCapacity > 0);
     size_t *ptr = from_str(s);
     size_t oldCap = ptr[CAPACITY];
-    ptr = REALLOC(ptr, newCapacity);
-    memset(to_str(ptr) + oldCap, 0, labs(((ssize_t)oldCap) - ((ssize_t)newCapacity)));
+    ptr = REALLOC(ptr, sizeof(size_t) * SLOT_COUNT + newCapacity);
     ptr[CAPACITY] = newCapacity;
+    memset(to_str(ptr) + oldCap, 0, newCapacity - oldCap);
     return to_str(ptr);
 }
 
@@ -132,7 +132,7 @@ void stringAppend(String *dest, const char *format, ...) {
     String buffer = stringVFormat(format, ap);
     va_end(ap);
 
-    if((size_t)(stringLength(buffer) + 1) > from_str(*dest)[CAPACITY]) {
+    if(stringLength(*dest) + stringLength(buffer) + 1 > from_str(*dest)[CAPACITY]) {
         *dest = stringResize(*dest, stringLength(*dest) + stringLength(buffer) + 1);
     }
     strncat(*dest, buffer, stringLength(buffer));
