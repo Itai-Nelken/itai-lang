@@ -380,7 +380,7 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
             CHECK(typecheck_ast(v, AS_BINARY_NODE(n)->rhs));
             Type *lhs_ty = get_expr_type(v, AS_BINARY_NODE(n)->lhs);
             Type *rhs_ty = get_expr_type(v, AS_BINARY_NODE(n)->rhs);
-            CHECK(check_types(v, n->location, lhs_ty, rhs_ty));
+            CHECK(check_types(v, AS_BINARY_NODE(n)->rhs->location, lhs_ty, rhs_ty));
             break;
         }
         case ND_BLOCK: {
@@ -448,7 +448,7 @@ static void variable_typecheck_callback(void *variable_node, void *validator) {
                 && NODE_IS(AS_BINARY_NODE(var)->rhs, ND_NUMBER_LITERAL)) {
                     break;
             }
-            check_types(v, var->location, lhs_ty, rhs_ty);
+            check_types(v, AS_BINARY_NODE(var)->rhs->location, lhs_ty, rhs_ty);
             break;
         }
         default:
