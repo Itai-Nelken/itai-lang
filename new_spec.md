@@ -91,7 +91,7 @@ fn test() -> i64? {
 }
 
 fn main() {
-	// '&err' is syntactic sugar for 'err: &Error'.
+    // '&err' is syntactic sugar for 'err: &Error'.
     var value = test() or &err {
         eprintln("Error: %s", err.what());
         return 1;
@@ -103,6 +103,16 @@ The base struct `Error` stores a string:
 ```rust
 fn error() -> i32? {
     return Error::new("error message");
+}
+```
+
+If a function need to return nothing or an error, the special `void?` type is used. It represents nothing or an error.
+```rust
+fn error_or_nothing() -> void? {
+	if !something_that_might_fail() {
+		return Error::new("The thing failed");
+	}
+	return None;
 }
 ```
 
@@ -149,6 +159,7 @@ fn to_i32<T(str, String)>(string: T) -> i32 {
     return string.convert_to<i32>();
 }
 ```
+
 **Traits:**<br>
 
 A trait defines functions that implementing types must implement.
@@ -219,6 +230,42 @@ fn main() {
 
     var derived_as_base = as<Base>(derived);
     derived_as_base.print(); // still "Derived".
+}
+```
+
+To check the actual type of a polymorphic type, the `is` operator is used:
+```rust
+// Using the same types as the previous example:
+
+fn test(a: Base) {
+	if a is Base {
+		println("The type of 'a' is Base");
+	} else if a is Derived {
+		println("The type of 'a' is Derived");
+	} else {
+		println("The type of 'a' is unknown");
+	}
+}
+```
+
+
+## Expect statement
+The `expect` statement is used to make sure a condition is true and if not that the error is handled.
+The `expect` statement is very similar to the `if` statement, and in a way is the equivalent of `if !<condition>`.
+```rust
+fn i32_to_i8(number: i32) -> i8? {
+	expect number < 256 else {
+		return None;
+	}
+	return as<i8>(number);
+}
+```
+
+The `else` block must return from the function, exit the program (using any function marked as [noreturn]), or if in a loop `break` or `continue`.
+The `expect` statement can also be used as an assertion if the `else` block is omitted:
+```rust
+fn do_something() {
+	expect in_correct_place(); // Panic the program if the condition is false.
 }
 ```
 
