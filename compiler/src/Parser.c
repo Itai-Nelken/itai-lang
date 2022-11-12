@@ -426,7 +426,8 @@ static Type *parse_type(Parser *p) {
     return ty;
 }
 
-static Type *new_fn_type(Parser *p, Type *return_type) {
+// parameters: Array<ASTObj *>
+static Type *new_fn_type(Parser *p, Type *return_type, Array parameters) {
     Type *ty;
     NEW0(ty);
     ASTString name = astProgramAddString(p->program, stringFormat("fn() -> %s", return_type ? return_type->name : "void"));
@@ -435,6 +436,10 @@ static Type *new_fn_type(Parser *p, Type *return_type) {
     //        but what about closures/lambdas? the size of the implementing struct?
     typeInit(ty, TY_FN, name, 0);
     ty->as.fn.return_type = return_type;
+    for(usize i = 0; i < parameters.used; ++i) {
+        ASTObj *param = ARRAY_GET_AS(ASTObj *, &parameters, i);
+        arrayPush(&ty->as.fn.parameter_types, param->data_type);
+    }
     return astModuleAddType(astProgramGetModule(p->program, p->current.module), ty);
 }
 
@@ -506,6 +511,7 @@ static ASTNode *parse_function_body(Parser *p) {
     return result;
 }
 
+// parameters: Array<ASTObj *>
 static bool parse_parameter_list(Parser *p, Array *parameters) {
     // Assume '(' already consumed.
     bool had_error = false;
@@ -532,7 +538,7 @@ static ASTObj *parse_function_decl(Parser *p) {
 
     ASTString name = TRY(ASTString, parse_identifier(p), 0);
 
-    Array parameters;
+    Array parameters; // Array<ASTObj *>
     arrayInit(&parameters);
     TRY_CONSUME(p, TK_LPAREN, 0);
     if(!parse_parameter_list(p, &parameters)) {
@@ -552,7 +558,7 @@ static ASTObj *parse_function_decl(Parser *p) {
     }
     location = locationMerge(location, previous(p).location);
 
-    ASTObj *fn = astNewObj(OBJ_FN, location, name, new_fn_type(p, return_type));
+    ASTObj *fn = astNewObj(OBJ_FN, location, name, new_fn_type(p, return_type, parameters));
     fn->as.fn.return_type = return_type;
     arrayCopy(&fn->as.fn.parameters, &parameters);
     arrayFree(&parameters); // No need to free the contens of the array as they are owned by the fn now.
