@@ -1,0 +1,11 @@
+/// expect error: Error: Type mismatch: expected 'i32' but got 'u32'.
+
+fn add(a: i32, b: i32) -> i32 {
+	return a + b;
+}
+
+fn main() {
+	var a: u32 = 2;
+	var b = add(40, a);
+}
+

@@ -1,0 +1,10 @@
+/// expect error: Error: Expected 1 argument but got 2.
+
+fn test(a: i32) -> i32 {
+	return a + 1;
+}
+
+fn main() {
+	var a = test(1, 2);
+}
+
