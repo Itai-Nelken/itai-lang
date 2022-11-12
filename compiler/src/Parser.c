@@ -285,14 +285,16 @@ static ASTNode *parse_term_expr(Parser *p, ASTNode *lhs) {
 
 static ASTNode *parse_call_expr(Parser *p, ASTNode *callee) {
     ASTListNode *arguments = AS_LIST_NODE(astNewListNode(ND_ARGS, current(p).location, (ScopeID){0, 0}));
-    do {
-        ASTNode *arg = parse_expression(p);
-        if(!arg) {
-            continue;
-        }
-        arrayPush(&arguments->nodes, (void *)arg);
-        arguments->header.location = locationMerge(arguments->header.location, arg->location);
-    } while(match(p, TK_COMMA));
+    if(current(p).type != TK_RPAREN) {
+        do {
+            ASTNode *arg = parse_expression(p);
+            if(!arg) {
+                continue;
+            }
+            arrayPush(&arguments->nodes, (void *)arg);
+            arguments->header.location = locationMerge(arguments->header.location, arg->location);
+        } while(match(p, TK_COMMA));
+    }
     TRY_CONSUME(p, TK_RPAREN, callee);
     return astNewBinaryNode(ND_CALL, locationMerge(callee->location, previous(p).location), callee, AS_NODE(arguments));
 }

@@ -251,8 +251,9 @@ static bool validate_ast(Validator *v, ASTNode *n) {
             ASTObj *fn = AS_OBJ_NODE(AS_BINARY_NODE(n)->lhs)->obj;
             ASTListNode *arguments = AS_LIST_NODE(AS_BINARY_NODE(n)->rhs);
             if(fn->as.fn.parameters.used != arguments->nodes.used) {
-                error(v, arguments->header.location, "Expected %zu arguments but got %zu.",
-                      fn->as.fn.parameters.used, arguments->nodes.used);
+                error(v, arguments->header.location, "Expected %zu %s but got %zu.",
+                      fn->as.fn.parameters.used, fn->as.fn.parameters.used == 1 ? "argument" : "arguments",
+                      arguments->nodes.used);
             }
             break;
         }
