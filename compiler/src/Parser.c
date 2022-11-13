@@ -261,6 +261,7 @@ static ASTNode *parse_identifier_expr(Parser *p) {
 static ASTNode *parse_number_literal_expr(Parser *p) {
     // TODO: Support hex, octal & binary.
     u64 value = strtoul(previous(p).lexeme, NULL, 10);
+    // TODO: parse postfix typese (e.g. 123u32)
     return astNewLiteralValueNode(ND_NUMBER_LITERAL, previous(p).location, LITERAL_VALUE(LIT_NUMBER, number, value));
 }
 
