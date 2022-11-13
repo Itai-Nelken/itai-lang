@@ -412,7 +412,7 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
             return !failed;
         }
         case ND_ASSIGN:
-            CHECK(typecheck_ast(v, AS_BINARY_NODE(n)->rhs));
+            // No need to typecheck rhs as variable_typecheck_callback() already does that.
             // fallthrough
         case ND_VARIABLE: {
             bool old_had_error = v->had_error;
@@ -474,7 +474,9 @@ static void variable_typecheck_callback(void *variable_node, void *validator) {
             }
             break;
         case ND_ASSIGN: {
-            typecheck_ast(v, AS_BINARY_NODE(var)->rhs);
+            if(!typecheck_ast(v, AS_BINARY_NODE(var)->rhs)) {
+                return;
+            }
             VERIFY(NODE_IS(AS_BINARY_NODE(var)->lhs, ND_VARIABLE));
             Type *lhs_ty = AS_OBJ_NODE(AS_BINARY_NODE(var)->lhs)->obj->data_type;
             Type *rhs_ty = get_expr_type(v, AS_BINARY_NODE(var)->rhs);
