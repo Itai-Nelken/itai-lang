@@ -263,6 +263,9 @@ static bool validate_ast(Validator *v, ASTNode *n) {
         case ND_NUMBER_LITERAL:
         case ND_FUNCTION:
             return true;
+        case ND_ARGS:
+            // argument nodes should never appear outside of a call which doesn't validate it.
+            // fallthrough
         case ND_IDENTIFIER:
             // identifier nodes should be replaced with object nodes before calling validate_ast().
             // fallthrough
@@ -447,6 +450,9 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
         case ND_NUMBER_LITERAL:
         case ND_FUNCTION:
             break;
+        case ND_ARGS:
+            // see note in validate_ast() for the reason this node is an error here.
+            // fallthrough
         case ND_IDENTIFIER:
             // see note in validate_ast() for the reason this node is an error here.
             // fallthrough
