@@ -251,6 +251,9 @@ static bool validate_ast(Validator *v, ASTNode *n) {
                 error(v, n->location, "Called object '%s' of type '%s' isn't callable.", callee->name, type_name(callee->data_type));
                 return false;
             }
+            for(usize i = 0; i < arguments->nodes.used; ++i) {
+                CHECK(validate_ast(v, ARRAY_GET_AS(ASTNode *, &arguments->nodes, i)));
+            }
             Array *parameters = &callee->data_type->as.fn.parameter_types;
             if(parameters->used != arguments->nodes.used) {
                 error(v, arguments->header.location, "Expected %zu %s but got %zu.",
@@ -422,15 +425,24 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
             }
             break;
         }
-        case ND_RETURN:
+        case ND_RETURN: {
             if(AS_UNARY_NODE(n)->operand == NULL) {
                 break;
             }
             CHECK(typecheck_ast(v, AS_UNARY_NODE(n)->operand));
+            Type *operand_ty = get_expr_type(v, AS_UNARY_NODE(n)->operand);
+            // When returning a number literal in a function returning an unsigned type,
+            // the number literal is implicitly cast to the unsigned type.
+            // FIXME: Check the number value fits in the return type.
+            if(operand_ty && IS_UNSIGNED(v->current_function->as.fn.return_type) &&
+               NODE_IS(AS_UNARY_NODE(n)->operand, ND_NUMBER_LITERAL) && IS_SIGNED(operand_ty)) {
+                break;
+            }
             CHECK(check_types(v, AS_UNARY_NODE(n)->operand->location,
                               v->current_function->as.fn.return_type,
-                              get_expr_type(v, AS_UNARY_NODE(n)->operand)));
+                              operand_ty));
             break;
+        }
         case ND_CALL: {
             ASTObj *fn = AS_OBJ_NODE(AS_BINARY_NODE(n)->lhs)->obj;
             ASTListNode *arguments = AS_LIST_NODE(AS_BINARY_NODE(n)->rhs);
@@ -440,7 +452,20 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
             for(usize i = 0; i < fn->as.fn.parameters.used; ++i) {
                 ASTObj *param = ARRAY_GET_AS(ASTObj *, &fn->as.fn.parameters, i);
                 ASTNode *arg = ARRAY_GET_AS(ASTNode *, &arguments->nodes, i);
-                if(!check_types(v, arg->location, param->data_type, get_expr_type(v, arg))) {
+                if(!typecheck_ast(v, arg)) {
+                    break;
+                }
+                Type *arg_ty = get_expr_type(v, arg);
+                // The type of a number literal is i32, but it is implicitly casted
+                // into unsigned types so calls like this: `a(123)` where the parameter
+                // has the type of 'u32' and the argument is a number literal but has the type
+                // of 'i32' will typecheck correctly without emiting a type mismatch.
+                // FIXME: Check that thenumber value fits in the parameter type.
+                if(arg_ty && IS_UNSIGNED(param->data_type) &&
+                   NODE_IS(arg, ND_NUMBER_LITERAL) && IS_SIGNED(arg_ty)) {
+                    continue;
+                }
+                if(!check_types(v, arg->location, param->data_type, arg_ty)) {
                     had_error = true;
                 }
             }
