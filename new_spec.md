@@ -117,6 +117,13 @@ fn error_or_nothing() -> void? {
     // functions returning void? are the same as functions returning no value.
 	return;
 }
+
+// Usage:
+fn main() {
+    error_or_nothing() or &err {
+        eprintln("error: {}", err.what());
+    }
+}
 ```
 
 ## Polymorphism
