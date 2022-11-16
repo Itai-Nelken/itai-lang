@@ -112,7 +112,10 @@ fn error_or_nothing() -> void? {
 	if !something_that_might_fail() {
 		return Error::new("The thing failed");
 	}
-	return None;
+    // No need to return any value, after all void? means "error or nothing".
+    // The explicit return statement isn't needed either. Unless an error is returned,
+    // functions returning void? are the same as functions returning no value.
+	return;
 }
 ```
 
