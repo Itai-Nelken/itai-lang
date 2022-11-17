@@ -455,13 +455,14 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
             break;
         }
         case ND_CALL: {
-            ASTObj *fn = AS_OBJ_NODE(AS_BINARY_NODE(n)->lhs)->obj;
+            ASTObj *callee = AS_OBJ_NODE(AS_BINARY_NODE(n)->lhs)->obj;
+            VERIFY(callee->data_type->type == TY_FN);
             ASTListNode *arguments = AS_LIST_NODE(AS_BINARY_NODE(n)->rhs);
             bool had_error = false;
             // The validating pass makes sure the correct amount of arguments is passed,
             // so we can be sure that both arrays (params & args) are of equal length.
-            for(usize i = 0; i < fn->as.fn.parameters.used; ++i) {
-                ASTObj *param = ARRAY_GET_AS(ASTObj *, &fn->as.fn.parameters, i);
+            for(usize i = 0; i < callee->data_type->as.fn.parameter_types.used; ++i) {
+                Type *param_ty = ARRAY_GET_AS(Type *, &callee->data_type->as.fn.parameter_types, i);
                 ASTNode *arg = ARRAY_GET_AS(ASTNode *, &arguments->nodes, i);
                 if(!typecheck_ast(v, arg)) {
                     break;
@@ -472,11 +473,11 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
                 // has the type of 'u32' and the argument is a number literal but has the type
                 // of 'i32' will typecheck correctly without emiting a type mismatch.
                 // FIXME: Check that thenumber value fits in the parameter type.
-                if(arg_ty && IS_UNSIGNED(param->data_type) &&
+                if(arg_ty && IS_UNSIGNED(param_ty) &&
                    NODE_IS(arg, ND_NUMBER_LITERAL) && IS_SIGNED(arg_ty)) {
                     continue;
                 }
-                if(!check_types(v, arg->location, param->data_type, arg_ty)) {
+                if(!check_types(v, arg->location, param_ty, arg_ty)) {
                     had_error = true;
                 }
             }
