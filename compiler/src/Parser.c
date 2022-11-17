@@ -219,7 +219,7 @@ static ParseRule rules[] = {
     [TK_SLASH]       = {NULL, NULL, PREC_LOWEST},
     [TK_SEMICOLON]   = {NULL, NULL, PREC_LOWEST},
     [TK_COLON]       = {NULL, NULL, PREC_LOWEST},
-    [TK_MINUS]       = {parse_unary_expr, NULL, PREC_LOWEST},
+    [TK_MINUS]       = {parse_unary_expr, parse_term_expr, PREC_TERM},
     [TK_ARROW]       = {NULL, NULL, PREC_LOWEST},
     [TK_EQUAL]       = {NULL, NULL, PREC_LOWEST},
     [TK_EQUAL_EQUAL] = {NULL, NULL, PREC_LOWEST},
@@ -292,6 +292,7 @@ static ASTNode *parse_term_expr(Parser *p, ASTNode *lhs) {
     ASTNodeType node_type;
     switch(op) {
         case TK_PLUS: node_type = ND_ADD; break;
+        case TK_MINUS: node_type = ND_SUBTRACT; break;
         default: UNREACHABLE();
     }
     return astNewBinaryNode(node_type, locationMerge(lhs->location, rhs->location), lhs, rhs);

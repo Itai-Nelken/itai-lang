@@ -71,6 +71,7 @@ typedef enum ast_node_type {
     ND_ASSIGN,
     ND_CALL,
     ND_ADD,
+    ND_SUBTRACT,
 
     // Unary nodes
     ND_NEGATE,
