@@ -73,6 +73,7 @@ typedef enum ast_node_type {
     ND_ADD,
 
     // Unary nodes
+    ND_NEGATE,
     ND_RETURN,
 
     // list nodes

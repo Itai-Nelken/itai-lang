@@ -172,11 +172,16 @@ static Type *get_expr_type(Validator *v, ASTNode *expr) {
         case ND_CALL:
             ty = AS_OBJ_NODE(AS_BINARY_NODE(expr)->lhs)->obj->data_type->as.fn.return_type;
             break;
+        // infix expressions (a op b)
         case ND_ASSIGN:
         case ND_ADD:
             // The type of a binary expression is the type of the left side
             // (e.g. in 'a+b' the type of 'a' is the type of the expression).
             ty = get_expr_type(v, AS_BINARY_NODE(expr)->lhs);
+            break;
+        // prefix expressions (op a)
+        case ND_NEGATE:
+            ty = get_expr_type(v, AS_UNARY_NODE(expr)->operand);
             break;
         default:
             UNREACHABLE();
@@ -229,6 +234,8 @@ static bool validate_ast(Validator *v, ASTNode *n) {
             // fallthrough
         case ND_VARIABLE:
             return validate_variable(v, n);
+        case ND_NEGATE:
+            return validate_ast(v, AS_UNARY_NODE(n)->operand);
         case ND_RETURN:
             if(v->current_function->as.fn.return_type && !AS_UNARY_NODE(n)->operand) {
                 error(v, n->location, "'return' with no value in function '%s' returning '%s'.",
@@ -315,6 +322,8 @@ static bool replace_all_ids_with_objs(Validator *v, ASTNode **tree) {
             if(AS_UNARY_NODE(*tree)->operand == NULL) {
                 break;
             }
+            // fallthrough
+        case ND_NEGATE:
             return replace_all_ids_with_objs(v, &(AS_UNARY_NODE(*tree)->operand));
         case ND_NUMBER_LITERAL:
         case ND_VARIABLE:
@@ -425,6 +434,8 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
             }
             break;
         }
+        case ND_NEGATE:
+            return typecheck_ast(v, AS_UNARY_NODE(n)->operand);
         case ND_RETURN: {
             if(AS_UNARY_NODE(n)->operand == NULL) {
                 break;

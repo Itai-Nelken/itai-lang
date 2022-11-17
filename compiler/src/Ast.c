@@ -321,6 +321,7 @@ void astNodeFree(ASTNode *n) {
             astNodeFree(AS_BINARY_NODE(n)->lhs);
             astNodeFree(AS_BINARY_NODE(n)->rhs);
             break;
+        case ND_NEGATE:
         case ND_RETURN:
             astNodeFree(AS_UNARY_NODE(n)->operand);
             break;
@@ -346,6 +347,7 @@ static const char *node_name(ASTNodeType type) {
         case ND_CALL:
         case ND_ADD:
             return "ASTBinaryNode";
+        case ND_NEGATE:
         case ND_RETURN:
             return "ASTUnaryNode";
         case ND_IDENTIFIER:
@@ -366,6 +368,7 @@ static const char *node_type_name(ASTNodeType type) {
         [ND_ASSIGN]         = "ND_ASSIGN",
         [ND_CALL]           = "ND_CALL",
         [ND_ADD]            = "ND_ADD",
+        [ND_NEGATE]         = "ND_NEGATE",
         [ND_RETURN]         = "ND_RETURN",
         [ND_BLOCK]          = "ND_BLOCK",
         [ND_ARGS]           = "ND_ARGS",
@@ -403,6 +406,7 @@ void astNodePrint(FILE *to, ASTNode *n) {
             fputs(", \x1b[1mrhs:\x1b[0m ", to);
             astNodePrint(to, AS_BINARY_NODE(n)->rhs);
             break;
+        case ND_NEGATE:
         case ND_RETURN:
             fputs(", \x1b[1moperand:\x1b[0m ", to);
             astNodePrint(to, AS_UNARY_NODE(n)->operand);

@@ -205,6 +205,7 @@ static ASTNode *parse_expression(Parser *p);
 static ASTNode *parse_number_literal_expr(Parser *p);
 static ASTNode *parse_grouping_expr(Parser *p);
 static ASTNode *parse_identifier_expr(Parser *p);
+static ASTNode *parse_unary_expr(Parser *p);
 static ASTNode *parse_term_expr(Parser *p, ASTNode *lhs);
 static ASTNode *parse_call_expr(Parser *p, ASTNode *callee);
 
@@ -218,7 +219,7 @@ static ParseRule rules[] = {
     [TK_SLASH]       = {NULL, NULL, PREC_LOWEST},
     [TK_SEMICOLON]   = {NULL, NULL, PREC_LOWEST},
     [TK_COLON]       = {NULL, NULL, PREC_LOWEST},
-    [TK_MINUS]       = {NULL, NULL, PREC_LOWEST},
+    [TK_MINUS]       = {parse_unary_expr, NULL, PREC_LOWEST},
     [TK_ARROW]       = {NULL, NULL, PREC_LOWEST},
     [TK_EQUAL]       = {NULL, NULL, PREC_LOWEST},
     [TK_EQUAL_EQUAL] = {NULL, NULL, PREC_LOWEST},
@@ -269,6 +270,18 @@ static ASTNode *parse_grouping_expr(Parser *p) {
     ASTNode *expr = TRY(ASTNode *, parse_expression(p), 0);
     TRY_CONSUME(p, TK_RPAREN, expr);
     return expr;
+}
+
+static ASTNode *parse_unary_expr(Parser *p) {
+    Token operator = previous(p);
+    ASTNode *operand = TRY(ASTNode *, parse_precedence(p, PREC_UNARY), 0);
+
+    ASTNodeType node_type;
+    switch(operator.type) {
+        case TK_MINUS: node_type = ND_NEGATE; break;
+        default: UNREACHABLE();
+    }
+    return astNewUnaryNode(node_type, locationMerge(operator.location, operand->location), operand);
 }
 
 static ASTNode *parse_term_expr(Parser *p, ASTNode *lhs) {
