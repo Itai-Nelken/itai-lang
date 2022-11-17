@@ -38,7 +38,7 @@ static void free_block_scope_callback(void *scope, void *cl) {
 static unsigned hash_type(void *type) {
     Type *ty = (Type *)type;
     // The hash will overflow unsigned, so it will wrap around.
-    unsigned hash = (unsigned)(ty->type ^ (u64)type >> 3);
+    unsigned hash = (unsigned)(ty->type ^ (u64)ty->name >> 3);
     return hash;
 }
 
