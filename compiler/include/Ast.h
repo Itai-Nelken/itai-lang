@@ -194,7 +194,7 @@ typedef struct ast_program {
     } primitives;
     // Holds a single copy of each string in the entire program.
     Table strings; // Table<char *, String>
-    // Holds a single copy of each type in the entire program.
+    // Holds all modules in a program.
     Array modules; // Array<ASTModule *>
 } ASTProgram;
 
