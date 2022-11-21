@@ -21,6 +21,10 @@ void typeFree(Type *ty) {
 }
 
 bool typeIsNumeric(Type *ty) {
+    // FIXME: no type should be represented as void/none instead of NULL.
+    if(!ty) {
+        return false;
+    }
     switch(ty->type) {
         case TY_I32:
         case TY_U32:
@@ -32,6 +36,10 @@ bool typeIsNumeric(Type *ty) {
 }
 
 bool typeIsSigned(Type *ty) {
+    // FIXME: no type should be represented as void/none instead of NULL.
+    if(!ty) {
+        return false;
+    }
     VERIFY(IS_NUMERIC(ty));
     switch(ty->type) {
         case TY_I32:
@@ -43,6 +51,10 @@ bool typeIsSigned(Type *ty) {
 }
 
 bool typeIsUnsigned(Type *ty) {
+    // FIXME: no type should be represented as void/none instead of NULL.
+    if(!ty) {
+        return false;
+    }
     VERIFY(IS_NUMERIC(ty));
     switch(ty->type) {
         case TY_U32:
@@ -54,6 +66,10 @@ bool typeIsUnsigned(Type *ty) {
 }
 
 bool typeIsPrimitive(Type *ty) {
+    // FIXME: no type should be represented as void/none instead of NULL.
+    if(!ty) {
+        return false;
+    }
     switch(ty->type) {
         case TY_I32:
         case TY_U32:
@@ -65,10 +81,15 @@ bool typeIsPrimitive(Type *ty) {
 }
 
 bool typeIsFunction(Type *ty) {
+    // FIXME: no type should be represented as void/none instead of NULL.
+    if(!ty) {
+        return false;
+    }
     return ty->type == TY_FN;
 }
 
 bool typeEqual(Type *a, Type *b) {
+    // FIXME: no type should be represented as void/none instead of NULL.
     if(!a || !b) {
         return false;
     }

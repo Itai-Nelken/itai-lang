@@ -9,6 +9,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(sources
     src/Array.c
     src/Ast.c
+    src/Codegen.c
     src/Compiler.c
     src/Error.c
     src/Parser.c

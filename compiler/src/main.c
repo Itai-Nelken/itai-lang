@@ -9,12 +9,14 @@
 #include "Scanner.h"
 #include "Parser.h"
 #include "Validator.h"
+#include "Codegen.h"
 
 enum return_values {
     RET_SUCCESS = 0,
     RET_ARG_PARSE_FAILURE,
     RET_PARSE_FAILURE,
-    RET_VALIDATE_ERROR
+    RET_VALIDATE_ERROR,
+    RET_CODEGEN_ERROR
 };
 
 typedef struct options {
@@ -55,7 +57,6 @@ bool parse_arguments(Options *opts, int argc, char **argv) {
         }
     return true;
 }
-
 
 int main(int argc, char **argv) {
     int return_value = RET_SUCCESS;
@@ -110,6 +111,12 @@ int main(int argc, char **argv) {
     if(opts.dump_ast) {
         astProgramPrint(stdout, &prog);
         fputc('\n', stdout);
+    }
+
+    if(!codegenGenerate(stdout, &prog)) {
+        fputs("\x1b[1;31mError: Codegenerator failed!\n", stderr);
+        return_value = RET_CODEGEN_ERROR;
+        goto end;
     }
 
 end:
