@@ -164,7 +164,7 @@ static void variable_callback(void *variable, void *codegen) {
     }
 }
 
-static void function(Codegen *cg, ASTObj *fn) {
+static void gen_function_decl(Codegen *cg, ASTObj *fn) {
     gen_type(cg, fn->as.fn.return_type);
     print(cg, " %s(", fn->name);
     for(usize i = 0; i < fn->as.fn.parameters.used; ++i) {
@@ -184,7 +184,7 @@ static void object_callback(void *object, void *codegen) {
     Codegen *cg = (Codegen *)codegen;
 
     if(obj->type == OBJ_FN) {
-        function(cg, obj);
+        gen_function_decl(cg, obj);
     }
 }
 

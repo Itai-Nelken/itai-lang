@@ -214,7 +214,7 @@ static ParseRule rules[] = {
     [TK_RPAREN]      = {NULL, NULL, PREC_LOWEST},
     [TK_LBRACE]      = {NULL, NULL, PREC_LOWEST},
     [TK_RBRACE]      = {NULL, NULL, PREC_LOWEST},
-    [TK_PLUS]        = {NULL, parse_term_expr, PREC_TERM},
+    [TK_PLUS]        = {parse_unary_expr, parse_term_expr, PREC_TERM},
     [TK_STAR]        = {NULL, NULL, PREC_LOWEST},
     [TK_SLASH]       = {NULL, NULL, PREC_LOWEST},
     [TK_SEMICOLON]   = {NULL, NULL, PREC_LOWEST},
@@ -276,12 +276,13 @@ static ASTNode *parse_unary_expr(Parser *p) {
     Token operator = previous(p);
     ASTNode *operand = TRY(ASTNode *, parse_precedence(p, PREC_UNARY), 0);
 
-    ASTNodeType node_type;
     switch(operator.type) {
-        case TK_MINUS: node_type = ND_NEGATE; break;
+        case TK_PLUS:
+            return operand;
+        case TK_MINUS:
+            return astNewUnaryNode(ND_NEGATE, locationMerge(operator.location, operand->location), operand);
         default: UNREACHABLE();
     }
-    return astNewUnaryNode(node_type, locationMerge(operator.location, operand->location), operand);
 }
 
 static ASTNode *parse_term_expr(Parser *p, ASTNode *lhs) {
