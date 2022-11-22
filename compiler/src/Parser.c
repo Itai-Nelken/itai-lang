@@ -206,7 +206,7 @@ static ASTNode *parse_number_literal_expr(Parser *p);
 static ASTNode *parse_grouping_expr(Parser *p);
 static ASTNode *parse_identifier_expr(Parser *p);
 static ASTNode *parse_unary_expr(Parser *p);
-static ASTNode *parse_term_expr(Parser *p, ASTNode *lhs);
+static ASTNode *parse_binary_expr(Parser *p, ASTNode *lhs);
 static ASTNode *parse_call_expr(Parser *p, ASTNode *callee);
 
 static ParseRule rules[] = {
@@ -214,12 +214,12 @@ static ParseRule rules[] = {
     [TK_RPAREN]      = {NULL, NULL, PREC_LOWEST},
     [TK_LBRACE]      = {NULL, NULL, PREC_LOWEST},
     [TK_RBRACE]      = {NULL, NULL, PREC_LOWEST},
-    [TK_PLUS]        = {parse_unary_expr, parse_term_expr, PREC_TERM},
-    [TK_STAR]        = {NULL, NULL, PREC_LOWEST},
-    [TK_SLASH]       = {NULL, NULL, PREC_LOWEST},
+    [TK_PLUS]        = {parse_unary_expr, parse_binary_expr, PREC_TERM},
+    [TK_STAR]        = {NULL, parse_binary_expr, PREC_FACTOR},
+    [TK_SLASH]       = {NULL, parse_binary_expr, PREC_FACTOR},
     [TK_SEMICOLON]   = {NULL, NULL, PREC_LOWEST},
     [TK_COLON]       = {NULL, NULL, PREC_LOWEST},
-    [TK_MINUS]       = {parse_unary_expr, parse_term_expr, PREC_TERM},
+    [TK_MINUS]       = {parse_unary_expr, parse_binary_expr, PREC_TERM},
     [TK_ARROW]       = {NULL, NULL, PREC_LOWEST},
     [TK_EQUAL]       = {NULL, NULL, PREC_LOWEST},
     [TK_EQUAL_EQUAL] = {NULL, NULL, PREC_LOWEST},
@@ -285,7 +285,7 @@ static ASTNode *parse_unary_expr(Parser *p) {
     }
 }
 
-static ASTNode *parse_term_expr(Parser *p, ASTNode *lhs) {
+static ASTNode *parse_binary_expr(Parser *p, ASTNode *lhs) {
     TokenType op = previous(p).type;
     ParseRule *rule = get_rule(op);
     ASTNode *rhs = TRY(ASTNode *, parse_precedence(p, rule->precedence), lhs);
@@ -294,6 +294,8 @@ static ASTNode *parse_term_expr(Parser *p, ASTNode *lhs) {
     switch(op) {
         case TK_PLUS: node_type = ND_ADD; break;
         case TK_MINUS: node_type = ND_SUBTRACT; break;
+        case TK_STAR: node_type = ND_MULTIPLY; break;
+        case TK_SLASH: node_type = ND_DIVIDE; break;
         default: UNREACHABLE();
     }
     return astNewBinaryNode(node_type, locationMerge(lhs->location, rhs->location), lhs, rhs);

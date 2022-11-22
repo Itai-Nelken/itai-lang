@@ -72,6 +72,8 @@ typedef enum ast_node_type {
     ND_CALL,
     ND_ADD,
     ND_SUBTRACT,
+    ND_MULTIPLY,
+    ND_DIVIDE,
 
     // Conditional nodes
     ND_IF,

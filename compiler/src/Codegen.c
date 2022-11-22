@@ -54,6 +54,17 @@ static void gen_type(Codegen *cg, Type *ty) {
     }
 }
 
+static const char *binary_op_str(ASTNodeType node_type) {
+    switch(node_type) {
+        case ND_ADD: return "+";
+        case ND_SUBTRACT: return "-";
+        case ND_MULTIPLY: return "*";
+        case ND_DIVIDE: return "/";
+        default:
+            UNREACHABLE();
+    }
+}
+
 static void gen_expr(Codegen *cg, ASTNode *expr) {
     print(cg, "(");
     switch(expr->node_type) {
@@ -78,9 +89,10 @@ static void gen_expr(Codegen *cg, ASTNode *expr) {
             break;
         case ND_ADD:
         case ND_SUBTRACT:
-            const char *op = NODE_IS(expr, ND_ADD) ? "+" : "-";
+        case ND_MULTIPLY:
+        case ND_DIVIDE:
             gen_expr(cg, AS_BINARY_NODE(expr)->lhs);
-            print(cg, "%s", op);
+            print(cg, "%s", binary_op_str(expr->node_type));
             gen_expr(cg, AS_BINARY_NODE(expr)->rhs);
             break;
         // Unary nodes
