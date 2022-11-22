@@ -28,8 +28,8 @@ After the function returns, the arguments must be removed. That is achieved usin
 |  `LD`  |   `ld <idx>`   | `<idx>` is an index into the data section. |
 | `ARG`  |  `arg <n>`     | `<n>` is the argument to get (0 -> last arg, 1 -> one before last arg etc.). |
 | `ADJ`  |  `adj <count>` | `<count>` is the number of arguments to remove from the stack. |
-| `ADD`  |  `add`         | The 2 operands are poped from the stack. |
-| `ENT`  | `ent <locals>` | `<locals>` is the number of locals so space can be reserved in the call frame. |
+| `ADD`  |  `add`         | The 2 operands are popped from the stack. |
+| `ENT`  |  `ent <bytes>` | `<bytes>` is the number of bytes to reserve for locals in the call frame. |
 | `LEV`  |  `lev`         | - |
 |  `SR`  |   `sr`         | - |
 |  `LR`  |   `lr`         | - |
