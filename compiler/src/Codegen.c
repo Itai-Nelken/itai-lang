@@ -12,6 +12,7 @@ typedef struct codegen {
     ASTProgram *program;
     Table locals_already_declared; // Table<ASTString, void>
     Table fn_type_names; // Table<ASTString, ASTString> (ilc typename, C typename)
+    u32 fn_typename_counter;
 } Codegen;
 
 static void codegen_init(Codegen *cg, ASTProgram *prog) {
@@ -19,6 +20,7 @@ static void codegen_init(Codegen *cg, ASTProgram *prog) {
     cg->program = prog;
     tableInit(&cg->locals_already_declared, NULL, NULL);
     tableInit(&cg->fn_type_names, NULL, NULL);
+    cg->fn_typename_counter = 0;
 }
 
 static void codegen_free(Codegen *cg) {
@@ -26,6 +28,7 @@ static void codegen_free(Codegen *cg) {
     cg->program = NULL;
     tableFree(&cg->locals_already_declared);
     tableFree(&cg->fn_type_names);
+    cg->fn_typename_counter = 0;
 }
 
 static void print(Codegen *cg, const char *format, ...) {
@@ -196,17 +199,16 @@ static void fn_predecl_callback(void *object, void *codegen) {
 
 static void gen_fn_types(TableItem *item, bool is_last, void *codegen) {
     UNUSED(is_last);
-    static int counter = 0;
     Codegen *cg = (Codegen *)codegen;
     Type *ty = (Type *)item->key;
     if(ty->type != TY_FN) {
         return;
     }
 
-    tableSet(&cg->fn_type_names, (void *)ty->name, (void *)astProgramAddString(cg->program, stringFormat("fn%d", counter)));
+    tableSet(&cg->fn_type_names, (void *)ty->name, (void *)astProgramAddString(cg->program, stringFormat("fn%d", cg->fn_typename_counter)));
     print(cg, "typedef ");
     gen_type(cg, ty->as.fn.return_type);
-    print(cg, " (*fn%d)(", counter++);
+    print(cg, " (*fn%d)(", cg->fn_typename_counter++);
     for(usize i = 0; i < ty->as.fn.parameter_types.used; ++i) {
         Type *param_ty = ARRAY_GET_AS(Type *, &ty->as.fn.parameter_types, i);
         gen_type(cg, param_ty);
