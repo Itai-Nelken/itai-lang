@@ -370,7 +370,7 @@ static ASTNode *parse_block(Parser *p, ScopeID scope, ASTNode *(*parse_callback)
             // (statements also include variable declarations in this context).
             while(!is_eof(p) && current(p).type != TK_RBRACE) {
                 TokenType c = current(p).type;
-                if(c == TK_VAR || c == TK_RETURN || c == TK_IDENTIFIER) {
+                if(c == TK_VAR || c == TK_RETURN || c == TK_IF) {
                     break;
                 } else {
                     advance(p);
@@ -403,6 +403,42 @@ static ASTNode *parse_return_stmt(Parser *p) {
 }
 
 static ASTNode *parse_function_body(Parser *p);
+static ASTNode *parse_if_stmt(Parser *p) {
+    // Assume 'if' is already consumed.
+    Location start = previous(p).location;
+    ASTNode *condition = TRY(ASTNode *, parse_expression(p), 0);
+    TRY_CONSUME(p, TK_LBRACE, condition);
+    ScopeID scope = enter_scope(p);
+    ASTNode *body = TRY(ASTNode *, parse_block(p, scope, parse_function_body), condition);
+    leave_scope(p);
+
+    ASTNode *else_ = NULL;
+    if(match(p, TK_ELSE)) {
+        if(match(p, TK_IF)) {
+            if((else_ = parse_if_stmt(p)) == NULL) {
+                astNodeFree(condition);
+                astNodeFree(body);
+                return NULL;
+            }
+        } else {
+            if(!consume(p, TK_LBRACE)) {
+                astNodeFree(condition);
+                astNodeFree(body);
+                return NULL;
+            }
+            scope = enter_scope(p);
+            if((else_ = parse_block(p, scope, parse_function_body)) == NULL) {
+                astNodeFree(condition);
+                astNodeFree(body);
+                return NULL;
+            }
+            leave_scope(p);
+        }
+    }
+
+    return astNewConditionalNode(ND_IF, locationMerge(start, previous(p).location), condition, body, else_);
+}
+
 static ASTNode *parse_statement(Parser *p) {
     ASTNode *result = NULL;
     if(match(p, TK_LBRACE)) {
@@ -411,6 +447,8 @@ static ASTNode *parse_statement(Parser *p) {
         leave_scope(p);
     } else if(match(p, TK_RETURN)) {
         result = parse_return_stmt(p);
+    } else if(match(p, TK_IF)) {
+        result = parse_if_stmt(p);
     } else {
         result = parse_expression_stmt(p);
     }

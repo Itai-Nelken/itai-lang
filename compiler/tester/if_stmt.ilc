@@ -1,0 +1,14 @@
+/// expect success
+
+fn main() -> i32 {
+	var a = 123;
+	var b = 321;
+	if a {
+		return a;
+	} else if b {
+		return b;
+	} else {
+		return 0;
+	}
+}
+

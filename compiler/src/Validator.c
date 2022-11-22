@@ -244,15 +244,19 @@ static bool validate_ast(Validator *v, ASTNode *n) {
                 return false;
             }
             if(AS_UNARY_NODE(n)->operand) {
-                return validate_ast(v, AS_UNARY_NODE(n)->operand);
+                CHECK(validate_ast(v, AS_UNARY_NODE(n)->operand));
             }
             break;
         case ND_ADD:
         case ND_SUBTRACT:
-            if(!validate_ast(v, AS_BINARY_NODE(n)->lhs)) {
-                return false;
-            }
-            return validate_ast(v, AS_BINARY_NODE(n)->rhs);
+            CHECK(validate_ast(v, AS_BINARY_NODE(n)->lhs));
+            CHECK(validate_ast(v, AS_BINARY_NODE(n)->rhs));
+            break;
+        case ND_IF:
+            CHECK(validate_ast(v, AS_CONDITIONAL_NODE(n)->condition));
+            CHECK(validate_ast(v, AS_CONDITIONAL_NODE(n)->body));
+            CHECK(validate_ast(v, AS_CONDITIONAL_NODE(n)->else_));
+            break;
         case ND_CALL: {
             ASTObj *callee = AS_OBJ_NODE(AS_BINARY_NODE(n)->lhs)->obj;
             ASTListNode *arguments = AS_LIST_NODE(AS_BINARY_NODE(n)->rhs);
@@ -304,7 +308,13 @@ static bool replace_all_ids_with_objs(Validator *v, ASTNode **tree) {
         case ND_ASSIGN: {
             bool lhs_result = replace_all_ids_with_objs(v, &(AS_BINARY_NODE(*tree)->lhs));
             bool rhs_result = replace_all_ids_with_objs(v, &(AS_BINARY_NODE(*tree)->rhs));
-            return !lhs_result || !rhs_result ? false : true;
+            return (!lhs_result || !rhs_result) ? false : true;
+        }
+        case ND_IF: {
+            bool cond_result = replace_all_ids_with_objs(v, &(AS_CONDITIONAL_NODE(*tree)->condition));
+            bool body_result = replace_all_ids_with_objs(v, &(AS_CONDITIONAL_NODE(*tree)->body));
+            bool else_result = replace_all_ids_with_objs(v, &(AS_CONDITIONAL_NODE(*tree)->else_));
+            return (!cond_result || !body_result || !else_result) ? false : true;
         }
         case ND_IDENTIFIER: {
             ASTObj *obj = find_variable(v, AS_IDENTIFIER_NODE(*tree)->identifier);
@@ -415,6 +425,11 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
             CHECK(check_types(v, AS_BINARY_NODE(n)->rhs->location, lhs_ty, rhs_ty));
             break;
         }
+        case ND_IF:
+            CHECK(typecheck_ast(v, AS_CONDITIONAL_NODE(n)->condition));
+            CHECK(typecheck_ast(v, AS_CONDITIONAL_NODE(n)->body));
+            CHECK(typecheck_ast(v, AS_CONDITIONAL_NODE(n)->else_));
+            break;
         case ND_BLOCK: {
             // typecheck all nodes in the block, even if some fail.
             bool failed = false;

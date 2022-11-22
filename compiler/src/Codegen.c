@@ -117,6 +117,16 @@ static void gen_stmt(Codegen *cg, ASTNode *n) {
             }
             print(cg, "}\n");
             break;
+        case ND_IF:
+            print(cg, "if(");
+            gen_expr(cg, AS_CONDITIONAL_NODE(n)->condition);
+            print(cg, ") ");
+            gen_stmt(cg, AS_CONDITIONAL_NODE(n)->body);
+            if(AS_CONDITIONAL_NODE(n)->else_) {
+                print(cg, "else ");
+                gen_stmt(cg, AS_CONDITIONAL_NODE(n)->else_);
+            }
+            break;
         case ND_ASSIGN:
         case ND_VARIABLE: {
             ASTObj *obj = NODE_IS(n, ND_ASSIGN) ? AS_OBJ_NODE(AS_BINARY_NODE(n)->lhs)->obj : AS_OBJ_NODE(n)->obj;

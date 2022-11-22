@@ -270,6 +270,16 @@ ASTNode *astNewBinaryNode(ASTNodeType type, Location loc, ASTNode *lhs, ASTNode 
     return AS_NODE(n);
 }
 
+ASTNode *astNewConditionalNode(ASTNodeType type, Location loc, ASTNode *condition, ASTNode *body, ASTNode *else_) {
+    ASTConditionalNode *n;
+    NEW0(n);
+    n->header = make_header(type, loc);
+    n->condition = condition;
+    n->body = body;
+    n->else_ = else_;
+    return AS_NODE(n);
+}
+
 ASTNode *astNewLiteralValueNode(ASTNodeType type, Location loc, LiteralValue value) {
     ASTLiteralValueNode *n;
     NEW0(n);
@@ -322,6 +332,11 @@ void astNodeFree(ASTNode *n) {
             astNodeFree(AS_BINARY_NODE(n)->lhs);
             astNodeFree(AS_BINARY_NODE(n)->rhs);
             break;
+        case ND_IF:
+            astNodeFree(AS_CONDITIONAL_NODE(n)->condition);
+            astNodeFree(AS_CONDITIONAL_NODE(n)->body);
+            astNodeFree(AS_CONDITIONAL_NODE(n)->else_);
+            break;
         case ND_NEGATE:
         case ND_RETURN:
             astNodeFree(AS_UNARY_NODE(n)->operand);
@@ -349,6 +364,8 @@ static const char *node_name(ASTNodeType type) {
         case ND_ADD:
         case ND_SUBTRACT:
             return "ASTBinaryNode";
+        case ND_IF:
+            return "ASTConditionalNode";
         case ND_NEGATE:
         case ND_RETURN:
             return "ASTUnaryNode";
@@ -371,6 +388,7 @@ static const char *node_type_name(ASTNodeType type) {
         [ND_CALL]           = "ND_CALL",
         [ND_ADD]            = "ND_ADD",
         [ND_SUBTRACT]       = "ND_SUBTRACT",
+        [ND_IF]             = "ND_IF",
         [ND_NEGATE]         = "ND_NEGATE",
         [ND_RETURN]         = "ND_RETURN",
         [ND_BLOCK]          = "ND_BLOCK",
@@ -409,6 +427,14 @@ void astNodePrint(FILE *to, ASTNode *n) {
             astNodePrint(to, AS_BINARY_NODE(n)->lhs);
             fputs(", \x1b[1mrhs:\x1b[0m ", to);
             astNodePrint(to, AS_BINARY_NODE(n)->rhs);
+            break;
+        case ND_IF:
+            fputs(", \x1b[1mcondition:\x1b[0m ", to);
+            astNodePrint(to, AS_CONDITIONAL_NODE(n)->condition);
+            fputs(", \x1b[1mbody:\x1b[0m ", to);
+            astNodePrint(to, AS_CONDITIONAL_NODE(n)->body);
+            fputs(", \x1b[1melse:\x1b[0m ", to);
+            astNodePrint(to, AS_CONDITIONAL_NODE(n)->else_);
             break;
         case ND_NEGATE:
         case ND_RETURN:

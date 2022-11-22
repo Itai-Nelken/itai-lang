@@ -73,6 +73,9 @@ typedef enum ast_node_type {
     ND_ADD,
     ND_SUBTRACT,
 
+    // Conditional nodes
+    ND_IF,
+
     // Unary nodes
     ND_NEGATE,
     ND_RETURN,
@@ -106,6 +109,11 @@ typedef struct ast_binary_node {
     ASTNode *lhs, *rhs;
 } ASTBinaryNode;
 
+typedef struct ast_conditional_node {
+    ASTNode header;
+    ASTNode *condition, *body, *else_;
+} ASTConditionalNode;
+
 typedef struct ast_expression_node {
     ASTNode header;
     LiteralValue value;
@@ -131,6 +139,7 @@ typedef struct ast_list_node {
 #define AS_NODE(node) ((ASTNode *)(node))
 #define AS_UNARY_NODE(node) ((ASTUnaryNode *)(node))
 #define AS_BINARY_NODE(node) ((ASTBinaryNode *)(node))
+#define AS_CONDITIONAL_NODE(node) ((ASTConditionalNode *)(node))
 #define AS_LITERAL_NODE(node) ((ASTLiteralValueNode *)(node))
 #define AS_OBJ_NODE(node) ((ASTObjNode *)(node))
 #define AS_IDENTIFIER_NODE(node) ((ASTIdentifierNode *)(node))
@@ -377,6 +386,18 @@ ASTNode *astNewUnaryNode(ASTNodeType type, Location loc, ASTNode *operand);
  * @return The node as an ASTNode.
  ***/
 ASTNode *astNewBinaryNode(ASTNodeType type, Location loc, ASTNode *lhs, ASTNode *rhs);
+
+/***
+ * Create a new ASTConditionalNode.
+ *
+ * @param type The node type.
+ * @param loc The Location of the node.
+ * @param condition The condition expression node.
+ * @param body The body block node.
+ * @param else_ The else_ block node.
+ * @return The node as an ASTNode.
+ ***/
+ASTNode *astNewConditionalNode(ASTNodeType type, Location loc, ASTNode *condition, ASTNode *body, ASTNode *else_);
 
 /***
  * Create a new ASTLiteralValueNode.
