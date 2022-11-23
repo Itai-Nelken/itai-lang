@@ -90,6 +90,7 @@ public:
             } catch(ParseError &err) {
                 test.test_parsing_failed = true;
                 test.tester_output = err.what();
+                test_summary(test, idx);
                 continue;
             }
             if(test.options.skip) {
