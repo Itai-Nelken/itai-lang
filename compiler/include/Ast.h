@@ -54,6 +54,16 @@ typedef struct scope_id {
 } ScopeID;
 
 
+/* ControlFlow */
+
+typedef enum control_flow {
+    CF_NONE,
+    CF_NEVER_RETURNS,
+    CF_MAY_RETURN,
+    CF_ALWAYS_RETURNS
+} ControlFlow;
+
+
 /* ASTNode */
 
 // An ASTNode holds an expression.
@@ -134,6 +144,7 @@ typedef struct ast_identifier_node {
 typedef struct ast_list_node {
     ASTNode header;
     ScopeID scope;
+    ControlFlow control_flow;
     Array nodes; // Array<ASTNode *>
 } ASTListNode;
 
@@ -364,6 +375,11 @@ void blockScopeFree(BlockScope *scope_list);
  * @param compact Print a compact version.
  ***/
 void scopeIDPrint(FILE *to, ScopeID scope_id, bool compact);
+
+
+/* ControlFlow */
+
+ControlFlow controlFlowUpdate(ControlFlow old, ControlFlow new);
 
 
 /* ASTNode */

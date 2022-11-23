@@ -244,6 +244,28 @@ void scopeIDPrint(FILE *to, ScopeID scope_id, bool compact) {
 }
 
 
+/* ControlFlow */
+
+ControlFlow controlFlowUpdate(ControlFlow old, ControlFlow new) {
+    if(old == CF_NONE) {
+        return new;
+    } else if(new == CF_NONE) {
+        return old;
+    }
+    if(old == new) {
+        return old;
+    }
+    if(old == CF_MAY_RETURN || new == CF_MAY_RETURN) {
+        return CF_MAY_RETURN;
+    }
+    if((old == CF_NEVER_RETURNS && new == CF_ALWAYS_RETURNS) ||
+       (old == CF_ALWAYS_RETURNS && new == CF_NEVER_RETURNS)) {
+        return CF_MAY_RETURN;
+    }
+    UNREACHABLE();
+}
+
+
 /* ASTNode */
 
 static inline ASTNode make_header(ASTNodeType type, Location loc) {
@@ -309,6 +331,7 @@ ASTNode *astNewListNode(ASTNodeType type, Location loc, ScopeID scope) {
     NEW0(n);
     n->header = make_header(type, loc);
     n->scope = scope;
+    n->control_flow = CF_NONE;
     arrayInit(&n->nodes);
 
     return AS_NODE(n);

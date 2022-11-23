@@ -84,16 +84,16 @@ public:
 
     void run() {
         for(auto &[test, idx] : tests) {
-            if(test.options.skip) {
-                test_summary(test, idx);
-                continue;
-            }
             std::string expected;
             try {
                 expected = parse_expected(test);
             } catch(ParseError &err) {
                 test.test_parsing_failed = true;
                 test.tester_output = err.what();
+                continue;
+            }
+            if(test.options.skip) {
+                test_summary(test, idx);
                 continue;
             }
             execute(test);

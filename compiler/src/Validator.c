@@ -379,6 +379,15 @@ static void validate_function(Validator *v, ASTObj *fn) {
         validate_ast(v, *n);
     }
     // TODO: If function returns a value, check that it returns in all control paths.
+    if(fn->as.fn.return_type) {
+        if(fn->as.fn.body->control_flow == CF_NEVER_RETURNS) {
+            // The location created points to the closing '}' of the function body.
+            error(v, locationNew(fn->as.fn.body->header.location.end - 1,
+                                 fn->as.fn.body->header.location.end,
+                                fn->as.fn.body->header.location.file),
+                  "Control reaches end of non-void function '%s'.", fn->name);
+        }
+    }
 
     v->current_function = NULL;
 }

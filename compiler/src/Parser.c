@@ -359,15 +359,41 @@ static inline ASTNode *parse_expression(Parser *p) {
     return parse_precedence(p, PREC_LOWEST);
 }
 
+static ControlFlow statement_control_flow(ASTNode *stmt) {
+    switch(stmt->node_type) {
+        case ND_RETURN:
+            return CF_ALWAYS_RETURNS;
+        case ND_IF: {
+            ControlFlow then_block = statement_control_flow(AS_CONDITIONAL_NODE(stmt)->body);
+            if(AS_CONDITIONAL_NODE(stmt)->else_) {
+                ControlFlow else_stmt = statement_control_flow(AS_CONDITIONAL_NODE(stmt)->else_);
+                if((then_block == CF_NEVER_RETURNS && else_stmt == CF_ALWAYS_RETURNS) ||
+                   (then_block == CF_ALWAYS_RETURNS && else_stmt == CF_NEVER_RETURNS)) {
+                    return CF_MAY_RETURN;
+                } else if(then_block == else_stmt) {
+                    return then_block;
+                }
+            }
+            return then_block;
+        }
+        case ND_BLOCK: return AS_LIST_NODE(stmt)->control_flow;
+        default:
+            break;
+    }
+    return CF_NEVER_RETURNS;
+}
+
 static ASTNode *parse_block(Parser *p, ScopeID scope, ASTNode *(*parse_callback)(Parser *p)) {
     // Assume '{' was already consumed.
     ASTListNode *n = AS_LIST_NODE(astNewListNode(ND_BLOCK, locationNew(0, 0, 0), scope));
     Location start = previous(p).location;
+    ControlFlow cf = CF_NONE;
 
     while(!is_eof(p) && current(p).type != TK_RBRACE) {
         ASTNode *node = parse_callback(p);
         if(node) {
             arrayPush(&n->nodes, (void *)node);
+            cf = controlFlowUpdate(cf, statement_control_flow(node));
         } else {
             // synchronize to statement boundaries
             // (statements also include variable declarations in this context).
@@ -384,6 +410,7 @@ static ASTNode *parse_block(Parser *p, ScopeID scope, ASTNode *(*parse_callback)
     TRY_CONSUME(p, TK_RBRACE, AS_NODE(n));
 
     n->header.location = locationMerge(start, previous(p).location);
+    n->control_flow = cf;
     return AS_NODE(n);
 }
 
