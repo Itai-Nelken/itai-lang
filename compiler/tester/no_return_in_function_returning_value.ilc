@@ -1,4 +1,4 @@
-// expect error: Error: Control reaches end of non-void function 'main'.
+/// expect error: Error: Control reaches end of non-void function 'main'.
 
-fn main -> i32 {}
+fn main() -> i32 {}
 

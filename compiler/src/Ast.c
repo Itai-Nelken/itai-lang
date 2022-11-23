@@ -247,11 +247,6 @@ void scopeIDPrint(FILE *to, ScopeID scope_id, bool compact) {
 /* ControlFlow */
 
 ControlFlow controlFlowUpdate(ControlFlow old, ControlFlow new) {
-    if(old == CF_NONE) {
-        return new;
-    } else if(new == CF_NONE) {
-        return old;
-    }
     if(old == new) {
         return old;
     }

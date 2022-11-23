@@ -387,7 +387,7 @@ static ASTNode *parse_block(Parser *p, ScopeID scope, ASTNode *(*parse_callback)
     // Assume '{' was already consumed.
     ASTListNode *n = AS_LIST_NODE(astNewListNode(ND_BLOCK, locationNew(0, 0, 0), scope));
     Location start = previous(p).location;
-    ControlFlow cf = CF_NONE;
+    ControlFlow cf = CF_NEVER_RETURNS;
 
     while(!is_eof(p) && current(p).type != TK_RBRACE) {
         ASTNode *node = parse_callback(p);
