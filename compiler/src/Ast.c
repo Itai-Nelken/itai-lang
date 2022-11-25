@@ -45,7 +45,7 @@ static void free_type_callback(TableItem *item, bool is_last, void *cl) {
 
 static void print_type_table_callback(TableItem *item, bool is_last, void *stream) {
     FILE *to = (FILE *)stream;
-    Type *ty = (Type *)item->key;
+    Type *ty = (Type *)item->value;
     typePrint(to, ty, false);
     if(!is_last) {
         fputs(", ", to);
@@ -552,7 +552,7 @@ void astObjPrint(FILE *to, ASTObj *obj) {
     locationPrint(to, obj->location, true);
 
     fprintf(to, ", \x1b[1mname:\x1b[0m '%s'", obj->name);
-    fputs(", \x1b[1mtype:\x1b[0m ", to);
+    fputs(", \x1b[1mdata_type:\x1b[0m ", to);
     typePrint(to, obj->data_type, true);
     switch(obj->type) {
         case OBJ_VAR:
