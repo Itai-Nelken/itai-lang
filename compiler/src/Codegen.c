@@ -203,6 +203,7 @@ static void gen_function_decl(Codegen *cg, ASTObj *fn) {
     }
     print(cg, ") ");
     gen_stmt(cg, AS_NODE(fn->as.fn.body));
+    tableClear(&cg->locals_already_declared, NULL, NULL);
 }
 
 static void object_callback(void *object, void *codegen) {
