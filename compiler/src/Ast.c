@@ -82,7 +82,6 @@ static void print_string_table_callback(TableItem *item, bool is_last, void *str
     }
 
 
-
 /* ASTModule */
 
 ASTModule *astModuleNew(ASTString name) {

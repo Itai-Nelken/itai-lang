@@ -10,6 +10,7 @@
 typedef struct codegen {
     String output_buffer;
     ASTProgram *program;
+    ASTObj *current_function;
     Table locals_already_declared; // Table<ASTString, void>
     Table fn_type_names; // Table<ASTString, ASTString> (ilc typename, C typename)
     u32 fn_typename_counter;
@@ -38,6 +39,16 @@ static void print(Codegen *cg, const char *format, ...) {
     va_end(ap);
     stringAppend(&cg->output_buffer, "%s", buffer);
     stringFree(buffer);
+}
+
+static bool obj_is_local_in_current_function(Codegen *cg, ASTObj *var) {
+    for(usize i = 0; i < cg->current_function->as.fn.locals.used; ++i) {
+        ASTObj *obj = ARRAY_GET_AS(ASTObj *, &cg->current_function->as.fn.locals, i);
+        if(obj->type == OBJ_VAR && obj == var) {
+            return true;
+        }
+    }
+    return false;
 }
 
 static void gen_type(Codegen *cg, Type *ty) {
@@ -142,8 +153,7 @@ static void gen_stmt(Codegen *cg, ASTNode *n) {
         case ND_ASSIGN:
         case ND_VARIABLE: {
             ASTObj *obj = NODE_IS(n, ND_ASSIGN) ? AS_OBJ_NODE(AS_BINARY_NODE(n)->lhs)->obj : AS_OBJ_NODE(n)->obj;
-            TableItem *item = tableGet(&cg->locals_already_declared, obj->name);
-            if(!item) {
+            if(obj_is_local_in_current_function(cg, obj) && tableGet(&cg->locals_already_declared, obj->name) == NULL) {
                 tableSet(&cg->locals_already_declared, obj->name, NULL);
                 variable_callback((void *)n, (void *)cg);
                 break;
@@ -170,7 +180,11 @@ static void variable_callback(void *variable, void *codegen) {
     } else if(NODE_IS(v, ND_VARIABLE)) {
         ASTObj *var = AS_OBJ_NODE(v)->obj;
         gen_type(cg, var->data_type);
-        print(cg, " %s = 0;\n", var->name);
+        print(cg, " %s", var->name);
+        if(cg->current_function && IS_NUMERIC(var->data_type)) {
+            print(cg, " = 0");
+        }
+        print(cg, ";\n");
     } else {
         UNREACHABLE();
     }
@@ -196,7 +210,9 @@ static void object_callback(void *object, void *codegen) {
     Codegen *cg = (Codegen *)codegen;
 
     if(obj->type == OBJ_FN) {
+        cg->current_function = obj;
         gen_function_decl(cg, obj);
+        cg->current_function = NULL;
     }
 }
 
