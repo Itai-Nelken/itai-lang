@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdbool.h>
+#include "common.h"
+#include "Token.h" // Location
 #include "Ast.h"
 #include "Array.h"
 #include "Types.h"
@@ -7,16 +9,42 @@
 void typeInit(Type *ty, TypeType type, ASTString name, int size) {
     ty->type = type;
     ty->name = name;
+    ty->decl_location = locationNew(0, 0, 0); // FIXME: find a way to represent an empty location.
     ty->size = size;
-    if(type == TY_FN) {
-        arrayInit(&ty->as.fn.parameter_types);
+    switch(type) {
+        case TY_I32:
+        case TY_U32:
+        case TY_ID:
+            // nothing
+            break;
+        case TY_FN:
+            arrayInit(&ty->as.fn.parameter_types);
+            break;
+        case TY_STRUCT:
+            arrayInit(&ty->as.structure.member_types);
+            break;
+        default:
+            UNREACHABLE();
     }
 }
 
 void typeFree(Type *ty) {
-    if(ty->type == TY_FN) {
-        // No need to free the actual types as ownership of them is not taken.
-        arrayFree(&ty->as.fn.parameter_types);
+    switch(ty->type) {
+        case TY_I32:
+        case TY_U32:
+        case TY_ID:
+            // nothing
+            break;
+        case TY_FN:
+            // No need to free the actual types as ownership of them is not taken.
+            arrayFree(&ty->as.fn.parameter_types);
+            break;
+        case TY_STRUCT:
+            // No need to free the actual types as ownership of them is not taken.
+            arrayFree(&ty->as.structure.member_types);
+            break;
+        default:
+            UNREACHABLE();
     }
 }
 
@@ -122,7 +150,8 @@ static const char *type_type_name(TypeType type) {
     static const char *names[] = {
         [TY_I32] = "TY_I32",
         [TY_U32] = "TY_U32",
-        [TY_FN]  = "TY_FN"
+        [TY_FN]  = "TY_FN",
+        [TY_ID]  = "TY_ID"
     };
     _Static_assert(sizeof(names)/sizeof(names[0]) == TY_COUNT, "Missing type(s) in type_type_name()");
     return names[type];
@@ -135,7 +164,11 @@ void typePrint(FILE *to, Type *ty, bool compact) {
     }
 
     if(compact) {
-        fprintf(to, "Type{\x1b[1m%s\x1b[0m}", type_type_name(ty->type));
+        fprintf(to, "Type{\x1b[1m%s\x1b[0m", type_type_name(ty->type));
+        if(ty->type == TY_ID) {
+            fprintf(to, ", %s", ty->name);
+        }
+        fputc('}', to);
     } else {
         fprintf(to, "Type{\x1b[1mtype:\x1b[0m %s", type_type_name(ty->type));
         fprintf(to, ", \x1b[1mname:\x1b[0m %s", ty->name);
@@ -153,6 +186,7 @@ void typePrint(FILE *to, Type *ty, bool compact) {
                 break;
             case TY_I32:
             case TY_U32:
+            case TY_ID:
                 break;
             default:
                 UNREACHABLE();

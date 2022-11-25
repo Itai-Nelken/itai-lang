@@ -3,6 +3,7 @@
 
 #include <stdio.h> // FILE
 #include <stdbool.h>
+#include "Token.h" // Location
 
 // Can't include Ast.h ast it includes this file.
 typedef char *ASTString; // from Ast.h
@@ -11,6 +12,8 @@ typedef enum type_type {
     TY_I32, TY_U32,
     //TY_PTR,
     TY_FN,
+    TY_STRUCT,
+    TY_ID, // An identifier type is a place holder for types the parser can't resolve.
     TY_COUNT
 } TypeType;
 
@@ -18,6 +21,7 @@ typedef enum type_type {
 typedef struct type {
     TypeType type;
     ASTString name;
+    Location decl_location;
     int size;
     //int align;
     union {
@@ -28,6 +32,9 @@ typedef struct type {
             struct type *return_type;
             Array parameter_types; // Array<Type *>
         } fn;
+        struct {
+            Array member_types; // Array<Type *>
+        } structure;
     } as;
 } Type;
 

@@ -35,23 +35,10 @@ static void free_block_scope_callback(void *scope, void *cl) {
     blockScopeFree((BlockScope *)scope);
 }
 
-static unsigned hash_type(void *type) {
-    Type *ty = (Type *)type;
-    // The hash will overflow unsigned, so it will wrap around.
-    unsigned hash = (unsigned)(ty->type ^ (u64)ty->name >> 3);
-    return hash;
-}
-
-static bool compare_type(void *type1, void *type2) {
-    Type *ty1 = (Type *)type1;
-    Type *ty2 = (Type *)type2;
-    return typeEqual(ty1, ty2);
-}
-
 static void free_type_callback(TableItem *item, bool is_last, void *cl) {
     UNUSED(is_last);
     UNUSED(cl);
-    Type *ty = (Type *)item->key;
+    Type *ty = (Type *)item->value;
     typeFree(ty);
     FREE(ty);
 }
@@ -90,7 +77,7 @@ ASTModule *astModuleNew(ASTString name) {
     m->name = name;
     arrayInit(&m->objects);
     arrayInit(&m->globals);
-    tableInit(&m->types, hash_type, compare_type);
+    tableInit(&m->types, NULL, NULL);
     return m;
 }
 
@@ -106,11 +93,11 @@ void astModuleFree(ASTModule *module) {
 
 Type *astModuleAddType(ASTModule *module, Type *ty) {
     TableItem *existing_item;
-    if((existing_item = tableGet(&module->types, (void *)ty)) != NULL) {
+    if((existing_item = tableGet(&module->types, (void *)ty->name)) != NULL) {
         FREE(ty);
-        return (Type *)existing_item->key;
+        return (Type *)existing_item->value;
     }
-    tableSet(&module->types, (void *)ty, NULL);
+    tableSet(&module->types, (void *)ty->name, (void *)ty);
     return ty;
 }
 

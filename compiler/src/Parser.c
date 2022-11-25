@@ -495,7 +495,7 @@ static Type *parse_primitive_type(Parser *p) {
     return NULL;
 }
 
-// parameters: Array<ASTObj *>
+// parameters: Array<ASTObj *> (OBJ_VAR)
 static Type *new_fn_type(Parser *p, Type *return_type, Array parameters) {
     Type *ty;
     NEW0(ty);
@@ -517,14 +517,30 @@ static Type *new_fn_type(Parser *p, Type *return_type, Array parameters) {
     stringAppend(&name, ") -> %s", return_type ? return_type->name : "void");
     ty->name = astProgramAddString(p->program, name);
 
-    //ASTString name = astProgramAddString(p->program, stringFormat("fn() -> %s", return_type ? return_type->name : "void"));
+    return astModuleAddType(astProgramGetModule(p->program, p->current.module), ty);
+}
+
+// members: Array<ASTObj *> (OBJ_VAR)
+static Type *new_struct_type(Parser *p, ASTString name, Array members) {
+    Type *ty;
+    NEW0(ty);
+    // FIXME: calculate the actual size of the struct.
+    typeInit(ty, TY_STRUCT, name, 0);
+    Array *member_types = &ty->as.structure.member_types;
+    for(usize i = 0; i < members.used; ++i) {
+        ASTObj *member = ARRAY_GET_AS(ASTObj *, &members, i);
+        arrayPush(member_types, (void *)member->data_type);
+    }
+
     return astModuleAddType(astProgramGetModule(p->program, p->current.module), ty);
 }
 
 static Type *parse_type(Parser *p);
 
+// function_type -> 'fn' '(' (type)* ')' ('->' type)?
 static Type *parse_function_type(Parser *p) {
     // Assume 'fn' was already consumed.
+    Location start = previous(p).location;
     Type *ty = NULL;
 
     TRY_CONSUME(p, TK_LPAREN, 0);
@@ -551,16 +567,30 @@ static Type *parse_function_type(Parser *p) {
     }
 
     ty = new_fn_type(p, return_type, parameters);
+    ty->decl_location = locationMerge(start, previous(p).location);
 free_param_array:
     arrayMap(&parameters, free_object_callback, NULL);
     arrayFree(&parameters);
     return ty;
 }
 
-// complex_type -> arrays, structs, enums, functions, custom types
+// identifier_type -> identifier (The identifier has to be a type of a struct, enum, or type alias).
+static Type *parse_type_from_identifier(Parser *p) {
+    ASTString name = TRY(ASTString, parse_identifier(p), 0);
+    Location loc = previous(p).location;
+    Type *ty;
+    NEW0(ty);
+    typeInit(ty, TY_ID, name, 0);
+    ty->decl_location = loc;
+    return astModuleAddType(astProgramGetModule(p->program, p->current.module), ty);
+}
+
+// complex_type -> fn_type | identifier_type
 static Type *parse_complex_type(Parser *p) {
     if(match(p, TK_FN)) {
         return TRY(Type *, parse_function_type(p), 0);
+    } else if(current(p).type == TK_IDENTIFIER) {
+        return TRY(Type *, parse_type_from_identifier(p), 0);
     }
     error_at(p, current(p).location, "Expected typename.");
     return NULL;
@@ -618,7 +648,6 @@ static ASTObj *parse_struct_decl(Parser *p) {
     ASTString name = TRY(ASTString, parse_identifier(p), 0);
     Location name_loc = previous(p).location;
 
-    // TODO: create struct data type.
     ASTObj *structure = astNewObj(OBJ_STRUCT, name_loc, name, NULL);
 
     if(!consume(p, TK_LBRACE)) {
@@ -634,6 +663,8 @@ static ASTObj *parse_struct_decl(Parser *p) {
         astObjFree(structure);
         return NULL;
     }
+
+    structure->data_type = new_struct_type(p,structure->name, structure->as.structure.members);
 
     structure->location = locationMerge(name_loc, previous(p).location);
     return structure;

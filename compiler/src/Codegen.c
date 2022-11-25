@@ -207,7 +207,7 @@ static void gen_function_decl(Codegen *cg, ASTObj *fn) {
 }
 
 static void gen_struct(Codegen *cg, ASTObj *s) {
-    print(cg, "typedef struct __struct_%s {\n", s->name);
+    print(cg, "typedef struct _%s {\n", s->name);
     for(usize i = 0; i < s->as.structure.members.used; ++i) {
         ASTObj *member = ARRAY_GET_AS(ASTObj *, &s->as.structure.members, i);
         print(cg, "    "); // 4 spaces
@@ -236,6 +236,7 @@ static void object_callback(void *object, void *codegen) {
         default:
             UNREACHABLE();
     }
+    print(cg, "\n");
 }
 
 static void object_predecl_callback(void *object, void *codegen) {
@@ -259,7 +260,7 @@ static void object_predecl_callback(void *object, void *codegen) {
             // nothing
             break;
         case OBJ_STRUCT:
-            print(cg, "typedef struct __struct_%s %s;\n", obj->name, obj->name);
+            print(cg, "typedef struct %s %s;\n", obj->name, obj->name);
             break;
         default:
             UNREACHABLE();

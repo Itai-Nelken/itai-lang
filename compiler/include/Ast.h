@@ -207,7 +207,7 @@ typedef struct ast_module {
     ASTString name;
     Array objects; // Array<ASTObj *>
     Array globals; // Array<ASTNode *> (ND_VARIABLE or ND_ASSIGN)
-    Table types; // Table<Type *, void>
+    Table types; // Table<ASTString, Type *>
 } ASTModule;
 
 // An ASTProgram holds all the information

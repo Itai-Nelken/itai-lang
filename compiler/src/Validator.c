@@ -149,6 +149,17 @@ static ASTObj *find_function(Validator *v, ASTString name) {
     return NULL;
 }
 
+static ASTObj *find_struct(Validator *v, ASTString name) {
+    ASTModule *current_module = astProgramGetModule(v->program, v->current_module);
+    for(usize i = 0; i < current_module->objects.used; ++i) {
+        ASTObj *obj = ARRAY_GET_AS(ASTObj *, &current_module->objects, i);
+        if(obj->type == OBJ_STRUCT && obj->name == name) {
+            return obj;
+        }
+    }
+    return NULL;
+}
+
 static inline void add_global_id(Validator *v, ASTString id) {
     VERIFY(tableSet(&v->global_ids_in_current_module, (void *)id, NULL) == NULL);
 }
@@ -427,11 +438,29 @@ static void validate_object_callback(void *object, void *validator) {
     }
 }
 
-static void module_validate_callback(void *module, usize index, void *validator) {
+static void validate_type_callback(TableItem *item, bool is_last, void *validator) {
+    UNUSED(is_last);
+    Type **ty = (Type **)&item->value;
+    Validator *v = (Validator *)validator;
+
+    if((*ty)->type != TY_ID) {
+        return;
+    }
+
+    ASTObj *s = find_struct(v, (*ty)->name);
+    if(!s) {
+        error(v, (*ty)->decl_location, "Unknown type '%s'.", (*ty)->name);
+    } else {
+        *ty = s->data_type;
+    }
+}
+
+static void validate_module_callback(void *module, usize index, void *validator) {
     ASTModule *m = (ASTModule *)module;
     Validator *v = (Validator *)validator;
 
     v->current_module = (ModuleID)index;
+    tableMap(&m->types, validate_type_callback, validator);
     for(usize i = 0; i < m->globals.used; ++i) {
         ASTNode **g = (ASTNode **)(m->globals.data + i);
         ASTObj *var = NODE_IS(*g, ND_ASSIGN) ? AS_OBJ_NODE(AS_BINARY_NODE(*g)->lhs)->obj : AS_OBJ_NODE(*g)->obj;
@@ -448,7 +477,7 @@ static void module_validate_callback(void *module, usize index, void *validator)
 }
 
 // typechecker forward declarations
-static void variable_typecheck_callback(void *variable_node, void *validator);
+static void typecheck_variable_callback(void *variable_node, void *validator);
 
 static bool typecheck_ast(Validator *v, ASTNode *n) {
     switch(n->node_type) {
@@ -481,11 +510,11 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
             return !failed;
         }
         case ND_ASSIGN:
-            // No need to typecheck rhs as variable_typecheck_callback() already does that.
+            // No need to typecheck rhs as typecheck_variable_callback() already does that.
             // fallthrough
         case ND_VARIABLE: {
             bool old_had_error = v->had_error;
-            variable_typecheck_callback((void *)n, (void *)v);
+            typecheck_variable_callback((void *)n, (void *)v);
             if(old_had_error != v->had_error) {
                 return false;
             }
@@ -556,7 +585,7 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
     return true;
 }
 
-static void variable_typecheck_callback(void *variable_node, void *validator) {
+static void typecheck_variable_callback(void *variable_node, void *validator) {
     ASTNode *var = AS_NODE(variable_node);
     Validator *v = (Validator *)validator;
 
@@ -642,12 +671,12 @@ static void typecheck_object_callback(void *object, void *validator) {
     }
 }
 
-static void module_typecheck_callback(void *module, usize index, void *validator) {
+static void typecheck_module_callback(void *module, usize index, void *validator) {
     ASTModule *m = (ASTModule *)module;
     Validator *v = (Validator *)validator;
 
     v->current_module = (ModuleID)index;
-    arrayMap(&m->globals, variable_typecheck_callback, validator);
+    arrayMap(&m->globals, typecheck_variable_callback, validator);
     arrayMap(&m->objects, typecheck_object_callback, validator);
 }
 
@@ -658,7 +687,7 @@ bool validatorValidate(Validator *v, ASTProgram *prog) {
     v->program = prog;
 
     // Validating pass - finish building the AST.
-    arrayMapIndex(&v->program->modules, module_validate_callback, (void *)v);
+    arrayMapIndex(&v->program->modules, validate_module_callback, (void *)v);
     if(!v->found_main) {
         Error *err;
         NEW0(err);
@@ -669,7 +698,7 @@ bool validatorValidate(Validator *v, ASTProgram *prog) {
 
     if(!v->had_error) {
         // Typechecking pass - typecheck the AST.
-        arrayMapIndex(&v->program->modules, module_typecheck_callback, (void *)v);
+        arrayMapIndex(&v->program->modules, typecheck_module_callback, (void *)v);
     }
 
 
