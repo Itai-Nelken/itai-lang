@@ -580,7 +580,9 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
             // When returning a number literal in a function returning an unsigned type,
             // the number literal is implicitly cast to the unsigned type.
             // FIXME: Check the number value fits in the return type.
-            if((operand_ty && v->current_function->as.fn.return_type) && IS_UNSIGNED(v->current_function->as.fn.return_type) &&
+            if((operand_ty && v->current_function->as.fn.return_type)
+               && IS_NUMERIC(operand_ty) && IS_NUMERIC(v->current_function->as.fn.return_type)
+               && IS_UNSIGNED(v->current_function->as.fn.return_type) &&
                NODE_IS(AS_UNARY_NODE(n)->operand, ND_NUMBER_LITERAL) && IS_SIGNED(operand_ty)) {
                 break;
             }
