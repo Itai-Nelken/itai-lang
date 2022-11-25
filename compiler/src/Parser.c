@@ -542,10 +542,10 @@ static Type *new_struct_type(Parser *p, ASTString name, Array fields) {
     NEW0(ty);
     // FIXME: calculate the actual size of the struct.
     typeInit(ty, TY_STRUCT, name, 0);
-    Array *member_types = &ty->as.structure.member_types;
+    Array *field_types = &ty->as.structure.field_types;
     for(usize i = 0; i < fields.used; ++i) {
         ASTObj *member = ARRAY_GET_AS(ASTObj *, &fields, i);
-        arrayPush(member_types, (void *)member->data_type);
+        arrayPush(field_types, (void *)member->data_type);
     }
 
     return astModuleAddType(astProgramGetModule(p->program, p->current.module), ty);

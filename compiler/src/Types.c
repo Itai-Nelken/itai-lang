@@ -21,7 +21,7 @@ void typeInit(Type *ty, TypeType type, ASTString name, int size) {
             arrayInit(&ty->as.fn.parameter_types);
             break;
         case TY_STRUCT:
-            arrayInit(&ty->as.structure.member_types);
+            arrayInit(&ty->as.structure.field_types);
             break;
         default:
             UNREACHABLE();
@@ -41,7 +41,7 @@ void typeFree(Type *ty) {
             break;
         case TY_STRUCT:
             // No need to free the actual types as ownership of them is not taken.
-            arrayFree(&ty->as.structure.member_types);
+            arrayFree(&ty->as.structure.field_types);
             break;
         default:
             UNREACHABLE();
@@ -141,6 +141,17 @@ bool typeEqual(Type *a, Type *b) {
                 return false;
             }
         }
+    } else if(a->type == TY_STRUCT) {
+        if(a->as.structure.field_types.used != b->as.structure.field_types.used) {
+            return false;
+        }
+        for(usize i = 0; i < a->as.structure.field_types.used; ++i) {
+            Type *a_field = ARRAY_GET_AS(Type *, &a->as.structure.field_types, i);
+            Type *b_field = ARRAY_GET_AS(Type *, &b->as.structure.field_types, i);
+            if(!typeEqual(a_field, b_field)) {
+                return false;
+            }
+        }
     }
 
     return true;
@@ -148,10 +159,11 @@ bool typeEqual(Type *a, Type *b) {
 
 static const char *type_type_name(TypeType type) {
     static const char *names[] = {
-        [TY_I32] = "TY_I32",
-        [TY_U32] = "TY_U32",
-        [TY_FN]  = "TY_FN",
-        [TY_ID]  = "TY_ID"
+        [TY_I32]    = "TY_I32",
+        [TY_U32]    = "TY_U32",
+        [TY_FN]     = "TY_FN",
+        [TY_STRUCT] = "TY_STRUCT",
+        [TY_ID]     = "TY_ID"
     };
     _Static_assert(sizeof(names)/sizeof(names[0]) == TY_COUNT, "Missing type(s) in type_type_name()");
     return names[type];
@@ -175,12 +187,26 @@ void typePrint(FILE *to, Type *ty, bool compact) {
         fprintf(to, ", \x1b[1msize:\x1b[0m %d", ty->size);
         switch(ty->type) {
             case TY_FN:
-                fprintf(to, ", \x1b[1mreturn_type:\x1b[0m ");
+                fputs(", \x1b[1mreturn_type:\x1b[0m ", to);
                 typePrint(to, ty->as.fn.return_type, true);
                 fputs(", \x1b[1mparameter_types:\x1b[0m [", to);
                 for(usize i = 0; i < ty->as.fn.parameter_types.used; ++i) {
                     Type *param_ty = ARRAY_GET_AS(Type *, &ty->as.fn.parameter_types, i);
                     typePrint(to, param_ty, true);
+                    if(i + 1 < ty->as.fn.parameter_types.used) {
+                        fputs(", ", to);
+                    }
+                }
+                fputc(']', to);
+                break;
+            case TY_STRUCT:
+                fputs(", \x1b[1mfield_types:\x1b[0m [", to);
+                for(usize i = 0; i < ty->as.structure.field_types.used; ++i) {
+                    Type *field_ty = ARRAY_GET_AS(Type *, &ty->as.structure.field_types, i);
+                    typePrint(to, field_ty, true);
+                    if(i + 1 < ty->as.structure.field_types.used) {
+                        fputs(", ", to);
+                    }
                 }
                 fputc(']', to);
                 break;

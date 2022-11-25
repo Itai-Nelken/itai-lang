@@ -33,7 +33,7 @@ typedef struct type {
             Array parameter_types; // Array<Type *>
         } fn;
         struct {
-            Array member_types; // Array<Type *>
+            Array field_types; // Array<Type *>
         } structure;
     } as;
 } Type;
