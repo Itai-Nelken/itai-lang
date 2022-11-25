@@ -21,26 +21,31 @@ enum return_values {
 
 typedef struct options {
     const char *file_path;
-    bool dump_ast;
+    bool dump_ast, dump_tokens;
 } Options;
 
 bool parse_arguments(Options *opts, int argc, char **argv) {
     struct option long_options[] = {
-        {"help",     no_argument, 0, 'h'},
-        {"dump-ast", no_argument, 0, 'd'},
-        {0,          0,           0,  0}
+        {"help",         no_argument, 0, 'h'},
+        {"dump-ast",     no_argument, 0, 'd'},
+        {"dump-tokens", no_argument, 0, 't'},
+        {0,              0,           0,  0}
     };
     int c;
-    while((c = getopt_long(argc, argv, "hd", long_options, NULL)) != -1) {
+    while((c = getopt_long(argc, argv, "hdt", long_options, NULL)) != -1) {
         switch(c) {
             case 'h':
                 printf("Usage: %s [options] file\n", argv[0]);
                 printf("Options:\n");
-                printf("\t--help,     -h    Print this help.\n");
-                printf("\t--dump-ast, -d    Dump the parsed AST.\n");
+                printf("\t--help,        -h    Print this help.\n");
+                printf("\t--dump-ast,    -d    Dump the parsed AST.\n");
+                printf("\t--dump-tokens, -t    Dump the scanned tokens.\n");
                 return false;
             case 'd':
                 opts->dump_ast = true;
+                break;
+            case 't':
+                opts->dump_tokens = true;
                 break;
             default:
                 return false;
@@ -73,20 +78,19 @@ int main(int argc, char **argv) {
 
     Options opts = {
         .file_path = "./test.ilc",
-        .dump_ast = false
+        .dump_ast = false,
+        .dump_tokens = false
     };
     if(!parse_arguments(&opts, argc, argv)) {
         return_value = RET_ARG_PARSE_FAILURE;
         goto end;
     }
 
-    compilerAddFile(&c, opts.file_path);
+    if(opts.dump_tokens) {
+        parserSetDumpTokens(&p, true);
+    }
 
-    //Token tk;
-    //for(tk = scannerNextToken(&s); tk.type != TK_EOF; tk = scannerNextToken(&s)) {
-    //    tokenPrint(stdout, &tk);
-    //    putc('\n', stdout);
-    //}
+    compilerAddFile(&c, opts.file_path);
 
     if(!parserParse(&p, &prog)) {
         if(compilerHadError(&c)) {

@@ -12,6 +12,9 @@ typedef struct parser {
     Scanner *scanner;
     ASTProgram *program;
 
+    // options
+    bool dump_tokens;
+
     // current module/function
     struct {
         ModuleID module; // TODO: should be a stack (when multiple modules support is added).
@@ -40,6 +43,14 @@ void parserInit(Parser *p, Scanner *s, Compiler *c);
  * @param p The parser to free.
  ***/
 void parserFree(Parser *p);
+
+/***
+ * Set the dump_tokens flag (print out tokens if set).
+ *
+ * @param p A Parser.
+ * @param value The value to set the flag to.
+ ***/
+void parserSetDumpTokens(Parser *p, bool value);
 
 /***
  * Parse.

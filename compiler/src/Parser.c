@@ -14,6 +14,7 @@ void parserInit(Parser *p, Scanner *s, Compiler *c) {
     p->compiler = c;
     p->scanner = s;
     p->program = NULL;
+    p->dump_tokens = false;
     p->current.module = 0;
     p->current.function = NULL;
     p->current.scope = NULL;
@@ -32,6 +33,7 @@ void parserFree(Parser *p) {
     p->compiler = NULL;
     p->scanner = NULL;
     p->program = NULL;
+    p->dump_tokens = false;
     p->current.module = 0;
     p->current.function = NULL;
     p->can_assign = false;
@@ -39,6 +41,10 @@ void parserFree(Parser *p) {
     p->current_token.type = TK_GARBAGE;
     p->had_error = false;
     p->need_synchronize = false;
+}
+
+void parserSetDumpTokens(Parser *p, bool value) {
+    p->dump_tokens = value;
 }
 
 /** Callbacks **/
@@ -68,7 +74,15 @@ static Token advance(Parser *p) {
     // has already reported errors for them anyway.
     Token tk;
     while((tk = scannerNextToken(p->scanner)).type == TK_GARBAGE) {
+        if(p->dump_tokens) {
+            tokenPrint(stdout, &tk);
+            putchar('\n');
+        }
         p->had_error = true;
+    }
+    if(p->dump_tokens) {
+        tokenPrint(stdout, &tk);
+        putchar('\n');
     }
     p->previous_token = p->current_token;
     p->current_token = tk;
