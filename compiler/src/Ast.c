@@ -490,7 +490,7 @@ ASTObj *astNewObj(ASTObjType type, Location loc, ASTString name, Type *data_type
             arrayInit(&o->as.fn.locals);
             break;
         case OBJ_STRUCT:
-            arrayInit(&o->as.structure.members);
+            arrayInit(&o->as.structure.fields);
             break;
         default:
             UNREACHABLE();
@@ -518,8 +518,8 @@ void astObjFree(ASTObj *obj) {
             astNodeFree(AS_NODE(obj->as.fn.body));
             break;
         case OBJ_STRUCT:
-            arrayMap(&obj->as.structure.members, free_object_callback, NULL);
-            arrayFree(&obj->as.structure.members);
+            arrayMap(&obj->as.structure.fields, free_object_callback, NULL);
+            arrayFree(&obj->as.structure.fields);
             break;
         default:
             UNREACHABLE();
@@ -564,7 +564,7 @@ void astObjPrint(FILE *to, ASTObj *obj) {
             break;
         case OBJ_STRUCT:
             fputs(", \x1b[1mmembers:\x1b[0m [", to);
-            PRINT_ARRAY(ASTObj *, astObjPrint, to, obj->as.structure.members);
+            PRINT_ARRAY(ASTObj *, astObjPrint, to, obj->as.structure.fields);
             fputc(']', to);
             break;
         default:

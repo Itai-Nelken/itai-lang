@@ -193,7 +193,7 @@ typedef struct ast_obj {
             ASTListNode *body;
         } fn;
         struct {
-            Array members; // Array<ASTObj *> (OBJ_VAR)
+            Array fields; // Array<ASTObj *> (OBJ_VAR)
         } structure;
     } as;
 } ASTObj;

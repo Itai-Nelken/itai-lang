@@ -520,15 +520,15 @@ static Type *new_fn_type(Parser *p, Type *return_type, Array parameters) {
     return astModuleAddType(astProgramGetModule(p->program, p->current.module), ty);
 }
 
-// members: Array<ASTObj *> (OBJ_VAR)
-static Type *new_struct_type(Parser *p, ASTString name, Array members) {
+// fields: Array<ASTObj *> (OBJ_VAR)
+static Type *new_struct_type(Parser *p, ASTString name, Array fields) {
     Type *ty;
     NEW0(ty);
     // FIXME: calculate the actual size of the struct.
     typeInit(ty, TY_STRUCT, name, 0);
     Array *member_types = &ty->as.structure.member_types;
-    for(usize i = 0; i < members.used; ++i) {
-        ASTObj *member = ARRAY_GET_AS(ASTObj *, &members, i);
+    for(usize i = 0; i < fields.used; ++i) {
+        ASTObj *member = ARRAY_GET_AS(ASTObj *, &fields, i);
         arrayPush(member_types, (void *)member->data_type);
     }
 
@@ -655,7 +655,7 @@ static ASTObj *parse_struct_decl(Parser *p) {
         return NULL;
     }
     while(current(p).type != TK_RBRACE) {
-        ASTNode *member = parse_variable_decl(p, false, &structure->as.structure.members);
+        ASTNode *member = parse_variable_decl(p, false, &structure->as.structure.fields);
         astNodeFree(member);
         consume(p, TK_SEMICOLON);
     }
@@ -664,7 +664,7 @@ static ASTObj *parse_struct_decl(Parser *p) {
         return NULL;
     }
 
-    structure->data_type = new_struct_type(p,structure->name, structure->as.structure.members);
+    structure->data_type = new_struct_type(p,structure->name, structure->as.structure.fields);
 
     structure->location = locationMerge(name_loc, previous(p).location);
     return structure;

@@ -644,8 +644,8 @@ static void typecheck_function(Validator *v, ASTObj *fn) {
 }
 
 static void typecheck_struct(Validator *v, ASTObj *s) {
-    for(usize i = 0; i < s->as.structure.members.used; ++i) {
-        ASTObj *member = ARRAY_GET_AS(ASTObj *, &s->as.structure.members, i);
+    for(usize i = 0; i < s->as.structure.fields.used; ++i) {
+        ASTObj *member = ARRAY_GET_AS(ASTObj *, &s->as.structure.fields, i);
         if(!member->data_type) {
             error(v, member->location, "Member '%s' in struct '%s' has no type.", member->name, s->name);
         }

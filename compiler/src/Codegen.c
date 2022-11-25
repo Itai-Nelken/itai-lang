@@ -208,8 +208,8 @@ static void gen_function_decl(Codegen *cg, ASTObj *fn) {
 
 static void gen_struct(Codegen *cg, ASTObj *s) {
     print(cg, "typedef struct %s {\n", s->name);
-    for(usize i = 0; i < s->as.structure.members.used; ++i) {
-        ASTObj *member = ARRAY_GET_AS(ASTObj *, &s->as.structure.members, i);
+    for(usize i = 0; i < s->as.structure.fields.used; ++i) {
+        ASTObj *member = ARRAY_GET_AS(ASTObj *, &s->as.structure.fields, i);
         print(cg, "    "); // 4 spaces
         gen_type(cg, member->data_type);
         print(cg, " %s;\n", member->name);
