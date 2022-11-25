@@ -192,6 +192,8 @@ static Type *get_expr_type(Validator *v, ASTNode *expr) {
     return ty;
 }
 
+static bool validate_ast(Validator *v, ASTNode *n);
+
 static bool validate_variable(Validator *v, ASTNode *var) {
     if(var->node_type == ND_ASSIGN) {
         VERIFY(NODE_IS(AS_BINARY_NODE(var)->lhs, ND_VARIABLE));
@@ -203,6 +205,9 @@ static bool validate_variable(Validator *v, ASTNode *var) {
         && AS_OBJ_NODE(AS_BINARY_NODE(var)->rhs)->obj == var_obj) {
             error(v, AS_BINARY_NODE(var)->rhs->location, "Variable '%s' is assigned to itself.", var_obj->name);
             return false;
+        }
+        if(AS_BINARY_NODE(var)->rhs) {
+            validate_ast(v, AS_BINARY_NODE(var)->rhs);
         }
 
         // Try to infer the variable's type if necceary
