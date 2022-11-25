@@ -1,0 +1,21 @@
+/// expect success
+
+struct TestStruct {
+	a: i32;
+	b: i32;
+	total: i32;
+}
+
+fn calculate_total(test_struct: TestStruct) -> i32 {
+	return test_struct.a + test_struct.b;
+}
+
+fn main() -> i32 {
+	var instance: TestStruct;
+	instance.a = 40;
+	instance.b = 2;
+	instance.total = calculate_total(instance);
+	var total = instance.total;
+	return total;
+}
+

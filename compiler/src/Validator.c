@@ -180,6 +180,10 @@ static Type *get_expr_type(Validator *v, ASTNode *expr) {
         case ND_FUNCTION:
             ty = AS_OBJ_NODE(expr)->obj->data_type;
             break;
+        case ND_PROPERTY_ACCESS:
+            VERIFY(NODE_IS(AS_BINARY_NODE(expr)->rhs, ND_VARIABLE));
+            ty = AS_OBJ_NODE(AS_BINARY_NODE(expr)->rhs)->obj->data_type;
+            break;
         case ND_CALL:
             ty = AS_OBJ_NODE(AS_BINARY_NODE(expr)->lhs)->obj->data_type->as.fn.return_type;
             break;
@@ -206,11 +210,21 @@ static Type *get_expr_type(Validator *v, ASTNode *expr) {
 static bool validate_ast(Validator *v, ASTNode *n);
 
 static bool validate_variable(Validator *v, ASTNode *var) {
-    if(var->node_type == ND_ASSIGN) {
-        VERIFY(NODE_IS(AS_BINARY_NODE(var)->lhs, ND_VARIABLE));
-        ASTObj *var_obj = AS_OBJ_NODE(AS_BINARY_NODE(var)->lhs)->obj;
+    if(NODE_IS(var, ND_ASSIGN)) {
+        ASTNode *var_node = NULL;
+        bool is_struct_property_access = false;
+        if(NODE_IS(AS_BINARY_NODE(var)->lhs, ND_PROPERTY_ACCESS)) {
+            var_node = AS_BINARY_NODE(AS_BINARY_NODE(var)->lhs)->lhs;
+            is_struct_property_access = true;
+        } else { // ND_VARIABLE
+            var_node = AS_BINARY_NODE(var)->lhs;
+        }
+        VERIFY(NODE_IS(var_node, ND_VARIABLE));
+        ASTObj *var_obj = AS_OBJ_NODE(var_node)->obj;
         VERIFY(var_obj->type == OBJ_VAR);
 
+        // FIXME: Should 'a.b = a' be allowed? if yes, the following if statement
+        //        must run only if 'is_struct_property_access' is false.
         // Check that the variable isn't being assigned to itself.
         if(NODE_IS(AS_BINARY_NODE(var)->rhs, ND_VARIABLE)
         && AS_OBJ_NODE(AS_BINARY_NODE(var)->rhs)->obj == var_obj) {
@@ -221,7 +235,7 @@ static bool validate_variable(Validator *v, ASTNode *var) {
             validate_ast(v, AS_BINARY_NODE(var)->rhs);
         }
 
-        // Try to infer the variable's type if necceary
+        // Try to infer the variable's type if neccesary
         if(var_obj->data_type == NULL) {
             Type *rhs_ty = get_expr_type(v, AS_BINARY_NODE(var)->rhs);
             if(!rhs_ty) {
@@ -230,6 +244,33 @@ static bool validate_variable(Validator *v, ASTNode *var) {
             }
             var_obj->data_type = rhs_ty;
         }
+
+        // Now that we know the struct the variable is an instance of,
+        // we can replace the field in the property access node with the fields ASTObj.
+        if(is_struct_property_access) {
+            return validate_variable(v, AS_BINARY_NODE(var)->lhs);
+        }
+    } else if(NODE_IS(var, ND_PROPERTY_ACCESS)) {
+        ASTObj *var_obj = AS_OBJ_NODE(AS_BINARY_NODE(var)->lhs)->obj;
+        ASTNode **field_node = &(AS_BINARY_NODE(var)->rhs);
+        VERIFY(var_obj->data_type);
+        if(var_obj->data_type->type != TY_STRUCT) {
+                error(v, (*field_node)->location, "Field access on value of non-struct type '%s'.", type_name(var_obj->data_type));
+                return false;
+            }
+            ASTObj *s = find_struct(v, var_obj->data_type->name);
+            VERIFY(s);
+            for(usize i = 0; i < s->as.structure.fields.used; ++i) {
+                ASTObj *field = ARRAY_GET_AS(ASTObj *, &s->as.structure.fields, i);
+                if(field->name == AS_IDENTIFIER_NODE(*field_node)->identifier) {
+                    ASTNode *new_field_node = astNewObjNode(ND_VARIABLE, field->location, field);
+                    astNodeFree(AS_NODE(*field_node));
+                    *field_node = new_field_node;
+                    return true;
+                }
+            }
+            error(v, (*field_node)->location, "Field '%s' doesn't exist in struct '%s'.", AS_IDENTIFIER_NODE(*field_node)->identifier, s->name);
+            return false;
     }
     return true;
 }
@@ -249,8 +290,9 @@ static bool validate_ast(Validator *v, ASTNode *n) {
             return !failed;
         }
         case ND_ASSIGN:
-            CHECK(validate_ast(v, AS_BINARY_NODE(n)->rhs));
+            // No need to validate rhs as validate_variable() already does that.
             // fallthrough
+        case ND_PROPERTY_ACCESS:
         case ND_VARIABLE:
             return validate_variable(v, n);
         case ND_NEGATE:
@@ -332,6 +374,13 @@ static bool replace_all_ids_with_objs(Validator *v, ASTNode **tree) {
             bool rhs_result = replace_all_ids_with_objs(v, &(AS_BINARY_NODE(*tree)->rhs));
             return (!lhs_result || !rhs_result) ? false : true;
         }
+        case ND_PROPERTY_ACCESS:
+            if(!replace_all_ids_with_objs(v, &(AS_BINARY_NODE(*tree)->lhs))) {
+                return false;
+            }
+            // NOTE: We can't replace the identifier in rhs because we don't know the type of the struct lhs is an instance of.
+            //       The identifier is replaced in validate_variable() after the type is known.
+            break;
         case ND_IF: {
             bool cond_result = replace_all_ids_with_objs(v, &(AS_CONDITIONAL_NODE(*tree)->condition));
             bool body_result = replace_all_ids_with_objs(v, &(AS_CONDITIONAL_NODE(*tree)->body));
@@ -394,7 +443,7 @@ static void validate_function(Validator *v, ASTObj *fn) {
         }
         validate_ast(v, *n);
     }
-    // TODO: If function returns a value, check that it returns in all control paths.
+
     if(fn->as.fn.return_type) {
         if(fn->as.fn.body->control_flow == CF_NEVER_RETURNS) {
             // The location created points to the closing '}' of the function body.
@@ -531,7 +580,7 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
             // When returning a number literal in a function returning an unsigned type,
             // the number literal is implicitly cast to the unsigned type.
             // FIXME: Check the number value fits in the return type.
-            if(operand_ty && IS_UNSIGNED(v->current_function->as.fn.return_type) &&
+            if((operand_ty && v->current_function->as.fn.return_type) && IS_UNSIGNED(v->current_function->as.fn.return_type) &&
                NODE_IS(AS_UNARY_NODE(n)->operand, ND_NUMBER_LITERAL) && IS_SIGNED(operand_ty)) {
                 break;
             }
@@ -558,8 +607,8 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
                 // into unsigned types so calls like this: `a(123)` where the parameter
                 // has the type of 'u32' and the argument is a number literal but has the type
                 // of 'i32' will typecheck correctly without emiting a type mismatch.
-                // FIXME: Check that thenumber value fits in the parameter type.
-                if(arg_ty && IS_UNSIGNED(param_ty) &&
+                // FIXME: Check that the number value fits in the parameter type.
+                if((arg_ty && IS_NUMERIC(arg_ty)) && IS_UNSIGNED(param_ty) &&
                    NODE_IS(arg, ND_NUMBER_LITERAL) && IS_SIGNED(arg_ty)) {
                     continue;
                 }
@@ -572,6 +621,7 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
         // ignored nodes (no typechecking to do).
         case ND_NUMBER_LITERAL:
         case ND_FUNCTION:
+        case ND_PROPERTY_ACCESS:
             break;
         case ND_ARGS:
             // see note in validate_ast() for the reason this node is an error here.
@@ -600,8 +650,15 @@ static void typecheck_variable_callback(void *variable_node, void *validator) {
             if(!typecheck_ast(v, AS_BINARY_NODE(var)->rhs)) {
                 return;
             }
-            VERIFY(NODE_IS(AS_BINARY_NODE(var)->lhs, ND_VARIABLE));
-            Type *lhs_ty = AS_OBJ_NODE(AS_BINARY_NODE(var)->lhs)->obj->data_type;
+            ASTNode *var_node = NULL;
+            if(NODE_IS(AS_BINARY_NODE(var)->lhs, ND_PROPERTY_ACCESS)) {
+                var_node = AS_BINARY_NODE(AS_BINARY_NODE(var)->lhs)->rhs;
+                //is_struct_property_access = true;
+            } else {
+                var_node = AS_BINARY_NODE(var)->lhs;
+            }
+            VERIFY(NODE_IS(var_node, ND_VARIABLE));
+            Type *lhs_ty = AS_OBJ_NODE(var_node)->obj->data_type;
             Type *rhs_ty = get_expr_type(v, AS_BINARY_NODE(var)->rhs);
             // allow assigning number literals to u32 variables.
             if(IS_NUMERIC(lhs_ty) && IS_NUMERIC(rhs_ty) &&

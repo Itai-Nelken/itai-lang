@@ -208,6 +208,7 @@ static ASTNode *parse_identifier_expr(Parser *p);
 static ASTNode *parse_unary_expr(Parser *p);
 static ASTNode *parse_binary_expr(Parser *p, ASTNode *lhs);
 static ASTNode *parse_call_expr(Parser *p, ASTNode *callee);
+static ASTNode *parse_property_access_expr(Parser *p, ASTNode *lhs);
 
 static ParseRule rules[] = {
     [TK_LPAREN]      = {parse_grouping_expr, parse_call_expr, PREC_CALL},
@@ -220,7 +221,7 @@ static ParseRule rules[] = {
     [TK_SEMICOLON]   = {NULL, NULL, PREC_LOWEST},
     [TK_COLON]       = {NULL, NULL, PREC_LOWEST},
     [TK_COMMA]       = {NULL, NULL, PREC_LOWEST},
-    [TK_DOT]         = {NULL, NULL, PREC_LOWEST},
+    [TK_DOT]         = {NULL, parse_property_access_expr, PREC_CALL},
     [TK_MINUS]       = {parse_unary_expr, parse_binary_expr, PREC_TERM},
     [TK_ARROW]       = {NULL, NULL, PREC_LOWEST},
     [TK_EQUAL]       = {NULL, NULL, PREC_LOWEST},
@@ -319,6 +320,18 @@ static ASTNode *parse_call_expr(Parser *p, ASTNode *callee) {
     }
     TRY_CONSUME(p, TK_RPAREN, callee);
     return astNewBinaryNode(ND_CALL, locationMerge(callee->location, previous(p).location), callee, AS_NODE(arguments));
+}
+
+static ASTNode *parse_property_access_expr(Parser *p, ASTNode *lhs) {
+    ASTString property_name = TRY(ASTString, parse_identifier(p), lhs);
+    Location property_name_loc = previous(p).location;
+
+    ASTNode *n = astNewBinaryNode(ND_PROPERTY_ACCESS, locationMerge(lhs->location, property_name_loc), lhs, astNewIdentifierNode(property_name_loc, property_name));
+    if(p->can_assign && match(p, TK_EQUAL)) {
+        ASTNode *value = TRY(ASTNode *, parse_expression(p), n);
+        n = astNewBinaryNode(ND_ASSIGN, locationMerge(n->location, previous(p).location), n, value);
+    }
+    return n;
 }
 
 static ASTNode *parse_precedence(Parser *p, Precedence min_prec) {

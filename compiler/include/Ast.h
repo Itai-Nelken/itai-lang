@@ -80,6 +80,7 @@ typedef enum ast_node_type {
     // Binary nodes
     ND_ASSIGN,
     ND_CALL,
+    ND_PROPERTY_ACCESS,
     ND_ADD,
     ND_SUBTRACT,
     ND_MULTIPLY,

@@ -1,0 +1,8 @@
+/// expect success
+
+struct TestStruct {}
+
+fn main() {
+	var test_struct_instance: TestStruct;
+}
+

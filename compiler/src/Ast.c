@@ -331,6 +331,7 @@ void astNodeFree(ASTNode *n) {
         break;
         case ND_ASSIGN:
         case ND_CALL:
+        case ND_PROPERTY_ACCESS:
         case ND_ADD:
         case ND_SUBTRACT:
         case ND_MULTIPLY:
@@ -367,6 +368,7 @@ static const char *node_name(ASTNodeType type) {
             return "ASTObjNode";
         case ND_ASSIGN:
         case ND_CALL:
+        case ND_PROPERTY_ACCESS:
         case ND_ADD:
         case ND_SUBTRACT:
         case ND_MULTIPLY:
@@ -389,21 +391,22 @@ static const char *node_name(ASTNodeType type) {
 
 static const char *node_type_name(ASTNodeType type) {
     static const char *names[] = {
-        [ND_NUMBER_LITERAL] = "ND_NUMBER_LIERAL",
-        [ND_VARIABLE]       = "ND_VARIABLE",
-        [ND_FUNCTION]       = "ND_FUNCTION",
-        [ND_ASSIGN]         = "ND_ASSIGN",
-        [ND_CALL]           = "ND_CALL",
-        [ND_ADD]            = "ND_ADD",
-        [ND_SUBTRACT]       = "ND_SUBTRACT",
-        [ND_MULTIPLY]       = "ND_MULTIPLY",
-        [ND_DIVIDE]         = "ND_DIVIDE",
-        [ND_IF]             = "ND_IF",
-        [ND_NEGATE]         = "ND_NEGATE",
-        [ND_RETURN]         = "ND_RETURN",
-        [ND_BLOCK]          = "ND_BLOCK",
-        [ND_ARGS]           = "ND_ARGS",
-        [ND_IDENTIFIER]     = "ND_IDENTIFIER"
+        [ND_NUMBER_LITERAL]  = "ND_NUMBER_LIERAL",
+        [ND_VARIABLE]        = "ND_VARIABLE",
+        [ND_FUNCTION]        = "ND_FUNCTION",
+        [ND_ASSIGN]          = "ND_ASSIGN",
+        [ND_CALL]            = "ND_CALL",
+        [ND_PROPERTY_ACCESS] = "ND_PROPERTY_ACCESS",
+        [ND_ADD]             = "ND_ADD",
+        [ND_SUBTRACT]        = "ND_SUBTRACT",
+        [ND_MULTIPLY]        = "ND_MULTIPLY",
+        [ND_DIVIDE]          = "ND_DIVIDE",
+        [ND_IF]              = "ND_IF",
+        [ND_NEGATE]          = "ND_NEGATE",
+        [ND_RETURN]          = "ND_RETURN",
+        [ND_BLOCK]           = "ND_BLOCK",
+        [ND_ARGS]            = "ND_ARGS",
+        [ND_IDENTIFIER]      = "ND_IDENTIFIER"
     };
     // FIXME?: this static assert only fails if new node types are appended
     // to the end of the node type enum, something which almost never happens.
@@ -431,6 +434,7 @@ void astNodePrint(FILE *to, ASTNode *n) {
             break;
         case ND_ASSIGN:
         case ND_CALL:
+        case ND_PROPERTY_ACCESS:
         case ND_ADD:
         case ND_SUBTRACT:
         case ND_MULTIPLY:

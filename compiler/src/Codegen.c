@@ -84,7 +84,12 @@ static void gen_expr(Codegen *cg, ASTNode *expr) {
             break;
         // Binary nodes
         case ND_ASSIGN:
-            print(cg, "%s = ", AS_OBJ_NODE(AS_BINARY_NODE(expr)->lhs)->obj->name);
+            if(NODE_IS(AS_BINARY_NODE(expr)->lhs, ND_PROPERTY_ACCESS)) {
+                ASTNode *property_access = AS_BINARY_NODE(expr)->lhs;
+                print(cg, "%s.%s = ", AS_OBJ_NODE(AS_BINARY_NODE(property_access)->lhs)->obj->name, AS_OBJ_NODE(AS_BINARY_NODE(property_access)->rhs)->obj->name);
+            } else {
+                print(cg, "%s = ", AS_OBJ_NODE(AS_BINARY_NODE(expr)->lhs)->obj->name);
+            }
             gen_expr(cg, AS_BINARY_NODE(expr)->rhs);
             break;
         case ND_CALL:
@@ -114,6 +119,9 @@ static void gen_expr(Codegen *cg, ASTNode *expr) {
         case ND_VARIABLE:
         case ND_FUNCTION:
             print(cg, "%s", AS_OBJ_NODE(expr)->obj->name);
+            break;
+        case ND_PROPERTY_ACCESS:
+            print(cg, "%s.%s", AS_OBJ_NODE(AS_BINARY_NODE(expr)->lhs)->obj->name, AS_OBJ_NODE(AS_BINARY_NODE(expr)->rhs)->obj->name);
             break;
         default:
             UNREACHABLE();
@@ -152,11 +160,14 @@ static void gen_stmt(Codegen *cg, ASTNode *n) {
             break;
         case ND_ASSIGN:
         case ND_VARIABLE: {
-            ASTObj *obj = NODE_IS(n, ND_ASSIGN) ? AS_OBJ_NODE(AS_BINARY_NODE(n)->lhs)->obj : AS_OBJ_NODE(n)->obj;
-            if(obj_is_local_in_current_function(cg, obj) && tableGet(&cg->locals_already_declared, obj->name) == NULL) {
-                tableSet(&cg->locals_already_declared, obj->name, NULL);
-                variable_callback((void *)n, (void *)cg);
-                break;
+            ASTNode *var_node = NODE_IS(n, ND_ASSIGN) ? AS_BINARY_NODE(n)->lhs : n;
+            if(!NODE_IS(var_node, ND_PROPERTY_ACCESS)) {
+                ASTObj *obj = AS_OBJ_NODE(var_node)->obj;
+                if(obj_is_local_in_current_function(cg, obj) && tableGet(&cg->locals_already_declared, obj->name) == NULL) {
+                    tableSet(&cg->locals_already_declared, obj->name, NULL);
+                    variable_callback((void *)n, (void *)cg);
+                    break;
+                }
             }
         }
         // fallthrough
