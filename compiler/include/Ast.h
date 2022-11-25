@@ -185,7 +185,7 @@ typedef struct ast_obj {
         //  bool is_const;
         //} var;
         struct {
-            Array parameters; // Array<ASTObj *> (OBJ_PARAM)
+            Array parameters; // Array<ASTObj *> (OBJ_VAR)
             Type *return_type;
             BlockScope *scopes;
             Array locals; // Array<ASTObj *>
