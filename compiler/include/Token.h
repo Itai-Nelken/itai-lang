@@ -34,7 +34,8 @@ Location locationNew(u64 start, u64 end, FileID file);
  ***/
 Location locationMerge(Location a, Location b);
 
-// Update tokenPrint(), tokenTypeString() and token_type_name() in Token.c when adding new token types.
+// Update tokenPrint(), tokenTypeString(), token_type_name() in Token.c
+// and parse table in Parser.c when adding new token types.
 typedef enum token_type {
     // One character tokens
     TK_LPAREN, TK_RPAREN,
