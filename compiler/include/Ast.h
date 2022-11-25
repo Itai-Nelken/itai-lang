@@ -171,6 +171,7 @@ typedef usize ModuleID;
 // means functions, variables, structs, enums etc.
 typedef enum ast_obj_type {
     OBJ_VAR, OBJ_FN,
+    OBJ_STRUCT,
     OBJ_TYPE_COUNT
 } ASTObjType;
 
@@ -191,6 +192,9 @@ typedef struct ast_obj {
             Array locals; // Array<ASTObj *>
             ASTListNode *body;
         } fn;
+        struct {
+            Array members; // Array<ASTObj *> (OBJ_VAR)
+        } structure;
     } as;
 } ASTObj;
 

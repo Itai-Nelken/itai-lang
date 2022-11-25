@@ -206,34 +206,64 @@ static void gen_function_decl(Codegen *cg, ASTObj *fn) {
     tableClear(&cg->locals_already_declared, NULL, NULL);
 }
 
+static void gen_struct(Codegen *cg, ASTObj *s) {
+    print(cg, "typedef struct __struct_%s {\n", s->name);
+    for(usize i = 0; i < s->as.structure.members.used; ++i) {
+        ASTObj *member = ARRAY_GET_AS(ASTObj *, &s->as.structure.members, i);
+        print(cg, "    "); // 4 spaces
+        gen_type(cg, member->data_type);
+        print(cg, " %s;\n", member->name);
+    }
+    print(cg, "} %s;\n", s->name);
+}
+
 static void object_callback(void *object, void *codegen) {
     ASTObj *obj = (ASTObj *)object;
     Codegen *cg = (Codegen *)codegen;
 
-    if(obj->type == OBJ_FN) {
-        cg->current_function = obj;
-        gen_function_decl(cg, obj);
-        cg->current_function = NULL;
+    switch(obj->type) {
+        case OBJ_FN:
+            cg->current_function = obj;
+            gen_function_decl(cg, obj);
+            cg->current_function = NULL;
+            break;
+        case OBJ_VAR:
+            // nothing
+            break;
+        case OBJ_STRUCT:
+            gen_struct(cg, obj);
+            break;
+        default:
+            UNREACHABLE();
     }
 }
 
-static void fn_predecl_callback(void *object, void *codegen) {
+static void object_predecl_callback(void *object, void *codegen) {
     ASTObj *obj = (ASTObj *)object;
     Codegen *cg = (Codegen *)codegen;
 
-    if(obj->type != OBJ_FN) {
-        return;
+    switch(obj->type) {
+        case OBJ_FN:
+            gen_type(cg, obj->as.fn.return_type);
+            print(cg, " %s(", obj->name);
+            for(usize i = 0; i < obj->as.fn.parameters.used; ++i) {
+                ASTObj *param = ARRAY_GET_AS(ASTObj *, &obj->as.fn.parameters, i);
+                gen_type(cg, param->data_type);
+                if(i + 1 < obj->as.fn.parameters.used) {
+                    print(cg, ", ");
+                }
+            }
+            print(cg, ");\n");
+            break;
+        case OBJ_VAR:
+            // nothing
+            break;
+        case OBJ_STRUCT:
+            print(cg, "typedef struct __struct_%s %s;\n", obj->name, obj->name);
+            break;
+        default:
+            UNREACHABLE();
     }
-    gen_type(cg, obj->as.fn.return_type);
-    print(cg, " %s(", obj->name);
-    for(usize i = 0; i < obj->as.fn.parameters.used; ++i) {
-        ASTObj *param = ARRAY_GET_AS(ASTObj *, &obj->as.fn.parameters, i);
-        gen_type(cg, param->data_type);
-        if(i + 1 < obj->as.fn.parameters.used) {
-            print(cg, ", ");
-        }
-    }
-    print(cg, ");\n");
 }
 
 static void gen_fn_types(TableItem *item, bool is_last, void *codegen) {
@@ -265,8 +295,8 @@ static void module_callback(void *module, void *codegen) {
     print(cg, "/* module %s */\n", m->name);
     print(cg, "// function types:\n");
     tableMap(&m->types, gen_fn_types, codegen);
-    print(cg, "\n// function pre-declarations:\n");
-    arrayMap(&m->objects, fn_predecl_callback, codegen);
+    print(cg, "\n// pre-declarations:\n");
+    arrayMap(&m->objects, object_predecl_callback, codegen);
     print(cg, "\n// global variables:\n");
     arrayMap(&m->globals, variable_callback, codegen);
     print(cg, "\n// objects:\n");

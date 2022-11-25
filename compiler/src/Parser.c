@@ -611,6 +611,34 @@ static ASTNode *parse_variable_decl(Parser *p, bool allow_initializer, Array *ob
     return var_node;
 }
 
+// struct_decl -> 'struct' identifier '{' (identifier: type ';')* '}'
+static ASTObj *parse_struct_decl(Parser *p) {
+    // Assumes 'struct' was already consumed.
+
+    ASTString name = TRY(ASTString, parse_identifier(p), 0);
+    Location name_loc = previous(p).location;
+
+    // TODO: create struct data type.
+    ASTObj *structure = astNewObj(OBJ_STRUCT, name_loc, name, NULL);
+
+    if(!consume(p, TK_LBRACE)) {
+        astObjFree(structure);
+        return NULL;
+    }
+    while(current(p).type != TK_RBRACE) {
+        ASTNode *member = parse_variable_decl(p, false, &structure->as.structure.members);
+        astNodeFree(member);
+        consume(p, TK_SEMICOLON);
+    }
+    if(!consume(p, TK_RBRACE)) {
+        astObjFree(structure);
+        return NULL;
+    }
+
+    structure->location = locationMerge(name_loc, previous(p).location);
+    return structure;
+}
+
 static ASTNode *parse_function_body(Parser *p) {
     VERIFY(p->current.function);
 
@@ -776,6 +804,11 @@ bool parserParse(Parser *p, ASTProgram *prog) {
             }
             if(global != NULL) {
                 arrayPush(&root_module->globals, (void *)global);
+            }
+        } else if(match(p, TK_STRUCT)) {
+            ASTObj *structure = parse_struct_decl(p);
+            if(structure != NULL) {
+                arrayPush(&root_module->objects, (void *)structure);
             }
         } else {
             error_at(p, current(p).location, stringFormat("Expected one of ['fn', 'var'], but got '%s'.", tokenTypeString(current(p).type)));

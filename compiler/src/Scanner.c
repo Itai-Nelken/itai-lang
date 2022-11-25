@@ -138,6 +138,9 @@ static TokenType scan_keyword_or_identifier_type(Scanner *s) {
         case 'r':
             result = CHECK("return", 6, TK_RETURN);
             break;
+        case 's':
+            result = CHECK("struct", 6, TK_STRUCT);
+            break;
         case 'u':
             result = CHECK("u32", 3, TK_U32);
             break;

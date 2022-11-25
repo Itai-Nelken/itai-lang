@@ -57,6 +57,7 @@ typedef enum token_type {
     TK_WHILE,
     TK_FN, TK_RETURN,
     TK_VAR,
+    TK_STRUCT,
 
     // primitive types
     TK_I32, TK_U32,

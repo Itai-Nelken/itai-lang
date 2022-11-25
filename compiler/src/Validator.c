@@ -392,17 +392,33 @@ static void validate_function(Validator *v, ASTObj *fn) {
     v->current_function = NULL;
 }
 
+static void validate_struct(Validator *v, ASTObj *s) {
+    UNUSED(v);
+    UNUSED(s);
+    // nothing to do.
+}
+
 static void validate_object_callback(void *object, void *validator) {
     ASTObj *obj = (ASTObj *)object;
     Validator *v = (Validator *)validator;
 
-    if(obj->type == OBJ_FN) {
-        if(global_id_exists(v, obj->name)) {
-            error(v, obj->location, "Symbol '%s' already exists.", obj->name);
-        } else {
-            add_global_id(v, obj->name);
-        }
-        validate_function(v, obj);
+    switch(obj->type) {
+        case OBJ_VAR:
+            // nothing
+            break;
+        case OBJ_FN:
+            if(global_id_exists(v, obj->name)) {
+                error(v, obj->location, "Symbol '%s' already exists.", obj->name);
+            } else {
+                add_global_id(v, obj->name);
+            }
+            validate_function(v, obj);
+            break;
+        case OBJ_STRUCT:
+            validate_struct(v, obj);
+            break;
+        default:
+            UNREACHABLE();
     }
 }
 
@@ -593,12 +609,31 @@ static void typecheck_function(Validator *v, ASTObj *fn) {
     v->current_function = NULL;
 }
 
+static void typecheck_struct(Validator *v, ASTObj *s) {
+    for(usize i = 0; i < s->as.structure.members.used; ++i) {
+        ASTObj *member = ARRAY_GET_AS(ASTObj *, &s->as.structure.members, i);
+        if(!member->data_type) {
+            error(v, member->location, "Member '%s' in struct '%s' has no type.", member->name, s->name);
+        }
+    }
+}
+
 static void typecheck_object_callback(void *object, void *validator) {
     ASTObj *obj = (ASTObj *)object;
     Validator *v = (Validator *)validator;
 
-    if(obj->type == OBJ_FN) {
-        typecheck_function(v, obj); // We don't care if the typecheck failed because we want to check all functions.
+    switch(obj->type) {
+        case OBJ_FN:
+            typecheck_function(v, obj);
+            break;
+        case OBJ_VAR:
+            // nothing
+            break;
+        case OBJ_STRUCT:
+            typecheck_struct(v, obj);
+            break;
+        default:
+            UNREACHABLE();
     }
 }
 

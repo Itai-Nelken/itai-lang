@@ -502,6 +502,9 @@ ASTObj *astNewObj(ASTObjType type, Location loc, ASTString name, Type *data_type
             arrayInit(&o->as.fn.parameters);
             arrayInit(&o->as.fn.locals);
             break;
+        case OBJ_STRUCT:
+            arrayInit(&o->as.structure.members);
+            break;
         default:
             UNREACHABLE();
     }
@@ -527,6 +530,10 @@ void astObjFree(ASTObj *obj) {
             blockScopeFree(obj->as.fn.scopes);
             astNodeFree(AS_NODE(obj->as.fn.body));
             break;
+        case OBJ_STRUCT:
+            arrayMap(&obj->as.structure.members, free_object_callback, NULL);
+            arrayFree(&obj->as.structure.members);
+            break;
         default:
             UNREACHABLE();
     }
@@ -535,8 +542,9 @@ void astObjFree(ASTObj *obj) {
 
 static const char *obj_type_name(ASTObjType type) {
     static const char *names[] = {
-        [OBJ_VAR]   = "OBJ_VAR",
-        [OBJ_FN]    = "OBJ_FN"
+        [OBJ_VAR]    = "OBJ_VAR",
+        [OBJ_FN]     = "OBJ_FN",
+        [OBJ_STRUCT] = "OBJ_STRUCT"
     };
     _Static_assert(sizeof(names)/sizeof(names[0]) == OBJ_TYPE_COUNT, "Missing type(s) in obj_type_name()");
     return names[type];
@@ -566,6 +574,11 @@ void astObjPrint(FILE *to, ASTObj *obj) {
             PRINT_ARRAY(ASTObj *, astObjPrint, to, obj->as.fn.locals);
             fputs("], \x1b[1mbody:\x1b[0m ", to);
             astNodePrint(to, AS_NODE(obj->as.fn.body));
+            break;
+        case OBJ_STRUCT:
+            fputs(", \x1b[1mmembers:\x1b[0m [", to);
+            PRINT_ARRAY(ASTObj *, astObjPrint, to, obj->as.structure.members);
+            fputc(']', to);
             break;
         default:
             UNREACHABLE();
