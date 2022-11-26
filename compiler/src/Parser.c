@@ -499,6 +499,17 @@ static ASTNode *parse_if_stmt(Parser *p) {
     return astNewConditionalNode(ND_IF, locationMerge(start, previous(p).location), condition, body, else_);
 }
 
+static ASTNode *parse_while_loop_stmt(Parser *p) {
+    // Assume 'while' is already consumed.
+    Location start = previous(p).location;
+    ASTNode *condition = TRY(ASTNode *, parse_expression(p), 0);
+    TRY_CONSUME(p, TK_LBRACE, condition);
+    ScopeID scope = enter_scope(p);
+    ASTNode *body = TRY(ASTNode *, parse_block(p, scope, parse_function_body), condition);
+    leave_scope(p);
+    return astNewLoopNode(locationMerge(start, previous(p).location), NULL, condition, NULL, body);
+}
+
 static ASTNode *parse_statement(Parser *p) {
     ASTNode *result = NULL;
     if(match(p, TK_LBRACE)) {
@@ -509,6 +520,8 @@ static ASTNode *parse_statement(Parser *p) {
         result = parse_return_stmt(p);
     } else if(match(p, TK_IF)) {
         result = parse_if_stmt(p);
+    } else if(match(p, TK_WHILE)) {
+        result = parse_while_loop_stmt(p);
     } else {
         result = parse_expression_stmt(p);
     }

@@ -319,6 +319,12 @@ static bool validate_ast(Validator *v, ASTNode *n) {
             CHECK(validate_ast(v, AS_CONDITIONAL_NODE(n)->body));
             CHECK(validate_ast(v, AS_CONDITIONAL_NODE(n)->else_));
             break;
+        case ND_WHILE_LOOP:
+            // NOTE: ND_FOR_LOOP and ND_FOR_ITERATOR_LOOP should be handled separately
+            //       because they use the rest of the clauses (initializer, increment).
+            CHECK(validate_ast(v, AS_LOOP_NODE(n)->condition));
+            CHECK(validate_ast(v, AS_LOOP_NODE(n)->body));
+            break;
         case ND_CALL: {
             ASTObj *callee = AS_OBJ_NODE(AS_BINARY_NODE(n)->lhs)->obj;
             ASTListNode *arguments = AS_LIST_NODE(AS_BINARY_NODE(n)->rhs);
@@ -387,6 +393,16 @@ static bool replace_all_ids_with_objs(Validator *v, ASTNode **tree) {
             bool else_result = replace_all_ids_with_objs(v, &(AS_CONDITIONAL_NODE(*tree)->else_));
             return (!cond_result || !body_result || !else_result) ? false : true;
         }
+        case ND_WHILE_LOOP:
+            // NOTE: ND_FOR_LOOP and ND_FOR_ITERATOR_LOOP should be handled separately
+            //       because they use the rest of the clauses (initializer, increment).
+            if(!replace_all_ids_with_objs(v, &(AS_LOOP_NODE(*tree)->condition))) {
+                return false;
+            }
+            if(!replace_all_ids_with_objs(v, &(AS_LOOP_NODE(*tree)->body))) {
+                return false;
+            }
+            break;
         case ND_IDENTIFIER: {
             ASTObj *obj = find_variable(v, AS_IDENTIFIER_NODE(*tree)->identifier);
             if(!obj) {
@@ -545,6 +561,12 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
             CHECK(typecheck_ast(v, AS_CONDITIONAL_NODE(n)->condition));
             CHECK(typecheck_ast(v, AS_CONDITIONAL_NODE(n)->body));
             CHECK(typecheck_ast(v, AS_CONDITIONAL_NODE(n)->else_));
+            break;
+        case ND_WHILE_LOOP:
+            // NOTE: ND_FOR_LOOP and ND_FOR_ITERATOR_LOOP should be handled separately
+            //       because they use the rest of the clauses (initializer, increment).
+            CHECK(typecheck_ast(v, AS_LOOP_NODE(n)->condition));
+            CHECK(typecheck_ast(v, AS_LOOP_NODE(n)->body));
             break;
         case ND_BLOCK: {
             // typecheck all nodes in the block, even if some fail.

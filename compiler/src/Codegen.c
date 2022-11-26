@@ -152,14 +152,22 @@ static void gen_stmt(Codegen *cg, ASTNode *n) {
             print(cg, "if(");
             gen_expr(cg, AS_CONDITIONAL_NODE(n)->condition);
             print(cg, ") ");
-            gen_stmt(cg, AS_CONDITIONAL_NODE(n)->body);
+            gen_stmt(cg, AS_CONDITIONAL_NODE(n)->body); // The newline is added by gen_stmt:ND_BLOCK.
             if(AS_CONDITIONAL_NODE(n)->else_) {
                 print(cg, "else ");
-                gen_stmt(cg, AS_CONDITIONAL_NODE(n)->else_);
+                gen_stmt(cg, AS_CONDITIONAL_NODE(n)->else_); // The newline is added by gen_stmt:ND_BLOCK.
             }
+            break;
+        case ND_WHILE_LOOP:
+            print(cg, "while(");
+            gen_expr(cg, AS_LOOP_NODE(n)->condition);
+            print(cg, ") ");
+            gen_stmt(cg, AS_LOOP_NODE(n)->body); // The newline is added by gen_stmt:ND_BLOCK.
             break;
         case ND_ASSIGN:
         case ND_VARIABLE: {
+            // Variable declarations are handled here,
+            // assignment is handled in gen_expr();
             ASTNode *var_node = NODE_IS(n, ND_ASSIGN) ? AS_BINARY_NODE(n)->lhs : n;
             if(!NODE_IS(var_node, ND_PROPERTY_ACCESS)) {
                 ASTObj *obj = AS_OBJ_NODE(var_node)->obj;

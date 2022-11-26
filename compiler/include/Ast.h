@@ -89,6 +89,9 @@ typedef enum ast_node_type {
     // Conditional nodes
     ND_IF,
 
+    // Loop nodes
+    ND_WHILE_LOOP,
+
     // Unary nodes
     ND_NEGATE,
     ND_RETURN,
@@ -127,6 +130,11 @@ typedef struct ast_conditional_node {
     ASTNode *condition, *body, *else_;
 } ASTConditionalNode;
 
+typedef struct ast_loop_node {
+    ASTNode header;
+    ASTNode *initializer, *condition, *increment, *body;
+} ASTLoopNode;
+
 typedef struct ast_expression_node {
     ASTNode header;
     LiteralValue value;
@@ -154,6 +162,7 @@ typedef struct ast_list_node {
 #define AS_UNARY_NODE(node) ((ASTUnaryNode *)(node))
 #define AS_BINARY_NODE(node) ((ASTBinaryNode *)(node))
 #define AS_CONDITIONAL_NODE(node) ((ASTConditionalNode *)(node))
+#define AS_LOOP_NODE(node) ((ASTLoopNode *)(node))
 #define AS_LITERAL_NODE(node) ((ASTLiteralValueNode *)(node))
 #define AS_OBJ_NODE(node) ((ASTObjNode *)(node))
 #define AS_IDENTIFIER_NODE(node) ((ASTIdentifierNode *)(node))
@@ -421,6 +430,18 @@ ASTNode *astNewBinaryNode(ASTNodeType type, Location loc, ASTNode *lhs, ASTNode 
  * @return The node as an ASTNode.
  ***/
 ASTNode *astNewConditionalNode(ASTNodeType type, Location loc, ASTNode *condition, ASTNode *body, ASTNode *else_);
+
+/***
+ * Create a new ASTLoopNode.
+ *
+ * @param loc The Location of the node.
+ * @param init The initializer caluse expression node.
+ * @param cond The condition caluse expression node.
+ * @param inc The increment caluse expression node.
+ * @param body The body block node.
+ * @return The node as an ASTNode.
+ ***/
+ASTNode *astNewLoopNode(Location loc, ASTNode *init, ASTNode *cond, ASTNode *inc, ASTNode *body);
 
 /***
  * Create a new ASTLiteralValueNode.

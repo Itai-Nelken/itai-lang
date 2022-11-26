@@ -283,6 +283,17 @@ ASTNode *astNewConditionalNode(ASTNodeType type, Location loc, ASTNode *conditio
     return AS_NODE(n);
 }
 
+ASTNode *astNewLoopNode(Location loc, ASTNode *init, ASTNode *cond, ASTNode *inc, ASTNode *body) {
+    ASTLoopNode *n;
+    NEW0(n);
+    n->header = make_header(ND_WHILE_LOOP, loc);
+    n->initializer = init;
+    n->condition = cond;
+    n->increment = inc;
+    n->body = body;
+    return AS_NODE(n);
+}
+
 ASTNode *astNewLiteralValueNode(ASTNodeType type, Location loc, LiteralValue value) {
     ASTLiteralValueNode *n;
     NEW0(n);
@@ -344,6 +355,12 @@ void astNodeFree(ASTNode *n) {
             astNodeFree(AS_CONDITIONAL_NODE(n)->body);
             astNodeFree(AS_CONDITIONAL_NODE(n)->else_);
             break;
+        case ND_WHILE_LOOP:
+            astNodeFree(AS_LOOP_NODE(n)->initializer);
+            astNodeFree(AS_LOOP_NODE(n)->condition);
+            astNodeFree(AS_LOOP_NODE(n)->increment);
+            astNodeFree(AS_LOOP_NODE(n)->body);
+            break;
         case ND_NEGATE:
         case ND_RETURN:
             astNodeFree(AS_UNARY_NODE(n)->operand);
@@ -376,6 +393,8 @@ static const char *node_name(ASTNodeType type) {
             return "ASTBinaryNode";
         case ND_IF:
             return "ASTConditionalNode";
+        case ND_WHILE_LOOP:
+            return "ASTLoopNode";
         case ND_NEGATE:
         case ND_RETURN:
             return "ASTUnaryNode";
@@ -402,6 +421,7 @@ static const char *node_type_name(ASTNodeType type) {
         [ND_MULTIPLY]        = "ND_MULTIPLY",
         [ND_DIVIDE]          = "ND_DIVIDE",
         [ND_IF]              = "ND_IF",
+        [ND_WHILE_LOOP]      = "ND_WHILE_LOOP",
         [ND_NEGATE]          = "ND_NEGATE",
         [ND_RETURN]          = "ND_RETURN",
         [ND_BLOCK]           = "ND_BLOCK",
@@ -451,6 +471,15 @@ void astNodePrint(FILE *to, ASTNode *n) {
             astNodePrint(to, AS_CONDITIONAL_NODE(n)->body);
             fputs(", \x1b[1melse:\x1b[0m ", to);
             astNodePrint(to, AS_CONDITIONAL_NODE(n)->else_);
+            break;
+        case ND_WHILE_LOOP:
+            // NOTE: ND_FOR_LOOP and ND_FOR_ITERATOR_LOOP
+            //       should be printed separately because they use
+            //       the rest of the clauses (initializer, increment).
+            fputs(", \x1b[1mcondition:\x1b[0m", to);
+            astNodePrint(to, AS_LOOP_NODE(n)->condition);
+            fputs(", \x1b[1mbody:\x1b[0m ", to);
+            astNodePrint(to, AS_LOOP_NODE(n)->body);
             break;
         case ND_NEGATE:
         case ND_RETURN:
