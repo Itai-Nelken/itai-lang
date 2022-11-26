@@ -193,6 +193,12 @@ static Type *get_expr_type(Validator *v, ASTNode *expr) {
         case ND_SUBTRACT:
         case ND_MULTIPLY:
         case ND_DIVIDE:
+        case ND_EQ:
+        case ND_NE:
+        case ND_LT:
+        case ND_LE:
+        case ND_GT:
+        case ND_GE:
             // The type of a binary expression is the type of the left side
             // (e.g. in 'a+b' the type of 'a' is the type of the expression).
             ty = get_expr_type(v, AS_BINARY_NODE(expr)->lhs);
@@ -311,6 +317,12 @@ static bool validate_ast(Validator *v, ASTNode *n) {
         case ND_SUBTRACT:
         case ND_MULTIPLY:
         case ND_DIVIDE:
+        case ND_EQ:
+        case ND_NE:
+        case ND_LT:
+        case ND_LE:
+        case ND_GT:
+        case ND_GE:
             CHECK(validate_ast(v, AS_BINARY_NODE(n)->lhs));
             CHECK(validate_ast(v, AS_BINARY_NODE(n)->rhs));
             break;
@@ -374,6 +386,12 @@ static bool replace_all_ids_with_objs(Validator *v, ASTNode **tree) {
         case ND_SUBTRACT:
         case ND_MULTIPLY:
         case ND_DIVIDE:
+        case ND_EQ:
+        case ND_NE:
+        case ND_LT:
+        case ND_LE:
+        case ND_GT:
+        case ND_GE:
         case ND_CALL:
         case ND_ASSIGN: {
             bool lhs_result = replace_all_ids_with_objs(v, &(AS_BINARY_NODE(*tree)->lhs));
@@ -549,7 +567,13 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
         case ND_ADD:
         case ND_SUBTRACT:
         case ND_MULTIPLY:
-        case ND_DIVIDE: {
+        case ND_DIVIDE:
+        case ND_EQ:
+        case ND_NE:
+        case ND_LT:
+        case ND_LE:
+        case ND_GT:
+        case ND_GE: {
             CHECK(typecheck_ast(v, AS_BINARY_NODE(n)->lhs));
             CHECK(typecheck_ast(v, AS_BINARY_NODE(n)->rhs));
             Type *lhs_ty = get_expr_type(v, AS_BINARY_NODE(n)->lhs);

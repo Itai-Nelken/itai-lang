@@ -347,6 +347,12 @@ void astNodeFree(ASTNode *n) {
         case ND_SUBTRACT:
         case ND_MULTIPLY:
         case ND_DIVIDE:
+        case ND_EQ:
+        case ND_NE:
+        case ND_LT:
+        case ND_LE:
+        case ND_GT:
+        case ND_GE:
             astNodeFree(AS_BINARY_NODE(n)->lhs);
             astNodeFree(AS_BINARY_NODE(n)->rhs);
             break;
@@ -390,6 +396,12 @@ static const char *node_name(ASTNodeType type) {
         case ND_SUBTRACT:
         case ND_MULTIPLY:
         case ND_DIVIDE:
+        case ND_EQ:
+        case ND_NE:
+        case ND_LT:
+        case ND_LE:
+        case ND_GT:
+        case ND_GE:
             return "ASTBinaryNode";
         case ND_IF:
             return "ASTConditionalNode";
@@ -420,6 +432,12 @@ static const char *node_type_name(ASTNodeType type) {
         [ND_SUBTRACT]        = "ND_SUBTRACT",
         [ND_MULTIPLY]        = "ND_MULTIPLY",
         [ND_DIVIDE]          = "ND_DIVIDE",
+        [ND_EQ]              = "ND_EQ",
+        [ND_NE]              = "ND_NE",
+        [ND_LT]              = "ND_LT",
+        [ND_LE]              = "ND_LE",
+        [ND_GT]              = "ND_GT",
+        [ND_GE]              = "ND_GE",
         [ND_IF]              = "ND_IF",
         [ND_WHILE_LOOP]      = "ND_WHILE_LOOP",
         [ND_NEGATE]          = "ND_NEGATE",
@@ -459,6 +477,12 @@ void astNodePrint(FILE *to, ASTNode *n) {
         case ND_SUBTRACT:
         case ND_MULTIPLY:
         case ND_DIVIDE:
+        case ND_EQ:
+        case ND_NE:
+        case ND_LT:
+        case ND_LE:
+        case ND_GT:
+        case ND_GE:
             fputs(", \x1b[1mlhs:\x1b[0m ", to);
             astNodePrint(to, AS_BINARY_NODE(n)->lhs);
             fputs(", \x1b[1mrhs:\x1b[0m ", to);

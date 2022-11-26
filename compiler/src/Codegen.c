@@ -71,6 +71,12 @@ static const char *binary_op_str(ASTNodeType node_type) {
         case ND_SUBTRACT: return "-";
         case ND_MULTIPLY: return "*";
         case ND_DIVIDE: return "/";
+        case ND_EQ: return "==";
+        case ND_NE: return "!=";
+        case ND_LT: return "<";
+        case ND_LE: return "<=";
+        case ND_GT: return ">";
+        case ND_GE: return ">=";
         default:
             UNREACHABLE();
     }
@@ -107,6 +113,12 @@ static void gen_expr(Codegen *cg, ASTNode *expr) {
         case ND_SUBTRACT:
         case ND_MULTIPLY:
         case ND_DIVIDE:
+        case ND_EQ:
+        case ND_NE:
+        case ND_LT:
+        case ND_LE:
+        case ND_GT:
+        case ND_GE:
             gen_expr(cg, AS_BINARY_NODE(expr)->lhs);
             print(cg, "%s", binary_op_str(expr->node_type));
             gen_expr(cg, AS_BINARY_NODE(expr)->rhs);

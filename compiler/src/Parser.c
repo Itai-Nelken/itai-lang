@@ -225,36 +225,40 @@ static ASTNode *parse_call_expr(Parser *p, ASTNode *callee);
 static ASTNode *parse_property_access_expr(Parser *p, ASTNode *lhs);
 
 static ParseRule rules[] = {
-    [TK_LPAREN]      = {parse_grouping_expr, parse_call_expr, PREC_CALL},
-    [TK_RPAREN]      = {NULL, NULL, PREC_LOWEST},
-    [TK_LBRACE]      = {NULL, NULL, PREC_LOWEST},
-    [TK_RBRACE]      = {NULL, NULL, PREC_LOWEST},
-    [TK_PLUS]        = {parse_unary_expr, parse_binary_expr, PREC_TERM},
-    [TK_STAR]        = {NULL, parse_binary_expr, PREC_FACTOR},
-    [TK_SLASH]       = {NULL, parse_binary_expr, PREC_FACTOR},
-    [TK_SEMICOLON]   = {NULL, NULL, PREC_LOWEST},
-    [TK_COLON]       = {NULL, NULL, PREC_LOWEST},
-    [TK_COMMA]       = {NULL, NULL, PREC_LOWEST},
-    [TK_DOT]         = {NULL, parse_property_access_expr, PREC_CALL},
-    [TK_MINUS]       = {parse_unary_expr, parse_binary_expr, PREC_TERM},
-    [TK_ARROW]       = {NULL, NULL, PREC_LOWEST},
-    [TK_EQUAL]       = {NULL, NULL, PREC_LOWEST},
-    [TK_EQUAL_EQUAL] = {NULL, NULL, PREC_LOWEST},
-    [TK_BANG]        = {NULL, NULL, PREC_LOWEST},
-    [TK_BANG_EQUAL]  = {NULL, NULL, PREC_LOWEST},
-    [TK_NUMBER]      = {parse_number_literal_expr, NULL, PREC_LOWEST},
-    [TK_IF]          = {NULL, NULL, PREC_LOWEST},
-    [TK_ELSE]        = {NULL, NULL, PREC_LOWEST},
-    [TK_WHILE]       = {NULL, NULL, PREC_LOWEST},
-    [TK_FN]          = {NULL, NULL, PREC_LOWEST},
-    [TK_RETURN]      = {NULL, NULL, PREC_LOWEST},
-    [TK_VAR]         = {NULL, NULL, PREC_LOWEST},
-    [TK_STRUCT]      = {NULL, NULL, PREC_LOWEST},
-    [TK_I32]         = {NULL, NULL, PREC_LOWEST},
-    [TK_U32]         = {NULL, NULL, PREC_LOWEST},
-    [TK_IDENTIFIER]  = {parse_identifier_expr, NULL, PREC_LOWEST},
-    [TK_GARBAGE]     = {NULL, NULL, PREC_LOWEST},
-    [TK_EOF]         = {NULL, NULL, PREC_LOWEST}
+    [TK_LPAREN]        = {parse_grouping_expr, parse_call_expr, PREC_CALL},
+    [TK_RPAREN]        = {NULL, NULL, PREC_LOWEST},
+    [TK_LBRACE]        = {NULL, NULL, PREC_LOWEST},
+    [TK_RBRACE]        = {NULL, NULL, PREC_LOWEST},
+    [TK_PLUS]          = {parse_unary_expr, parse_binary_expr, PREC_TERM},
+    [TK_STAR]          = {NULL, parse_binary_expr, PREC_FACTOR},
+    [TK_SLASH]         = {NULL, parse_binary_expr, PREC_FACTOR},
+    [TK_SEMICOLON]     = {NULL, NULL, PREC_LOWEST},
+    [TK_COLON]         = {NULL, NULL, PREC_LOWEST},
+    [TK_COMMA]         = {NULL, NULL, PREC_LOWEST},
+    [TK_DOT]           = {NULL, parse_property_access_expr, PREC_CALL},
+    [TK_MINUS]         = {parse_unary_expr, parse_binary_expr, PREC_TERM},
+    [TK_ARROW]         = {NULL, NULL, PREC_LOWEST},
+    [TK_EQUAL]         = {NULL, NULL, PREC_LOWEST},
+    [TK_EQUAL_EQUAL]   = {NULL, parse_binary_expr, PREC_EQUALITY},
+    [TK_BANG]          = {NULL, NULL, PREC_LOWEST},
+    [TK_BANG_EQUAL]    = {NULL, parse_binary_expr, PREC_EQUALITY},
+    [TK_LESS]          = {NULL, parse_binary_expr, PREC_COMPARISON},
+    [TK_LESS_EQUAL]    = {NULL, parse_binary_expr, PREC_COMPARISON},
+    [TK_GREATER]       = {NULL, parse_binary_expr, PREC_COMPARISON},
+    [TK_GREATER_EQUAL] = {NULL, parse_binary_expr, PREC_COMPARISON},
+    [TK_NUMBER]        = {parse_number_literal_expr, NULL, PREC_LOWEST},
+    [TK_IF]            = {NULL, NULL, PREC_LOWEST},
+    [TK_ELSE]          = {NULL, NULL, PREC_LOWEST},
+    [TK_WHILE]         = {NULL, NULL, PREC_LOWEST},
+    [TK_FN]            = {NULL, NULL, PREC_LOWEST},
+    [TK_RETURN]        = {NULL, NULL, PREC_LOWEST},
+    [TK_VAR]           = {NULL, NULL, PREC_LOWEST},
+    [TK_STRUCT]        = {NULL, NULL, PREC_LOWEST},
+    [TK_I32]           = {NULL, NULL, PREC_LOWEST},
+    [TK_U32]           = {NULL, NULL, PREC_LOWEST},
+    [TK_IDENTIFIER]    = {parse_identifier_expr, NULL, PREC_LOWEST},
+    [TK_GARBAGE]       = {NULL, NULL, PREC_LOWEST},
+    [TK_EOF]           = {NULL, NULL, PREC_LOWEST}
 };
 _Static_assert(sizeof(rules)/sizeof(rules[0]) == TK_TYPE_COUNT, "Missing token type(s) in parser rule table!");
 
@@ -314,6 +318,12 @@ static ASTNode *parse_binary_expr(Parser *p, ASTNode *lhs) {
         case TK_MINUS: node_type = ND_SUBTRACT; break;
         case TK_STAR: node_type = ND_MULTIPLY; break;
         case TK_SLASH: node_type = ND_DIVIDE; break;
+        case TK_EQUAL_EQUAL: node_type = ND_EQ; break;
+        case TK_BANG_EQUAL: node_type = ND_NE; break;
+        case TK_LESS: node_type = ND_LT; break;
+        case TK_LESS_EQUAL: node_type = ND_LE; break;
+        case TK_GREATER: node_type = ND_GT; break;
+        case TK_GREATER_EQUAL: node_type = ND_GE; break;
         default: UNREACHABLE();
     }
     return astNewBinaryNode(node_type, locationMerge(lhs->location, rhs->location), lhs, rhs);
