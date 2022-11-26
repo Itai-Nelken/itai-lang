@@ -183,6 +183,9 @@ static void gen_stmt(Codegen *cg, ASTNode *n) {
             ASTNode *var_node = NODE_IS(n, ND_ASSIGN) ? AS_BINARY_NODE(n)->lhs : n;
             if(!NODE_IS(var_node, ND_PROPERTY_ACCESS)) {
                 ASTObj *obj = AS_OBJ_NODE(var_node)->obj;
+                // NOTE: parameters are treated as locals in the function's scope,
+                //       but they are not in the function's locals array.
+                //       that means that parameters will not be re-declared.
                 if(obj_is_local_in_current_function(cg, obj) && tableGet(&cg->locals_already_declared, obj->name) == NULL) {
                     tableSet(&cg->locals_already_declared, obj->name, NULL);
                     variable_callback((void *)n, (void *)cg);
