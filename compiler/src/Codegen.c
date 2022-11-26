@@ -301,7 +301,7 @@ static void object_predecl_callback(void *object, void *codegen) {
 static void gen_fn_types(TableItem *item, bool is_last, void *codegen) {
     UNUSED(is_last);
     Codegen *cg = (Codegen *)codegen;
-    Type *ty = (Type *)item->key;
+    Type *ty = (Type *)item->value;
     if(ty->type != TY_FN) {
         return;
     }
