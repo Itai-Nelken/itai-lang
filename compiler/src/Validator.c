@@ -261,22 +261,22 @@ static bool validate_variable(Validator *v, ASTNode *var) {
         ASTNode **field_node = &(AS_BINARY_NODE(var)->rhs);
         VERIFY(var_obj->data_type);
         if(var_obj->data_type->type != TY_STRUCT) {
-                error(v, (*field_node)->location, "Field access on value of non-struct type '%s'.", type_name(var_obj->data_type));
-                return false;
-            }
-            ASTObj *s = find_struct(v, var_obj->data_type->name);
-            VERIFY(s);
-            for(usize i = 0; i < s->as.structure.fields.used; ++i) {
-                ASTObj *field = ARRAY_GET_AS(ASTObj *, &s->as.structure.fields, i);
-                if(field->name == AS_IDENTIFIER_NODE(*field_node)->identifier) {
-                    ASTNode *new_field_node = astNewObjNode(ND_VARIABLE, field->location, field);
-                    astNodeFree(AS_NODE(*field_node));
-                    *field_node = new_field_node;
-                    return true;
-                }
-            }
-            error(v, (*field_node)->location, "Field '%s' doesn't exist in struct '%s'.", AS_IDENTIFIER_NODE(*field_node)->identifier, s->name);
+            error(v, (*field_node)->location, "Field access on value of non-struct type '%s'.", type_name(var_obj->data_type));
             return false;
+        }
+        ASTObj *s = find_struct(v, var_obj->data_type->name);
+        VERIFY(s);
+        for(usize i = 0; i < s->as.structure.fields.used; ++i) {
+            ASTObj *field = ARRAY_GET_AS(ASTObj *, &s->as.structure.fields, i);
+            if(field->name == AS_IDENTIFIER_NODE(*field_node)->identifier) {
+                ASTNode *new_field_node = astNewObjNode(ND_VARIABLE, field->location, field);
+                astNodeFree(AS_NODE(*field_node));
+                *field_node = new_field_node;
+                return true;
+            }
+        }
+        error(v, (*field_node)->location, "Field '%s' doesn't exist in struct '%s'.", AS_IDENTIFIER_NODE(*field_node)->identifier, s->name);
+        return false;
     }
     return true;
 }
