@@ -401,8 +401,7 @@ static inline ASTNode *parse_expression(Parser *p) {
 
 static ControlFlow statement_control_flow(ASTNode *stmt) {
     switch(stmt->node_type) {
-        case ND_RETURN:
-            return CF_ALWAYS_RETURNS;
+        case ND_RETURN: return CF_ALWAYS_RETURNS;
         case ND_IF: {
             ControlFlow then_block = statement_control_flow(AS_CONDITIONAL_NODE(stmt)->body);
             if(AS_CONDITIONAL_NODE(stmt)->else_) {
@@ -416,6 +415,7 @@ static ControlFlow statement_control_flow(ASTNode *stmt) {
             }
             return then_block;
         }
+        case ND_WHILE_LOOP: return statement_control_flow(AS_LOOP_NODE(stmt)->body);
         case ND_BLOCK: return AS_LIST_NODE(stmt)->control_flow;
         default:
             break;
