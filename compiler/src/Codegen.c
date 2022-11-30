@@ -19,7 +19,6 @@ typedef struct codegen {
 static void codegen_init(Codegen *cg, ASTProgram *prog) {
     cg->output_buffer = stringNew(1024); // start with a 1kb buffer.
     cg->program = prog;
-    tableInit(&cg->locals_already_declared, NULL, NULL);
     tableInit(&cg->fn_type_names, NULL, NULL);
     cg->fn_typename_counter = 0;
 }
@@ -27,7 +26,6 @@ static void codegen_init(Codegen *cg, ASTProgram *prog) {
 static void codegen_free(Codegen *cg) {
     stringFree(cg->output_buffer);
     cg->program = NULL;
-    tableFree(&cg->locals_already_declared);
     tableFree(&cg->fn_type_names);
     cg->fn_typename_counter = 0;
 }
@@ -41,15 +39,15 @@ static void print(Codegen *cg, const char *format, ...) {
     stringFree(buffer);
 }
 
-static bool obj_is_local_in_current_function(Codegen *cg, ASTObj *var) {
-    for(usize i = 0; i < cg->current_function->as.fn.locals.used; ++i) {
-        ASTObj *obj = ARRAY_GET_AS(ASTObj *, &cg->current_function->as.fn.locals, i);
-        if(obj->type == OBJ_VAR && obj == var) {
-            return true;
-        }
-    }
-    return false;
-}
+//static bool obj_is_local_in_current_function(Codegen *cg, ASTObj *var) {
+//    for(usize i = 0; i < cg->current_function->as.fn.locals.used; ++i) {
+//        ASTObj *obj = ARRAY_GET_AS(ASTObj *, &cg->current_function->as.fn.locals, i);
+//        if(obj->type == OBJ_VAR && obj == var) {
+//            return true;
+//        }
+//    }
+//    return false;
+//}
 
 static void gen_type(Codegen *cg, Type *ty) {
     if(!ty) {
@@ -141,7 +139,7 @@ static void gen_expr(Codegen *cg, ASTNode *expr) {
     print(cg, ")");
 }
 
-static void variable_callback(void *variable, void *codegen);
+static void gen_variable(ASTNode *variable, Codegen *cg);
 static void gen_stmt(Codegen *cg, ASTNode *n) {
     switch(n->node_type) {
         case ND_RETURN:
@@ -177,48 +175,38 @@ static void gen_stmt(Codegen *cg, ASTNode *n) {
             gen_stmt(cg, AS_LOOP_NODE(n)->body); // The newline is added by gen_stmt:ND_BLOCK.
             break;
         case ND_ASSIGN:
-        case ND_VARIABLE: {
-            // Variable declarations are handled here,
-            // assignment is handled in gen_expr();
-            ASTNode *var_node = NODE_IS(n, ND_ASSIGN) ? AS_BINARY_NODE(n)->lhs : n;
-            if(!NODE_IS(var_node, ND_PROPERTY_ACCESS)) {
-                ASTObj *obj = AS_OBJ_NODE(var_node)->obj;
-                // NOTE: parameters are treated as locals in the function's scope,
-                //       but they are not in the function's locals array.
-                //       that means that parameters will not be re-declared.
-                if(obj_is_local_in_current_function(cg, obj) && tableGet(&cg->locals_already_declared, obj->name) == NULL) {
-                    tableSet(&cg->locals_already_declared, obj->name, NULL);
-                    variable_callback((void *)n, (void *)cg);
-                    break;
-                }
+            if(!NODE_IS(AS_BINARY_NODE(n)->lhs, ND_VAR_DECL)) {
+                goto default_label;
             }
-        }
-        // fallthrough
+            // fallthrough
+        case ND_VAR_DECL:
+            gen_variable(n, cg);
+            print(cg, ";\n");
+            break;
         default:
+        default_label:
             gen_expr(cg, n);
             print(cg, ";\n");
             break;
     }
 }
 
-static void variable_callback(void *variable, void *codegen) {
-    ASTNode *v = AS_NODE(variable);
-    Codegen *cg = (Codegen *)codegen;
-
-    if(NODE_IS(v, ND_ASSIGN)) {
-        ASTObj *var = AS_OBJ_NODE(AS_BINARY_NODE(v)->lhs)->obj;
+static void gen_variable(ASTNode *variable, Codegen *cg) {
+    if(NODE_IS(variable, ND_ASSIGN)) {
+        ASTObj *var = AS_OBJ_NODE(AS_BINARY_NODE(variable)->lhs)->obj;
         gen_type(cg, var->data_type);
         print(cg, " %s = ", var->name);
-        gen_expr(cg, AS_BINARY_NODE(v)->rhs);
-        print(cg, ";\n");
-    } else if(NODE_IS(v, ND_VARIABLE)) {
-        ASTObj *var = AS_OBJ_NODE(v)->obj;
-        gen_type(cg, var->data_type);
-        print(cg, " %s", var->name);
+        gen_expr(cg, AS_BINARY_NODE(variable)->rhs);
+    } else if(NODE_IS(variable, ND_VARIABLE)) {
+        ASTObj *var = AS_OBJ_NODE(variable)->obj;
+        print(cg, "%s", var->name);
         if(cg->current_function && IS_NUMERIC(var->data_type)) {
             print(cg, " = 0");
         }
-        print(cg, ";\n");
+    } else if(NODE_IS(variable, ND_VAR_DECL)) {
+        ASTObj *var = AS_OBJ_NODE(variable)->obj;
+        gen_type(cg, var->data_type);
+        print(cg, " %s", var->name);
     } else {
         UNREACHABLE();
     }
@@ -323,6 +311,11 @@ static void gen_fn_types(TableItem *item, bool is_last, void *codegen) {
     print(cg, ");\n");
 }
 
+static void global_variable_callback(void *variable, void *codegen) {
+    gen_variable(AS_NODE(variable), (Codegen *)codegen);
+    print((Codegen *)codegen, ";\n");
+}
+
 static void module_callback(void *module, void *codegen) {
     ASTModule *m = (ASTModule *)module;
     Codegen *cg = (Codegen *)codegen;
@@ -333,7 +326,7 @@ static void module_callback(void *module, void *codegen) {
     print(cg, "\n// pre-declarations:\n");
     arrayMap(&m->objects, object_predecl_callback, codegen);
     print(cg, "\n// global variables:\n");
-    arrayMap(&m->globals, variable_callback, codegen);
+    arrayMap(&m->globals, global_variable_callback, codegen);
     print(cg, "\n// objects:\n");
     arrayMap(&m->objects, object_callback, codegen);
     print(cg, "/* end module '%s' */\n\n", m->name);

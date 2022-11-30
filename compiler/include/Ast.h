@@ -74,6 +74,7 @@ typedef enum ast_node_type {
     ND_NUMBER_LITERAL,
 
     // Obj nodes
+    ND_VAR_DECL,
     ND_VARIABLE,
     ND_FUNCTION,
 

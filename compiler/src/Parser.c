@@ -687,7 +687,7 @@ static ASTNode *parse_variable_decl(Parser *p, bool allow_initializer, Array *ob
 
     // includes everything from the 'var' to the ';'.
     Location full_loc = locationMerge(name_loc, previous(p).location);
-    ASTNode *var_node = astNewObjNode(ND_VARIABLE, name_loc, var);
+    ASTNode *var_node = astNewObjNode(ND_VAR_DECL, name_loc, var);
     if(initializer != NULL) {
         return astNewBinaryNode(ND_ASSIGN, full_loc, var_node, initializer);
     }

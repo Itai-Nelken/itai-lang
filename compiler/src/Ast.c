@@ -334,8 +334,9 @@ void astNodeFree(ASTNode *n) {
         return;
     }
     switch(n->node_type) {
-        case ND_FUNCTION:
+        case ND_VAR_DECL:
         case ND_VARIABLE:
+        case ND_FUNCTION:
         case ND_NUMBER_LITERAL:
         case ND_IDENTIFIER:
             // nothing
@@ -386,6 +387,7 @@ static const char *node_name(ASTNodeType type) {
     switch(type) {
         case ND_NUMBER_LITERAL:
             return "ASTLiteralValueNode";
+        case ND_VAR_DECL:
         case ND_VARIABLE:
         case ND_FUNCTION:
             return "ASTObjNode";
@@ -423,6 +425,7 @@ static const char *node_name(ASTNodeType type) {
 static const char *node_type_name(ASTNodeType type) {
     static const char *names[] = {
         [ND_NUMBER_LITERAL]  = "ND_NUMBER_LIERAL",
+        [ND_VAR_DECL]        = "ND_VAR_DECL",
         [ND_VARIABLE]        = "ND_VARIABLE",
         [ND_FUNCTION]        = "ND_FUNCTION",
         [ND_ASSIGN]          = "ND_ASSIGN",
@@ -465,6 +468,7 @@ void astNodePrint(FILE *to, ASTNode *n) {
             fprintf(to, ", \x1b[1mvalue:\x1b[0m ");
             literalValuePrint(to, AS_LITERAL_NODE(n)->value);
             break;
+        case ND_VAR_DECL:
         case ND_VARIABLE:
         case ND_FUNCTION:
             fputs(", \x1b[1mobj:\x1b[0m ", to);

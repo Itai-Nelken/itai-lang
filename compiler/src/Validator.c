@@ -21,6 +21,7 @@ void validatorInit(Validator *v, Compiler *c) {
     v->found_main = false;
     v->had_error = false;
     tableInit(&v->global_ids_in_current_module, NULL, NULL);
+    tableInit(&v->locals_already_declared_in_current_function, NULL, NULL);
 }
 
 void validatorFree(Validator *v) {
@@ -32,6 +33,7 @@ void validatorFree(Validator *v) {
     v->found_main = false;
     v->had_error = false;
     tableFree(&v->global_ids_in_current_module);
+    tableFree(&v->locals_already_declared_in_current_function);
 }
 
 static void error(Validator *v, Location loc, const char *format, ...) {
@@ -215,67 +217,74 @@ static Type *get_expr_type(Validator *v, ASTNode *expr) {
 
 static bool validate_ast(Validator *v, ASTNode *n);
 
-static bool validate_variable(Validator *v, ASTNode *var) {
-    if(NODE_IS(var, ND_ASSIGN)) {
-        ASTNode *var_node = NULL;
-        bool is_struct_property_access = false;
-        if(NODE_IS(AS_BINARY_NODE(var)->lhs, ND_PROPERTY_ACCESS)) {
-            var_node = AS_BINARY_NODE(AS_BINARY_NODE(var)->lhs)->lhs;
-            is_struct_property_access = true;
-        } else { // ND_VARIABLE
-            var_node = AS_BINARY_NODE(var)->lhs;
-        }
-        VERIFY(NODE_IS(var_node, ND_VARIABLE));
-        ASTObj *var_obj = AS_OBJ_NODE(var_node)->obj;
-        VERIFY(var_obj->type == OBJ_VAR);
+// NOTE: initializer cann be NULL.
+static bool validate_var_decl(Validator *v, ASTNode *var_decl, ASTNode *initializer) {
+    VERIFY(NODE_IS(var_decl, ND_VAR_DECL));
+    ASTObj *var_obj = AS_OBJ_NODE(var_decl)->obj;
 
-        // FIXME: Should 'a.b = a' be allowed? if yes, the following if statement
-        //        must run only if 'is_struct_property_access' is false.
-        // Check that the variable isn't being assigned to itself.
-        if(NODE_IS(AS_BINARY_NODE(var)->rhs, ND_VARIABLE)
-        && AS_OBJ_NODE(AS_BINARY_NODE(var)->rhs)->obj == var_obj) {
-            error(v, AS_BINARY_NODE(var)->rhs->location, "Variable '%s' is assigned to itself.", var_obj->name);
-            return false;
-        }
-        if(AS_BINARY_NODE(var)->rhs) {
-            validate_ast(v, AS_BINARY_NODE(var)->rhs);
-        }
-
-        // Try to infer the variable's type if neccesary
-        if(var_obj->data_type == NULL) {
-            Type *rhs_ty = get_expr_type(v, AS_BINARY_NODE(var)->rhs);
+    if(var_obj->data_type == NULL) {
+        if(initializer) {
+            Type *rhs_ty = get_expr_type(v, initializer);
             if(!rhs_ty) {
-                error(v, var->location, "Failed to infer type (Hint: consider adding an explicit type).");
+                error(v, var_decl->location, "Failed to infer type (Hint: consider adding an explicit type).");
                 return false;
             }
             var_obj->data_type = rhs_ty;
-        }
-
-        // Now that we know the struct the variable is an instance of,
-        // we can replace the field in the property access node with the fields ASTObj.
-        if(is_struct_property_access) {
-            return validate_variable(v, AS_BINARY_NODE(var)->lhs);
-        }
-    } else if(NODE_IS(var, ND_PROPERTY_ACCESS)) {
-        ASTObj *var_obj = AS_OBJ_NODE(AS_BINARY_NODE(var)->lhs)->obj;
-        ASTNode **field_node = &(AS_BINARY_NODE(var)->rhs);
-        VERIFY(var_obj->data_type);
-        if(var_obj->data_type->type != TY_STRUCT) {
-            error(v, (*field_node)->location, "Field access on value of non-struct type '%s'.", type_name(var_obj->data_type));
+        } else {
+            error(v, var_decl->location, "Variable '%s' has no type (Hint: consider adding an explicit type).", var_obj->name);
             return false;
         }
-        ASTObj *s = find_struct(v, var_obj->data_type->name);
-        VERIFY(s);
-        for(usize i = 0; i < s->as.structure.fields.used; ++i) {
-            ASTObj *field = ARRAY_GET_AS(ASTObj *, &s->as.structure.fields, i);
-            if(field->name == AS_IDENTIFIER_NODE(*field_node)->identifier) {
-                ASTNode *new_field_node = astNewObjNode(ND_VARIABLE, field->location, field);
-                astNodeFree(AS_NODE(*field_node));
-                *field_node = new_field_node;
-                return true;
+    }
+    tableSet(&v->locals_already_declared_in_current_function, (void *)var_obj->name, NULL);
+    return true;
+}
+
+static bool validate_variable(Validator *v, ASTNode *var) {
+    if(NODE_IS(var, ND_ASSIGN)) {
+        CHECK(validate_ast(v, AS_BINARY_NODE(var)->rhs));
+        if(NODE_IS(AS_BINARY_NODE(var)->lhs, ND_VAR_DECL)) {
+            CHECK(validate_var_decl(v, AS_BINARY_NODE(var)->lhs, AS_BINARY_NODE(var)->rhs));
+            return true;
+        } else if(NODE_IS(AS_BINARY_NODE(var)->lhs, ND_PROPERTY_ACCESS)) {
+            // FIXME: This doesn't work with nested property access (e.g. a.b.c).
+            CHECK(validate_variable(v, AS_BINARY_NODE(AS_BINARY_NODE(var)->lhs)->lhs));
+            ASTObj *var_obj = AS_OBJ_NODE(AS_BINARY_NODE(AS_BINARY_NODE(var)->lhs)->lhs)->obj;
+            ASTNode **field_node = &(AS_BINARY_NODE(AS_BINARY_NODE(var)->lhs)->rhs);
+            VERIFY(var_obj->data_type);
+            if(var_obj->data_type->type != TY_STRUCT) {
+                error(v, (*field_node)->location, "Field access on value of non-struct type '%s'.", type_name(var_obj->data_type));
+                return false;
             }
+            ASTObj *s = find_struct(v, var_obj->data_type->name);
+            VERIFY(s);
+            for(usize i = 0; i < s->as.structure.fields.used; ++i) {
+                ASTObj *field = ARRAY_GET_AS(ASTObj *, &s->as.structure.fields, i);
+                if(field->name == AS_IDENTIFIER_NODE(*field_node)->identifier) {
+                    ASTNode *new_field_node = astNewObjNode(ND_VARIABLE, field->location, field);
+                    astNodeFree(AS_NODE(*field_node));
+                    *field_node = new_field_node;
+                    return true;
+                }
+            }
+            error(v, (*field_node)->location, "Field '%s' doesn't exist in struct '%s'.", AS_IDENTIFIER_NODE(*field_node)->identifier, s->name);
+            return false;
         }
-        error(v, (*field_node)->location, "Field '%s' doesn't exist in struct '%s'.", AS_IDENTIFIER_NODE(*field_node)->identifier, s->name);
+        // We need to call ourselves again in case lhs is ND_VAR_DECL.
+        return validate_variable(v, AS_BINARY_NODE(var)->lhs);
+    } else if(NODE_IS(var, ND_VAR_DECL)) {
+        ASTObj *var_obj = AS_OBJ_NODE(var)->obj;
+        // FIXME: this breaks local scope shadowing.
+        if(tableGet(&v->locals_already_declared_in_current_function, (void *)var_obj->name) != NULL) {
+            error(v, var->location, "Redeclaration of variable '%s'.", var_obj->name);
+            return false;
+        }
+        return true;
+    }
+    VERIFY(NODE_IS(var, ND_VARIABLE));
+    ASTObj *var_obj = AS_OBJ_NODE(var)->obj;
+    VERIFY(var_obj->type == OBJ_VAR);
+    if(tableGet(&v->locals_already_declared_in_current_function, (void *)var_obj->name) == NULL) {
+        error(v, var->location, "Undeclared variable '%s'.", var_obj->name);
         return false;
     }
     return true;
@@ -295,11 +304,10 @@ static bool validate_ast(Validator *v, ASTNode *n) {
             // failed == true -> failure (return false).
             return !failed;
         }
-        case ND_ASSIGN:
-            // No need to validate rhs as validate_variable() already does that.
-            // fallthrough
+        case ND_ASSIGN: // No need to validate rhs as validate_variable() already does that.
         case ND_PROPERTY_ACCESS:
         case ND_VARIABLE:
+        case ND_VAR_DECL:
             return validate_variable(v, n);
         case ND_NEGATE:
             return validate_ast(v, AS_UNARY_NODE(n)->operand);
@@ -359,12 +367,8 @@ static bool validate_ast(Validator *v, ASTNode *n) {
         case ND_NUMBER_LITERAL:
         case ND_FUNCTION:
             return true;
-        case ND_ARGS:
-            // argument nodes should never appear outside of a call which doesn't validate it.
-            // fallthrough
-        case ND_IDENTIFIER:
-            // identifier nodes should be replaced with object nodes before calling validate_ast().
-            // fallthrough
+        case ND_ARGS: // argument nodes should never appear outside of a call which doesn't validate it.
+        case ND_IDENTIFIER: // identifier nodes should be replaced with object nodes before calling validate_ast().
         default:
             UNREACHABLE();
     }
@@ -443,8 +447,10 @@ static bool replace_all_ids_with_objs(Validator *v, ASTNode **tree) {
             // fallthrough
         case ND_NEGATE:
             return replace_all_ids_with_objs(v, &(AS_UNARY_NODE(*tree)->operand));
+        // ignored nodes (no object/object already exists).
         case ND_NUMBER_LITERAL:
         case ND_VARIABLE:
+        case ND_VAR_DECL:
             break;
         default:
             UNREACHABLE();
@@ -489,6 +495,7 @@ static void validate_function(Validator *v, ASTObj *fn) {
     }
 
     v->current_function = NULL;
+    tableClear(&v->locals_already_declared_in_current_function, NULL, NULL);
 }
 
 static void validate_struct(Validator *v, ASTObj *s) {
@@ -604,9 +611,8 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
             // failed == true -> failure (return false).
             return !failed;
         }
-        case ND_ASSIGN:
-            // No need to typecheck rhs as typecheck_variable_callback() already does that.
-            // fallthrough
+        case ND_ASSIGN: // No need to typecheck rhs as typecheck_variable_callback() already does that.
+        case ND_VAR_DECL:
         case ND_VARIABLE: {
             bool old_had_error = v->had_error;
             typecheck_variable_callback((void *)n, (void *)v);
@@ -688,7 +694,8 @@ static void typecheck_variable_callback(void *variable_node, void *validator) {
     Validator *v = (Validator *)validator;
 
     switch(var->node_type) {
-        case ND_VARIABLE:
+        case ND_VARIABLE: // TODO: This isn't needed here anymore.
+        case ND_VAR_DECL: // Is this nexxesary? the validator already checks that.
             if(AS_OBJ_NODE(var)->obj->data_type == NULL) {
                 error(v, var->location, "Variable '%s' has no type (Hint: consider adding an explicit type).", AS_OBJ_NODE(var)->obj->name);
                 return;
@@ -700,8 +707,8 @@ static void typecheck_variable_callback(void *variable_node, void *validator) {
             }
             ASTNode *var_node = NULL;
             if(NODE_IS(AS_BINARY_NODE(var)->lhs, ND_PROPERTY_ACCESS)) {
-                var_node = AS_BINARY_NODE(AS_BINARY_NODE(var)->lhs)->rhs;
-                //is_struct_property_access = true;
+                // FIXME: This doesn't support nested property access (e.g. a.b.c).
+                var_node = AS_BINARY_NODE(AS_BINARY_NODE(var)->lhs)->lhs;
             } else {
                 var_node = AS_BINARY_NODE(var)->lhs;
             }
