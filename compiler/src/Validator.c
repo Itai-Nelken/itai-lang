@@ -107,7 +107,7 @@ static ASTObj *find_global_var(Validator *v, ASTString name) {
     ASTModule *current_module = astProgramGetModule(v->program, v->current_module);
     for(usize i = 0; i < current_module->globals.used; ++i) {
         ASTNode *g = ARRAY_GET_AS(ASTNode *, &current_module->globals, i);
-        VERIFY(g->node_type == ND_ASSIGN || g->node_type == ND_VARIABLE);
+        VERIFY(g->node_type == ND_ASSIGN || g->node_type == ND_VAR_DECL);
         ASTObj *var = AS_OBJ_NODE(g->node_type == ND_ASSIGN ? AS_BINARY_NODE(g)->lhs : g)->obj;
         VERIFY(var->type == OBJ_VAR);
         if(var->name == name) {
@@ -216,6 +216,7 @@ static Type *get_expr_type(Validator *v, ASTNode *expr) {
 }
 
 static bool validate_ast(Validator *v, ASTNode *n);
+static bool validate_variable(Validator *v, ASTNode *var);
 
 // NOTE: initializer cann be NULL.
 static bool validate_var_decl(Validator *v, ASTNode *var_decl, ASTNode *initializer) {
@@ -224,6 +225,15 @@ static bool validate_var_decl(Validator *v, ASTNode *var_decl, ASTNode *initiali
 
     if(var_obj->data_type == NULL) {
         if(initializer) {
+            if(NODE_IS(initializer, ND_PROPERTY_ACCESS)) {
+                CHECK(validate_variable(v, initializer));
+            } else if(NODE_IS(initializer, ND_VARIABLE)
+                      && AS_OBJ_NODE(var_decl)->obj == AS_OBJ_NODE(initializer)->obj) {
+                error(v, initializer->location, "Variable '%s' assigned to itself in declaration.", AS_OBJ_NODE(initializer)->obj->name);
+                return false;
+            } else {
+                CHECK(validate_ast(v, initializer));
+            }
             Type *rhs_ty = get_expr_type(v, initializer);
             if(!rhs_ty) {
                 error(v, var_decl->location, "Failed to infer type (Hint: consider adding an explicit type).");
@@ -240,16 +250,14 @@ static bool validate_var_decl(Validator *v, ASTNode *var_decl, ASTNode *initiali
 }
 
 static bool validate_variable(Validator *v, ASTNode *var) {
-    if(NODE_IS(var, ND_ASSIGN)) {
-        CHECK(validate_ast(v, AS_BINARY_NODE(var)->rhs));
-        if(NODE_IS(AS_BINARY_NODE(var)->lhs, ND_VAR_DECL)) {
-            CHECK(validate_var_decl(v, AS_BINARY_NODE(var)->lhs, AS_BINARY_NODE(var)->rhs));
-            return true;
-        } else if(NODE_IS(AS_BINARY_NODE(var)->lhs, ND_PROPERTY_ACCESS)) {
+    if(NODE_IS(var, ND_VAR_DECL)) {
+        CHECK(validate_var_decl(v, var, NULL));
+        return true;
+    } else if(NODE_IS(var, ND_PROPERTY_ACCESS)) {
             // FIXME: This doesn't work with nested property access (e.g. a.b.c).
-            CHECK(validate_variable(v, AS_BINARY_NODE(AS_BINARY_NODE(var)->lhs)->lhs));
-            ASTObj *var_obj = AS_OBJ_NODE(AS_BINARY_NODE(AS_BINARY_NODE(var)->lhs)->lhs)->obj;
-            ASTNode **field_node = &(AS_BINARY_NODE(AS_BINARY_NODE(var)->lhs)->rhs);
+            CHECK(validate_variable(v, AS_BINARY_NODE(var)->lhs));
+            ASTObj *var_obj = AS_OBJ_NODE(AS_BINARY_NODE(var)->lhs)->obj;
+            ASTNode **field_node = &(AS_BINARY_NODE(var)->rhs);
             VERIFY(var_obj->data_type);
             if(var_obj->data_type->type != TY_STRUCT) {
                 error(v, (*field_node)->location, "Field access on value of non-struct type '%s'.", type_name(var_obj->data_type));
@@ -268,17 +276,12 @@ static bool validate_variable(Validator *v, ASTNode *var) {
             }
             error(v, (*field_node)->location, "Field '%s' doesn't exist in struct '%s'.", AS_IDENTIFIER_NODE(*field_node)->identifier, s->name);
             return false;
+    } else if(NODE_IS(var, ND_ASSIGN)) {
+        if(NODE_IS(AS_BINARY_NODE(var)->lhs, ND_VAR_DECL)) {
+            return validate_var_decl(v, AS_BINARY_NODE(var)->lhs, AS_BINARY_NODE(var)->rhs);
         }
-        // We need to call ourselves again in case lhs is ND_VAR_DECL.
-        return validate_variable(v, AS_BINARY_NODE(var)->lhs);
-    } else if(NODE_IS(var, ND_VAR_DECL)) {
-        ASTObj *var_obj = AS_OBJ_NODE(var)->obj;
-        // FIXME: this breaks local scope shadowing.
-        if(tableGet(&v->locals_already_declared_in_current_function, (void *)var_obj->name) != NULL) {
-            error(v, var->location, "Redeclaration of variable '%s'.", var_obj->name);
-            return false;
-        }
-        return true;
+        CHECK(validate_variable(v, AS_BINARY_NODE(var)->lhs));
+        return validate_ast(v, AS_BINARY_NODE(var)->rhs);
     }
     VERIFY(NODE_IS(var, ND_VARIABLE));
     ASTObj *var_obj = AS_OBJ_NODE(var)->obj;
@@ -469,6 +472,11 @@ static void validate_function(Validator *v, ASTObj *fn) {
     }
 
     v->current_function = fn;
+
+    for(usize i = 0; i < fn->as.fn.parameters.used; ++i) {
+        ASTObj *param = ARRAY_GET_AS(ASTObj *, &fn->as.fn.parameters, i);
+        tableSet(&v->locals_already_declared_in_current_function, (void *)param->name, NULL);
+    }
 
     // Manually iterate over the body because validate_ast() enters the block node's scope,
     // so it cannot used here because function scope isn't represented with a ScopeID.
@@ -695,7 +703,7 @@ static void typecheck_variable_callback(void *variable_node, void *validator) {
 
     switch(var->node_type) {
         case ND_VARIABLE: // TODO: This isn't needed here anymore.
-        case ND_VAR_DECL: // Is this nexxesary? the validator already checks that.
+        case ND_VAR_DECL: // Is this neccesary? the validator already checks that.
             if(AS_OBJ_NODE(var)->obj->data_type == NULL) {
                 error(v, var->location, "Variable '%s' has no type (Hint: consider adding an explicit type).", AS_OBJ_NODE(var)->obj->name);
                 return;
@@ -708,11 +716,11 @@ static void typecheck_variable_callback(void *variable_node, void *validator) {
             ASTNode *var_node = NULL;
             if(NODE_IS(AS_BINARY_NODE(var)->lhs, ND_PROPERTY_ACCESS)) {
                 // FIXME: This doesn't support nested property access (e.g. a.b.c).
-                var_node = AS_BINARY_NODE(AS_BINARY_NODE(var)->lhs)->lhs;
+                var_node = AS_BINARY_NODE(AS_BINARY_NODE(var)->lhs)->rhs; // rhs - we wan't the field.
             } else {
                 var_node = AS_BINARY_NODE(var)->lhs;
             }
-            VERIFY(NODE_IS(var_node, ND_VARIABLE));
+            VERIFY(NODE_IS(var_node, ND_VARIABLE) || NODE_IS(var_node, ND_VAR_DECL));
             Type *lhs_ty = AS_OBJ_NODE(var_node)->obj->data_type;
             Type *rhs_ty = get_expr_type(v, AS_BINARY_NODE(var)->rhs);
             // allow assigning number literals to u32 variables.

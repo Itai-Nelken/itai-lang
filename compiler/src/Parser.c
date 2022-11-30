@@ -737,7 +737,7 @@ static ASTNode *parse_function_body(Parser *p) {
         ASTObj *existing_obj = find_local_in_current_scope(p, var_obj->name);
         if(existing_obj) {
             // TODO: emit hint of previous declaration using 'exisiting_obj.location'.
-            error_at(p, var_node->location, stringFormat("Redfinition of local variable '%s'.", var_obj->name));
+            error_at(p, var_node->location, stringFormat("Redeclaration of local variable '%s'.", var_obj->name));
             astNodeFree(var_node);
             // NOTE: arrayPop() is used even though we already have a reference
             //       to the object we want to free because we also want to remove
