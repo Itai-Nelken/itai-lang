@@ -109,7 +109,7 @@ void *tableSet(Table *t, void *key, void *value) {
     Item *item = findItem(t->cmpFn, t->items, t->capacity, key, t->hashFn(key));
     void *old_value = NULL;
     // check if new item
-    if(item->is_empty && item->value != (void *)0xDEADC0DE) {
+    if(item->is_empty) {
         t->used++;
     } else {
         // The item already exists.
