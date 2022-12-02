@@ -11,7 +11,6 @@ typedef struct codegen {
     String output_buffer;
     ASTProgram *program;
     ASTObj *current_function;
-    Table locals_already_declared; // Table<ASTString, void>
     Table fn_type_names; // Table<ASTString, ASTString> (ilc typename, C typename)
     u32 fn_typename_counter;
 } Codegen;
@@ -225,7 +224,6 @@ static void gen_function_decl(Codegen *cg, ASTObj *fn) {
     }
     print(cg, ") ");
     gen_stmt(cg, AS_NODE(fn->as.fn.body));
-    tableClear(&cg->locals_already_declared, NULL, NULL);
 }
 
 static void gen_struct(Codegen *cg, ASTObj *s) {
