@@ -173,12 +173,6 @@ typedef struct ast_list_node {
 #define AS_LIST_NODE(node) ((ASTListNode *)(node))
 
 
-/* ASTModule (1) */
-
-// A ModuleID is an index into the ASTProgram::modules array.
-typedef usize ModuleID;
-
-
 /* ASTObj */
 
 // An ASTObj holds a object which in this context
@@ -212,8 +206,10 @@ typedef struct ast_obj {
     } as;
 } ASTObj;
 
+/* ASTModule */
 
-/* ASTModule (2) */
+// A ModuleID is an index into the ASTProgram::modules array.
+typedef usize ModuleID;
 
 // An ASTModule holds all of a modules data
 // which includes functions, structs, enums, global variables, types etc.
@@ -223,6 +219,8 @@ typedef struct ast_module {
     Array globals; // Array<ASTNode *> (ND_VARIABLE or ND_ASSIGN)
     Table types; // Table<ASTString, Type *>
 } ASTModule;
+
+/* ASTProgram */
 
 // An ASTProgram holds all the information
 // belonging to a program like functions & types.
@@ -240,94 +238,6 @@ typedef struct ast_program {
 
 
 /** Functions **/
-
-/* ASTModule */
-
-/***
- * Create a new ASTModule.
- *
- * @param name The ASTString containing the module's name.
- * @return A new module.
- ***/
-ASTModule *astModuleNew(ASTString name);
-
-/***
- * Free an ASTModule.
- *
- * @param module The module to free.
- ***/
-void astModuleFree(ASTModule *module);
-
-/***
- * Intern a type saving it in 'module's type table.
- * NOTE: 'ty' MUST be heap allocated. ownership of it is taken.
- *
- * @param module The module to save the type in.
- * @param ty A heap allocated type to intern.
- ****/
-Type *astModuleAddType(ASTModule *module, Type *ty);
-
-/***
- * Print an ASTModule.
- *
- * @param to The stream to print to.
- * @param module The module to print.
- ****/
-void astModulePrint(FILE *to, ASTModule *module);
-
-
-/* ASTProgram */
-
-/***
- * Initialize an ASTProgram.
- *
- * @param prog The program to initialize.
- ***/
-void astProgramInit(ASTProgram *prog);
-
-/***
- * Free an ASTProgram.
- *
- * @param prog The program to free.
- ***/
-void astProgramFree(ASTProgram *prog);
-
-/***
- * Print an ASTProgram.
- *
- * @param to The stream to print to.
- * @param prog The program to print.
- ***/
-void astProgramPrint(FILE *to, ASTProgram *prog);
-
-/***
- * Intern a string.
- * NOTE: If 'str' is a String, ownership of it is taken.
- *
- * @param prog The ASTProgram to save the string in.
- * @param str The string to intern (if 'str' is a String, ownership of it is taken).
- ***/
-ASTString astProgramAddString(ASTProgram *prog, char *str);
-
-/***
- * Add an ASTModule to an ASTProgram and return its id.
- * NOTE: ownership of 'module' is taken.
- *
- * @param prog The ASTProgram to add the module to.
- * @param module The module to add (ownership of it is taken).
- * @return The ModuleID of the added module.
- ***/
-ModuleID astProgramAddModule(ASTProgram *prog, ASTModule *module);
-
-/***
- * Get an ASTModule using its ModuleID from an ASTProgram.
- *
- * @param prog The ASTProgram to get the module from.
- * @param id The ModuleID of the module to get.
- * @return A pointer to the module or NULL if the id is out of bounds.
- ***/
-ASTModule *astProgramGetModule(ASTProgram *prog, ModuleID id);
-
 
 /* LiteralValue */
 
@@ -530,5 +440,93 @@ void astObjFree(ASTObj *obj);
  * @param obj The object to print.
  ***/
 void astObjPrint(FILE *to, ASTObj *obj);
+
+
+/* ASTModule */
+
+/***
+ * Create a new ASTModule.
+ *
+ * @param name The ASTString containing the module's name.
+ * @return A new module.
+ ***/
+ASTModule *astModuleNew(ASTString name);
+
+/***
+ * Free an ASTModule.
+ *
+ * @param module The module to free.
+ ***/
+void astModuleFree(ASTModule *module);
+
+/***
+ * Intern a type saving it in 'module's type table.
+ * NOTE: 'ty' MUST be heap allocated. ownership of it is taken.
+ *
+ * @param module The module to save the type in.
+ * @param ty A heap allocated type to intern.
+ ****/
+Type *astModuleAddType(ASTModule *module, Type *ty);
+
+/***
+ * Print an ASTModule.
+ *
+ * @param to The stream to print to.
+ * @param module The module to print.
+ ****/
+void astModulePrint(FILE *to, ASTModule *module);
+
+
+/* ASTProgram */
+
+/***
+ * Initialize an ASTProgram.
+ *
+ * @param prog The program to initialize.
+ ***/
+void astProgramInit(ASTProgram *prog);
+
+/***
+ * Free an ASTProgram.
+ *
+ * @param prog The program to free.
+ ***/
+void astProgramFree(ASTProgram *prog);
+
+/***
+ * Print an ASTProgram.
+ *
+ * @param to The stream to print to.
+ * @param prog The program to print.
+ ***/
+void astProgramPrint(FILE *to, ASTProgram *prog);
+
+/***
+ * Intern a string.
+ * NOTE: If 'str' is a String, ownership of it is taken.
+ *
+ * @param prog The ASTProgram to save the string in.
+ * @param str The string to intern (if 'str' is a String, ownership of it is taken).
+ ***/
+ASTString astProgramAddString(ASTProgram *prog, char *str);
+
+/***
+ * Add an ASTModule to an ASTProgram and return its id.
+ * NOTE: ownership of 'module' is taken.
+ *
+ * @param prog The ASTProgram to add the module to.
+ * @param module The module to add (ownership of it is taken).
+ * @return The ModuleID of the added module.
+ ***/
+ModuleID astProgramAddModule(ASTProgram *prog, ASTModule *module);
+
+/***
+ * Get an ASTModule using its ModuleID from an ASTProgram.
+ *
+ * @param prog The ASTProgram to get the module from.
+ * @param id The ModuleID of the module to get.
+ * @return A pointer to the module or NULL if the id is out of bounds.
+ ***/
+ASTModule *astProgramGetModule(ASTProgram *prog, ModuleID id);
 
 #endif // AST_H
