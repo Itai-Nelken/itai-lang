@@ -72,6 +72,14 @@ TableItem *tableGet(Table *t, void *key);
 void tableMap(Table *t, void (*callback)(TableItem *item, bool is_last, void *cl), void *cl);
 
 /***
+ * Copy all the items in [src] to [dest].
+ *
+ * @param dest The destination Table.
+ * @param src The source Table.
+ ***/
+void tableCopy(Table *dest, Table *src);
+
+/***
  * Delete an item in a table.
  *
  * @param t An initialized table.

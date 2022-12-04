@@ -329,6 +329,12 @@ static void test_table(void *a) {
     CHECK(t.actual_length == 0);
     CHECK(t.t.used == t.actual_length);
 
+    Table copy;
+    tableInit(&copy, NULL, NULL);
+    tableCopy(&copy, &t.t);
+    tableMap(&t.t, test_table_callback, (void *)&t);
+
+    tableFree(&copy);
     tableFree(&t.t);
 }
 

@@ -149,6 +149,16 @@ void tableMap(Table *t, void (*callback)(Item *item, bool is_last, void *cl), vo
     }
 }
 
+static void table_copy_callback(Item *item, bool is_last, void *dest) {
+    (void)is_last; // unused
+    Table *d = (Table *)dest;
+    tableSet(d, item->key, item->value); // return value can be discarded because no duplicates will occur (as the source table won't have them).
+}
+
+void tableCopy(Table *dest, Table *src) {
+    tableMap(src, table_copy_callback, (void *)dest);
+}
+
 void tableDelete(Table *t, void *key) {
     if(t->used == 0) {
         return;
