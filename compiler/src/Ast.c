@@ -38,9 +38,20 @@ static void free_block_scope_callback(void *scope, void *cl) {
 static void free_type_callback(TableItem *item, bool is_last, void *cl) {
     UNUSED(is_last);
     UNUSED(cl);
-    Type *ty = (Type *)item->value;
+    Type *ty = (Type *)item->key;
     typeFree(ty);
     FREE(ty);
+}
+
+static unsigned hash_type(void *type) {
+    Type *ty = (Type *)type;
+    return (ty->type + (uintptr_t)ty->name) >> 2; // implicitly cast to 'unsigned', so extra bits are discarded.
+}
+
+static bool compare_type(void *a, void *b) {
+    // FIXME: Is there a better way to do this?
+    //        comparing types all the time isn't very efficient.
+    return typeEqual((Type *)a, (Type *)b);
 }
 
 static void print_type_table_callback(TableItem *item, bool is_last, void *stream) {
@@ -77,7 +88,7 @@ ASTModule *astModuleNew(ASTString name) {
     m->name = name;
     arrayInit(&m->objects);
     arrayInit(&m->globals);
-    tableInit(&m->types, NULL, NULL);
+    tableInit(&m->types, hash_type, compare_type);
     return m;
 }
 
@@ -93,11 +104,11 @@ void astModuleFree(ASTModule *module) {
 
 Type *astModuleAddType(ASTModule *module, Type *ty) {
     TableItem *existing_item;
-    if((existing_item = tableGet(&module->types, (void *)ty->name)) != NULL) {
+    if((existing_item = tableGet(&module->types, (void *)ty)) != NULL) {
         FREE(ty);
-        return (Type *)existing_item->value;
+        return (Type *)existing_item->key;
     }
-    tableSet(&module->types, (void *)ty->name, (void *)ty);
+    tableSet(&module->types, (void *)ty, NULL);
     return ty;
 }
 
