@@ -3,8 +3,12 @@
 #include "Array.h"
 
 void arrayInit(Array *a) {
+    arrayInitSized(a, ARRAY_INITIAL_CAPACITY);
+}
+
+void arrayInitSized(Array *a, size_t size) {
     a->used = 0;
-    a->capacity = ARRAY_INITIAL_CAPACITY;
+    a->capacity = size == 0 ? ARRAY_INITIAL_CAPACITY : size;
     a->data = CALLOC(a->capacity, sizeof(void *));
 }
 

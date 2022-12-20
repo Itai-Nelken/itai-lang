@@ -18,6 +18,15 @@ typedef struct array {
 void arrayInit(Array *a);
 
 /***
+ * Initialize an Array with size [size].
+ * NOTE: if [size] is 0, the array will be initialized with the default initial capacity.
+ *
+ * @param a The Array to initialize.
+ * @param size The size.
+ ***/
+void arrayInitSized(Array *a, size_t size);
+
+/***
  * Free an Array.
  *
  * @param a The Array to free.
