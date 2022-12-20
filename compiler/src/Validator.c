@@ -416,6 +416,19 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
     return result;
 }
 
+static bool validate_type_in_obj(Validator *v, ASTObj *obj) {
+    if(obj->data_type && obj->data_type->type == TY_ID) {
+        ASTObj *s = find_struct(v, obj->data_type->name);
+        if(s) {
+            obj->data_type = s->data_type;
+        } else {
+            error(v, obj->data_type->decl_location, "Unknown type '%s'.", obj->data_type->name);
+            return false;
+        }
+    }
+    return true;
+}
+
 static bool validate_function(Validator *v, ASTObj *fn) {
     if(stringEqual(fn->name, "main")) {
         v->found_main = true;
@@ -425,6 +438,11 @@ static bool validate_function(Validator *v, ASTObj *fn) {
     }
 
     v->current_function = fn;
+
+    FOR(i, fn->as.fn.locals) {
+        ASTObj *l = ARRAY_GET_AS(ASTObj *, &fn->as.fn.locals, i);
+        validate_type_in_obj(v, l);
+    }
 
     FOR(i, fn->as.fn.body->nodes) {
         ASTNode *n = ARRAY_GET_AS(ASTNode *, &fn->as.fn.body->nodes, i);
@@ -454,6 +472,8 @@ static bool validate_struct(Validator *v, ASTObj *s) {
     UNUSED(s);
     FOR(i, s->as.structure.fields) {
         ASTObj *field = ARRAY_GET_AS(ASTObj *, &s->as.structure.fields, i);
+        if(!validate_type_in_obj(v, field))
+            continue;
         if(typeEqual(field->data_type, s->data_type)) {
             error(v, field->location, "Recursive struct '%s' has infinite size.", s->name);
             return false; // FIXME: check all fields before returning.
@@ -465,8 +485,7 @@ static bool validate_struct(Validator *v, ASTObj *s) {
 static bool validate_object(Validator *v, ASTObj *obj) {
     switch(obj->type) {
         case OBJ_VAR:
-            // nothing.
-            break;
+            return validate_type_in_obj(v, obj);
         case OBJ_FN:
             if(global_id_exists(v, obj->name)) {
                 error(v, obj->location, "Symbol '%s' already exists.", obj->name);
@@ -502,7 +521,6 @@ static ASTNode *validate_global_variable(Validator *v, ASTNode *g) {
 static void validate_module_callback(void *module, void *validator) {
     ASTModule *m = (ASTModule *)module;
     Validator *v = (Validator *)validator;
-    //tableMap(&m->types, validate_type_callback, validator);
     FOR(i, m->globals) {
         ASTNode *g = ARRAY_GET_AS(ASTNode *, &m->globals, i);
         ASTObj *var = NODE_IS(g, ND_ASSIGN)

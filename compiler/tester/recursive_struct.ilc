@@ -1,0 +1,8 @@
+/// expect error: Error: Recursive struct 'T' has infinite size.
+
+struct T {
+	a: T;
+}
+
+fn main() {}
+
