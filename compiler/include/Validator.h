@@ -13,8 +13,6 @@ typedef struct validator {
     ASTObj *current_function;
     BlockScope *current_scope;
     Table global_ids_in_current_module; // Table<ASTString, void>
-    // FIXME: This breaks scopes as well as re-doing what scopes already did in the parser.
-    Table locals_already_declared_in_current_function; // Table<ASTString, void>
     bool found_main;
     bool had_error;
 } Validator;
@@ -37,8 +35,9 @@ void validatorFree(Validator *v);
 /***
  * Validate an ASTProgram.
  *
- * @param v The Validatpr to use.
+ * @param v The Validator to use.
  * @param prog The ASTProgram to validate.
+ * @return true on success, false on failure.
  ***/
 bool validatorValidate(Validator *v, ASTProgram *prog);
 

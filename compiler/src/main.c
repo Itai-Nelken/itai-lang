@@ -106,7 +106,7 @@ int main(int argc, char **argv) {
         if(compilerHadError(&c)) {
             compilerPrintErrors(&c);
         } else {
-            fputs("\x1b[1;31mError: Validator failed with no errors!\n", stderr);
+            fputs("\x1b[1;31mError:\x1b[0m Validator failed with no errors!\n", stderr);
         }
         return_value = RET_VALIDATE_ERROR;
         goto end;
