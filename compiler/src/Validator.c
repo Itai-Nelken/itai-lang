@@ -403,14 +403,11 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
             break;
         }
         // ignored nodes (no validating to do).
-        // FIXME: don't copy if not necessary.
         case ND_NUMBER_LITERAL:
-            result = astNewLiteralValueNode(n->node_type, n->location, AS_LITERAL_NODE(n)->value);
-            break;
         case ND_VARIABLE:
         case ND_FUNCTION:
-            result = astNewObjNode(n->node_type, n->location, AS_OBJ_NODE(n)->obj);
-            break;
+            // Return early so the node isn't freed (there is no need to create a copy of nodes we don't change).
+            return n;
         case ND_ARGS: // Argument nodes should never appear outside of a call (which doesn't validate them using this function).
         default:
             UNREACHABLE();
