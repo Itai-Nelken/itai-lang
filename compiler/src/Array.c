@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <assert.h>
 #include "memory.h"
 #include "Array.h"
 
@@ -36,6 +37,11 @@ void *arrayPop(Array *a) {
         return NULL;
     }
     return a->data[--a->used];
+}
+
+void arrayInsert(Array *a, size_t index, void *value) {
+    assert(index < a->used);
+    a->data[index] = value;
 }
 
 void *arrayGet(Array *a, size_t index) {

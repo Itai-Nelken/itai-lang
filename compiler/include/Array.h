@@ -61,6 +61,16 @@ size_t arrayPush(Array *a, void *value);
 void *arrayPop(Array *a);
 
 /***
+ * Insert a value at index [index].
+ * NOTE: will abort if index is out of bounds.
+ *
+ * @param a The Array to use.
+ * @param index The index to insert the value at.
+ * @param value The value to insert.
+ ***/
+void arrayInsert(Array *a, size_t index, void *value);
+
+/***
  * Get the value at index 'index' in an Array.
  *
  * @param a The array to use.
