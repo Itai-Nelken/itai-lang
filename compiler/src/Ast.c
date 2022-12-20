@@ -17,7 +17,7 @@ static void free_string_callback(TableItem *item, bool is_last, void *cl) {
 
 static void free_node_callback(void *node, void *cl) {
     UNUSED(cl);
-    astNodeFree(AS_NODE(node));
+    astNodeFree(AS_NODE(node), true);
 }
 
 static void free_object_callback(void *object, void *cl) {
@@ -340,7 +340,7 @@ ASTNode *astNewListNode(ASTNodeType type, Location loc, ScopeID scope) {
     return AS_NODE(n);
 }
 
-void astNodeFree(ASTNode *n) {
+void astNodeFree(ASTNode *n, bool recursive) {
     if(n == NULL) {
         return;
     }
@@ -365,27 +365,36 @@ void astNodeFree(ASTNode *n) {
         case ND_LE:
         case ND_GT:
         case ND_GE:
-            astNodeFree(AS_BINARY_NODE(n)->lhs);
-            astNodeFree(AS_BINARY_NODE(n)->rhs);
+            if(recursive) {
+                astNodeFree(AS_BINARY_NODE(n)->lhs, true);
+                astNodeFree(AS_BINARY_NODE(n)->rhs, true);
+            }
             break;
         case ND_IF:
-            astNodeFree(AS_CONDITIONAL_NODE(n)->condition);
-            astNodeFree(AS_CONDITIONAL_NODE(n)->body);
-            astNodeFree(AS_CONDITIONAL_NODE(n)->else_);
+            if(recursive) {
+                astNodeFree(AS_CONDITIONAL_NODE(n)->condition, true);
+                astNodeFree(AS_CONDITIONAL_NODE(n)->body, true);
+                astNodeFree(AS_CONDITIONAL_NODE(n)->else_, true);
+            }
             break;
         case ND_WHILE_LOOP:
-            astNodeFree(AS_LOOP_NODE(n)->initializer);
-            astNodeFree(AS_LOOP_NODE(n)->condition);
-            astNodeFree(AS_LOOP_NODE(n)->increment);
-            astNodeFree(AS_LOOP_NODE(n)->body);
+            if(recursive) {
+                astNodeFree(AS_LOOP_NODE(n)->initializer, true);
+                astNodeFree(AS_LOOP_NODE(n)->condition, true);
+                astNodeFree(AS_LOOP_NODE(n)->increment, true);
+                astNodeFree(AS_LOOP_NODE(n)->body, true);
+            }
             break;
         case ND_NEGATE:
         case ND_RETURN:
-            astNodeFree(AS_UNARY_NODE(n)->operand);
+            if(recursive) {
+                astNodeFree(AS_UNARY_NODE(n)->operand, true);
+            }
             break;
         case ND_BLOCK:
         case ND_ARGS:
-            arrayMap(&AS_LIST_NODE(n)->nodes, free_node_callback, NULL);
+            if(recursive)
+                arrayMap(&AS_LIST_NODE(n)->nodes, free_node_callback, NULL);
             arrayFree(&AS_LIST_NODE(n)->nodes);
             break;
         default:
@@ -587,7 +596,7 @@ void astObjFree(ASTObj *obj) {
             arrayMap(&obj->as.fn.locals, free_object_callback, NULL);
             arrayFree(&obj->as.fn.locals);
             blockScopeFree(obj->as.fn.scopes);
-            astNodeFree(AS_NODE(obj->as.fn.body));
+            astNodeFree(AS_NODE(obj->as.fn.body), true);
             break;
         case OBJ_STRUCT:
             arrayMap(&obj->as.structure.fields, free_object_callback, NULL);

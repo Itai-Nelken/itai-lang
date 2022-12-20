@@ -122,7 +122,7 @@ private:
             std::cout << "\x1b[1;31mFailed\x1b[0m\n"
                       << "ilc exit status: " << test.ilc_exit_status << '\n'
                       << (test.tester_output.length() > 0 ? std::string("reason:\n" + test.tester_output + '\n') : std::string(""))
-                      << (test.output.length() > 0 ? test.output : "")
+                      << (test.output.length() > 0 ? std::string("\n") + test.output : "")
                       << '\n';
         } else if(test.test_parsing_failed) {
             total_failed_tests++;

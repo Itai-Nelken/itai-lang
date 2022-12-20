@@ -179,7 +179,7 @@ static inline void leave_function(Parser *p) {
 #define TRY(type, result, on_null) ({ \
  type _tmp = (result);\
  if(!_tmp) { \
-    astNodeFree((on_null)); \
+    astNodeFree((on_null), true); \
     return NULL; \
  } \
 _tmp;})
@@ -385,7 +385,7 @@ static ASTNode *parse_precedence(Parser *p, Precedence min_prec) {
 
     if(p->can_assign && match(p, TK_EQUAL)) {
         error_at(p, tree->location, "Invalid assignmet target.");
-        astNodeFree(tree);
+        astNodeFree(tree, true);
         // Don't return here as we need to restore 'can_assign'.
         tree = NULL;
     }
@@ -486,20 +486,20 @@ static ASTNode *parse_if_stmt(Parser *p) {
     if(match(p, TK_ELSE)) {
         if(match(p, TK_IF)) {
             if((else_ = parse_if_stmt(p)) == NULL) {
-                astNodeFree(condition);
-                astNodeFree(body);
+                astNodeFree(condition, true);
+                astNodeFree(body, true);
                 return NULL;
             }
         } else {
             if(!consume(p, TK_LBRACE)) {
-                astNodeFree(condition);
-                astNodeFree(body);
+                astNodeFree(condition, true);
+                astNodeFree(body, true);
                 return NULL;
             }
             scope = enter_scope(p);
             if((else_ = parse_block(p, scope, parse_function_body)) == NULL) {
-                astNodeFree(condition);
-                astNodeFree(body);
+                astNodeFree(condition, true);
+                astNodeFree(body, true);
                 return NULL;
             }
             leave_scope(p);
@@ -709,7 +709,7 @@ static ASTObj *parse_struct_decl(Parser *p) {
     }
     while(current(p).type != TK_RBRACE) {
         ASTNode *member = parse_variable_decl(p, false, &structure->as.structure.fields);
-        astNodeFree(member);
+        astNodeFree(member, true);
         consume(p, TK_SEMICOLON);
     }
     if(!consume(p, TK_RBRACE)) {
@@ -738,7 +738,7 @@ static ASTNode *parse_function_body(Parser *p) {
         if(existing_obj) {
             // TODO: emit hint of previous declaration using 'exisiting_obj.location'.
             error_at(p, var_node->location, stringFormat("Redeclaration of local variable '%s'.", var_obj->name));
-            astNodeFree(var_node);
+            astNodeFree(var_node, true);
             // NOTE: arrayPop() is used even though we already have a reference
             //       to the object we want to free because we also want to remove
             //       the object from the array.
@@ -768,7 +768,7 @@ static bool parse_parameter_list(Parser *p, Array *parameters) {
         if(!param_var) {
             had_error = true;
         }
-        astNodeFree(param_var);
+        astNodeFree(param_var, true);
     } while(match(p, TK_COMMA));
     if(!consume(p, TK_RPAREN)) {
         return false;
@@ -813,7 +813,7 @@ static ASTObj *parse_function_decl(Parser *p) {
         return NULL;
     }
     ScopeID scope = enter_function(p, fn);
-    // Add all parameters as locals.
+    // Add all parameters as locals to the function scope.
     for(usize i = 0; i < fn->as.fn.parameters.used; ++i) {
         add_local_to_current_scope(p, ARRAY_GET_AS(ASTObj *, &fn->as.fn.parameters, i));
     }
@@ -883,7 +883,7 @@ bool parserParse(Parser *p, ASTProgram *prog) {
         } else if(match(p, TK_VAR)) {
             ASTNode *global = parse_variable_decl(p, true, &root_module->objects);
             if(!consume(p, TK_SEMICOLON)) {
-                astNodeFree(global);
+                astNodeFree(global, true);
                 continue;
             }
             if(global != NULL) {

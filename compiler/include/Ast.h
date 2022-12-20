@@ -401,8 +401,9 @@ ASTNode *astNewListNode(ASTNodeType type, Location loc, ScopeID scope);
  * Free an AST.
  *
  * @param n The root node of the tree.
+ * @param recursive Set to false to only free the node without its chidlren.
  ***/
-void astNodeFree(ASTNode *n);
+void astNodeFree(ASTNode *n, bool recursive);
 
 /***
  * Print an AST.
