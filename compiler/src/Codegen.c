@@ -79,6 +79,7 @@ static const char *binary_op_str(ASTNodeType node_type) {
     }
 }
 
+static void gen_variable(ASTNode *variable, Codegen *cg);
 static void gen_expr(Codegen *cg, ASTNode *expr) {
     print(cg, "(");
     switch(expr->node_type) {
@@ -87,12 +88,14 @@ static void gen_expr(Codegen *cg, ASTNode *expr) {
             break;
         // Binary nodes
         case ND_ASSIGN:
-            if(NODE_IS(AS_BINARY_NODE(expr)->lhs, ND_PROPERTY_ACCESS)) {
-                ASTNode *property_access = AS_BINARY_NODE(expr)->lhs;
-                print(cg, "%s.%s = ", AS_OBJ_NODE(AS_BINARY_NODE(property_access)->lhs)->obj->name, AS_OBJ_NODE(AS_BINARY_NODE(property_access)->rhs)->obj->name);
-            } else {
-                print(cg, "%s = ", AS_OBJ_NODE(AS_BINARY_NODE(expr)->lhs)->obj->name);
-            }
+            //if(NODE_IS(AS_BINARY_NODE(expr)->lhs, ND_PROPERTY_ACCESS)) {
+            //    ASTNode *property_access = AS_BINARY_NODE(expr)->lhs;
+            //    print(cg, "%s.%s = ", AS_OBJ_NODE(AS_BINARY_NODE(property_access)->lhs)->obj->name, AS_OBJ_NODE(AS_BINARY_NODE(property_access)->rhs)->obj->name);
+            //} else {
+            //    print(cg, "%s = ", AS_OBJ_NODE(AS_BINARY_NODE(expr)->lhs)->obj->name);
+            //}
+            gen_variable(AS_BINARY_NODE(expr)->lhs, cg);
+            print(cg, " = ");
             gen_expr(cg, AS_BINARY_NODE(expr)->rhs);
             break;
         case ND_CALL:
@@ -139,6 +142,7 @@ static void gen_expr(Codegen *cg, ASTNode *expr) {
 }
 
 static void gen_variable(ASTNode *variable, Codegen *cg);
+
 static void gen_stmt(Codegen *cg, ASTNode *n) {
     switch(n->node_type) {
         case ND_RETURN:
@@ -174,16 +178,16 @@ static void gen_stmt(Codegen *cg, ASTNode *n) {
             gen_stmt(cg, AS_LOOP_NODE(n)->body); // The newline is added by gen_stmt:ND_BLOCK.
             break;
         case ND_ASSIGN:
-            if(!NODE_IS(AS_BINARY_NODE(n)->lhs, ND_VAR_DECL)) {
-                goto default_label;
-            }
-            // fallthrough
+            gen_variable(AS_BINARY_NODE(n)->lhs, cg);
+            print(cg, " = ");
+            gen_expr(cg, AS_BINARY_NODE(n)->rhs);
+            print(cg, ";\n");
+            break;
         case ND_VAR_DECL:
             gen_variable(n, cg);
             print(cg, ";\n");
             break;
         default:
-        default_label:
             gen_expr(cg, n);
             print(cg, ";\n");
             break;
@@ -191,17 +195,9 @@ static void gen_stmt(Codegen *cg, ASTNode *n) {
 }
 
 static void gen_variable(ASTNode *variable, Codegen *cg) {
-    if(NODE_IS(variable, ND_ASSIGN)) {
-        ASTObj *var = AS_OBJ_NODE(AS_BINARY_NODE(variable)->lhs)->obj;
-        gen_type(cg, var->data_type);
-        print(cg, " %s = ", var->name);
-        gen_expr(cg, AS_BINARY_NODE(variable)->rhs);
-    } else if(NODE_IS(variable, ND_VARIABLE)) {
+    if(NODE_IS(variable, ND_VARIABLE)) {
         ASTObj *var = AS_OBJ_NODE(variable)->obj;
         print(cg, "%s", var->name);
-        if(cg->current_function && IS_NUMERIC(var->data_type)) {
-            print(cg, " = 0");
-        }
     } else if(NODE_IS(variable, ND_VAR_DECL)) {
         ASTObj *var = AS_OBJ_NODE(variable)->obj;
         gen_type(cg, var->data_type);
@@ -310,8 +306,14 @@ static void gen_fn_types(TableItem *item, bool is_last, void *codegen) {
 }
 
 static void global_variable_callback(void *variable, void *codegen) {
-    gen_variable(AS_NODE(variable), (Codegen *)codegen);
-    print((Codegen *)codegen, ";\n");
+    ASTNode *g = AS_NODE(variable);
+    Codegen *cg = (Codegen *)codegen;
+    if(NODE_IS(g, ND_ASSIGN)) {
+        gen_stmt(cg, g);
+    } else {
+        gen_variable(g, cg);
+        print(cg, ";\n");
+    }
 }
 
 static void module_callback(void *module, void *codegen) {
