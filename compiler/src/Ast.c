@@ -56,7 +56,7 @@ static bool compare_type(void *a, void *b) {
 
 static void print_type_table_callback(TableItem *item, bool is_last, void *stream) {
     FILE *to = (FILE *)stream;
-    Type *ty = (Type *)item->value;
+    Type *ty = (Type *)item->key;
     typePrint(to, ty, false);
     if(!is_last) {
         fputs(", ", to);
