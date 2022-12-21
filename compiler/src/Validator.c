@@ -174,7 +174,7 @@ static inline bool global_id_exists(Validator *v, ASTString id) {
 /* forward declarations */
 static ASTNode *validate_ast(Validator *v, ASTNode *n);
 static bool typecheck_ast(Validator *v, ASTNode *n);
-static bool validate_type_in_obj(Validator *v, ASTObj *obj);
+static bool validate_type(Validator *v, Type **ty);
 
 
 static Type *get_expr_type(Validator *v, ASTNode *expr) {
@@ -452,13 +452,13 @@ property_access_name_case_label_end:
     return result;
 }
 
-static bool validate_type_in_obj(Validator *v, ASTObj *obj) {
-    if(obj->data_type && obj->data_type->type == TY_ID) {
-        ASTObj *s = find_struct(v, obj->data_type->name);
+static bool validate_type(Validator *v, Type **ty) {
+    if(*ty && (*ty)->type == TY_ID) {
+        ASTObj *s = find_struct(v, (*ty)->name);
         if(s) {
-            obj->data_type = s->data_type;
+            *ty = s->data_type;
         } else {
-            error(v, obj->data_type->decl_location, "Unknown type '%s'.", obj->data_type->name);
+            error(v, (*ty)->decl_location, "Unknown type '%s'.", (*ty)->name);
             return false;
         }
     }
@@ -477,23 +477,16 @@ static bool validate_function(Validator *v, ASTObj *fn) {
 
     FOR(i, fn->as.fn.locals) {
         ASTObj *l = ARRAY_GET_AS(ASTObj *, &fn->as.fn.locals, i);
-        validate_type_in_obj(v, l);
+        validate_type(v, &l->data_type);
     }
     FOR(i, fn->as.fn.parameters) {
         ASTObj *p = ARRAY_GET_AS(ASTObj *, &fn->as.fn.parameters, i);
-        validate_type_in_obj(v, p);
+        validate_type(v, &p->data_type);
     }
+    // FIXME: un-duplicate parameter types (currently both in fn object and fn type).
     FOR(i, fn->data_type->as.fn.parameter_types) {
         Type **ty = (Type **)(fn->data_type->as.fn.parameter_types.data + i);
-        if((*ty)->type == TY_ID) {
-            ASTObj *s = find_struct(v, (*ty)->name);
-            if(s) {
-                *ty = s->data_type;
-            } else {
-                error(v, (*ty)->decl_location, "Unknown type '%s'.", (*ty)->name);
-                return false;
-            }
-        }
+        validate_type(v, ty);
     }
 
     FOR(i, fn->as.fn.body->nodes) {
@@ -522,7 +515,7 @@ static bool validate_function(Validator *v, ASTObj *fn) {
 static bool validate_struct(Validator *v, ASTObj *s) {
     FOR(i, s->as.structure.fields) {
         ASTObj *field = ARRAY_GET_AS(ASTObj *, &s->as.structure.fields, i);
-        if(!validate_type_in_obj(v, field))
+        if(!validate_type(v, &field->data_type))
             continue;
         if(typeEqual(field->data_type, s->data_type)) {
             error(v, field->location, "struct '%s' cannot have a field that recursively contains it.", s->name);
@@ -535,7 +528,7 @@ static bool validate_struct(Validator *v, ASTObj *s) {
 static bool validate_object(Validator *v, ASTObj *obj) {
     switch(obj->type) {
         case OBJ_VAR:
-            return validate_type_in_obj(v, obj);
+            return validate_type(v, &obj->data_type);
         case OBJ_FN:
             if(global_id_exists(v, obj->name)) {
                 error(v, obj->location, "Symbol '%s' already exists.", obj->name);
