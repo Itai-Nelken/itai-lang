@@ -241,7 +241,12 @@ static ASTNode *validate_assignment(Validator *v, ASTNode *n) {
         astNodeFree(n, false);
         return NULL;
     }
-    VERIFY(NODE_IS(lhs, ND_VARIABLE) || NODE_IS(lhs, ND_VAR_DECL) || NODE_IS(lhs, ND_PROPERTY_ACCESS));
+    if(!(NODE_IS(lhs, ND_VARIABLE) || NODE_IS(lhs, ND_VAR_DECL) || NODE_IS(lhs, ND_PROPERTY_ACCESS))) {
+        error(v, lhs->location, "Invalid assignment target (only variables can be assigned).");
+        AS_BINARY_NODE(n)->lhs = lhs; // hack to make the call below also free [lhs].
+        astNodeFree(n, true);
+        return NULL;
+    }
     // 2) Validate [rhs] - the expression whose value is being assigned to the variable.
     ASTNode *rhs = validate_ast(v, AS_BINARY_NODE(n)->rhs);
     if(!rhs) {

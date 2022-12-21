@@ -1,0 +1,8 @@
+/// expect error: Error: Invalid assignment target (only variables can be assigned).
+
+fn a() {}
+
+fn main() {
+	a = 123;
+}
+
