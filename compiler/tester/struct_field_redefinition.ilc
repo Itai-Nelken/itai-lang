@@ -1,0 +1,7 @@
+/// expect error: Error: Redefinition of field 'a' in struct 'T'.
+
+struct T {
+	a: i32;
+	a: u32;
+}
+

@@ -537,15 +537,27 @@ static bool validate_function(Validator *v, ASTObj *fn) {
 }
 
 static bool validate_struct(Validator *v, ASTObj *s) {
+    Table declared_fields;
+    tableInit(&declared_fields, NULL, NULL);
     FOR(i, s->as.structure.fields) {
         ASTObj *field = ARRAY_GET_AS(ASTObj *, &s->as.structure.fields, i);
         if(!validate_type(v, &field->data_type))
             continue;
         if(typeEqual(field->data_type, s->data_type)) {
-            error(v, field->location, "struct '%s' cannot have a field that recursively contains it.", s->name);
+            error(v, field->location, "Struct '%s' cannot have a field that recursively contains it.", s->name);
+            tableFree(&declared_fields);
             return false; // FIXME: check all fields before returning.
         }
+        if(tableGet(&declared_fields, (void *)field->name) != NULL) {
+            // TODO: Once hints are added, use the previous' field location (save whole field as value in table)
+            //      to report previous declaration.
+            error(v, field->location, "Redefinition of field '%s' in struct '%s'.", field->name, s->name);
+            tableFree(&declared_fields);
+            return false;
+        }
+        tableSet(&declared_fields, (void *)field->name, NULL);
     }
+    tableFree(&declared_fields);
     return true;
 }
 

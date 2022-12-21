@@ -1,4 +1,4 @@
-/// expect error: Error: struct 'T' cannot have a field that recursively contains it.
+/// expect error: Error: Struct 'T' cannot have a field that recursively contains it.
 
 struct T {
 	a: T;
