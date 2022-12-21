@@ -542,11 +542,6 @@ static void validate_module_callback(void *module, void *validator) {
     }
 }
 
-// TODO:
-// - check no global symbol redefinition.
-// - replace identifier nodes with variable/function nodes
-// - replace id types with struct types.
-
 bool validatorValidate(Validator *v, ASTProgram *prog) {
     v->program = prog;
 
