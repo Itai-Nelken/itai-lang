@@ -1,4 +1,4 @@
-/// expect error: Error: Recursive struct 'T' has infinite size.
+/// expect error: Error: struct 'T' cannot have a field that recursively contains it.
 
 struct T {
 	a: T;
