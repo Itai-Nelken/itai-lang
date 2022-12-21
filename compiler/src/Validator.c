@@ -770,6 +770,9 @@ static void typecheck_module_callback(void *module, usize index, void *validator
     }
 }
 
+#undef TRY
+#undef FOR
+
 bool validatorValidate(Validator *v, ASTProgram *prog) {
     v->program = prog;
 
