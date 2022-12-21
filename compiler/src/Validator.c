@@ -433,13 +433,20 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
         }
         case ND_PROPERTY_ACCESS: {
             // FIXME: this doesn't allow nested property access (a.b.c for example).
+            ASTString name = AS_IDENTIFIER_NODE(AS_BINARY_NODE(n)->lhs)->identifier;
             ASTNode *var = validate_ast(v, AS_BINARY_NODE(n)->lhs); // validate_ast() so the id node is replaced.
             if(!var) {
                 astNodeFree(AS_BINARY_NODE(n)->rhs, true);
                 break;
             }
             ASTIdentifierNode *property_name = AS_IDENTIFIER_NODE(AS_BINARY_NODE(n)->rhs);
-            VERIFY(NODE_IS(var, ND_VARIABLE) && AS_OBJ_NODE(var)->obj->data_type);
+            if(!(NODE_IS(var, ND_VARIABLE) && AS_OBJ_NODE(var)->obj->data_type)) {
+                // FIXME: The following somehow causes the enclosing binary node (if present) to be leaked.
+                error(v, var->location, "Symbol '%s' is not a variable.", name);
+                astNodeFree(var, true);
+                astNodeFree(AS_BINARY_NODE(n)->rhs, true);
+                break;
+            }
             ASTObj *var_obj = AS_OBJ_NODE(var)->obj;
             if(var_obj->data_type->type != TY_STRUCT) {
                 error(v, property_name->header.location, "Field access on value of non-struct type '%s'.", type_name(var_obj->data_type));
