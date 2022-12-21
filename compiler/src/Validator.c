@@ -468,13 +468,13 @@ static bool validate_function(Validator *v, ASTObj *fn) {
 }
 
 static bool validate_struct(Validator *v, ASTObj *s) {
-    UNUSED(v);
-    UNUSED(s);
     FOR(i, s->as.structure.fields) {
         ASTObj *field = ARRAY_GET_AS(ASTObj *, &s->as.structure.fields, i);
         if(!validate_type_in_obj(v, field))
             continue;
         if(typeEqual(field->data_type, s->data_type)) {
+            // FIXME: Use struct name declaration location for this error
+            //        and add a hint to the field location.
             error(v, field->location, "Recursive struct '%s' has infinite size.", s->name);
             return false; // FIXME: check all fields before returning.
         }
