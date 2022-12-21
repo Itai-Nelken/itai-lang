@@ -174,6 +174,7 @@ static inline bool global_id_exists(Validator *v, ASTString id) {
 /* forward declarations */
 static ASTNode *validate_ast(Validator *v, ASTNode *n);
 static bool typecheck_ast(Validator *v, ASTNode *n);
+static bool validate_type_in_obj(Validator *v, ASTObj *obj);
 
 
 static Type *get_expr_type(Validator *v, ASTNode *expr) {
@@ -379,8 +380,9 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
             ASTListNode *new_args = AS_LIST_NODE(astNewListNode(ND_ARGS, arguments->header.location, arguments->scope));
             for(usize i = 0; i < arguments->nodes.used; ++i) {
                 ASTNode *arg = validate_ast(v, ARRAY_GET_AS(ASTNode *, &arguments->nodes, i));
-                if(arg)
+                if(arg) {
                     arrayPush(&new_args->nodes, (void *)arg);
+                }
             }
             // break if an error was encountered when validating the arguments.
             if(v->had_error)
@@ -476,6 +478,22 @@ static bool validate_function(Validator *v, ASTObj *fn) {
     FOR(i, fn->as.fn.locals) {
         ASTObj *l = ARRAY_GET_AS(ASTObj *, &fn->as.fn.locals, i);
         validate_type_in_obj(v, l);
+    }
+    FOR(i, fn->as.fn.parameters) {
+        ASTObj *p = ARRAY_GET_AS(ASTObj *, &fn->as.fn.parameters, i);
+        validate_type_in_obj(v, p);
+    }
+    FOR(i, fn->data_type->as.fn.parameter_types) {
+        Type **ty = (Type **)(fn->data_type->as.fn.parameter_types.data + i);
+        if((*ty)->type == TY_ID) {
+            ASTObj *s = find_struct(v, (*ty)->name);
+            if(s) {
+                *ty = s->data_type;
+            } else {
+                error(v, (*ty)->decl_location, "Unknown type '%s'.", (*ty)->name);
+                return false;
+            }
+        }
     }
 
     FOR(i, fn->as.fn.body->nodes) {
