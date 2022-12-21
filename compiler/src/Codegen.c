@@ -243,17 +243,18 @@ static void object_callback(void *object, void *codegen) {
             cg->current_function = obj;
             gen_function_decl(cg, obj);
             cg->current_function = NULL;
+            print(cg, "\n");
             break;
         case OBJ_VAR:
             // nothing
             break;
         case OBJ_STRUCT:
             gen_struct(cg, obj);
+            print(cg, "\n");
             break;
         default:
             UNREACHABLE();
     }
-    print(cg, "\n");
 }
 
 static void object_predecl_callback(void *object, void *codegen) {
