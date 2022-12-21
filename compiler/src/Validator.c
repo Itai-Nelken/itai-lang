@@ -235,7 +235,7 @@ static ASTNode *validate_variable_declaration(Validator *v, ASTNode *decl) {
 static ASTNode *validate_assignment(Validator *v, ASTNode *n) {
     // 1) Validate [lhs], this will replace any identifier nodes with variable nodes (and check if the variable exists).
     ASTNode *lhs = validate_ast(v, AS_BINARY_NODE(n)->lhs);
-    VERIFY(NODE_IS(lhs, ND_VARIABLE) || NODE_IS(lhs, ND_VAR_DECL));
+    VERIFY(NODE_IS(lhs, ND_VARIABLE) || NODE_IS(lhs, ND_VAR_DECL) || NODE_IS(lhs, ND_PROPERTY_ACCESS));
     // 2) Validate [rhs] - the expression whose value is being assigned to the variable.
     ASTNode *rhs = validate_ast(v, AS_BINARY_NODE(n)->rhs);
     if(!lhs || !rhs) {
@@ -409,6 +409,33 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
             result = astNewObjNode(obj->type == OBJ_VAR ? ND_VARIABLE : ND_FUNCTION, n->location, obj);
             break;
         }
+        case ND_PROPERTY_ACCESS: {
+            // FIXME: this doesn't allow nested property access (a.b.c for example).
+            ASTNode *var = validate_ast(v, AS_BINARY_NODE(n)->lhs); // validate_ast() so the id node is replaced.
+            ASTIdentifierNode *property_name = AS_IDENTIFIER_NODE(AS_BINARY_NODE(n)->rhs);
+            VERIFY(NODE_IS(var, ND_VARIABLE) && AS_OBJ_NODE(var)->obj->data_type);
+            ASTObj *var_obj = AS_OBJ_NODE(var)->obj;
+            if(var_obj->data_type->type != TY_STRUCT) {
+                error(v, property_name->header.location, "Field access on value of non-struct type '%s'.", type_name(var_obj->data_type));
+                astNodeFree(AS_NODE(property_name), true);
+                break;
+            }
+            ASTObj *s = find_struct(v, var_obj->data_type->name);
+            VERIFY(s); // The struct should exist if its type exists.
+            FOR(i, s->as.structure.fields) {
+                ASTObj *field = ARRAY_GET_AS(ASTObj *, &s->as.structure.fields, i);
+                if(field->name == property_name->identifier) {
+                    ASTNode *new_property_node = astNewObjNode(ND_VARIABLE, field->location, field);
+                    astNodeFree(AS_NODE(property_name), true);
+                    result = astNewBinaryNode(ND_PROPERTY_ACCESS, n->location, var, new_property_node);
+                    goto property_access_name_case_label_end;
+                }
+            }
+            error(v, property_name->header.location, "Field '%s' doesn't exist in struct '%s'.", property_name->identifier, s->name);
+            astNodeFree(AS_NODE(property_name), true);
+property_access_name_case_label_end:
+            break;
+        }
         // ignored nodes (no validating to do).
         case ND_NUMBER_LITERAL:
         case ND_VARIABLE:
@@ -555,9 +582,14 @@ static void validate_module_callback(void *module, usize index, void *validator)
 
 static bool typecheck_assignment(Validator *v, ASTNode *n) {
     TRY(typecheck_ast(v, AS_BINARY_NODE(n)->rhs));
-    ASTNode *var_node = AS_BINARY_NODE(n)->lhs; // FIXME: support property access.
+    // FIXME: support nested property access.
+    ASTNode *var_node = NODE_IS(AS_BINARY_NODE(n)->lhs, ND_PROPERTY_ACCESS)
+                      ? AS_BINARY_NODE(AS_BINARY_NODE(n)->lhs)->lhs : AS_BINARY_NODE(n)->lhs;
     VERIFY(NODE_IS(var_node, ND_VARIABLE) || NODE_IS(var_node, ND_VAR_DECL));
-    Type *lhs_ty = AS_OBJ_NODE(var_node)->obj->data_type;
+    // FIXME: support nested property access.
+    Type *lhs_ty = NODE_IS(AS_BINARY_NODE(n)->lhs, ND_PROPERTY_ACCESS)
+                 ? AS_OBJ_NODE(AS_BINARY_NODE(AS_BINARY_NODE(n)->lhs)->rhs)->obj->data_type
+                 : AS_OBJ_NODE(var_node)->obj->data_type;
     Type *rhs_ty = get_expr_type(v, AS_BINARY_NODE(n)->rhs);
     // allow assigning number literals to variables with unsigned types.
     if(IS_NUMERIC(lhs_ty) && IS_NUMERIC(rhs_ty) &&
