@@ -767,6 +767,12 @@ static bool parse_parameter_list(Parser *p, Array *parameters) {
         ASTNode *param_var = parse_variable_decl(p, false, parameters);
         if(!param_var) {
             had_error = true;
+        } else {
+            ASTObj *param = ARRAY_GET_AS(ASTObj *, parameters, arrayLength(parameters) - 1);
+            if(param->data_type == NULL) {
+                error(p, stringFormat("Parameter '%s' has no type!", param->name));
+                had_error = true;
+            }
         }
         astNodeFree(param_var, true);
     } while(match(p, TK_COMMA));

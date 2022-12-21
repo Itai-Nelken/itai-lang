@@ -53,6 +53,8 @@ static void error(Validator *v, Location loc, const char *format, ...) {
 
 #define FOR(index_var_name, array) for(usize index_var_name = 0; index_var_name < (array).used; ++index_var_name)
 
+#define TRY(expr) ({bool __tmp = (expr); if(!__tmp) { return false; }; __tmp;})
+
 static inline const char *type_name(Type *ty) {
     if(ty == NULL) {
         return "none";
@@ -171,6 +173,7 @@ static inline bool global_id_exists(Validator *v, ASTString id) {
 
 /* forward declarations */
 static ASTNode *validate_ast(Validator *v, ASTNode *n);
+static bool typecheck_ast(Validator *v, ASTNode *n);
 
 
 static Type *get_expr_type(Validator *v, ASTNode *expr) {
@@ -219,13 +222,16 @@ static Type *get_expr_type(Validator *v, ASTNode *expr) {
 }
 
 
+/** Validator **/
+
 // NOTE: [decl] is NOT freed.
 static ASTNode *validate_variable_declaration(Validator *v, ASTNode *decl) {
+    UNUSED(v);
     // TODO: check if variable declared, add as declared/error.
     return astNewObjNode(ND_VAR_DECL, decl->location, AS_OBJ_NODE(decl)->obj);
 }
 
-// NOTE: frees [n].
+// NOTE: ownership of [n] is taken.
 static ASTNode *validate_assignment(Validator *v, ASTNode *n) {
     // 1) Validate [lhs], this will replace any identifier nodes with variable nodes (and check if the variable exists).
     ASTNode *lhs = validate_ast(v, AS_BINARY_NODE(n)->lhs);
@@ -516,9 +522,11 @@ static ASTNode *validate_global_variable(Validator *v, ASTNode *g) {
     return result;
 }
 
-static void validate_module_callback(void *module, void *validator) {
+static void validate_module_callback(void *module, usize index, void *validator) {
     ASTModule *m = (ASTModule *)module;
     Validator *v = (Validator *)validator;
+    v->current_module = (ModuleID)index;
+
     FOR(i, m->globals) {
         ASTNode *g = ARRAY_GET_AS(ASTNode *, &m->globals, i);
         ASTObj *var = NODE_IS(g, ND_ASSIGN)
@@ -542,11 +550,231 @@ static void validate_module_callback(void *module, void *validator) {
     }
 }
 
+/** Typechecker **/
+
+static bool typecheck_assignment(Validator *v, ASTNode *n) {
+    TRY(typecheck_ast(v, AS_BINARY_NODE(n)->rhs));
+    ASTNode *var_node = AS_BINARY_NODE(n)->lhs; // FIXME: support property access.
+    VERIFY(NODE_IS(var_node, ND_VARIABLE) || NODE_IS(var_node, ND_VAR_DECL));
+    Type *lhs_ty = AS_OBJ_NODE(var_node)->obj->data_type;
+    Type *rhs_ty = get_expr_type(v, AS_BINARY_NODE(n)->rhs);
+    // allow assigning number literals to variables with unsigned types.
+    if(IS_NUMERIC(lhs_ty) && IS_NUMERIC(rhs_ty) &&
+        IS_UNSIGNED(lhs_ty) && IS_SIGNED(rhs_ty)
+        && NODE_IS(AS_BINARY_NODE(n)->rhs, ND_NUMBER_LITERAL)) {
+            return true;
+    }
+    TRY(check_types(v, AS_BINARY_NODE(n)->rhs->location, lhs_ty, rhs_ty));
+    return true;
+}
+
+static bool typecheck_variable_declaration(Validator *v, ASTNode *decl) {
+    // FIXME: The validator already does this, change to check if type is 'void' later (if void becomes a type).
+    if(AS_OBJ_NODE(decl)->obj->data_type == NULL) {
+        error(v, decl->location, "Variable '%s' has no type (Hint: consider adding an explicit type).", AS_OBJ_NODE(decl)->obj->name);
+        return false;
+    }
+    return true;
+}
+
+static bool typecheck_ast(Validator *v, ASTNode *n) {
+    switch(n->node_type) {
+        case ND_VAR_DECL:
+            TRY(typecheck_variable_declaration(v, n));
+            break;
+        //case ND_VARIABLE:
+        case ND_ASSIGN:
+            TRY(typecheck_assignment(v, n));
+            break;
+        case ND_ADD:
+        case ND_SUBTRACT:
+        case ND_MULTIPLY:
+        case ND_DIVIDE:
+        case ND_EQ:
+        case ND_NE:
+        case ND_LT:
+        case ND_LE:
+        case ND_GT:
+        case ND_GE: {
+            TRY(typecheck_ast(v, AS_BINARY_NODE(n)->lhs));
+            TRY(typecheck_ast(v, AS_BINARY_NODE(n)->rhs));
+            Type *lhs_ty = get_expr_type(v, AS_BINARY_NODE(n)->lhs);
+            Type *rhs_ty = get_expr_type(v, AS_BINARY_NODE(n)->rhs);
+            TRY(check_types(v, AS_BINARY_NODE(n)->rhs->location, lhs_ty, rhs_ty));
+            break;
+        }
+        case ND_IF:
+            TRY(typecheck_ast(v, AS_CONDITIONAL_NODE(n)->condition));
+            TRY(typecheck_ast(v, AS_CONDITIONAL_NODE(n)->body));
+            TRY(typecheck_ast(v, AS_CONDITIONAL_NODE(n)->else_));
+            break;
+        case ND_WHILE_LOOP:
+            // NOTE: ND_FOR_LOOP and ND_FOR_ITERATOR_LOOP should be handled separately
+            //       because they use the rest of the clauses (initializer, increment).
+            TRY(typecheck_ast(v, AS_LOOP_NODE(n)->condition));
+            TRY(typecheck_ast(v, AS_LOOP_NODE(n)->body));
+            break;
+        case ND_BLOCK: {
+            // typecheck all nodes in the block, even if some fail.
+            bool failed = false;
+            enter_scope(v, AS_LIST_NODE(n)->scope);
+            for(usize i = 0; i < AS_LIST_NODE(n)->nodes.used; ++i) {
+                failed = typecheck_ast(v, ARRAY_GET_AS(ASTNode *, &AS_LIST_NODE(n)->nodes, i));
+            }
+            leave_scope(v);
+            // failed == false -> success (return true).
+            // failed == true -> failure (return false).
+            return !failed;
+        }
+        case ND_NEGATE:
+            return typecheck_ast(v, AS_UNARY_NODE(n)->operand);
+        case ND_RETURN: {
+            if(AS_UNARY_NODE(n)->operand == NULL) {
+                break;
+            }
+            TRY(typecheck_ast(v, AS_UNARY_NODE(n)->operand));
+            Type *operand_ty = get_expr_type(v, AS_UNARY_NODE(n)->operand);
+            // When returning a number literal in a function returning an unsigned type,
+            // the number literal is implicitly cast to the unsigned type.
+            // FIXME: Check the number value fits in the return type.
+            if((operand_ty && v->current_function->as.fn.return_type)
+               && IS_NUMERIC(operand_ty) && IS_NUMERIC(v->current_function->as.fn.return_type)
+               && IS_UNSIGNED(v->current_function->as.fn.return_type) &&
+               NODE_IS(AS_UNARY_NODE(n)->operand, ND_NUMBER_LITERAL) && IS_SIGNED(operand_ty)) {
+                break;
+            }
+            TRY(check_types(v, AS_UNARY_NODE(n)->operand->location,
+                              v->current_function->as.fn.return_type,
+                              operand_ty));
+            break;
+        }
+        case ND_CALL: {
+            // lhs: callee (ASTObj *)
+            // rhs: arguments (Array<ASTObj *>)
+            ASTObj *callee = AS_OBJ_NODE(AS_BINARY_NODE(n)->lhs)->obj;
+            ASTListNode *arguments = AS_LIST_NODE(AS_BINARY_NODE(n)->rhs);
+            bool had_error = false;
+            // The validating pass makes sure the correct amount of arguments is passed,
+            // so we can be sure that both arrays (params & args) are of equal length.
+            for(usize i = 0; i < callee->data_type->as.fn.parameter_types.used; ++i) {
+                Type *param_ty = ARRAY_GET_AS(Type *, &callee->data_type->as.fn.parameter_types, i);
+                ASTNode *arg = ARRAY_GET_AS(ASTNode *, &arguments->nodes, i);
+                if(!typecheck_ast(v, arg)) {
+                    break;
+                }
+                Type *arg_ty = get_expr_type(v, arg);
+                // The type of a number literal is i32, but it is implicitly casted
+                // into unsigned types so calls like this: `a(123)` where the parameter
+                // has the type of 'u32' and the argument is a number literal but has the type
+                // of 'i32' will typecheck correctly without emiting a type mismatch.
+                // FIXME: Check that the number value fits in the parameter type.
+                if((arg_ty && IS_NUMERIC(arg_ty)) && IS_UNSIGNED(param_ty) &&
+                   NODE_IS(arg, ND_NUMBER_LITERAL) && IS_SIGNED(arg_ty)) {
+                    continue;
+                }
+                if(!check_types(v, arg->location, param_ty, arg_ty)) {
+                    had_error = true;
+                }
+            }
+            return !had_error;
+        }
+        // ignored nodes (no typechecking to do).
+        case ND_NUMBER_LITERAL:
+        case ND_FUNCTION:
+        case ND_VARIABLE: // TODO: is it ok to ignore this node?
+        case ND_PROPERTY_ACCESS:
+            break;
+        case ND_ARGS: // see note in validate_ast() for the reason this node is an error here.
+        case ND_IDENTIFIER: // see note in validate_ast() for the reason this node is an error here.
+        default:
+            UNREACHABLE();
+    }
+    return true;
+}
+
+static bool typecheck_global_variable(Validator *v, ASTNode *g) {
+    bool result = true;
+    switch(g->node_type) {
+        case ND_VAR_DECL:
+            result = typecheck_variable_declaration(v, g);
+            break;
+        case ND_ASSIGN:
+            result = typecheck_assignment(v, g);
+            break;
+        default:
+            UNREACHABLE();
+    }
+    return result;
+}
+
+static bool typecheck_function(Validator *v, ASTObj *fn) {
+    v->current_function = fn;
+    bool had_error = false;
+
+    // The parser checks that parameters have types.
+
+    FOR(i, fn->as.fn.body->nodes) {
+        ASTNode *n = ARRAY_GET_AS(ASTNode *, &fn->as.fn.body->nodes, i);
+        if(!typecheck_ast(v, n)) {
+            had_error = true;
+        }
+    }
+
+    v->current_function = NULL;
+    return !had_error;
+}
+
+static bool typecheck_struct(Validator *v, ASTObj *s) {
+    FOR(i, s->as.structure.fields) {
+        ASTObj *field = ARRAY_GET_AS(ASTObj *, &s->as.structure.fields, i);
+        if(field->data_type == NULL) {
+            error(v, field->location, "Field '%s' in struct '%s' has no type.", field->name, s->name);
+            return false; // FIXME: typecheck all fields before returning.
+        }
+    }
+    return true;
+}
+
+static bool typecheck_object(Validator *v, ASTObj *obj) {
+    switch(obj->type) {
+        case OBJ_VAR:
+            // nothing
+            break;
+        case OBJ_FN:
+            return typecheck_function(v, obj);
+        case OBJ_STRUCT:
+            return typecheck_struct(v, obj);
+        default:
+            UNREACHABLE();
+    }
+    return true;
+}
+
+static void typecheck_module_callback(void *module, usize index, void *validator) {
+    ASTModule *m = (ASTModule *)module;
+    Validator *v = (Validator *)validator;
+    v->current_module = (ModuleID)index;
+
+    // Global variables
+    FOR(i, m->globals) {
+        ASTNode *g = ARRAY_GET_AS(ASTNode *, &m->globals, i);
+        typecheck_global_variable(v, g);
+    }
+    // TODO: handle errors here?
+    //       after all we wan't to typecheck everything always, but what about cascading errors?
+
+    // Objects
+    FOR(i, m->objects) {
+        ASTObj *obj = ARRAY_GET_AS(ASTObj *, &m->objects, i);
+        typecheck_object(v, obj); // Note: no need to handle errors as we wan't to typecheck all objects always.
+    }
+}
+
 bool validatorValidate(Validator *v, ASTProgram *prog) {
     v->program = prog;
 
     // Validating pass - finish building the AST.
-    arrayMap(&prog->modules, validate_module_callback, (void *)v);
+    arrayMapIndex(&prog->modules, validate_module_callback, (void *)v);
     // Check that main() exists.
     if(!v->found_main) {
         Error *err;
@@ -558,7 +786,7 @@ bool validatorValidate(Validator *v, ASTProgram *prog) {
 
     if(!v->had_error) {
         // Typechecking pass - typecheck the AST.
-        // TODO: typecheck (the new ast).
+        arrayMapIndex(&prog->modules, typecheck_module_callback, (void *)v);
     }
 
     v->program = NULL;
