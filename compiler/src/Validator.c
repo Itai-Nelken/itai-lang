@@ -236,13 +236,17 @@ static ASTNode *validate_variable_declaration(Validator *v, ASTNode *decl) {
 static ASTNode *validate_assignment(Validator *v, ASTNode *n) {
     // 1) Validate [lhs], this will replace any identifier nodes with variable nodes (and check if the variable exists).
     ASTNode *lhs = validate_ast(v, AS_BINARY_NODE(n)->lhs);
+    if(!lhs) {
+        astNodeFree(AS_BINARY_NODE(n)->rhs, true);
+        astNodeFree(n, false);
+        return NULL;
+    }
     VERIFY(NODE_IS(lhs, ND_VARIABLE) || NODE_IS(lhs, ND_VAR_DECL) || NODE_IS(lhs, ND_PROPERTY_ACCESS));
     // 2) Validate [rhs] - the expression whose value is being assigned to the variable.
     ASTNode *rhs = validate_ast(v, AS_BINARY_NODE(n)->rhs);
-    if(!lhs || !rhs) {
-        // Note: the astNodeFree() function handles NULL nodes.
+    if(!rhs) {
         astNodeFree(lhs, true);
-        astNodeFree(rhs, true);
+        astNodeFree(n, false);
         return NULL;
     }
     // 3) If [lhs] is a variable declaration
@@ -282,14 +286,21 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
         case ND_BLOCK: {
             ASTListNode *new_n = AS_LIST_NODE(astNewListNode(ND_BLOCK, n->location, AS_LIST_NODE(n)->scope));
             new_n->control_flow = AS_LIST_NODE(n)->control_flow;
+            bool had_error = false;
             enter_scope(v, AS_LIST_NODE(n)->scope);
             FOR(i, AS_LIST_NODE(n)->nodes) {
                 ASTNode *checked_node = validate_ast(v, ARRAY_GET_AS(ASTNode *, &AS_LIST_NODE(n)->nodes, i));
                 if(checked_node) {
                     arrayPush(&new_n->nodes, (void *)checked_node);
+                } else {
+                    had_error = true;
                 }
             }
             leave_scope(v);
+            if(had_error) {
+                astNodeFree(AS_NODE(new_n), true);
+                break;
+            }
             result = AS_NODE(new_n);
             break;
         }
@@ -371,6 +382,10 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
         }
         case ND_CALL: {
             ASTNode *callee_node = validate_ast(v, AS_BINARY_NODE(n)->lhs);
+            if(!callee_node) {
+                astNodeFree(AS_BINARY_NODE(n)->rhs, true);
+                break;
+            }
             ASTObj *callee = AS_OBJ_NODE(callee_node)->obj;
             ASTListNode *arguments = AS_LIST_NODE(AS_BINARY_NODE(n)->rhs);
             if(!is_callable(callee)) {
@@ -414,6 +429,10 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
         case ND_PROPERTY_ACCESS: {
             // FIXME: this doesn't allow nested property access (a.b.c for example).
             ASTNode *var = validate_ast(v, AS_BINARY_NODE(n)->lhs); // validate_ast() so the id node is replaced.
+            if(!var) {
+                astNodeFree(AS_BINARY_NODE(n)->rhs, true);
+                break;
+            }
             ASTIdentifierNode *property_name = AS_IDENTIFIER_NODE(AS_BINARY_NODE(n)->rhs);
             VERIFY(NODE_IS(var, ND_VARIABLE) && AS_OBJ_NODE(var)->obj->data_type);
             ASTObj *var_obj = AS_OBJ_NODE(var)->obj;
@@ -492,10 +511,10 @@ static bool validate_function(Validator *v, ASTObj *fn) {
     FOR(i, fn->as.fn.body->nodes) {
         ASTNode *n = ARRAY_GET_AS(ASTNode *, &fn->as.fn.body->nodes, i);
         ASTNode *new_n = validate_ast(v, n);
-        if(new_n) {
-            arrayInsert(&fn->as.fn.body->nodes, i, (void *)new_n);
-            // [n] is freed by validate_ast().
-        }
+        // Always insert [new_n], even if it is NULL
+        // as [n] is always freed so we want to get rid to any references to it.
+        // (astFreeNode() skips NULL nodes).
+        arrayInsert(&fn->as.fn.body->nodes, i, (void *)new_n);
     }
 
     if(fn->as.fn.return_type) {
