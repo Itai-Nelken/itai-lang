@@ -235,6 +235,7 @@ static ASTNode *validate_variable_declaration(Validator *v, ASTNode *decl) {
 static ASTNode *validate_assignment(Validator *v, ASTNode *n) {
     // 1) Validate [lhs], this will replace any identifier nodes with variable nodes (and check if the variable exists).
     ASTNode *lhs = validate_ast(v, AS_BINARY_NODE(n)->lhs);
+    VERIFY(NODE_IS(lhs, ND_VARIABLE) || NODE_IS(lhs, ND_VAR_DECL));
     // 2) Validate [rhs] - the expression whose value is being assigned to the variable.
     ASTNode *rhs = validate_ast(v, AS_BINARY_NODE(n)->rhs);
     if(!lhs || !rhs) {
@@ -244,8 +245,8 @@ static ASTNode *validate_assignment(Validator *v, ASTNode *n) {
         return NULL;
     }
     // 3) If [lhs] is a variable declaration
-    ASTObj *var = AS_OBJ_NODE(lhs)->obj;
     if(NODE_IS(lhs, ND_VAR_DECL)) {
+        ASTObj *var = AS_OBJ_NODE(lhs)->obj;
         // a) Check that the variable isn't being assigned itself.
         if(NODE_IS(rhs, ND_VARIABLE) && AS_OBJ_NODE(rhs)->obj == var) {
             error(v, rhs->location, "Variable '%s' assigned to itself in declaration.", AS_OBJ_NODE(rhs)->obj->name);
