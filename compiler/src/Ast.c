@@ -555,11 +555,12 @@ void astNodePrint(FILE *to, ASTNode *n) {
 
 /* ASTObj */
 
-ASTObj *astNewObj(ASTObjType type, Location loc, ASTString name, Type *data_type) {
+ASTObj *astNewObj(ASTObjType type, Location loc, Location name_loc, ASTString name, Type *data_type) {
     ASTObj *o;
     NEW0(o);
     o->type = type;
     o->location = loc;
+    o->name_location = name_loc;
     o->name = name;
     o->data_type = data_type;
     switch(type) {
@@ -627,6 +628,7 @@ void astObjPrint(FILE *to, ASTObj *obj) {
     fprintf(to, "ASTObj{\x1b[1mtype: \x1b[36m%s\x1b[0m", obj_type_name(obj->type));
     fputs(", \x1b[1mlocation:\x1b[0m ", to);
     locationPrint(to, obj->location, true);
+    // Note: name loc is not printed to declutter the output.
 
     fprintf(to, ", \x1b[1mname:\x1b[0m '%s'", obj->name);
     fputs(", \x1b[1mdata_type:\x1b[0m ", to);

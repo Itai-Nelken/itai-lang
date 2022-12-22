@@ -185,7 +185,7 @@ typedef enum ast_obj_type {
 
 typedef struct ast_obj {
     ASTObjType type;
-    Location location;
+    Location location, name_location;
     ASTString name;
     Type *data_type;
 
@@ -421,11 +421,12 @@ void astNodePrint(FILE *to, ASTNode *n);
  *
  * @param type The type of the object.
  * @param loc The location of the object.
+ * @param name_loc The location of the name of the object.
  * @param name The name of the object.
  * @param data_type The data type of the object.
  * @return The new object.
  ***/
-ASTObj *astNewObj(ASTObjType type, Location loc, ASTString name, Type *data_type);
+ASTObj *astNewObj(ASTObjType type, Location loc, Location name_loc, ASTString name, Type *data_type);
 
 /***
  * Free an ASTObj.

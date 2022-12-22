@@ -606,7 +606,7 @@ static Type *parse_function_type(Parser *p) {
                 continue;
             }
             // Wrap the types in an ASTObj because of new_fn_type().
-            arrayPush(&parameters, (void *)astNewObj(OBJ_VAR, locationNew(0, 0, 0), "", ty));
+            arrayPush(&parameters, (void *)astNewObj(OBJ_VAR, locationNew(0, 0, 0), locationNew(0, 0, 0), "", ty));
         } while(match(p, TK_COMMA));
     }
     if(!consume(p, TK_RPAREN)) {
@@ -676,7 +676,7 @@ static ASTNode *parse_variable_decl(Parser *p, bool allow_initializer, Array *ob
         initializer = TRY(ASTNode *, parse_expression(p), 0);
     }
 
-    ASTObj *var = astNewObj(OBJ_VAR, name_loc, name, type);
+    ASTObj *var = astNewObj(OBJ_VAR, name_loc, name_loc, name, type);
 
     // Add the variable object.
     // NOTE: The object is being pushed to the array
@@ -701,7 +701,7 @@ static ASTObj *parse_struct_decl(Parser *p) {
     ASTString name = TRY(ASTString, parse_identifier(p), 0);
     Location name_loc = previous(p).location;
 
-    ASTObj *structure = astNewObj(OBJ_STRUCT, name_loc, name, NULL);
+    ASTObj *structure = astNewObj(OBJ_STRUCT, name_loc, name_loc, name, NULL);
 
     if(!consume(p, TK_LBRACE)) {
         astObjFree(structure);
@@ -788,6 +788,7 @@ static ASTObj *parse_function_decl(Parser *p) {
     Location location = previous(p).location;
 
     ASTString name = TRY(ASTString, parse_identifier(p), 0);
+    Location name_loc = previous(p).location;
 
     Array parameters; // Array<ASTObj *>
     arrayInit(&parameters);
@@ -809,7 +810,7 @@ static ASTObj *parse_function_decl(Parser *p) {
     }
     location = locationMerge(location, previous(p).location);
 
-    ASTObj *fn = astNewObj(OBJ_FN, location, name, new_fn_type(p, return_type, parameters));
+    ASTObj *fn = astNewObj(OBJ_FN, location, name_loc, name, new_fn_type(p, return_type, parameters));
     fn->as.fn.return_type = return_type;
     arrayCopy(&fn->as.fn.parameters, &parameters);
     arrayFree(&parameters); // No need to free the contens of the array as they are owned by the fn now.

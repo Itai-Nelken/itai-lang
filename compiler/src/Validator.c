@@ -642,12 +642,23 @@ static void validate_module_callback(void *module, usize index, void *validator)
             arrayInsert(&m->globals, i, (void *)new_g);
         }
     }
-    
+
     // objects
+    Table declared_structs;
+    tableInit(&declared_structs, NULL, NULL);
     FOR(i, m->objects) {
         ASTObj *obj = ARRAY_GET_AS(ASTObj *, &m->objects, i);
+        if(obj->type == OBJ_STRUCT) {
+            if(tableGet(&declared_structs, (void *)obj->name) != NULL) {
+                // TODO: emit hint at previous declaration.
+                error(v, obj->name_location, "Redeclaration of struct '%s'.", obj->name);
+                continue;
+            }
+            tableSet(&declared_structs, (void *)obj->name, NULL);
+        }
         validate_object(v, obj); // Note: no need to handle errors here as we want to validate all objects always.
     }
+    tableFree(&declared_structs);
 }
 
 /** Typechecker **/
