@@ -13,6 +13,7 @@ typedef struct validator {
     ASTObj *current_function;
     BlockScope *current_scope;
     Table global_ids_in_current_module; // Table<ASTString, void>
+    Table visible_locals_in_current_function; // Table<ASTString, void>
     bool found_main;
     bool had_error;
 } Validator;

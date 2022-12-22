@@ -1,0 +1,7 @@
+/// expect error: Error: Undeclared variable 'a'.
+
+fn main() {
+	a;
+	var a: i32;
+}
+

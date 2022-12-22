@@ -21,6 +21,7 @@ void validatorInit(Validator *v, Compiler *c) {
     v->found_main = false;
     v->had_error = false;
     tableInit(&v->global_ids_in_current_module, NULL, NULL);
+    tableInit(&v->visible_locals_in_current_function, NULL, NULL);
 }
 
 void validatorFree(Validator *v) {
@@ -32,6 +33,7 @@ void validatorFree(Validator *v) {
     v->found_main = false;
     v->had_error = false;
     tableFree(&v->global_ids_in_current_module);
+    tableFree(&v->visible_locals_in_current_function);
 }
 
 static void error(Validator *v, Location loc, const char *format, ...) {
@@ -130,13 +132,19 @@ static ASTObj *find_local_var(Validator *v, ASTString name) {
     return NULL;
 }
 
-static ASTObj *find_variable(Validator *v, ASTString name) {
+static ASTObj *find_variable(Validator *v, ASTString name, bool *is_global) {
     ASTObj *result = NULL;
     // If we are inside a function, search for a local variable first.
     if((v->current_function) && (result = find_local_var(v, name)) != NULL) {
+        if(is_global) {
+            *is_global = false;
+        }
         return result;
     }
     // otherwise search for a global variable.
+    if(is_global) {
+        *is_global = true;
+    }
     return find_global_var(v, name);
 }
 
@@ -227,8 +235,10 @@ static Type *get_expr_type(Validator *v, ASTNode *expr) {
 
 // NOTE: [decl] is NOT freed.
 static ASTNode *validate_variable_declaration(Validator *v, ASTNode *decl) {
-    UNUSED(v);
-    // TODO: check if variable declared, add as declared/error.
+    // We don't care if a variable with the same name is already visible.
+    // Scopes track what variable is actually visible, this table only checks that a local variable
+    // with a certain name is declared.
+    tableSet(&v->visible_locals_in_current_function, (void *)AS_OBJ_NODE(decl)->obj->name, NULL);
     return astNewObjNode(ND_VAR_DECL, decl->location, AS_OBJ_NODE(decl)->obj);
 }
 
@@ -420,13 +430,19 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
         }
         case ND_IDENTIFIER: {
             // find the object (variable visible in current scope or function) the identifier refers to.
-            ASTObj *obj = find_variable(v, AS_IDENTIFIER_NODE(n)->identifier);
+            bool is_global;
+            ASTObj *obj = find_variable(v, AS_IDENTIFIER_NODE(n)->identifier, &is_global);
             if(!obj) {
                 obj = find_function(v, AS_IDENTIFIER_NODE(n)->identifier);
                 if(!obj) {
                     error(v, n->location, "Symbol '%s' doesn't exist in this scope.", AS_IDENTIFIER_NODE(n)->identifier);
                     break;
                 }
+            }
+            if(!is_global && tableGet(&v->visible_locals_in_current_function, (void *)obj->name) == NULL) {
+                // TODO: emit hint with location of found obj.
+                error(v, n->location, "Undeclared variable '%s'.", obj->name);
+                break;
             }
             result = astNewObjNode(obj->type == OBJ_VAR ? ND_VARIABLE : ND_FUNCTION, n->location, obj);
             break;
@@ -513,6 +529,7 @@ static bool validate_function(Validator *v, ASTObj *fn) {
     FOR(i, fn->as.fn.parameters) {
         ASTObj *p = ARRAY_GET_AS(ASTObj *, &fn->as.fn.parameters, i);
         validate_type(v, &p->data_type);
+        tableSet(&v->visible_locals_in_current_function, (void *)p->name, NULL);
     }
     // FIXME: un-duplicate parameter types (currently both in fn object and fn type).
     FOR(i, fn->data_type->as.fn.parameter_types) {
@@ -539,6 +556,7 @@ static bool validate_function(Validator *v, ASTObj *fn) {
         }
     }
 
+    tableClear(&v->visible_locals_in_current_function, NULL, NULL);
     v->current_function = NULL;
     return true;
 }
