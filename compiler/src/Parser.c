@@ -90,10 +90,10 @@ static Token advance(Parser *p) {
 }
 
 // NOTE: If 'message' is a valid String, it will be freed.
-static void add_error(Parser *p, bool has_location, Location loc, char *message) {
+static void add_error(Parser *p, bool has_location, Location loc, ErrorType type, char *message) {
     Error *err;
     NEW0(err);
-    errorInit(err, ERR_ERROR, has_location, loc, message);
+    errorInit(err, type, has_location, loc, message);
     compilerAddError(p->compiler, err);
     if(stringIsValid(message)) {
         stringFree(message);
@@ -104,13 +104,18 @@ static void add_error(Parser *p, bool has_location, Location loc, char *message)
 
 // NOTE: If 'message' is a valid String, it will be freed.
 static inline void error_at(Parser *p, Location loc, char *message) {
-    add_error(p, true, loc, message);
+    add_error(p, true, loc, ERR_ERROR, message);
 }
 
 // NOTES: If 'message' is a valid String, it will be freed.
 // The previous tokens' location is used.
 static inline void error(Parser *p, char *message) {
     error_at(p, previous(p).location, message);
+}
+
+// NOTES: If 'message' is a valid String, it will be freed.
+static inline void hint(Parser *p, Location loc, char *message) {
+    add_error(p, true, loc, ERR_HINT, message);
 }
 
 static bool consume(Parser *p, TokenType expected) {
@@ -736,8 +741,8 @@ static ASTNode *parse_function_body(Parser *p) {
         VERIFY(var_obj->type == OBJ_VAR);
         ASTObj *existing_obj = find_local_in_current_scope(p, var_obj->name);
         if(existing_obj) {
-            // TODO: emit hint of previous declaration using 'exisiting_obj.location'.
             error_at(p, var_node->location, stringFormat("Redeclaration of local variable '%s'.", var_obj->name));
+            hint(p, existing_obj->location, "Previous declaration here.");
             astNodeFree(var_node, true);
             // NOTE: arrayPop() is used even though we already have a reference
             //       to the object we want to free because we also want to remove

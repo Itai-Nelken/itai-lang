@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include <stdlib.h> // labs()
+//#include <stdlib.h> // labs()
 #include <stdbool.h>
 #include "common.h"
 #include "memory.h"
@@ -21,14 +21,16 @@ void errorFree(Error *err) {
 
 static const char *error_type_to_string(ErrorType type) {
     static const char *types[] = {
-        [ERR_ERROR] = "\x1b[1;31mError\x1b[0m"
+        [ERR_ERROR] = "\x1b[1;31mError\x1b[0m",
+        [ERR_HINT]  = "\x1b[1;34mHint\x1b[0m"
     };
     return types[(i32)type];
 }
 
 static const char *error_type_color(ErrorType type) {
     static const char *colors[] = {
-        [ERR_ERROR] = "\x1b[31m"
+        [ERR_ERROR] = "\x1b[31m",
+        [ERR_HINT]  = "\x1b[34m"
     };
     return colors[(i32)type];
 }
@@ -209,10 +211,10 @@ void errorPrint(Error *err, Compiler *c, FILE *to) {
                 }
                 fputc(c, to);
             }
-            fprintf(to, "\x1b[35;1m^");
-            for(u64 i = 0; i < labs((isize)err->location.end - (isize)err->location.start - 1); ++i) {
-                fputc('~', to);
-            }
+            fprintf(to, "%s\x1b[1m^-", error_type_color(err->type));
+            //for(u64 i = 0; i < labs((isize)err->location.end - (isize)err->location.start - 1); ++i) {
+            //    fputc('~', to);
+            //}
             fprintf(to, "\x1b[0;1m %s\x1b[0m\n", err->message);
         }
     }

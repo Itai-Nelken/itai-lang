@@ -36,19 +36,34 @@ void validatorFree(Validator *v) {
     tableFree(&v->visible_locals_in_current_function);
 }
 
+// Note: [msg] is NOT freed.
+static void add_error(Validator *v, Location loc, ErrorType type, String msg) {
+    Error *err;
+    NEW0(err);
+    errorInit(err, type, true, loc, msg);
+
+    v->had_error = true;
+    compilerAddError(v->compiler, err);
+}
+
 static void error(Validator *v, Location loc, const char *format, ...) {
     va_list ap;
     va_start(ap, format);
     String msg = stringVFormat(format, ap);
     va_end(ap);
 
-    Error *err;
-    NEW0(err);
-    errorInit(err, ERR_ERROR, true, loc, msg);
+    add_error(v, loc, ERR_ERROR, msg);
     stringFree(msg);
+}
 
-    v->had_error = true;
-    compilerAddError(v->compiler, err);
+static void hint(Validator *v, Location loc, const char *format, ...) {
+    va_list ap;
+    va_start(ap, format);
+    String msg = stringVFormat(format, ap);
+    va_end(ap);
+
+    add_error(v, loc, ERR_HINT, msg);
+    stringFree(msg);
 }
 
 // utility functions and macros
@@ -238,7 +253,8 @@ static ASTNode *validate_variable_declaration(Validator *v, ASTNode *decl) {
     // We don't care if a variable with the same name is already visible.
     // Scopes track what variable is actually visible, this table only checks that a local variable
     // with a certain name is declared.
-    tableSet(&v->visible_locals_in_current_function, (void *)AS_OBJ_NODE(decl)->obj->name, NULL);
+    // Also, the parser checks for re-declarations. so no need to re-check here.
+    tableSet(&v->visible_locals_in_current_function, (void *)AS_OBJ_NODE(decl)->obj->name, (void *)AS_OBJ_NODE(decl)->obj);
     return astNewObjNode(ND_VAR_DECL, decl->location, AS_OBJ_NODE(decl)->obj);
 }
 
@@ -440,7 +456,6 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
                 }
             }
             if(!is_global && tableGet(&v->visible_locals_in_current_function, (void *)obj->name) == NULL) {
-                // TODO: emit hint with location of found obj.
                 error(v, n->location, "Undeclared variable '%s'.", obj->name);
                 break;
             }
@@ -529,7 +544,7 @@ static bool validate_function(Validator *v, ASTObj *fn) {
     FOR(i, fn->as.fn.parameters) {
         ASTObj *p = ARRAY_GET_AS(ASTObj *, &fn->as.fn.parameters, i);
         validate_type(v, &p->data_type);
-        tableSet(&v->visible_locals_in_current_function, (void *)p->name, NULL);
+        tableSet(&v->visible_locals_in_current_function, (void *)p->name, (void *)p);
     }
     // FIXME: un-duplicate parameter types (currently both in fn object and fn type).
     FOR(i, fn->data_type->as.fn.parameter_types) {
@@ -573,14 +588,15 @@ static bool validate_struct(Validator *v, ASTObj *s) {
             tableFree(&declared_fields);
             return false; // FIXME: check all fields before returning.
         }
-        if(tableGet(&declared_fields, (void *)field->name) != NULL) {
-            // TODO: Once hints are added, use the previous' field location (save whole field as value in table)
-            //      to report previous declaration.
+        TableItem *item = NULL;
+        if((item = tableGet(&declared_fields, (void *)field->name)) != NULL) {
+            ASTObj *existing_field = (ASTObj *)item->value;
             error(v, field->location, "Redefinition of field '%s' in struct '%s'.", field->name, s->name);
+            hint(v, existing_field->location, "Field first defined here.");
             tableFree(&declared_fields);
             return false;
         }
-        tableSet(&declared_fields, (void *)field->name, NULL);
+        tableSet(&declared_fields, (void *)field->name, (void *)field);
     }
     tableFree(&declared_fields);
     return true;
@@ -649,12 +665,14 @@ static void validate_module_callback(void *module, usize index, void *validator)
     FOR(i, m->objects) {
         ASTObj *obj = ARRAY_GET_AS(ASTObj *, &m->objects, i);
         if(obj->type == OBJ_STRUCT) {
-            if(tableGet(&declared_structs, (void *)obj->name) != NULL) {
-                // TODO: emit hint at previous declaration.
-                error(v, obj->name_location, "Redeclaration of struct '%s'.", obj->name);
+            TableItem *item = NULL;
+            if((item = tableGet(&declared_structs, (void *)obj->name)) != NULL) {
+                ASTObj *previous_declaration = (ASTObj *)item->value;
+                error(v, obj->name_location, "Redefiniton of struct '%s'.", obj->name);
+                hint(v, previous_declaration->name_location, "Previous definition here.");
                 continue;
             }
-            tableSet(&declared_structs, (void *)obj->name, NULL);
+            tableSet(&declared_structs, (void *)obj->name, (void *)obj);
         }
         validate_object(v, obj); // Note: no need to handle errors here as we want to validate all objects always.
     }

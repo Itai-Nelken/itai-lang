@@ -10,6 +10,7 @@
 // add new types to error_type_to_string(), error_type_color() in Error.c
 typedef enum error_type {
     ERR_ERROR,
+    ERR_HINT
 } ErrorType;
 
 typedef struct error {

@@ -1,7 +1,0 @@
-/// expect error: Error: Redeclaration of struct 'T'.
-
-struct T {}
-struct T {}
-
-fn main() {}
-
