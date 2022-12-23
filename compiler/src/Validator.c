@@ -213,6 +213,7 @@ static Type *get_expr_type(Validator *v, ASTNode *expr) {
             ty = AS_OBJ_NODE(expr)->obj->data_type;
             break;
         case ND_PROPERTY_ACCESS:
+            // FIXME: this doesn't support nested property access.
             VERIFY(NODE_IS(AS_BINARY_NODE(expr)->rhs, ND_VARIABLE));
             ty = AS_OBJ_NODE(AS_BINARY_NODE(expr)->rhs)->obj->data_type;
             break;
@@ -464,6 +465,7 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
         }
         case ND_PROPERTY_ACCESS: {
             // FIXME: this doesn't allow nested property access (a.b.c for example).
+            VERIFY(NODE_IS(AS_BINARY_NODE(n)->lhs, ND_IDENTIFIER));
             ASTString name = AS_IDENTIFIER_NODE(AS_BINARY_NODE(n)->lhs)->identifier;
             ASTNode *var = validate_ast(v, AS_BINARY_NODE(n)->lhs); // validate_ast() so the id node is replaced.
             if(!var) {
