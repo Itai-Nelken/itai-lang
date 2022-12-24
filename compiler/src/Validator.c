@@ -215,7 +215,8 @@ static Type *get_expr_type(Validator *v, ASTNode *expr) {
             ty = AS_OBJ_NODE(expr)->obj->data_type;
             break;
         case ND_PROPERTY_ACCESS:
-            // FIXME: this doesn't support nested property access.
+            // The type of a property access expression is the right-most
+            // node, for example: the type of the expression a.b.c is the type of c.
             VERIFY(NODE_IS(AS_BINARY_NODE(expr)->rhs, ND_VARIABLE));
             ty = AS_OBJ_NODE(AS_BINARY_NODE(expr)->rhs)->obj->data_type;
             break;
@@ -666,14 +667,7 @@ static void validate_module_callback(void *module, usize index, void *validator)
 
 static bool typecheck_assignment(Validator *v, ASTNode *n) {
     TRY(typecheck_ast(v, AS_BINARY_NODE(n)->rhs));
-    // FIXME: support nested property access.
-    ASTNode *var_node = NODE_IS(AS_BINARY_NODE(n)->lhs, ND_PROPERTY_ACCESS)
-                      ? AS_BINARY_NODE(AS_BINARY_NODE(n)->lhs)->lhs : AS_BINARY_NODE(n)->lhs;
-    VERIFY(NODE_IS(var_node, ND_VARIABLE) || NODE_IS(var_node, ND_VAR_DECL));
-    // FIXME: support nested property access.
-    Type *lhs_ty = NODE_IS(AS_BINARY_NODE(n)->lhs, ND_PROPERTY_ACCESS)
-                 ? AS_OBJ_NODE(AS_BINARY_NODE(AS_BINARY_NODE(n)->lhs)->rhs)->obj->data_type
-                 : AS_OBJ_NODE(var_node)->obj->data_type;
+    Type *lhs_ty = get_expr_type(v, AS_BINARY_NODE(n)->lhs);
     Type *rhs_ty = get_expr_type(v, AS_BINARY_NODE(n)->rhs);
     // allow assigning number literals to variables with unsigned types.
     if(IS_NUMERIC(lhs_ty) && IS_NUMERIC(rhs_ty) &&

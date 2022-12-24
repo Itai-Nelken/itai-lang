@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h> // strlen
 #include "common.h"
 #include "memory.h"
 #include "Strings.h"
@@ -45,7 +46,14 @@ static void free_type_callback(TableItem *item, bool is_last, void *cl) {
 
 static unsigned hash_type(void *type) {
     Type *ty = (Type *)type;
-    return (ty->type + (uintptr_t)ty->name) >> 2; // implicitly cast to 'unsigned', so extra bits are discarded.
+    // hash the name using the fnv-la string hashing algorithm.
+    unsigned length = (unsigned)strlen(ty->name);
+    unsigned hash = 2166136261u;
+    for(unsigned i = 0; i < length; ++i) {
+        hash ^= (char)ty->name[i];
+        hash *= 16777619;
+    }
+    return (ty->type + (uintptr_t)hash) >> 2; // implicitly cast to 'unsigned', so extra bits are discarded.
 }
 
 static bool compare_type(void *a, void *b) {
