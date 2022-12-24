@@ -7,6 +7,7 @@ add_compile_options(-Wall -Wextra -Werror)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(sources
+    src/Arena.c
     src/Array.c
     src/Ast.c
     src/Codegen.c

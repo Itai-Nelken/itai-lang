@@ -16,6 +16,7 @@ void parserInit(Parser *p, Scanner *s, Compiler *c) {
     p->program = NULL;
     p->dump_tokens = false;
     p->current.module = 0;
+    p->current.allocator = NULL;
     p->current.function = NULL;
     p->current.scope = NULL;
     p->can_assign = false;
@@ -35,6 +36,7 @@ void parserFree(Parser *p) {
     p->program = NULL;
     p->dump_tokens = false;
     p->current.module = 0;
+    p->current.allocator = NULL;
     p->current.function = NULL;
     p->can_assign = false;
     p->previous_token.type = TK_GARBAGE;
@@ -181,15 +183,14 @@ static inline void leave_function(Parser *p) {
 
 /* Helper macros */
 
-#define TRY(type, result, on_null) ({ \
+#define TRY(type, result) ({ \
  type _tmp = (result);\
  if(!_tmp) { \
-    astNodeFree((on_null), true); \
     return NULL; \
  } \
 _tmp;})
 
-#define TRY_CONSUME(parser, expected, on_null) TRY(bool, consume(parser, expected), on_null)
+#define TRY_CONSUME(parser, expected) TRY(bool, consume(parser, expected))
 
 /** Expression parser ***/
 
@@ -272,16 +273,16 @@ static ParseRule *get_rule(TokenType type) {
 }
 
 static ASTString parse_identifier(Parser *p) {
-    TRY_CONSUME(p, TK_IDENTIFIER, 0);
+    TRY_CONSUME(p, TK_IDENTIFIER);
     return astProgramAddString(p->program, stringNCopy(previous(p).lexeme, previous(p).length));
 }
 
 static ASTNode *parse_identifier_expr(Parser *p) {
     ASTString str = astProgramAddString(p->program, stringNCopy(previous(p).lexeme, previous(p).length));
-    ASTNode *id_node = astNewIdentifierNode(previous(p).location, str);
+    ASTNode *id_node = astNewIdentifierNode(p->current.allocator, previous(p).location, str);
     if(p->can_assign && match(p, TK_EQUAL)) {
-        ASTNode *rhs = TRY(ASTNode *, parse_expression(p), id_node);
-        return astNewBinaryNode(ND_ASSIGN, locationMerge(id_node->location, rhs->location), id_node, rhs);
+        ASTNode *rhs = TRY(ASTNode *, parse_expression(p));
+        return astNewBinaryNode(p->current.allocator, ND_ASSIGN, locationMerge(id_node->location, rhs->location), id_node, rhs);
     }
     return id_node;
 }
@@ -290,24 +291,24 @@ static ASTNode *parse_number_literal_expr(Parser *p) {
     // TODO: Support hex, octal & binary.
     u64 value = strtoul(previous(p).lexeme, NULL, 10);
     // TODO: parse postfix typese (e.g. 123u32)
-    return astNewLiteralValueNode(ND_NUMBER_LITERAL, previous(p).location, LITERAL_VALUE(LIT_NUMBER, number, value));
+    return astNewLiteralValueNode(p->current.allocator, ND_NUMBER_LITERAL, previous(p).location, LITERAL_VALUE(LIT_NUMBER, number, value));
 }
 
 static ASTNode *parse_grouping_expr(Parser *p) {
-    ASTNode *expr = TRY(ASTNode *, parse_expression(p), 0);
-    TRY_CONSUME(p, TK_RPAREN, expr);
+    ASTNode *expr = TRY(ASTNode *, parse_expression(p));
+    TRY_CONSUME(p, TK_RPAREN);
     return expr;
 }
 
 static ASTNode *parse_unary_expr(Parser *p) {
     Token operator = previous(p);
-    ASTNode *operand = TRY(ASTNode *, parse_precedence(p, PREC_UNARY), 0);
+    ASTNode *operand = TRY(ASTNode *, parse_precedence(p, PREC_UNARY));
 
     switch(operator.type) {
         case TK_PLUS:
             return operand;
         case TK_MINUS:
-            return astNewUnaryNode(ND_NEGATE, locationMerge(operator.location, operand->location), operand);
+            return astNewUnaryNode(p->current.allocator, ND_NEGATE, locationMerge(operator.location, operand->location), operand);
         default: UNREACHABLE();
     }
 }
@@ -315,7 +316,7 @@ static ASTNode *parse_unary_expr(Parser *p) {
 static ASTNode *parse_binary_expr(Parser *p, ASTNode *lhs) {
     TokenType op = previous(p).type;
     ParseRule *rule = get_rule(op);
-    ASTNode *rhs = TRY(ASTNode *, parse_precedence(p, rule->precedence), lhs);
+    ASTNode *rhs = TRY(ASTNode *, parse_precedence(p, rule->precedence));
 
     ASTNodeType node_type;
     switch(op) {
@@ -331,34 +332,42 @@ static ASTNode *parse_binary_expr(Parser *p, ASTNode *lhs) {
         case TK_GREATER_EQUAL: node_type = ND_GE; break;
         default: UNREACHABLE();
     }
-    return astNewBinaryNode(node_type, locationMerge(lhs->location, rhs->location), lhs, rhs);
+    return astNewBinaryNode(p->current.allocator, node_type, locationMerge(lhs->location, rhs->location), lhs, rhs);
 }
 
 static ASTNode *parse_call_expr(Parser *p, ASTNode *callee) {
-    // FIXME:How to represent an empty ScopeID?
-    ASTListNode *arguments = AS_LIST_NODE(astNewListNode(ND_ARGS, current(p).location, (ScopeID){0, 0}));
+    Location loc = current(p).location;
+    Array args;
+    arrayInit(&args);
     if(current(p).type != TK_RPAREN) {
         do {
             ASTNode *arg = parse_expression(p);
             if(!arg) {
                 continue;
             }
-            arrayPush(&arguments->nodes, (void *)arg);
-            arguments->header.location = locationMerge(arguments->header.location, arg->location);
+            arrayPush(&args, (void *)arg);
+            loc = locationMerge(loc, previous(p).location);
         } while(match(p, TK_COMMA));
     }
-    TRY_CONSUME(p, TK_RPAREN, callee);
-    return astNewBinaryNode(ND_CALL, locationMerge(callee->location, previous(p).location), callee, AS_NODE(arguments));
+    if(!consume(p, TK_RPAREN)) {
+        arrayFree(&args);
+        return NULL;
+    }
+    // FIXME: How to represent an empty ScopeID?
+    ASTListNode *arguments = AS_LIST_NODE(astNewListNode(p->current.allocator, ND_ARGS, loc, (ScopeID){0, 0}, arrayLength(&args)));
+    arrayCopy(&arguments->nodes, &args);
+    arrayFree(&args);
+    return astNewBinaryNode(p->current.allocator, ND_CALL, locationMerge(callee->location, previous(p).location), callee, AS_NODE(arguments));
 }
 
 static ASTNode *parse_property_access_expr(Parser *p, ASTNode *lhs) {
-    ASTString property_name = TRY(ASTString, parse_identifier(p), lhs);
+    ASTString property_name = TRY(ASTString, parse_identifier(p));
     Location property_name_loc = previous(p).location;
 
-    ASTNode *n = astNewBinaryNode(ND_PROPERTY_ACCESS, locationMerge(lhs->location, property_name_loc), lhs, astNewIdentifierNode(property_name_loc, property_name));
+    ASTNode *n = astNewBinaryNode(p->current.allocator, ND_PROPERTY_ACCESS, locationMerge(lhs->location, property_name_loc), lhs, astNewIdentifierNode(p->current.allocator, property_name_loc, property_name));
     if(p->can_assign && match(p, TK_EQUAL)) {
-        ASTNode *value = TRY(ASTNode *, parse_expression(p), n);
-        n = astNewBinaryNode(ND_ASSIGN, locationMerge(n->location, previous(p).location), n, value);
+        ASTNode *value = TRY(ASTNode *, parse_expression(p));
+        n = astNewBinaryNode(p->current.allocator, ND_ASSIGN, locationMerge(n->location, previous(p).location), n, value);
     }
     return n;
 }
@@ -390,7 +399,6 @@ static ASTNode *parse_precedence(Parser *p, Precedence min_prec) {
 
     if(p->can_assign && match(p, TK_EQUAL)) {
         error_at(p, tree->location, "Invalid assignmet target.");
-        astNodeFree(tree, true);
         // Don't return here as we need to restore 'can_assign'.
         tree = NULL;
     }
@@ -430,14 +438,15 @@ static ControlFlow statement_control_flow(ASTNode *stmt) {
 
 static ASTNode *parse_block(Parser *p, ScopeID scope, ASTNode *(*parse_callback)(Parser *p)) {
     // Assume '{' was already consumed.
-    ASTListNode *n = AS_LIST_NODE(astNewListNode(ND_BLOCK, locationNew(0, 0, 0), scope));
     Location start = previous(p).location;
     ControlFlow cf = CF_NEVER_RETURNS;
+    Array nodes;
+    arrayInit(&nodes);
 
     while(!is_eof(p) && current(p).type != TK_RBRACE) {
         ASTNode *node = parse_callback(p);
         if(node) {
-            arrayPush(&n->nodes, (void *)node);
+            arrayPush(&nodes, (void *)node);
             cf = controlFlowUpdate(cf, statement_control_flow(node));
         } else {
             // synchronize to statement boundaries
@@ -452,16 +461,21 @@ static ASTNode *parse_block(Parser *p, ScopeID scope, ASTNode *(*parse_callback)
             }
         }
     }
-    TRY_CONSUME(p, TK_RBRACE, AS_NODE(n));
+    if(!consume(p, TK_RBRACE)) {
+        arrayFree(&nodes);
+        return NULL;
+    }
 
-    n->header.location = locationMerge(start, previous(p).location);
+    ASTListNode *n = AS_LIST_NODE(astNewListNode(p->current.allocator, ND_BLOCK, locationMerge(start, previous(p).location), scope, arrayLength(&nodes)));
+    arrayCopy(&n->nodes, &nodes);
+    arrayFree(&nodes);
     n->control_flow = cf;
     return AS_NODE(n);
 }
 
 static ASTNode *parse_expression_stmt(Parser *p) {
-    ASTNode *expr = TRY(ASTNode *, parse_expression(p), 0);
-    TRY_CONSUME(p, TK_SEMICOLON, expr);
+    ASTNode *expr = TRY(ASTNode *, parse_expression(p));
+    TRY_CONSUME(p, TK_SEMICOLON);
     return expr;
 }
 
@@ -470,59 +484,47 @@ static ASTNode *parse_return_stmt(Parser *p) {
     Location start = previous(p).location;
     ASTNode *operand = NULL;
     if(current(p).type != TK_SEMICOLON) {
-        operand = TRY(ASTNode *, parse_expression(p), 0);
+        operand = TRY(ASTNode *, parse_expression(p));
     }
-    TRY_CONSUME(p, TK_SEMICOLON, operand);
+    TRY_CONSUME(p, TK_SEMICOLON);
 
-    return astNewUnaryNode(ND_RETURN, locationMerge(start, previous(p).location), operand);
+    return astNewUnaryNode(p->current.allocator, ND_RETURN, locationMerge(start, previous(p).location), operand);
 }
 
 static ASTNode *parse_function_body(Parser *p);
 static ASTNode *parse_if_stmt(Parser *p) {
     // Assume 'if' is already consumed.
     Location start = previous(p).location;
-    ASTNode *condition = TRY(ASTNode *, parse_expression(p), 0);
-    TRY_CONSUME(p, TK_LBRACE, condition);
+    ASTNode *condition = TRY(ASTNode *, parse_expression(p));
+    TRY_CONSUME(p, TK_LBRACE);
     ScopeID scope = enter_scope(p);
-    ASTNode *body = TRY(ASTNode *, parse_block(p, scope, parse_function_body), condition);
+    ASTNode *body = TRY(ASTNode *, parse_block(p, scope, parse_function_body));
     leave_scope(p);
 
     ASTNode *else_ = NULL;
     if(match(p, TK_ELSE)) {
         if(match(p, TK_IF)) {
-            if((else_ = parse_if_stmt(p)) == NULL) {
-                astNodeFree(condition, true);
-                astNodeFree(body, true);
-                return NULL;
-            }
+            else_ = TRY(ASTNode *, parse_if_stmt(p));
         } else {
-            if(!consume(p, TK_LBRACE)) {
-                astNodeFree(condition, true);
-                astNodeFree(body, true);
-                return NULL;
-            }
+            TRY_CONSUME(p, TK_LBRACE);
             scope = enter_scope(p);
-            if((else_ = parse_block(p, scope, parse_function_body)) == NULL) {
-                astNodeFree(condition, true);
-                astNodeFree(body, true);
-                return NULL;
-            }
+            else_ = TRY(ASTNode *, parse_block(p, scope, parse_function_body));
             leave_scope(p);
         }
     }
 
-    return astNewConditionalNode(ND_IF, locationMerge(start, previous(p).location), condition, body, else_);
+    return astNewConditionalNode(p->current.allocator, ND_IF, locationMerge(start, previous(p).location), condition, body, else_);
 }
 
 static ASTNode *parse_while_loop_stmt(Parser *p) {
     // Assume 'while' is already consumed.
     Location start = previous(p).location;
-    ASTNode *condition = TRY(ASTNode *, parse_expression(p), 0);
-    TRY_CONSUME(p, TK_LBRACE, condition);
+    ASTNode *condition = TRY(ASTNode *, parse_expression(p));
+    TRY_CONSUME(p, TK_LBRACE);
     ScopeID scope = enter_scope(p);
-    ASTNode *body = TRY(ASTNode *, parse_block(p, scope, parse_function_body), condition);
+    ASTNode *body = TRY(ASTNode *, parse_block(p, scope, parse_function_body));
     leave_scope(p);
-    return astNewLoopNode(locationMerge(start, previous(p).location), NULL, condition, NULL, body);
+    return astNewLoopNode(p->current.allocator, locationMerge(start, previous(p).location), NULL, condition, NULL, body);
 }
 
 static ASTNode *parse_statement(Parser *p) {
@@ -601,7 +603,7 @@ static Type *parse_function_type(Parser *p) {
     Location start = previous(p).location;
     Type *ty = NULL;
 
-    TRY_CONSUME(p, TK_LPAREN, 0);
+    TRY_CONSUME(p, TK_LPAREN);
     Array parameters; // Array<ASTObj *>
     arrayInit(&parameters);
     if(current(p).type != TK_RPAREN) {
@@ -634,7 +636,7 @@ free_param_array:
 
 // identifier_type -> identifier (The identifier has to be a type of a struct, enum, or type alias).
 static Type *parse_type_from_identifier(Parser *p) {
-    ASTString name = TRY(ASTString, parse_identifier(p), 0);
+    ASTString name = TRY(ASTString, parse_identifier(p));
     Location loc = previous(p).location;
     Type *ty;
     NEW0(ty);
@@ -646,9 +648,9 @@ static Type *parse_type_from_identifier(Parser *p) {
 // complex_type -> fn_type | identifier_type
 static Type *parse_complex_type(Parser *p) {
     if(match(p, TK_FN)) {
-        return TRY(Type *, parse_function_type(p), 0);
+        return TRY(Type *, parse_function_type(p));
     } else if(current(p).type == TK_IDENTIFIER) {
-        return TRY(Type *, parse_type_from_identifier(p), 0);
+        return TRY(Type *, parse_type_from_identifier(p));
     }
     error_at(p, current(p).location, "Expected typename.");
     return NULL;
@@ -658,7 +660,7 @@ static Type *parse_complex_type(Parser *p) {
 static Type *parse_type(Parser *p) {
     Type *ty = parse_primitive_type(p);
     if(!ty) {
-        ty = TRY(Type *, parse_complex_type(p), 0);
+        ty = TRY(Type *, parse_complex_type(p));
     }
     return ty;
 }
@@ -668,17 +670,17 @@ static Type *parse_type(Parser *p) {
 static ASTNode *parse_variable_decl(Parser *p, bool allow_initializer, Array *obj_array) {
     // Assumes 'var' was already consumed.
 
-    ASTString name = TRY(ASTString, parse_identifier(p), 0);
+    ASTString name = TRY(ASTString, parse_identifier(p));
     Location name_loc = previous(p).location;
 
     Type *type = NULL;
     if(match(p, TK_COLON)) {
-        type = TRY(Type *, parse_type(p), 0);
+        type = TRY(Type *, parse_type(p));
     }
 
     ASTNode *initializer = NULL;
     if(allow_initializer && match(p, TK_EQUAL)) {
-        initializer = TRY(ASTNode *, parse_expression(p), 0);
+        initializer = TRY(ASTNode *, parse_expression(p));
     }
 
     ASTObj *var = astNewObj(OBJ_VAR, name_loc, name_loc, name, type);
@@ -692,9 +694,9 @@ static ASTNode *parse_variable_decl(Parser *p, bool allow_initializer, Array *ob
 
     // includes everything from the 'var' to the ';'.
     Location full_loc = locationMerge(name_loc, previous(p).location);
-    ASTNode *var_node = astNewObjNode(ND_VAR_DECL, name_loc, var);
+    ASTNode *var_node = astNewObjNode(p->current.allocator, ND_VAR_DECL, name_loc, var);
     if(initializer != NULL) {
-        return astNewBinaryNode(ND_ASSIGN, full_loc, var_node, initializer);
+        return astNewBinaryNode(p->current.allocator, ND_ASSIGN, full_loc, var_node, initializer);
     }
     return var_node;
 }
@@ -703,7 +705,7 @@ static ASTNode *parse_variable_decl(Parser *p, bool allow_initializer, Array *ob
 static ASTObj *parse_struct_decl(Parser *p) {
     // Assumes 'struct' was already consumed.
 
-    ASTString name = TRY(ASTString, parse_identifier(p), 0);
+    ASTString name = TRY(ASTString, parse_identifier(p));
     Location name_loc = previous(p).location;
 
     ASTObj *structure = astNewObj(OBJ_STRUCT, name_loc, name_loc, name, NULL);
@@ -713,8 +715,7 @@ static ASTObj *parse_struct_decl(Parser *p) {
         return NULL;
     }
     while(current(p).type != TK_RBRACE) {
-        ASTNode *member = parse_variable_decl(p, false, &structure->as.structure.fields);
-        astNodeFree(member, true);
+        parse_variable_decl(p, false, &structure->as.structure.fields);
         consume(p, TK_SEMICOLON);
     }
     if(!consume(p, TK_RBRACE)) {
@@ -733,8 +734,8 @@ static ASTNode *parse_function_body(Parser *p) {
 
     ASTNode *result = NULL;
     if(match(p, TK_VAR)) {
-        ASTNode *var_node = TRY(ASTNode *, parse_variable_decl(p, true, &p->current.function->as.fn.locals), 0);
-        TRY_CONSUME(p, TK_SEMICOLON, var_node);
+        ASTNode *var_node = TRY(ASTNode *, parse_variable_decl(p, true, &p->current.function->as.fn.locals));
+        TRY_CONSUME(p, TK_SEMICOLON);
         // Get the name of the variable to push to check
         // for redefinitions and to save in the current scope.
         ASTObj *var_obj = ARRAY_GET_AS(ASTObj *, &p->current.function->as.fn.locals, arrayLength(&p->current.function->as.fn.locals) - 1);
@@ -743,7 +744,6 @@ static ASTNode *parse_function_body(Parser *p) {
         if(existing_obj) {
             error_at(p, var_node->location, stringFormat("Redeclaration of local variable '%s'.", var_obj->name));
             hint(p, existing_obj->location, "Previous declaration here.");
-            astNodeFree(var_node, true);
             // NOTE: arrayPop() is used even though we already have a reference
             //       to the object we want to free because we also want to remove
             //       the object from the array.
@@ -779,7 +779,6 @@ static bool parse_parameter_list(Parser *p, Array *parameters) {
                 had_error = true;
             }
         }
-        astNodeFree(param_var, true);
     } while(match(p, TK_COMMA));
     if(!consume(p, TK_RPAREN)) {
         return false;
@@ -792,12 +791,12 @@ static ASTObj *parse_function_decl(Parser *p) {
     // Assumes 'fn' was already consumed.
     Location location = previous(p).location;
 
-    ASTString name = TRY(ASTString, parse_identifier(p), 0);
+    ASTString name = TRY(ASTString, parse_identifier(p));
     Location name_loc = previous(p).location;
 
     Array parameters; // Array<ASTObj *>
     arrayInit(&parameters);
-    TRY_CONSUME(p, TK_LPAREN, 0);
+    TRY_CONSUME(p, TK_LPAREN);
     if(!parse_parameter_list(p, &parameters)) {
         arrayMap(&parameters, free_object_callback, NULL);
         arrayFree(&parameters);
@@ -885,6 +884,7 @@ bool parserParse(Parser *p, ASTProgram *prog) {
     ASTModule *root_module = astModuleNew(astProgramAddString(prog, "___root_module___"));
     p->current.module = astProgramAddModule(prog, root_module);
     init_primitive_types(prog, root_module);
+    p->current.allocator = &root_module->ast_allocator.alloc;
 
     while(!is_eof(p)) {
         if(match(p, TK_FN)) {
@@ -895,7 +895,6 @@ bool parserParse(Parser *p, ASTProgram *prog) {
         } else if(match(p, TK_VAR)) {
             ASTNode *global = parse_variable_decl(p, true, &root_module->objects);
             if(!consume(p, TK_SEMICOLON)) {
-                astNodeFree(global, true);
                 continue;
             }
             if(global != NULL) {
@@ -915,6 +914,7 @@ bool parserParse(Parser *p, ASTProgram *prog) {
         }
     }
 
+    p->current.allocator = NULL;
     p->program = NULL;
     return !p->had_error;
 }

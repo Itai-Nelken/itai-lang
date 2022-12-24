@@ -15,10 +15,10 @@ static void free_string_callback(TableItem *item, bool is_last, void *cl) {
     stringFree((String)item->value);
 }
 
-static void free_node_callback(void *node, void *cl) {
-    UNUSED(cl);
-    astNodeFree(AS_NODE(node), true);
-}
+//static void free_node_callback(void *node, void *cl) {
+//    UNUSED(cl);
+//    astNodeFree(AS_NODE(node), true);
+//}
 
 static void free_object_callback(void *object, void *cl) {
     UNUSED(cl);
@@ -86,6 +86,8 @@ ASTModule *astModuleNew(ASTString name) {
     ASTModule *m;
     NEW0(m);
     m->name = name;
+    arenaInit(&m->ast_allocator.storage);
+    m->ast_allocator.alloc = arenaMakeAllocator(&m->ast_allocator.storage);
     arrayInit(&m->objects);
     arrayInit(&m->globals);
     tableInit(&m->types, hash_type, compare_type);
@@ -95,8 +97,9 @@ ASTModule *astModuleNew(ASTString name) {
 void astModuleFree(ASTModule *module) {
     arrayMap(&module->objects, free_object_callback, NULL);
     arrayFree(&module->objects);
-    arrayMap(&module->globals, free_node_callback, NULL);
+    //arrayMap(&module->globals, free_node_callback, NULL); // global nodes are owned by the arena.
     arrayFree(&module->globals);
+    arenaFree(&module->ast_allocator.storage);
     tableMap(&module->types, free_type_callback, NULL);
     tableFree(&module->types);
     FREE(module);
@@ -267,26 +270,26 @@ static inline ASTNode make_header(ASTNodeType type, Location loc) {
     };
 }
 
-ASTNode *astNewUnaryNode(ASTNodeType type, Location loc, ASTNode *operand) {
-    ASTUnaryNode *n;
-    NEW0(n);
+ASTNode *astNewUnaryNode(Allocator *a, ASTNodeType type, Location loc, ASTNode *operand) {
+    ASTUnaryNode *n = a->allocFn(a->arg, sizeof(*n));
+    //NEW0(n);
     n->header = make_header(type, loc);
     n->operand = operand;
     return AS_NODE(n);
 }
 
-ASTNode *astNewBinaryNode(ASTNodeType type, Location loc, ASTNode *lhs, ASTNode *rhs) {
-    ASTBinaryNode *n;
-    NEW0(n);
+ASTNode *astNewBinaryNode(Allocator *a, ASTNodeType type, Location loc, ASTNode *lhs, ASTNode *rhs) {
+    ASTBinaryNode *n = a->allocFn(a->arg, sizeof(*n));
+    //NEW0(n);
     n->header = make_header(type, loc);
     n->lhs = lhs;
     n->rhs = rhs;
     return AS_NODE(n);
 }
 
-ASTNode *astNewConditionalNode(ASTNodeType type, Location loc, ASTNode *condition, ASTNode *body, ASTNode *else_) {
-    ASTConditionalNode *n;
-    NEW0(n);
+ASTNode *astNewConditionalNode(Allocator *a, ASTNodeType type, Location loc, ASTNode *condition, ASTNode *body, ASTNode *else_) {
+    ASTConditionalNode *n = a->allocFn(a->arg, sizeof(*n));
+    //NEW0(n);
     n->header = make_header(type, loc);
     n->condition = condition;
     n->body = body;
@@ -294,9 +297,9 @@ ASTNode *astNewConditionalNode(ASTNodeType type, Location loc, ASTNode *conditio
     return AS_NODE(n);
 }
 
-ASTNode *astNewLoopNode(Location loc, ASTNode *init, ASTNode *cond, ASTNode *inc, ASTNode *body) {
-    ASTLoopNode *n;
-    NEW0(n);
+ASTNode *astNewLoopNode(Allocator *a, Location loc, ASTNode *init, ASTNode *cond, ASTNode *inc, ASTNode *body) {
+    ASTLoopNode *n = a->allocFn(a->arg, sizeof(*n));
+    //NEW0(n);
     n->header = make_header(ND_WHILE_LOOP, loc);
     n->initializer = init;
     n->condition = cond;
@@ -305,41 +308,42 @@ ASTNode *astNewLoopNode(Location loc, ASTNode *init, ASTNode *cond, ASTNode *inc
     return AS_NODE(n);
 }
 
-ASTNode *astNewLiteralValueNode(ASTNodeType type, Location loc, LiteralValue value) {
-    ASTLiteralValueNode *n;
-    NEW0(n);
+ASTNode *astNewLiteralValueNode(Allocator *a, ASTNodeType type, Location loc, LiteralValue value) {
+    ASTLiteralValueNode *n = a->allocFn(a->arg, sizeof(*n));
+    //NEW0(n);
     n->header = make_header(type, loc);
     n->value = value;
     return AS_NODE(n);
 }
 
-ASTNode *astNewObjNode(ASTNodeType type, Location loc, ASTObj *obj) {
-    ASTObjNode *n;
-    NEW0(n);
+ASTNode *astNewObjNode(Allocator *a, ASTNodeType type, Location loc, ASTObj *obj) {
+    ASTObjNode *n = a->allocFn(a->arg, sizeof(*n));
+    //NEW0(n);
     n->header = make_header(type, loc);
     n->obj = obj;
     return AS_NODE(n);
 }
 
-ASTNode *astNewIdentifierNode(Location loc, ASTString str) {
-    ASTIdentifierNode *n;
-    NEW0(n);
+ASTNode *astNewIdentifierNode(Allocator *a, Location loc, ASTString str) {
+    ASTIdentifierNode *n = a->allocFn(a->arg, sizeof(*n));
+    //NEW0(n);
     n->header = make_header(ND_IDENTIFIER, loc);
     n->identifier = str;
     return AS_NODE(n);
 }
 
-ASTNode *astNewListNode(ASTNodeType type, Location loc, ScopeID scope) {
-    ASTListNode *n;
-    NEW0(n);
+ASTNode *astNewListNode(Allocator *a, ASTNodeType type, Location loc, ScopeID scope, size_t node_count) {
+    ASTListNode *n = a->allocFn(a->arg, sizeof(*n));
+    //NEW0(n);
     n->header = make_header(type, loc);
     n->scope = scope;
     n->control_flow = CF_NONE;
-    arrayInit(&n->nodes);
+    arrayInitAllocatorSized(&n->nodes, *a, node_count);
 
     return AS_NODE(n);
 }
 
+/*
 void astNodeFree(ASTNode *n, bool recursive) {
     if(n == NULL) {
         return;
@@ -402,6 +406,7 @@ void astNodeFree(ASTNode *n, bool recursive) {
     }
     FREE(n);
 }
+*/
 
 static const char *node_name(ASTNodeType type) {
     switch(type) {
@@ -597,7 +602,7 @@ void astObjFree(ASTObj *obj) {
             arrayMap(&obj->as.fn.locals, free_object_callback, NULL);
             arrayFree(&obj->as.fn.locals);
             blockScopeFree(obj->as.fn.scopes);
-            astNodeFree(AS_NODE(obj->as.fn.body), true);
+            //astNodeFree(AS_NODE(obj->as.fn.body), true); // body is owned by parent module.
             break;
         case OBJ_STRUCT:
             arrayMap(&obj->as.structure.fields, free_object_callback, NULL);

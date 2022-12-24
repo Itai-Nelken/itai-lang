@@ -2,12 +2,14 @@
 #define ARRAYS_H
 
 #include <stddef.h> // size_t
+#include "memory.h" // Allocator
 
 #define ARRAY_INITIAL_CAPACITY 8
 
 typedef struct array {
     void **data;
     size_t used, capacity;
+    Allocator allocator;
 } Array;
 
 /***
@@ -25,6 +27,15 @@ void arrayInit(Array *a);
  * @param size The size.
  ***/
 void arrayInitSized(Array *a, size_t size);
+
+/***
+ * Initialize an Array using allocator [alloc] with size [size].
+ *
+ * @param a The Array to initialize.
+ * @param alloc The allocator to use.
+ * @param size The size.
+ ***/
+void arrayInitAllocatorSized(Array *a, Allocator alloc, size_t size);
 
 /***
  * Free an Array.

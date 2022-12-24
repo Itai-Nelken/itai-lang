@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <assert.h>
+#include "common.h"
 #include "memory.h"
 #include "Array.h"
 
@@ -7,14 +8,43 @@ void arrayInit(Array *a) {
     arrayInitSized(a, ARRAY_INITIAL_CAPACITY);
 }
 
+static void *alloc_fn(void *arg, size_t size) {
+    UNUSED(arg);
+    return calloc(1, size);
+}
+
+static void *realloc_fn(void *arg, void *ptr, size_t size) {
+    UNUSED(arg);
+    return realloc(ptr, size);
+}
+
+static void free_fn(void *arg, void *ptr) {
+    UNUSED(arg);
+    free(ptr);
+}
+
 void arrayInitSized(Array *a, size_t size) {
+    a->allocator = (Allocator){
+        .allocFn = alloc_fn,
+        .reallocFn = realloc_fn,
+        .freeFn = free_fn,
+        .arg = NULL
+    };
     a->used = 0;
     a->capacity = size == 0 ? ARRAY_INITIAL_CAPACITY : size;
-    a->data = CALLOC(a->capacity, sizeof(void *));
+    a->data = a->allocator.allocFn(a->allocator.arg, a->capacity * sizeof(void *));
+}
+
+void arrayInitAllocatorSized(Array *a, Allocator alloc, size_t size) {
+    a->allocator = alloc;
+    // TODO: un-duplicate with arrayInitSized().
+    a->used = 0;
+    a->capacity = size == 0 ? ARRAY_INITIAL_CAPACITY : size;
+    a->data = a->allocator.allocFn(a->allocator.arg, a->capacity * sizeof(void *));
 }
 
 void arrayFree(Array *a) {
-    FREE(a->data);
+    a->allocator.freeFn(a->allocator.arg, a->data);
     a->data = NULL;
     a->used = a->capacity = 0;
 }
@@ -26,7 +56,7 @@ size_t arrayLength(Array *a) {
 size_t arrayPush(Array *a, void *value) {
     if(a->used + 1 > a->capacity) {
         a->capacity *= 2;
-        a->data = REALLOC(a->data, sizeof(void *) * a->capacity);
+        a->data = a->allocator.reallocFn(a->allocator.arg, a->data, sizeof(void *) * a->capacity);
     }
     a->data[a->used++] = value;
     return a->used - 1;

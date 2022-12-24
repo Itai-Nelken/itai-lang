@@ -2,6 +2,7 @@
 #define VALIDATOR_H
 
 #include <stdbool.h>
+#include "memory.h" // Allocator
 #include "Table.h"
 #include "Compiler.h"
 #include "Ast.h"
@@ -10,6 +11,7 @@ typedef struct validator {
     Compiler *compiler;
     ASTProgram *program;
     ModuleID current_module;
+    Allocator *current_allocator;
     ASTObj *current_function;
     BlockScope *current_scope;
     Table global_ids_in_current_module; // Table<ASTString, void>

@@ -16,6 +16,7 @@ void validatorInit(Validator *v, Compiler *c) {
     v->compiler = c;
     v->program = NULL;
     v->current_module = 0;
+    v->current_allocator = NULL;
     v->current_function = NULL;
     v->current_scope = NULL;
     v->found_main = false;
@@ -28,6 +29,7 @@ void validatorFree(Validator *v) {
     v->compiler = NULL;
     v->program = NULL;
     v->current_module = 0;
+    v->current_allocator = NULL;
     v->current_function = NULL;
     v->current_scope = NULL;
     v->found_main = false;
@@ -256,7 +258,7 @@ static ASTNode *validate_variable_declaration(Validator *v, ASTNode *decl) {
     // with a certain name is declared.
     // Also, the parser checks for re-declarations. so no need to re-check here.
     tableSet(&v->visible_locals_in_current_function, (void *)AS_OBJ_NODE(decl)->obj->name, (void *)AS_OBJ_NODE(decl)->obj);
-    return astNewObjNode(ND_VAR_DECL, decl->location, AS_OBJ_NODE(decl)->obj);
+    return astNewObjNode(v->current_allocator, ND_VAR_DECL, decl->location, AS_OBJ_NODE(decl)->obj);
 }
 
 // NOTE: ownership of [n] is taken.
@@ -264,21 +266,16 @@ static ASTNode *validate_assignment(Validator *v, ASTNode *n) {
     // 1) Validate [lhs], this will replace any identifier nodes with variable nodes (and check if the variable exists).
     ASTNode *lhs = validate_ast(v, AS_BINARY_NODE(n)->lhs);
     if(!lhs) {
-        astNodeFree(AS_BINARY_NODE(n)->rhs, true);
-        astNodeFree(n, false);
         return NULL;
     }
     if(!(NODE_IS(lhs, ND_VARIABLE) || NODE_IS(lhs, ND_VAR_DECL) || NODE_IS(lhs, ND_PROPERTY_ACCESS))) {
         error(v, lhs->location, "Invalid assignment target (only variables can be assigned).");
         AS_BINARY_NODE(n)->lhs = lhs; // hack to make the call below also free [lhs].
-        astNodeFree(n, true);
         return NULL;
     }
     // 2) Validate [rhs] - the expression whose value is being assigned to the variable.
     ASTNode *rhs = validate_ast(v, AS_BINARY_NODE(n)->rhs);
     if(!rhs) {
-        astNodeFree(lhs, true);
-        astNodeFree(n, false);
         return NULL;
     }
     // 3) If [lhs] is a variable declaration
@@ -300,9 +297,8 @@ static ASTNode *validate_assignment(Validator *v, ASTNode *n) {
     }
     // 4) Clean up.
     Location loc = n->location;
-    astNodeFree(n, false);
     // 5) Construct the validated assignment.
-    return astNewBinaryNode(ND_ASSIGN, loc, lhs, rhs);
+    return astNewBinaryNode(v->current_allocator, ND_ASSIGN, loc, lhs, rhs);
 }
 
 // NOTE: ownership of [n] is taken.
@@ -313,10 +309,11 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
             result = validate_variable_declaration(v, n);
             break;
         case ND_ASSIGN:
-            // NOTE: return early because validate_assignment() frees [n].
-            return validate_assignment(v, n);
+            // not relevant with arena -> // NOTE: return early because validate_assignment() frees [n].
+            result = validate_assignment(v, n);
+            break;
         case ND_BLOCK: {
-            ASTListNode *new_n = AS_LIST_NODE(astNewListNode(ND_BLOCK, n->location, AS_LIST_NODE(n)->scope));
+            ASTListNode *new_n = AS_LIST_NODE(astNewListNode(v->current_allocator, ND_BLOCK, n->location, AS_LIST_NODE(n)->scope, arrayLength(&AS_LIST_NODE(n)->nodes)));
             new_n->control_flow = AS_LIST_NODE(n)->control_flow;
             bool had_error = false;
             enter_scope(v, AS_LIST_NODE(n)->scope);
@@ -330,7 +327,6 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
             }
             leave_scope(v);
             if(had_error) {
-                astNodeFree(AS_NODE(new_n), true);
                 break;
             }
             result = AS_NODE(new_n);
@@ -341,7 +337,7 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
             ASTNode *operand = validate_ast(v, AS_UNARY_NODE(n)->operand);
             if(!operand)
                 break;
-            result = astNewUnaryNode(n->node_type, n->location, operand);
+            result = astNewUnaryNode(v->current_allocator, n->node_type, n->location, operand);
             break;
         }
         case ND_RETURN:
@@ -354,7 +350,7 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
                 ASTNode *operand = validate_ast(v, AS_UNARY_NODE(n)->operand);
                 if(!operand)
                     break;
-                result = astNewUnaryNode(n->node_type, n->location, operand);
+                result = astNewUnaryNode(v->current_allocator, n->node_type, n->location, operand);
             }
             break;
         // binary nodes
@@ -373,10 +369,9 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
                 break;
             ASTNode *rhs = validate_ast(v, AS_BINARY_NODE(n)->rhs);
             if(!rhs) {
-                astNodeFree(lhs, true);
                 break;
             }
-            result = astNewBinaryNode(n->node_type, n->location, lhs, rhs);
+            result = astNewBinaryNode(v->current_allocator, n->node_type, n->location, lhs, rhs);
             break;
         }
         case ND_IF: {
@@ -385,17 +380,14 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
                 break;
             ASTNode *body = validate_ast(v, AS_CONDITIONAL_NODE(n)->body);
             if(!body) {
-                astNodeFree(condition, true);
                 break;
             }
             ASTNode *else_ = validate_ast(v, AS_CONDITIONAL_NODE(n)->else_);
             if(!else_) {
-                astNodeFree(condition, true);
-                astNodeFree(body, true);
                 break;
             }
 
-            result = astNewConditionalNode(n->node_type, n->location, condition, body, else_);
+            result = astNewConditionalNode(v->current_allocator, n->node_type, n->location, condition, body, else_);
             break;
         }
         case ND_WHILE_LOOP: {
@@ -406,16 +398,14 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
                 break;
             ASTNode *body = validate_ast(v, AS_LOOP_NODE(n)->body);
             if(!body) {
-                astNodeFree(condition, true);
                 break;
             }
-            result = astNewLoopNode(n->location, NULL, condition, NULL, body);
+            result = astNewLoopNode(v->current_allocator, n->location, NULL, condition, NULL, body);
             break;
         }
         case ND_CALL: {
             ASTNode *callee_node = validate_ast(v, AS_BINARY_NODE(n)->lhs);
             if(!callee_node) {
-                astNodeFree(AS_BINARY_NODE(n)->rhs, true);
                 break;
             }
             ASTObj *callee = AS_OBJ_NODE(callee_node)->obj;
@@ -424,7 +414,7 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
                 error(v, n->location, "Called object '%s' of type '%s' isn't callable.", callee->name, type_name(callee->data_type));
                 return false;
             }
-            ASTListNode *new_args = AS_LIST_NODE(astNewListNode(ND_ARGS, arguments->header.location, arguments->scope));
+            ASTListNode *new_args = AS_LIST_NODE(astNewListNode(v->current_allocator, ND_ARGS, arguments->header.location, arguments->scope, arrayLength(&AS_LIST_NODE(arguments)->nodes)));
             for(usize i = 0; i < arguments->nodes.used; ++i) {
                 ASTNode *arg = validate_ast(v, ARRAY_GET_AS(ASTNode *, &arguments->nodes, i));
                 if(arg) {
@@ -441,8 +431,7 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
                       arguments->nodes.used);
             }
             // Free [arguments] (rhs) but not the actual nodes because they where already freed.
-            astNodeFree(AS_NODE(arguments), false);
-            result = astNewBinaryNode(n->node_type, n->location, callee_node, AS_NODE(new_args));
+            result = astNewBinaryNode(v->current_allocator, n->node_type, n->location, callee_node, AS_NODE(new_args));
             break;
         }
         case ND_IDENTIFIER: {
@@ -460,7 +449,7 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
                 error(v, n->location, "Undeclared variable '%s'.", obj->name);
                 break;
             }
-            result = astNewObjNode(obj->type == OBJ_VAR ? ND_VARIABLE : ND_FUNCTION, n->location, obj);
+            result = astNewObjNode(v->current_allocator, obj->type == OBJ_VAR ? ND_VARIABLE : ND_FUNCTION, n->location, obj);
             break;
         }
         case ND_PROPERTY_ACCESS: {
@@ -469,21 +458,16 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
             ASTString name = AS_IDENTIFIER_NODE(AS_BINARY_NODE(n)->lhs)->identifier;
             ASTNode *var = validate_ast(v, AS_BINARY_NODE(n)->lhs); // validate_ast() so the id node is replaced.
             if(!var) {
-                astNodeFree(AS_BINARY_NODE(n)->rhs, true);
                 break;
             }
             ASTIdentifierNode *property_name = AS_IDENTIFIER_NODE(AS_BINARY_NODE(n)->rhs);
             if(!(NODE_IS(var, ND_VARIABLE) && AS_OBJ_NODE(var)->obj->data_type)) {
-                // FIXME: The following somehow causes the enclosing binary node (if present) to be leaked.
                 error(v, var->location, "Symbol '%s' is not a variable.", name);
-                astNodeFree(var, true);
-                astNodeFree(AS_BINARY_NODE(n)->rhs, true);
                 break;
             }
             ASTObj *var_obj = AS_OBJ_NODE(var)->obj;
             if(var_obj->data_type->type != TY_STRUCT) {
                 error(v, property_name->header.location, "Field access on value of non-struct type '%s'.", type_name(var_obj->data_type));
-                astNodeFree(AS_NODE(property_name), true);
                 break;
             }
             ASTObj *s = find_struct(v, var_obj->data_type->name);
@@ -491,14 +475,12 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
             FOR(i, s->as.structure.fields) {
                 ASTObj *field = ARRAY_GET_AS(ASTObj *, &s->as.structure.fields, i);
                 if(field->name == property_name->identifier) {
-                    ASTNode *new_property_node = astNewObjNode(ND_VARIABLE, field->location, field);
-                    astNodeFree(AS_NODE(property_name), true);
-                    result = astNewBinaryNode(ND_PROPERTY_ACCESS, n->location, var, new_property_node);
+                    ASTNode *new_property_node = astNewObjNode(v->current_allocator, ND_VARIABLE, field->location, field);
+                    result = astNewBinaryNode(v->current_allocator, ND_PROPERTY_ACCESS, n->location, var, new_property_node);
                     goto property_access_name_case_label_end;
                 }
             }
             error(v, property_name->header.location, "Field '%s' doesn't exist in struct '%s'.", property_name->identifier, s->name);
-            astNodeFree(AS_NODE(property_name), true);
 property_access_name_case_label_end:
             break;
         }
@@ -512,7 +494,6 @@ property_access_name_case_label_end:
         default:
             UNREACHABLE();
     }
-    astNodeFree(n, false); // A node's children are NOT freed because they should be freed by the validating.
     return result;
 }
 
@@ -557,9 +538,8 @@ static bool validate_function(Validator *v, ASTObj *fn) {
     FOR(i, fn->as.fn.body->nodes) {
         ASTNode *n = ARRAY_GET_AS(ASTNode *, &fn->as.fn.body->nodes, i);
         ASTNode *new_n = validate_ast(v, n);
-        // Always insert [new_n], even if it is NULL
-        // as [n] is always freed so we want to get rid to any references to it.
-        // (astFreeNode() skips NULL nodes).
+        // It doesn't matter if [new_n] is NULL as it means there was an error
+        // and typechecking won't proceed.
         arrayInsert(&fn->as.fn.body->nodes, i, (void *)new_n);
     }
 
@@ -628,7 +608,6 @@ static ASTNode *validate_global_variable(Validator *v, ASTNode *g) {
     switch(g->node_type) {
         case ND_VAR_DECL:
             result = validate_variable_declaration(v, g);
-            astNodeFree(g, true);
             break;
         case ND_ASSIGN:
             VERIFY(NODE_IS(AS_BINARY_NODE(g)->lhs, ND_VAR_DECL));
@@ -644,6 +623,7 @@ static void validate_module_callback(void *module, usize index, void *validator)
     ASTModule *m = (ASTModule *)module;
     Validator *v = (Validator *)validator;
     v->current_module = (ModuleID)index;
+    v->current_allocator = &m->ast_allocator.alloc;
 
     FOR(i, m->globals) {
         ASTNode *g = ARRAY_GET_AS(ASTNode *, &m->globals, i);
@@ -679,6 +659,7 @@ static void validate_module_callback(void *module, usize index, void *validator)
         validate_object(v, obj); // Note: no need to handle errors here as we want to validate all objects always.
     }
     tableFree(&declared_structs);
+    v->current_allocator = NULL;
 }
 
 /** Typechecker **/

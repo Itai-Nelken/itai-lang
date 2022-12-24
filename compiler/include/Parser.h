@@ -5,6 +5,7 @@
 #include "Token.h"
 #include "Ast.h"
 #include "Scanner.h"
+#include "memory.h" // Allocator
 
 typedef struct parser {
     // input/output/errors
@@ -18,6 +19,7 @@ typedef struct parser {
     // current module/function
     struct {
         ModuleID module; // TODO: should be a stack (when multiple modules support is added).
+        Allocator *allocator; // TODO: change with modules (also using a stack>)
         ASTObj *function; // NOTE: should be a stack when closures are supported?
         BlockScope *scope;
     } current;

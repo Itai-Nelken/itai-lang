@@ -3,10 +3,12 @@
 
 #include <stdio.h>
 #include "common.h" // u64
+#include "memory.h" // Allocator
 #include "Token.h" // Location
 #include "Strings.h"
 #include "Table.h"
 #include "Types.h"
+#include "Arena.h"
 
 /** Types **/
 
@@ -215,6 +217,10 @@ typedef usize ModuleID;
 // which includes functions, structs, enums, global variables, types etc.
 typedef struct ast_module {
     ASTString name;
+    struct {
+        Arena storage;
+        Allocator alloc;
+    } ast_allocator;
     Array objects; // Array<ASTObj *>
     Array globals; // Array<ASTNode *> (ND_VARIABLE or ND_ASSIGN)
     Table types; // Table<ASTString, Type *>
@@ -315,27 +321,30 @@ ControlFlow controlFlowUpdate(ControlFlow old, ControlFlow new);
 /***
  * Create a new ASTUnaryNode.
  *
+ * @param a The allocator to use.
  * @param type The node type.
  * @param loc The Location of the node.
  * @param operand The operand.
  * @return The node as an ASTNode.
  ***/
-ASTNode *astNewUnaryNode(ASTNodeType type, Location loc, ASTNode *operand);
+ASTNode *astNewUnaryNode(Allocator *a, ASTNodeType type, Location loc, ASTNode *operand);
 
 /***
  * Create a new ASTBinaryNode.
  *
+ * @param a The allocator to use.
  * @param type The node type.
  * @param loc The Location of the node.
  * @param lhs The left child.
  * @param rhs The right child.
  * @return The node as an ASTNode.
  ***/
-ASTNode *astNewBinaryNode(ASTNodeType type, Location loc, ASTNode *lhs, ASTNode *rhs);
+ASTNode *astNewBinaryNode(Allocator *a, ASTNodeType type, Location loc, ASTNode *lhs, ASTNode *rhs);
 
 /***
  * Create a new ASTConditionalNode.
  *
+ * @param a The allocator to use.
  * @param type The node type.
  * @param loc The Location of the node.
  * @param condition The condition expression node.
@@ -343,11 +352,12 @@ ASTNode *astNewBinaryNode(ASTNodeType type, Location loc, ASTNode *lhs, ASTNode 
  * @param else_ The else_ block node.
  * @return The node as an ASTNode.
  ***/
-ASTNode *astNewConditionalNode(ASTNodeType type, Location loc, ASTNode *condition, ASTNode *body, ASTNode *else_);
+ASTNode *astNewConditionalNode(Allocator *a, ASTNodeType type, Location loc, ASTNode *condition, ASTNode *body, ASTNode *else_);
 
 /***
  * Create a new ASTLoopNode.
  *
+ * @param a The allocator to use.
  * @param loc The Location of the node.
  * @param init The initializer caluse expression node.
  * @param cond The condition caluse expression node.
@@ -355,55 +365,52 @@ ASTNode *astNewConditionalNode(ASTNodeType type, Location loc, ASTNode *conditio
  * @param body The body block node.
  * @return The node as an ASTNode.
  ***/
-ASTNode *astNewLoopNode(Location loc, ASTNode *init, ASTNode *cond, ASTNode *inc, ASTNode *body);
+ASTNode *astNewLoopNode(Allocator *a, Location loc, ASTNode *init, ASTNode *cond, ASTNode *inc, ASTNode *body);
 
 /***
  * Create a new ASTLiteralValueNode.
  *
+ * @param a The allocator to use.
  * @param type The node type.
  * @param loc The Location of the node.
  * @param value The LiteralValue to store in the node.
  * @return The node as an ASTNode.
  ***/
-ASTNode *astNewLiteralValueNode(ASTNodeType type, Location loc, LiteralValue value);
+ASTNode *astNewLiteralValueNode(Allocator *a, ASTNodeType type, Location loc, LiteralValue value);
 
 /***
  * Create a new ASTObjNode.
  * NOTE: Ownership of 'obj' is NOT taken.
  *
+ * @param a The allocator to use.
  * @param type The node type.
  * @param loc The Location of the node.
  * @param obj The ASTObj to store in the node.
  * @return The node as an ASTNode.
  ***/
-ASTNode *astNewObjNode(ASTNodeType type, Location loc, ASTObj *obj);
+ASTNode *astNewObjNode(Allocator *a, ASTNodeType type, Location loc, ASTObj *obj);
 
 /***
  * Create a new ASTIdentifierNode (node type: ND_IDENTIFIER).
  *
+ * @param a The allocator to use.
  * @param loc The Location of the node.
  * @param str The ASTString containing the identifier.
  * @return The node as an ASTNode.
  ***/
-ASTNode *astNewIdentifierNode(Location loc, ASTString str);
+ASTNode *astNewIdentifierNode(Allocator *a, Location loc, ASTString str);
 
 /***
  * Create a new ASTListNode.
  *
+ * @param a The Allocator to use to allocate the node.
  * @param type The type of the node.
  * @param loc The Location of the node.
  * @param scope The ScopeID of the block the node represents.
+ * @param node_count The amount of nodes (if unknown, can be 0).
  * @return The node as an ASTNode.
  ***/
-ASTNode *astNewListNode(ASTNodeType type, Location loc, ScopeID scope);
-
-/***
- * Free an AST.
- *
- * @param n The root node of the tree.
- * @param recursive Set to false to only free the node without its chidlren.
- ***/
-void astNodeFree(ASTNode *n, bool recursive);
+ASTNode *astNewListNode(Allocator *a, ASTNodeType type, Location loc, ScopeID scope, size_t node_count);
 
 /***
  * Print an AST.
