@@ -7,6 +7,7 @@
 
 // Can't include Ast.h ast it includes this file.
 typedef char *ASTString; // from Ast.h
+typedef usize ModuleID; // from Ast.h
 
 typedef enum type_type {
     TY_I32, TY_U32,
@@ -22,6 +23,7 @@ typedef struct type {
     TypeType type;
     ASTString name;
     Location decl_location;
+    ModuleID decl_module; // The module that contains the type.
     int size;
     //int align;
     union {
@@ -60,9 +62,10 @@ bool typeIsFunction(Type *ty);
  * @param ty The Type to initialize.
  * @param type The type of the Type.
  * @param name The type's name.
+ * @param decl_module The ModuleID of the module containing the type.
  * @param size The size of the type.
  ***/
-void typeInit(Type *ty, TypeType type, ASTString name, int size);
+void typeInit(Type *ty, TypeType type, ASTString name, ModuleID decl_module, int size);
 
 /***
  * Free a Type.

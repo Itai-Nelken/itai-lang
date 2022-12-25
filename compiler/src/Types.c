@@ -6,9 +6,10 @@
 #include "Array.h"
 #include "Types.h"
 
-void typeInit(Type *ty, TypeType type, ASTString name, int size) {
+void typeInit(Type *ty, TypeType type, ASTString name, ModuleID decl_module, int size) {
     ty->type = type;
     ty->name = name;
+    ty->decl_module = decl_module;
     ty->decl_location = locationNew(0, 0, 0); // FIXME: find a way to represent an empty location.
     ty->size = size;
     switch(type) {
@@ -117,7 +118,7 @@ bool typeIsFunction(Type *ty) {
 }
 
 bool typeEqual(Type *a, Type *b) {
-    // FIXME: no type should be represented as void/none instead of NULL.
+    // FIXME: no type should be represented as NULL, a void/none type should be used instead.
     if(!a || !b) {
         return false;
     }
@@ -125,7 +126,12 @@ bool typeEqual(Type *a, Type *b) {
     if(a->type != b->type) {
         return false;
     }
-    // from here on, both types have the same TY_* type.
+
+    if(a->decl_module != b->decl_module) {
+        return false;
+    }
+
+    // from here on, both types have the same TY_* type and are in the same module.
     if(a->type == TY_FN) {
         if(!typeEqual(a->as.fn.return_type, b->as.fn.return_type)) {
             return false;
@@ -151,6 +157,12 @@ bool typeEqual(Type *a, Type *b) {
             if(!typeEqual(a_field, b_field)) {
                 return false;
             }
+        }
+    } else if(a->type == TY_ID) {
+        // It is ok to check the names as we already made sure
+        // both types are in the same module.
+        if(!stringEqual(a->name, b->name)) {
+            return false;
         }
     }
 

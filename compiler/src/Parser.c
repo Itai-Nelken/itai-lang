@@ -562,7 +562,7 @@ static Type *new_fn_type(Parser *p, Type *return_type, Array parameters) {
     // FIXME: What should be the size of a function type?
     //        zero because functions cannot be stored (copied/cloned)?
     //        but what about closures/lambdas? the size of the implementing struct?
-    typeInit(ty, TY_FN, NULL, 0);
+    typeInit(ty, TY_FN, NULL, p->current.module, 0);
     ty->as.fn.return_type = return_type;
     
     String name = stringCopy("fn(");
@@ -585,7 +585,7 @@ static Type *new_struct_type(Parser *p, ASTString name, Array fields) {
     Type *ty;
     NEW0(ty);
     // FIXME: calculate the actual size of the struct.
-    typeInit(ty, TY_STRUCT, name, 0);
+    typeInit(ty, TY_STRUCT, name, p->current.module, 0);
     Array *field_types = &ty->as.structure.field_types;
     for(usize i = 0; i < fields.used; ++i) {
         ASTObj *member = ARRAY_GET_AS(ASTObj *, &fields, i);
@@ -640,7 +640,7 @@ static Type *parse_type_from_identifier(Parser *p) {
     Location loc = previous(p).location;
     Type *ty;
     NEW0(ty);
-    typeInit(ty, TY_ID, name, 0);
+    typeInit(ty, TY_ID, name, p->current.module, 0);
     ty->decl_location = loc;
     return astModuleAddType(astProgramGetModule(p->program, p->current.module), ty);
 }
@@ -859,7 +859,8 @@ static void synchronize(Parser *p) {
 }
 
 static void init_primitive_types(ASTProgram *prog, ASTModule *root_module) {
-#define DEF(typename, type, name, size) {Type *ty; NEW0(ty); typeInit(ty, (type), astProgramAddString(prog, (name)), (size)); prog->primitives.typename = astModuleAddType(root_module, ty);}
+// The ModuleID of the root module is always 0.
+#define DEF(typename, type, name, size) {Type *ty; NEW0(ty); typeInit(ty, (type), astProgramAddString(prog, (name)), 0, (size)); prog->primitives.typename = astModuleAddType(root_module, ty);}
 
     // NOTE: Update IS_PRIMITIVE() in Types.h when adding new primitives.
     DEF(int32, TY_I32, "i32", 4);
