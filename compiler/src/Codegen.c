@@ -128,8 +128,7 @@ static void gen_expr(Codegen *cg, ASTNode *expr) {
             print(cg, "%s", AS_OBJ_NODE(expr)->obj->name);
             break;
         case ND_PROPERTY_ACCESS:
-            // FIXME: this doesn't support nested property access.
-            print(cg, "%s.%s", AS_OBJ_NODE(AS_BINARY_NODE(expr)->lhs)->obj->name, AS_OBJ_NODE(AS_BINARY_NODE(expr)->rhs)->obj->name);
+            gen_variable(expr, cg);
             break;
         default:
             UNREACHABLE();
@@ -199,8 +198,22 @@ static void gen_variable(ASTNode *variable, Codegen *cg) {
         gen_type(cg, var->data_type);
         print(cg, " %s", var->name);
     } else if(NODE_IS(variable, ND_PROPERTY_ACCESS)) {
-        // FIXME: support nested property access.
-        print(cg, "%s.%s", AS_OBJ_NODE(AS_BINARY_NODE(variable)->lhs)->obj->name, AS_OBJ_NODE(AS_BINARY_NODE(variable)->rhs)->obj->name);
+        Array stack;
+        arrayInit(&stack);
+        while(NODE_IS(AS_BINARY_NODE(variable)->lhs, ND_PROPERTY_ACCESS)) {
+            arrayPush(&stack, (void *)AS_BINARY_NODE(variable)->rhs);
+            variable = AS_BINARY_NODE(variable)->lhs;
+        }
+        arrayPush(&stack, (void *)AS_BINARY_NODE(variable)->rhs);
+        arrayPush(&stack, (void *)AS_BINARY_NODE(variable)->lhs);
+        while(arrayLength(&stack) != 0) {
+            ASTObjNode *n = ARRAY_POP_AS(ASTObjNode *, &stack);
+            print(cg, "%s", n->obj->name);
+            if(arrayLength(&stack) != 0) {
+                print(cg, ".");
+            }
+        }
+        arrayFree(&stack);
     } else {
         UNREACHABLE();
     }

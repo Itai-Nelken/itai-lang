@@ -208,9 +208,8 @@ static Type *get_expr_type(Validator *v, ASTNode *expr) {
         case ND_NUMBER_LITERAL: // The default number literal type is i32.
             ty = v->program->primitives.int32;
             break;
+        case ND_VAR_DECL:
         case ND_VARIABLE:
-            ty = AS_OBJ_NODE(expr)->obj->data_type;
-            break;
         case ND_FUNCTION:
             ty = AS_OBJ_NODE(expr)->obj->data_type;
             break;
@@ -300,6 +299,19 @@ static ASTNode *validate_assignment(Validator *v, ASTNode *n) {
     Location loc = n->location;
     // 5) Construct the validated assignment.
     return astNewBinaryNode(v->current_allocator, ND_ASSIGN, loc, lhs, rhs);
+}
+
+void collect_ids_for_property_access(Array *s, ASTNode *n) {
+    VERIFY(NODE_IS(n, ND_PROPERTY_ACCESS));
+
+    while(NODE_IS(AS_BINARY_NODE(n)->lhs, ND_PROPERTY_ACCESS)) {
+        arrayPush(s, (void *)AS_BINARY_NODE(n)->rhs);
+        n = AS_BINARY_NODE(n)->lhs;
+    }
+    arrayPush(s, (void *)AS_BINARY_NODE(n)->rhs);
+    arrayPush(s, (void *)AS_BINARY_NODE(n)->lhs);
+    // [s] will now contain the identifier nodes from the property access expression.
+    // for example, [s] will be [c, b, a] for the expression a.b.c
 }
 
 // NOTE: ownership of [n] is taken.
@@ -454,35 +466,48 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
             break;
         }
         case ND_PROPERTY_ACCESS: {
-            // FIXME: this doesn't allow nested property access (a.b.c for example).
-            VERIFY(NODE_IS(AS_BINARY_NODE(n)->lhs, ND_IDENTIFIER));
-            ASTString name = AS_IDENTIFIER_NODE(AS_BINARY_NODE(n)->lhs)->identifier;
-            ASTNode *var = validate_ast(v, AS_BINARY_NODE(n)->lhs); // validate_ast() so the id node is replaced.
-            if(!var) {
+            Array stack;
+            arrayInit(&stack);
+            // a.b.c => [c, b, a]
+            collect_ids_for_property_access(&stack, n);
+            ASTNode *lhs = validate_ast(v, ARRAY_POP_AS(ASTNode *, &stack)); // The variable.
+            if(!lhs) {
                 break;
             }
-            ASTIdentifierNode *property_name = AS_IDENTIFIER_NODE(AS_BINARY_NODE(n)->rhs);
-            if(!(NODE_IS(var, ND_VARIABLE) && AS_OBJ_NODE(var)->obj->data_type)) {
-                error(v, var->location, "Symbol '%s' is not a variable.", name);
+            VERIFY(NODE_IS(lhs, ND_VARIABLE));
+            if(AS_OBJ_NODE(lhs)->obj->data_type == NULL) {
+                error(v, lhs->location, "Symbol '%s' is not a variable.", AS_OBJ_NODE(lhs)->obj->name);
                 break;
             }
-            ASTObj *var_obj = AS_OBJ_NODE(var)->obj;
-            if(var_obj->data_type->type != TY_STRUCT) {
-                error(v, property_name->header.location, "Field access on value of non-struct type '%s'.", type_name(var_obj->data_type));
-                break;
-            }
-            ASTObj *s = find_struct(v, var_obj->data_type->name);
-            VERIFY(s); // The struct should exist if its type exists.
-            FOR(i, s->as.structure.fields) {
-                ASTObj *field = ARRAY_GET_AS(ASTObj *, &s->as.structure.fields, i);
-                if(field->name == property_name->identifier) {
-                    ASTNode *new_property_node = astNewObjNode(v->current_allocator, ND_VARIABLE, field->location, field);
-                    result = astNewBinaryNode(v->current_allocator, ND_PROPERTY_ACCESS, n->location, var, new_property_node);
-                    goto property_access_name_case_label_end;
+            while(arrayLength(&stack) > 0) {
+                ASTNode *rhs = ARRAY_POP_AS(ASTNode *, &stack); // The field.
+                if(AS_OBJ_NODE(lhs)->obj->data_type->type != TY_STRUCT) {
+                    error(v, rhs->location, "Field access on value of non-struct type '%s'.", type_name(AS_OBJ_NODE(lhs)->obj->data_type));
+                    break;
+                }
+                ASTObj *s = find_struct(v, AS_OBJ_NODE(lhs)->obj->data_type->name);
+                VERIFY(s); // The struct should exist if its type exists.
+                bool found = false;
+                FOR(i, s->as.structure.fields) {
+                    ASTObj *field = ARRAY_GET_AS(ASTObj *, &s->as.structure.fields, i);
+                    if(field->name == AS_IDENTIFIER_NODE(rhs)->identifier) {
+                        ASTNode *new_property_node = astNewObjNode(v->current_allocator, ND_VARIABLE, field->location, field);
+                        if(result) {
+                            result = astNewBinaryNode(v->current_allocator, ND_PROPERTY_ACCESS, locationMerge(result->location, rhs->location), result, new_property_node);
+                        } else {
+                            result = astNewBinaryNode(v->current_allocator, ND_PROPERTY_ACCESS, locationMerge(lhs->location, rhs->location), lhs, new_property_node);
+                        }
+                        found = true;
+                        lhs = new_property_node;
+                        break;
+                    }
+                }
+                if(!found) {
+                    error(v, rhs->location, "Field '%s' doesn't exist in struct '%s'.", AS_IDENTIFIER_NODE(rhs)->identifier, s->name);
+                    break;
                 }
             }
-            error(v, property_name->header.location, "Field '%s' doesn't exist in struct '%s'.", property_name->identifier, s->name);
-property_access_name_case_label_end:
+            arrayFree(&stack);
             break;
         }
         // ignored nodes (no validating to do).

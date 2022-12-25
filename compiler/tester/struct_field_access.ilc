@@ -1,9 +1,13 @@
 /// expect success
 
+struct Value {
+	v: i32;
+}
+
 struct TestStruct {
 	a: i32;
 	b: i32;
-	total: i32;
+	total: Value;
 }
 
 fn calculate_total(test_struct: TestStruct) -> i32 {
@@ -14,8 +18,8 @@ fn main() -> i32 {
 	var instance: TestStruct;
 	instance.a = 40;
 	instance.b = 2;
-	instance.total = calculate_total(instance);
+	instance.total.v = calculate_total(instance);
 	var total = instance.total;
-	return total;
+	return total.v;
 }
 
