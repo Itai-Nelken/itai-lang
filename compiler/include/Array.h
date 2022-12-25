@@ -107,6 +107,13 @@ void arrayClear(Array *a);
 void arrayCopy(Array *dest, Array *src);
 
 /***
+ * Reverse an Array.
+ *
+ * @param a The Array to reverse.
+ ***/
+void arrayReverse(Array *a);
+
+/***
  * Call 'callback' for every element in the Array.
  *
  * @param a The Array to use.

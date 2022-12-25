@@ -92,6 +92,16 @@ void arrayCopy(Array *dest, Array *src) {
     }
 }
 
+void arrayReverse(Array *a) {
+    // The division below mught result in a float,
+    // in which case it is rounded down which is what we want.
+    for(size_t i = 0; i < a->used / 2; ++i) {
+        void *tmp = a->data[i];
+        a->data[i] = a->data[a->used - i - 1];
+        a->data[a->used - i - 1] = tmp;
+    }
+}
+
 void arrayMap(Array *a, void(*callback)(void *item, void *cl), void *cl) {
     for(size_t i = 0; i < a->used; ++i) {
         callback(a->data[i], cl);
