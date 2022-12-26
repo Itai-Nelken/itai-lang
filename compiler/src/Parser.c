@@ -447,7 +447,7 @@ static ASTNode *parse_block(Parser *p, ScopeID scope, ASTNode *(*parse_callback)
         ASTNode *node = parse_callback(p);
         if(node) {
             arrayPush(&nodes, (void *)node);
-            cf = controlFlowUpdate(cf, statement_control_flow(node));
+            cf = NODE_IS(node, ND_RETURN) ? CF_ALWAYS_RETURNS : controlFlowUpdate(cf, statement_control_flow(node));
         } else {
             // synchronize to statement boundaries
             // (statements also include variable declarations in this context).
