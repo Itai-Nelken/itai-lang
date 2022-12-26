@@ -287,3 +287,22 @@ Functions and global variables can be used before they are defined although this
 
 * There are no implicit type conversions.
 * To cast a value to another type, the `as<T>(T)` operator is used. It will panic if the conversion fails (overflow, underflow, incompatible types etc.). Some casts can be and are typechecked at compile-time.
+
+## Calling C functions (`extern` functions)
+It is possible to call C functions by declaring them as `extern`.
+For example, to call the following C function (assuming `int` is 32 bit):
+```c
+int add(int a, int b) {
+	return a + b;
+}
+```
+The following code is used:
+```rust
+#[file(add.o)]
+extern fn add(i32, i32) -> i32;
+
+fn main() -> i32 {
+	return add(40, 2);
+}
+```
+The C file has to be compiled to a object file (`.o`), and then the itai-lang compiler will link it to the program.
