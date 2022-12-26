@@ -1,0 +1,20 @@
+import "std/io";
+
+fn printMove(from: i32, to: i32) {
+	io::println("%d -> %d", from, to);
+}
+
+fn move(from: i32, to: i32, using: i32, count: i32) {
+	if(count == 1) {
+		printMove(from, to);
+		return;
+	}
+	move(from, using, to, count - 1);
+	move(from, to, 0, 1);
+	move(using, to, from, count - 1);
+}
+
+fn main() {
+	move(0, 2, 1, 3);
+}
+
