@@ -364,7 +364,9 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
                 if(!operand)
                     break;
                 result = astNewUnaryNode(v->current_allocator, n->node_type, n->location, operand);
+                break;
             }
+            result = astNewUnaryNode(v->current_allocator, n->node_type, n->location, NULL);
             break;
         // binary nodes
         case ND_ADD:
@@ -395,12 +397,16 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
             if(!body) {
                 break;
             }
-            ASTNode *else_ = validate_ast(v, AS_CONDITIONAL_NODE(n)->else_);
-            if(!else_) {
+            if(AS_CONDITIONAL_NODE(n)->else_) {
+                ASTNode *else_ = validate_ast(v, AS_CONDITIONAL_NODE(n)->else_);
+                if(!else_) {
+                    break;
+                }
+                result = astNewConditionalNode(v->current_allocator, n->node_type, n->location, condition, body, else_);
                 break;
             }
 
-            result = astNewConditionalNode(v->current_allocator, n->node_type, n->location, condition, body, else_);
+            result = astNewConditionalNode(v->current_allocator, n->node_type, n->location, condition, body, NULL);
             break;
         }
         case ND_WHILE_LOOP: {
