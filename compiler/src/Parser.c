@@ -436,6 +436,19 @@ static ControlFlow statement_control_flow(ASTNode *stmt) {
     return CF_NEVER_RETURNS;
 }
 
+static void synchronize_in_block(Parser *p) {
+    // synchronize to statement boundaries
+    // (statements also include variable declarations in this context).
+    while(!is_eof(p) && current(p).type != TK_RBRACE) {
+        TokenType c = current(p).type;
+        if(c == TK_VAR || c == TK_RETURN || c == TK_IF) {
+            break;
+        } else {
+            advance(p);
+        }
+    }
+}
+
 static ASTNode *parse_block(Parser *p, ScopeID scope, ASTNode *(*parse_callback)(Parser *p)) {
     // Assume '{' was already consumed.
     Location start = previous(p).location;
@@ -443,22 +456,26 @@ static ASTNode *parse_block(Parser *p, ScopeID scope, ASTNode *(*parse_callback)
     Array nodes;
     arrayInit(&nodes);
 
+    bool unreachable = false;
     while(!is_eof(p) && current(p).type != TK_RBRACE) {
         ASTNode *node = parse_callback(p);
+        if(unreachable) {
+            error_at(p, node->location, "Unreachable code.");
+            synchronize_in_block(p);
+            arrayFree(&nodes);
+            return NULL;
+        }
         if(node) {
             arrayPush(&nodes, (void *)node);
-            cf = NODE_IS(node, ND_RETURN) ? CF_ALWAYS_RETURNS : controlFlowUpdate(cf, statement_control_flow(node));
-        } else {
-            // synchronize to statement boundaries
-            // (statements also include variable declarations in this context).
-            while(!is_eof(p) && current(p).type != TK_RBRACE) {
-                TokenType c = current(p).type;
-                if(c == TK_VAR || c == TK_RETURN || c == TK_IF) {
-                    break;
-                } else {
-                    advance(p);
-                }
+            // depth == 1 means function scope.
+            if(NODE_IS(node, ND_RETURN) && scope.depth == 1) {
+                cf = CF_ALWAYS_RETURNS;
+                unreachable = true;
+            } else {
+                cf = controlFlowUpdate(cf, statement_control_flow(node));
             }
+        } else {
+            synchronize_in_block(p);
         }
     }
     if(!consume(p, TK_RBRACE)) {
