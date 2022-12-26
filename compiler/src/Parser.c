@@ -683,8 +683,9 @@ static Type *parse_type(Parser *p) {
 }
 
 // variable_decl -> 'var' identifier (':' type)? ('=' expression)? ';'
-// NOTE: the semicolon at the end isn't consumed.
-static ASTNode *parse_variable_decl(Parser *p, bool allow_initializer, Array *obj_array) {
+// Notes: 1) The semicolon at the end isn't consumed.
+//        2) [var_loc] may be NULL.
+static ASTNode *parse_variable_decl(Parser *p, bool allow_initializer, Array *obj_array, Location *var_loc) {
     // Assumes 'var' was already consumed.
 
     ASTString name = TRY(ASTString, parse_identifier(p));
@@ -711,6 +712,9 @@ static ASTNode *parse_variable_decl(Parser *p, bool allow_initializer, Array *ob
 
     // includes everything from the 'var' to the ';'.
     Location full_loc = locationMerge(name_loc, previous(p).location);
+    if(var_loc) {
+        full_loc = locationMerge(*var_loc, full_loc);
+    }
     ASTNode *var_node = astNewObjNode(p->current.allocator, ND_VAR_DECL, name_loc, var);
     if(initializer != NULL) {
         return astNewBinaryNode(p->current.allocator, ND_ASSIGN, full_loc, var_node, initializer);
@@ -732,7 +736,7 @@ static ASTObj *parse_struct_decl(Parser *p) {
         return NULL;
     }
     while(current(p).type != TK_RBRACE) {
-        parse_variable_decl(p, false, &structure->as.structure.fields);
+        parse_variable_decl(p, false, &structure->as.structure.fields, NULL);
         consume(p, TK_SEMICOLON);
     }
     if(!consume(p, TK_RBRACE)) {
@@ -751,7 +755,8 @@ static ASTNode *parse_function_body(Parser *p) {
 
     ASTNode *result = NULL;
     if(match(p, TK_VAR)) {
-        ASTNode *var_node = TRY(ASTNode *, parse_variable_decl(p, true, &p->current.function->as.fn.locals));
+        Location var_loc = previous(p).location;
+        ASTNode *var_node = TRY(ASTNode *, parse_variable_decl(p, true, &p->current.function->as.fn.locals, &var_loc));
         TRY_CONSUME(p, TK_SEMICOLON);
         // Get the name of the variable to push to check
         // for redefinitions and to save in the current scope.
@@ -786,7 +791,7 @@ static bool parse_parameter_list(Parser *p, Array *parameters) {
         return true;
     }
     do {
-        ASTNode *param_var = parse_variable_decl(p, false, parameters);
+        ASTNode *param_var = parse_variable_decl(p, false, parameters, NULL);
         if(!param_var) {
             had_error = true;
         } else {
@@ -911,7 +916,8 @@ bool parserParse(Parser *p, ASTProgram *prog) {
                 arrayPush(&root_module->objects, (void *)fn);
             }
         } else if(match(p, TK_VAR)) {
-            ASTNode *global = parse_variable_decl(p, true, &root_module->objects);
+            Location var_loc = previous(p).location;
+            ASTNode *global = parse_variable_decl(p, true, &root_module->objects, &var_loc);
             if(!consume(p, TK_SEMICOLON)) {
                 continue;
             }
