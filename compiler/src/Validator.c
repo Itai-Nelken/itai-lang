@@ -478,11 +478,15 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
             collect_ids_for_property_access(&stack, n);
             ASTNode *lhs = validate_ast(v, ARRAY_POP_AS(ASTNode *, &stack)); // The variable.
             if(!lhs) {
+                arrayFree(&stack);
                 break;
             }
             VERIFY(NODE_IS(lhs, ND_VARIABLE));
             if(AS_OBJ_NODE(lhs)->obj->data_type == NULL) {
-                error(v, lhs->location, "Symbol '%s' is not a variable.", AS_OBJ_NODE(lhs)->obj->name);
+                // This is done in the typechecker, but we need the type here, so we check.
+                error(v, lhs->location, "Variable '%s' has no type.", AS_OBJ_NODE(lhs)->obj->name);
+                hint(v, AS_OBJ_NODE(lhs)->obj->location, "Consider adding an explicit type here.");
+                arrayFree(&stack);
                 break;
             }
             while(arrayLength(&stack) > 0) {
@@ -713,7 +717,8 @@ static bool typecheck_assignment(Validator *v, ASTNode *n) {
 static bool typecheck_variable_declaration(Validator *v, ASTNode *decl) {
     // FIXME: The validator already does this, change to check if type is 'void' later (if void becomes a type).
     if(AS_OBJ_NODE(decl)->obj->data_type == NULL) {
-        error(v, decl->location, "Variable '%s' has no type (Hint: consider adding an explicit type).", AS_OBJ_NODE(decl)->obj->name);
+        error(v, decl->location, "Variable '%s' has no type.", AS_OBJ_NODE(decl)->obj->name);
+        hint(v, AS_OBJ_NODE(decl)->obj->location, "Consider adding an explicit type here.");
         return false;
     }
     return true;
