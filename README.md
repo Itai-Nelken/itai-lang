@@ -3,7 +3,7 @@
 A custom programming language aiming at the simplicity of C with the power of C++, Rust and Go.
 
 The compiler currently parses only a small subset of the language and does some basic typechecking on it.\
-The code generator currently generates C.\
+The code generator currently generates C.
 
 ## Usage
 
