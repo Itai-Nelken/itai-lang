@@ -109,7 +109,9 @@ bool typeEqual(Type *a, Type *b) {
     if(a->decl_module != b->decl_module) {
         return false;
     }
-
+    // If both types are from the same module (above test), we can simply compare their addresses.
+    return a == b;
+/*
     // from here on, both types have the same TY_* type and are in the same module.
     if(a->type == TY_FN) {
         if(!typeEqual(a->as.fn.return_type, b->as.fn.return_type)) {
@@ -146,6 +148,7 @@ bool typeEqual(Type *a, Type *b) {
     }
 
     return true;
+*/
 }
 
 static const char *type_type_name(TypeType type) {
