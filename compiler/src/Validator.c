@@ -592,6 +592,7 @@ static bool validate_struct(Validator *v, ASTObj *s) {
         ASTObj *field = ARRAY_GET_AS(ASTObj *, &s->as.structure.fields, i);
         if(!validate_type(v, &field->data_type))
             continue;
+        arrayInsert(&s->data_type->as.structure.field_types, i, (void *)field->data_type);
         if(typeEqual(field->data_type, s->data_type)) {
             error(v, field->location, "Struct '%s' cannot have a field that recursively contains it.", s->name);
             tableFree(&declared_fields);
