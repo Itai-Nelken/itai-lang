@@ -287,7 +287,7 @@ Functions, global variables, structs and custom types can be used before they ar
 The only times this feature should be used are:
 1) In indirectly recursive structs (e.g. `struct T { inner: Box<T>; }`).
 2) In recursive functions.
-3) In variables/structs fields that depend on each other (e.g `struct A { b: B; } struct B { a: Box<A>; }`).
+3) In variables/struct fields that depend on each other (e.g `struct A { b: B; } struct B { a: Box<A>; }`).
 
 ## Type conversions/casts
 

@@ -597,11 +597,11 @@ static bool validate_struct(Validator *v, ASTObj *s) {
         if(!validate_type(v, &field->data_type))
             continue;
         arrayInsert(&s->data_type->as.structure.field_types, i, (void *)field->data_type);
-        if(typeEqual(field->data_type, s->data_type)) {
-            error(v, field->location, "Struct '%s' cannot have a field that recursively contains it.", s->name);
-            tableFree(&declared_fields);
-            return false; // FIXME: check all fields before returning.
-        }
+        //if(typeEqual(field->data_type, s->data_type)) {
+        //    error(v, field->location, "Struct '%s' cannot have a field that recursively contains it.", s->name);
+        //    tableFree(&declared_fields);
+        //    return false; // FIXME: check all fields before returning.
+        //}
         TableItem *item = NULL;
         if((item = tableGet(&declared_fields, (void *)field->name)) != NULL) {
             ASTObj *existing_field = (ASTObj *)item->value;
@@ -870,6 +870,19 @@ static bool typecheck_function(Validator *v, ASTObj *fn) {
     return !had_error;
 }
 
+static bool is_recursive_struct(Type *root_struct_type, Type *field_type) {
+    if(field_type->type != TY_STRUCT) {
+        return false;
+    }
+    FOR(i, field_type->as.structure.field_types) {
+        Type *field = ARRAY_GET_AS(Type *, &field_type->as.structure.field_types, i);
+        if(typeEqual(root_struct_type, field) || is_recursive_struct(root_struct_type, field)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 static bool typecheck_struct(Validator *v, ASTObj *s) {
     bool had_error = false;
     usize size = 0;
@@ -879,8 +892,14 @@ static bool typecheck_struct(Validator *v, ASTObj *s) {
         if(field->data_type == NULL) {
             error(v, field->location, "Field '%s' in struct '%s' has no type.", field->name, s->name);
             had_error = true;
+            continue;
         } else if(field->data_type->type == TY_VOID) {
             error(v, field->location, "A field cannot have the type 'void'.");
+            had_error = true;
+            continue;
+        }
+        if(is_recursive_struct(s->data_type, field->data_type)) {
+            error(v, field->location, "Struct '%s' cannot have a field that recursively contains it.", s->name);
             had_error = true;
         }
     }

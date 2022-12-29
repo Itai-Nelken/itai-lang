@@ -1,7 +1,11 @@
 /// expect error: Error: Struct 'T' cannot have a field that recursively contains it.
 
 struct T {
-	a: T;
+	v: V;
+}
+
+struct V {
+	t: T;
 }
 
 fn main() {}
