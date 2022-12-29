@@ -290,7 +290,7 @@ static ASTNode *parse_identifier_expr(Parser *p) {
 static ASTNode *parse_number_literal_expr(Parser *p) {
     // TODO: Support hex, octal & binary.
     u64 value = strtoul(previous(p).lexeme, NULL, 10);
-    // TODO: parse postfix typese (e.g. 123u32)
+    // TODO: parse postfix types' (e.g. 123u32)
     return astNewLiteralValueNode(p->current.allocator, ND_NUMBER_LITERAL, previous(p).location, LITERAL_VALUE(LIT_NUMBER, number, value));
 }
 
@@ -603,7 +603,8 @@ static Type *new_fn_type(Parser *p, Type *return_type, Array parameters) {
 static Type *new_struct_type(Parser *p, ASTString name, Array fields) {
     Type *ty;
     NEW0(ty);
-    // FIXME: calculate the actual size of the struct.
+    // The size of the struct is calculated by the typechecker
+    // because we don't know all types (for example ID types have no size).
     typeInit(ty, TY_STRUCT, name, p->current.module, 0);
     Array *field_types = &ty->as.structure.field_types;
     for(usize i = 0; i < fields.used; ++i) {

@@ -877,8 +877,10 @@ static bool typecheck_function(Validator *v, ASTObj *fn) {
 
 static bool typecheck_struct(Validator *v, ASTObj *s) {
     bool had_error = false;
+    usize size = 0;
     FOR(i, s->as.structure.fields) {
         ASTObj *field = ARRAY_GET_AS(ASTObj *, &s->as.structure.fields, i);
+        size += field->data_type->size;
         if(field->data_type == NULL) {
             error(v, field->location, "Field '%s' in struct '%s' has no type.", field->name, s->name);
             had_error = true;
@@ -887,6 +889,7 @@ static bool typecheck_struct(Validator *v, ASTObj *s) {
             had_error = true;
         }
     }
+    s->data_type->size = size;
     return !had_error; // true on success, false on failure.
 }
 
