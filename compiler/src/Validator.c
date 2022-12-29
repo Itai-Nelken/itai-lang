@@ -99,7 +99,7 @@ static inline bool is_callable(ASTObj *obj) {
 }
 
 static inline void enter_scope(Validator *v, ScopeID scope) {
-    VERIFY(v->current_function);
+    VERIFY(v->current_function); // We cannot enter a scope if we aren't inside a function.
     if(v->current_scope == NULL) {
         // entering function scope.
         v->current_scope = v->current_function->as.fn.scopes;
@@ -117,9 +117,7 @@ static ASTObj *find_global_var(Validator *v, ASTString name) {
     ASTModule *current_module = astProgramGetModule(v->program, v->current_module);
     for(usize i = 0; i < current_module->globals.used; ++i) {
         ASTNode *g = ARRAY_GET_AS(ASTNode *, &current_module->globals, i);
-        VERIFY(g->node_type == ND_ASSIGN || g->node_type == ND_VAR_DECL);
         ASTObj *var = AS_OBJ_NODE(g->node_type == ND_ASSIGN ? AS_BINARY_NODE(g)->lhs : g)->obj;
-        VERIFY(var->type == OBJ_VAR);
         if(var->name == name) {
             return var;
         }
@@ -128,7 +126,7 @@ static ASTObj *find_global_var(Validator *v, ASTString name) {
 }
 
 static ASTObj *find_local_var(Validator *v, ASTString name) {
-    VERIFY(v->current_function); // inside a function.
+    VERIFY(v->current_function); // Local variables don't exist outside of a function.
     BlockScope *scope = v->current_scope ? v->current_scope : v->current_function->as.fn.scopes;
     while(scope) {
         TableItem *i = tableGet(&scope->visible_locals, (void *)name);
@@ -179,6 +177,8 @@ static ASTObj *find_struct(Validator *v, ASTString name) {
 }
 
 static inline void add_global_id(Validator *v, ASTString id) {
+    // The caller must check that a global id doesn't exist before adding it.
+    // The assertion makes sure that an id is added exactly once.
     VERIFY(tableSet(&v->global_ids_in_current_module, (void *)id, NULL) == NULL);
 }
 
@@ -207,7 +207,7 @@ static Type *get_expr_type(Validator *v, ASTNode *expr) {
         case ND_PROPERTY_ACCESS:
             // The type of a property access expression is the right-most
             // node, for example: the type of the expression a.b.c is the type of c.
-            VERIFY(NODE_IS(AS_BINARY_NODE(expr)->rhs, ND_VARIABLE));
+            VERIFY(NODE_IS(AS_BINARY_NODE(expr)->rhs, ND_VARIABLE)); // If this fails, something is wrong with the parser.
             ty = AS_OBJ_NODE(AS_BINARY_NODE(expr)->rhs)->obj->data_type;
             break;
         case ND_CALL:
@@ -293,7 +293,7 @@ static ASTNode *validate_assignment(Validator *v, ASTNode *n) {
 }
 
 void collect_ids_for_property_access(Array *s, ASTNode *n) {
-    VERIFY(NODE_IS(n, ND_PROPERTY_ACCESS));
+    VERIFY(NODE_IS(n, ND_PROPERTY_ACCESS)); // This function should only be called on property access nodes.
 
     while(NODE_IS(AS_BINARY_NODE(n)->lhs, ND_PROPERTY_ACCESS)) {
         arrayPush(s, (void *)AS_BINARY_NODE(n)->rhs);
@@ -642,7 +642,7 @@ static ASTNode *validate_global_variable(Validator *v, ASTNode *g) {
             result = validate_variable_declaration(v, g);
             break;
         case ND_ASSIGN:
-            VERIFY(NODE_IS(AS_BINARY_NODE(g)->lhs, ND_VAR_DECL));
+            VERIFY(NODE_IS(AS_BINARY_NODE(g)->lhs, ND_VAR_DECL)); // If this fails, something is wrong with the parser.
             result = validate_assignment(v, g);
             break;
         default:
