@@ -232,7 +232,8 @@ typedef struct ast_module {
 // belonging to a program like functions & types.
 typedef struct ast_program {
     struct {
-        // Primitive types (belong to the root module).
+        // Primitive types (are owned by the root module).
+        Type *void_;
         Type *int32;
         Type *uint32;
     } primitives;

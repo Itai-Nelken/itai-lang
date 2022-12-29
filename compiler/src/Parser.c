@@ -564,7 +564,9 @@ static ASTNode *parse_statement(Parser *p) {
 
 // primitive_type -> i32 | u32
 static Type *parse_primitive_type(Parser *p) {
-    if(match(p, TK_I32)) {
+    if(match(p, TK_VOID)) {
+        return p->program->primitives.void_;
+    } else if(match(p, TK_I32)) {
         return p->program->primitives.int32;
     } else if(match(p, TK_U32)) {
         return p->program->primitives.uint32;
@@ -636,7 +638,7 @@ static Type *parse_function_type(Parser *p) {
     if(!consume(p, TK_RPAREN)) {
         goto free_param_array;
     }
-    Type *return_type = NULL;
+    Type *return_type = p->program->primitives.void_;
     if(match(p, TK_ARROW)) {
         if((return_type = parse_type(p)) == NULL) {
             goto free_param_array;
@@ -825,7 +827,7 @@ static ASTObj *parse_function_decl(Parser *p) {
         return NULL;
     }
 
-    Type *return_type = NULL;
+    Type *return_type = p->program->primitives.void_;
     if(match(p, TK_ARROW)) {
         return_type = parse_type(p);
         if(!return_type) {
@@ -885,6 +887,7 @@ static void init_primitive_types(ASTProgram *prog, ASTModule *root_module) {
 #define DEF(typename, type, name, size) {Type *ty; NEW0(ty); typeInit(ty, (type), astProgramAddString(prog, (name)), 0, (size)); prog->primitives.typename = astModuleAddType(root_module, ty);}
 
     // NOTE: Update IS_PRIMITIVE() in Types.h when adding new primitives.
+    DEF(void_, TY_VOID, "void", 0);
     DEF(int32, TY_I32, "i32", 4);
     DEF(uint32, TY_U32, "u32", 4);
 

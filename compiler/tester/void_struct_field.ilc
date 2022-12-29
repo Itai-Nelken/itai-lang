@@ -1,0 +1,8 @@
+/// expect error: Error: A field cannot have the type 'void'.
+
+struct T {
+	a: void;
+}
+
+fn main() {}
+

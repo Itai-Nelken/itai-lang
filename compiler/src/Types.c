@@ -13,6 +13,7 @@ void typeInit(Type *ty, TypeType type, ASTString name, ModuleID decl_module, int
     ty->decl_location = locationNew(0, 0, 0); // FIXME: find a way to represent an empty location.
     ty->size = size;
     switch(type) {
+        case TY_VOID:
         case TY_I32:
         case TY_U32:
         case TY_ID:
@@ -31,6 +32,7 @@ void typeInit(Type *ty, TypeType type, ASTString name, ModuleID decl_module, int
 
 void typeFree(Type *ty) {
     switch(ty->type) {
+        case TY_VOID:
         case TY_I32:
         case TY_U32:
         case TY_ID:
@@ -50,10 +52,6 @@ void typeFree(Type *ty) {
 }
 
 bool typeIsNumeric(Type *ty) {
-    // FIXME: no type should be represented as void/none instead of NULL.
-    if(!ty) {
-        return false;
-    }
     switch(ty->type) {
         case TY_I32:
         case TY_U32:
@@ -65,10 +63,6 @@ bool typeIsNumeric(Type *ty) {
 }
 
 bool typeIsSigned(Type *ty) {
-    // FIXME: no type should be represented as void/none instead of NULL.
-    if(!ty) {
-        return false;
-    }
     VERIFY(IS_NUMERIC(ty));
     switch(ty->type) {
         case TY_I32:
@@ -80,10 +74,6 @@ bool typeIsSigned(Type *ty) {
 }
 
 bool typeIsUnsigned(Type *ty) {
-    // FIXME: no type should be represented as void/none instead of NULL.
-    if(!ty) {
-        return false;
-    }
     VERIFY(IS_NUMERIC(ty));
     switch(ty->type) {
         case TY_U32:
@@ -95,11 +85,8 @@ bool typeIsUnsigned(Type *ty) {
 }
 
 bool typeIsPrimitive(Type *ty) {
-    // FIXME: no type should be represented as void/none instead of NULL.
-    if(!ty) {
-        return false;
-    }
     switch(ty->type) {
+        case TY_VOID:
         case TY_I32:
         case TY_U32:
             return true;
@@ -110,19 +97,11 @@ bool typeIsPrimitive(Type *ty) {
 }
 
 bool typeIsFunction(Type *ty) {
-    // FIXME: no type should be represented as void/none instead of NULL.
-    if(!ty) {
-        return false;
-    }
     return ty->type == TY_FN;
 }
 
 bool typeEqual(Type *a, Type *b) {
-    // FIXME: no type should be represented as NULL, a void/none type should be used instead.
-    if(!a || !b) {
-        return false;
-    }
-
+    VERIFY(a && b);
     if(a->type != b->type) {
         return false;
     }
@@ -171,6 +150,7 @@ bool typeEqual(Type *a, Type *b) {
 
 static const char *type_type_name(TypeType type) {
     static const char *names[] = {
+        [TY_VOID]   = "TY_VOID",
         [TY_I32]    = "TY_I32",
         [TY_U32]    = "TY_U32",
         [TY_FN]     = "TY_FN",
@@ -182,10 +162,11 @@ static const char *type_type_name(TypeType type) {
 }
 
 void typePrint(FILE *to, Type *ty, bool compact) {
-    if(ty == NULL) {
-        fputs("(null)", to);
-        return;
-    }
+    VERIFY(ty);
+    //if(ty == NULL) {
+    //    fputs("(null)", to);
+    //    return;
+    //}
 
     if(compact) {
         fprintf(to, "Type{\x1b[1m%s\x1b[0m", type_type_name(ty->type));
@@ -222,6 +203,7 @@ void typePrint(FILE *to, Type *ty, bool compact) {
                 }
                 fputc(']', to);
                 break;
+            case TY_VOID:
             case TY_I32:
             case TY_U32:
             case TY_ID:

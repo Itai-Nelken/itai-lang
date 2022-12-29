@@ -10,6 +10,7 @@ typedef char *ASTString; // from Ast.h
 typedef usize ModuleID; // from Ast.h
 
 typedef enum type_type {
+    TY_VOID,
     TY_I32, TY_U32,
     //TY_PTR,
     TY_FN,

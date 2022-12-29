@@ -63,7 +63,7 @@ typedef enum token_type {
     TK_STRUCT,
 
     // primitive types
-    TK_I32, TK_U32,
+    TK_VOID, TK_I32, TK_U32,
 
     // identifier
     TK_IDENTIFIER,

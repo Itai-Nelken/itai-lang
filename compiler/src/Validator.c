@@ -83,6 +83,7 @@ static inline const char *type_name(Type *ty) {
 
 static bool check_types(Validator *v, Location loc, Type *a, Type *b) {
     if(!a || !b) {
+        // It is an error for a type to be NULL.
         error(v, loc, "Type mismatch: expected '%s' but got '%s'.", type_name(a), type_name(b));
         return false;
     }
@@ -354,7 +355,7 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
             break;
         }
         case ND_RETURN:
-            if(v->current_function->as.fn.return_type && AS_UNARY_NODE(n)->operand == NULL) {
+            if(v->current_function->as.fn.return_type->type != TY_VOID && AS_UNARY_NODE(n)->operand == NULL) {
                 error(v, n->location, "'return' with no value in function '%s' returning '%s'.",
                       v->current_function->name, type_name(v->current_function->as.fn.return_type));
                 break;
@@ -579,7 +580,7 @@ static bool validate_function(Validator *v, ASTObj *fn) {
         arrayInsert(&fn->as.fn.body->nodes, i, (void *)new_n);
     }
 
-    if(fn->as.fn.return_type) {
+    if(fn->as.fn.return_type->type != TY_VOID) {
         if(fn->as.fn.body->control_flow == CF_NEVER_RETURNS) {
             // The location created points to the closing '}' of the function body.
             error(v, locationNew(fn->as.fn.body->header.location.end - 1,
@@ -719,6 +720,9 @@ static bool typecheck_variable_declaration(Validator *v, ASTNode *decl) {
     if(AS_OBJ_NODE(decl)->obj->data_type == NULL) {
         error(v, decl->location, "Variable '%s' has no type.", AS_OBJ_NODE(decl)->obj->name);
         hint(v, AS_OBJ_NODE(decl)->obj->location, "Consider adding an explicit type here.");
+        return false;
+    } else if(AS_OBJ_NODE(decl)->obj->data_type->type == TY_VOID) {
+        error(v, decl->location, "A variable cannot have the type 'void'.");
         return false;
     }
     return true;
@@ -872,14 +876,18 @@ static bool typecheck_function(Validator *v, ASTObj *fn) {
 }
 
 static bool typecheck_struct(Validator *v, ASTObj *s) {
+    bool had_error = false;
     FOR(i, s->as.structure.fields) {
         ASTObj *field = ARRAY_GET_AS(ASTObj *, &s->as.structure.fields, i);
         if(field->data_type == NULL) {
             error(v, field->location, "Field '%s' in struct '%s' has no type.", field->name, s->name);
-            return false; // FIXME: typecheck all fields before returning.
+            had_error = true;
+        } else if(field->data_type->type == TY_VOID) {
+            error(v, field->location, "A field cannot have the type 'void'.");
+            had_error = true;
         }
     }
-    return true;
+    return !had_error; // true on success, false on failure.
 }
 
 static bool typecheck_object(Validator *v, ASTObj *obj) {

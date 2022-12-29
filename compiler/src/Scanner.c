@@ -145,7 +145,17 @@ static TokenType scan_keyword_or_identifier_type(Scanner *s) {
             result = CHECK("u32", 3, TK_U32);
             break;
         case 'v':
-            result = CHECK("var", 3, TK_VAR);
+            switch(length) {
+                case 3:
+                    result = CHECK("var", 3, TK_VAR);
+                    break;
+                case 4:
+                    result = CHECK("void", 4, TK_VOID);
+                    break;
+                default:
+                    result = TK_IDENTIFIER;
+                    break;
+            }
             break;
         case 'w':
             result = CHECK("while", 5, TK_WHILE);
