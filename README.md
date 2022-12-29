@@ -1,9 +1,9 @@
 # Itai-lang
 
-A custom programming language based on C, Rust, and Go.
+A custom programming language aiming at the simplicity of C with the power of C++, Rust and Go.
 
 The compiler currently parses only a small subset of the language and does some basic typechecking on it.\
-There is no code generator yet, but the parsed and typechecked AST can be dumped to `stdout` with the `-d` flag.
+The code generator currently generates C.\
 
 ## Usage
 

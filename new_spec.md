@@ -108,20 +108,22 @@ fn error() -> i32? {
 
 If a function need to return nothing or an error, the special `void?` type is used. It represents nothing or an error.
 ```rust
+import "std/io";
+
 fn error_or_nothing() -> void? {
-	if !something_that_might_fail() {
-		return Error::new("The thing failed");
-	}
+    if !something_that_might_fail() {
+        return Error::new("The thing failed");
+    }
     // No need to return any value, after all void? means "error or nothing".
     // The explicit return statement isn't needed either. Unless an error is returned,
-    // functions returning void? are the same as functions returning no value.
-	return;
+    // functions returning void? are the same as functions returning no value if an error is not returned.
+    return;
 }
 
 // Usage:
 fn main() {
     error_or_nothing() or &err {
-        eprintln("error: {}", err.what());
+        io::eprintln("error: {}", err.what());
     }
 }
 ```
@@ -174,7 +176,7 @@ fn to_i32<T(str, String)>(string: T) -> i32 {
 
 A trait defines functions that implementing types must implement.
 Traits are used for generic type constraints. \
-A trait can have generic types, but they can't be limited. \
+A trait can have generic types. \
 The `This` type is an alias for the implementing type. \
 Functions defined in traits must not be private, so they are automatically marked as public.
 
@@ -215,7 +217,7 @@ fn main() {
 
 Runtime polymorphism is achieved using bound function overriding.
 
-A virtual bound function is a function that can be re-declared in derived structs. A virtual function must have an implementation (pure virtual functions are implemented with traits).<br>
+A virtual bound function is a function that can be re-declared in derived structs. A virtual function must have an implementation (pure virtual functions are implemented with traits).\
 A virtual function can't be private, and is marked as public automatically.
 
 ```rust
@@ -271,7 +273,7 @@ fn i32_to_i8(number: i32) -> i8? {
 }
 ```
 
-The `else` block must return from the function, exit the program (using any function marked as [noreturn]), or if in a loop `break` or `continue`.
+The `else` block must return from the function, exit the program (using any function marked as #[attribute(noreturn)]), or if in a loop `break` or `continue`.
 The `expect` statement can also be used as an assertion if the `else` block is omitted:
 ```rust
 fn do_something() {
@@ -279,13 +281,17 @@ fn do_something() {
 }
 ```
 
-## Global/function definition order
+## Global/Function/Struct/Custom type definition order
 
-Functions and global variables can be used before they are defined although this should be avoided unless necessary because it makes code unreadable.
+Functions, global variables, structs and custom types can be used before they are defined although this should be avoided unless necessary because it makes code unreadable.\
+The only times this feature should be used are:
+1) In indirectly recursive structs (e.g. `struct T { inner: Box<T>; }`).
+2) In recursive functions.
+3) In variables/structs fields that depend on each other (e.g `struct A { b: B; } struct B { a: Box<A>; }`).
 
 ## Type conversions/casts
 
-* There are no implicit type conversions.
+* There are no implicit type conversions the only exception being untyped number literals which are cast according to their context (e.g. when assigning to a variable with an unsigned type).
 * To cast a value to another type, the `as<T>(T)` operator is used. It will panic if the conversion fails (overflow, underflow, incompatible types etc.). Some casts can be and are typechecked at compile-time.
 
 ## Calling C functions (`extern` functions)
@@ -298,11 +304,12 @@ int add(int a, int b) {
 ```
 The following code is used:
 ```rust
-#[file(add.o)]
+#[source(add.o)]
 extern fn add(i32, i32) -> i32;
 
 fn main() -> i32 {
 	return add(40, 2);
 }
 ```
-The C file has to be compiled to a object file (`.o`), and then the itai-lang compiler will link it to the program.
+The C file has to be compiled to an object file (`.o`), and then the itai-lang compiler will link it to the program.
+
