@@ -472,7 +472,11 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
                 arrayFree(&stack);
                 break;
             }
-            VERIFY(NODE_IS(lhs, ND_VARIABLE));
+            if(!NODE_IS(lhs, ND_VARIABLE)) {
+                error(v, lhs->location, "Property access can only be done on variables.");
+                arrayFree(&stack);
+                break;
+            }
             if(AS_OBJ_NODE(lhs)->obj->data_type == NULL) {
                 // This is done in the typechecker, but we need the type here, so we check.
                 error(v, lhs->location, "Variable '%s' has no type.", AS_OBJ_NODE(lhs)->obj->name);

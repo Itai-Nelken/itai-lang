@@ -5,3 +5,5 @@ struct T {
 	a: u32;
 }
 
+fn main() {}
+

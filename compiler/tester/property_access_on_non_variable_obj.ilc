@@ -1,5 +1,6 @@
-/// expect error: Error: Symbol 'a' doesn't exist in this scope.
+/// expect error: Error: Property access can only be done on variables.
 
 fn main() {
-	a.a;
+	main.a = 123;
 }
+
