@@ -819,9 +819,9 @@ static ASTObj *parse_function_decl(Parser *p) {
     ASTString name = TRY(ASTString, parse_identifier(p));
     Location name_loc = previous(p).location;
 
+    TRY_CONSUME(p, TK_LPAREN);
     Array parameters; // Array<ASTObj *>
     arrayInit(&parameters);
-    TRY_CONSUME(p, TK_LPAREN);
     if(!parse_parameter_list(p, &parameters)) {
         arrayMap(&parameters, free_object_callback, NULL);
         arrayFree(&parameters);
@@ -842,7 +842,7 @@ static ASTObj *parse_function_decl(Parser *p) {
     ASTObj *fn = astNewObj(OBJ_FN, location, name_loc, name, new_fn_type(p, return_type, parameters));
     fn->as.fn.return_type = return_type;
     arrayCopy(&fn->as.fn.parameters, &parameters);
-    arrayFree(&parameters); // No need to free the contens of the array as they are owned by the fn now.
+    arrayFree(&parameters); // No need to free the contents of the array as they are owned by the fn now.
 
     if(!consume(p, TK_LBRACE)) {
         astObjFree(fn);
