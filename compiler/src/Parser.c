@@ -825,7 +825,7 @@ static bool parse_parameter_list(Parser *p, Array *parameters) {
 }
 
 // function_decl -> 'fn' identifier '(' parameter_list? ')' ('->' type)? block(fn_body)
-static ASTObj *parse_function_decl(Parser *p) {
+static ASTObj *parse_function_decl(Parser *p, bool parse_body) {
     // Assumes 'fn' was already consumed.
     Location location = previous(p).location;
 
@@ -857,6 +857,9 @@ static ASTObj *parse_function_decl(Parser *p) {
     arrayCopy(&fn->as.fn.parameters, &parameters);
     arrayFree(&parameters); // No need to free the contents of the array as they are owned by the fn now.
 
+    if(!parse_body) {
+        return fn;
+    }
     if(!consume(p, TK_LBRACE)) {
         astObjFree(fn);
         return NULL;
@@ -876,6 +879,23 @@ static ASTObj *parse_function_decl(Parser *p) {
     return fn;
 }
 
+static ASTObj *parse_extern_decl(Parser *p) {
+    // Assumes 'extern' was already consumed.
+    ASTObj *result = NULL;
+    if(match(p, TK_FN)) {
+        result = parse_function_decl(p, false);
+        if(!consume(p, TK_SEMICOLON)) {
+            astObjFree(result);
+            return NULL;
+        }
+        arrayFree(&result->as.fn.locals);
+        result->type = OBJ_EXTERN_FN;
+    } else {
+        error_at(p, current(p).location, "Invalid extern declaration (expected 'fn').");
+    }
+    return result;
+}
+
 #undef TRY_CONSUME
 #undef TRY
 
@@ -885,6 +905,7 @@ static void synchronize(Parser *p) {
         switch(current(p).type) {
             case TK_FN:
             case TK_VAR:
+            case TK_EXTERN:
             //case TK_IMPORT:
             //case TK_MODULE:
             //case TK_PUBLIC:
@@ -928,9 +949,10 @@ bool parserParse(Parser *p, ASTProgram *prog) {
     init_primitive_types(prog, root_module);
     p->current.allocator = &root_module->ast_allocator.alloc;
 
+    // TODO: move this to parse_module_body() when module suppport is added.
     while(!is_eof(p)) {
         if(match(p, TK_FN)) {
-            ASTObj *fn = parse_function_decl(p);
+            ASTObj *fn = parse_function_decl(p, true);
             if(fn != NULL) {
                 arrayPush(&root_module->objects, (void *)fn);
             }
@@ -947,6 +969,11 @@ bool parserParse(Parser *p, ASTProgram *prog) {
             ASTObj *structure = parse_struct_decl(p);
             if(structure != NULL) {
                 arrayPush(&root_module->objects, (void *)structure);
+            }
+        } else if(match(p, TK_EXTERN)) {
+            ASTObj *extern_decl = parse_extern_decl(p);
+            if(extern_decl != NULL) {
+                arrayPush(&root_module->objects, (void *)extern_decl);
             }
         } else {
             error_at(p, current(p).location, stringFormat("Expected one of ['fn', 'var'], but got '%s'.", tokenTypeString(current(p).type)));

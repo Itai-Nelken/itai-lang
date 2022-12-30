@@ -124,7 +124,17 @@ static TokenType scan_keyword_or_identifier_type(Scanner *s) {
     TokenType result;
     switch(*lexeme) {
         case 'e':
-            result = CHECK("else", 4, TK_ELSE);
+            switch(length) {
+                case 4:
+                    result = CHECK("else", 4, TK_ELSE);
+                    break;
+                case 6:
+                    result = CHECK("extern", 6, TK_EXTERN);
+                    break;
+                default:
+                    result = TK_IDENTIFIER;
+                    break;
+            }
             break;
         case 'f':
             result = CHECK("fn", 2, TK_FN);

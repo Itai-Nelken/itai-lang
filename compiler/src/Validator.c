@@ -158,7 +158,7 @@ static ASTObj *find_function(Validator *v, ASTString name) {
     ASTModule *current_module = astProgramGetModule(v->program, v->current_module);
     for(usize i = 0; i < current_module->objects.used; ++i) {
         ASTObj *obj = ARRAY_GET_AS(ASTObj *, &current_module->objects, i);
-        if(obj->type == OBJ_FN && obj->name == name) {
+        if((obj->type == OBJ_FN || obj->type == OBJ_EXTERN_FN) && obj->name == name) {
             return obj;
         }
     }
@@ -620,6 +620,13 @@ static bool validate_struct(Validator *v, ASTObj *s) {
     return true;
 }
 
+static bool validate_extern_fn(Validator *v, ASTObj *fn) {
+    UNUSED(v);
+    UNUSED(fn);
+    // TODO: check that #[source(file.o)] is set for this object.
+    return true;
+}
+
 static bool validate_object(Validator *v, ASTObj *obj) {
     switch(obj->type) {
         case OBJ_VAR:
@@ -633,6 +640,8 @@ static bool validate_object(Validator *v, ASTObj *obj) {
             return validate_function(v, obj);
         case OBJ_STRUCT:
             return validate_struct(v, obj);
+        case OBJ_EXTERN_FN:
+            return validate_extern_fn(v, obj);
         default:
             UNREACHABLE();
     }
@@ -915,6 +924,7 @@ static bool typecheck_struct(Validator *v, ASTObj *s) {
 static bool typecheck_object(Validator *v, ASTObj *obj) {
     switch(obj->type) {
         case OBJ_VAR:
+        case OBJ_EXTERN_FN:
             // nothing
             break;
         case OBJ_FN:

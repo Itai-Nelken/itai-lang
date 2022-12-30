@@ -253,14 +253,15 @@ static void object_callback(void *object, void *codegen) {
     Codegen *cg = (Codegen *)codegen;
 
     switch(obj->type) {
+        case OBJ_VAR:
+        case OBJ_EXTERN_FN:
+            // nothing
+            break;
         case OBJ_FN:
             cg->current_function = obj;
             gen_function_decl(cg, obj);
             cg->current_function = NULL;
             print(cg, "\n");
-            break;
-        case OBJ_VAR:
-            // nothing
             break;
         case OBJ_STRUCT:
             gen_struct(cg, obj);
@@ -276,7 +277,12 @@ static void object_predecl_callback(void *object, void *codegen) {
     Codegen *cg = (Codegen *)codegen;
 
     switch(obj->type) {
+        case OBJ_VAR:
+            // nothing
+            break;
         case OBJ_FN:
+            // Note: do NOT use any fields other than return_type and parameters
+            //       without changing the OBJ_EXTERN_FN case to not use this case.
             gen_type(cg, obj->as.fn.return_type);
             print(cg, " %s(", obj->name);
             for(usize i = 0; i < obj->as.fn.parameters.used; ++i) {
@@ -288,11 +294,14 @@ static void object_predecl_callback(void *object, void *codegen) {
             }
             print(cg, ");\n");
             break;
-        case OBJ_VAR:
-            // nothing
-            break;
         case OBJ_STRUCT:
             print(cg, "typedef struct %s %s;\n", obj->name, obj->name);
+            break;
+        case OBJ_EXTERN_FN:
+            print(cg, "extern ");
+            obj->type = OBJ_FN; // Hack so the OBJ_FN case can be reused.
+            object_predecl_callback(object, codegen);
+            obj->type = OBJ_EXTERN_FN;
             break;
         default:
             UNREACHABLE();

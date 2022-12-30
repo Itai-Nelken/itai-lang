@@ -1,0 +1,17 @@
+/// expect success
+
+extern fn print_number(n: i32);
+extern fn print_str(s: str);
+
+fn print_numbers(a: i32, separator: str, b: i32) {
+	print_number(a);
+	print_str(separator);
+	print_number(b);
+}
+
+fn main() {
+	print_numbers(40, " + ", 2);
+	print_str(" = ");
+	print_number(42);	
+}
+

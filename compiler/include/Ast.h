@@ -185,6 +185,7 @@ typedef struct ast_list_node {
 typedef enum ast_obj_type {
     OBJ_VAR, OBJ_FN,
     OBJ_STRUCT,
+    OBJ_EXTERN_FN,
     OBJ_TYPE_COUNT
 } ASTObjType;
 
@@ -197,17 +198,19 @@ typedef struct ast_obj {
     union {
         //struct {
         //  bool is_const;
-        //} var;
+        //  bool is_parameter;
+        //  bool is_struct_field;
+        //} var; // OBJ_VAR
         struct {
             Array parameters; // Array<ASTObj *> (OBJ_VAR)
             Type *return_type;
             BlockScope *scopes;
             Array locals; // Array<ASTObj *>
             ASTListNode *body;
-        } fn;
+        } fn; // OBJ_FN, OBJ_EXTERN_FN (without body, locals and scopes).
         struct {
             Array fields; // Array<ASTObj *> (OBJ_VAR)
-        } structure;
+        } structure; // OBJ_STRUCT
     } as;
 } ASTObj;
 

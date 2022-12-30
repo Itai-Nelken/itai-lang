@@ -63,6 +63,7 @@ typedef enum token_type {
     TK_FN, TK_RETURN,
     TK_VAR,
     TK_STRUCT,
+    TK_EXTERN,
 
     // primitive types
     TK_VOID, TK_I32, TK_U32, TK_STR,

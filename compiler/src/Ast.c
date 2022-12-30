@@ -595,6 +595,9 @@ ASTObj *astNewObj(ASTObjType type, Location loc, Location name_loc, ASTString na
         case OBJ_STRUCT:
             arrayInit(&o->as.structure.fields);
             break;
+        case OBJ_EXTERN_FN:
+            arrayInit(&o->as.fn.parameters);
+            break;
         default:
             UNREACHABLE();
     }
@@ -624,6 +627,10 @@ void astObjFree(ASTObj *obj) {
             arrayMap(&obj->as.structure.fields, free_object_callback, NULL);
             arrayFree(&obj->as.structure.fields);
             break;
+        case OBJ_EXTERN_FN:
+            arrayMap(&obj->as.fn.parameters, free_object_callback, NULL);
+            arrayFree(&obj->as.fn.parameters);
+            break;
         default:
             UNREACHABLE();
     }
@@ -632,9 +639,10 @@ void astObjFree(ASTObj *obj) {
 
 static const char *obj_type_name(ASTObjType type) {
     static const char *names[] = {
-        [OBJ_VAR]    = "OBJ_VAR",
-        [OBJ_FN]     = "OBJ_FN",
-        [OBJ_STRUCT] = "OBJ_STRUCT"
+        [OBJ_VAR]       = "OBJ_VAR",
+        [OBJ_FN]        = "OBJ_FN",
+        [OBJ_STRUCT]    = "OBJ_STRUCT",
+        [OBJ_EXTERN_FN] = "OBJ_EXTERN_FN"
     };
     _Static_assert(sizeof(names)/sizeof(names[0]) == OBJ_TYPE_COUNT, "Missing type(s) in obj_type_name()");
     return names[type];
@@ -661,6 +669,8 @@ void astObjPrint(FILE *to, ASTObj *obj) {
         case OBJ_FN:
             fputs(", \x1b[1mreturn_type:\x1b[0m ", to);
             typePrint(to, obj->as.fn.return_type, true);
+            fputs(", \x1b[parameters:\x1b[0m ", to);
+            PRINT_ARRAY(ASTObj *, astObjPrint, to, obj->as.fn.parameters);
             fputs(", \x1b[1mlocals:\x1b[0m [", to);
             PRINT_ARRAY(ASTObj *, astObjPrint, to, obj->as.fn.locals);
             fputs("], \x1b[1mbody:\x1b[0m ", to);
@@ -670,6 +680,10 @@ void astObjPrint(FILE *to, ASTObj *obj) {
             fputs(", \x1b[1mmembers:\x1b[0m [", to);
             PRINT_ARRAY(ASTObj *, astObjPrint, to, obj->as.structure.fields);
             fputc(']', to);
+            break;
+        case OBJ_EXTERN_FN:
+            fputs(", \x1b[1mreturn_type:\x1b[0m ", to);
+            typePrint(to, obj->as.fn.return_type, true);
             break;
         default:
             UNREACHABLE();
