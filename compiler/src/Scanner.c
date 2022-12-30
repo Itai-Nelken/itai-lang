@@ -99,11 +99,18 @@ static void skip_whitespace(Scanner *s) {
     }
 }
 
-static void scan_number_constant(Scanner *s) {
+static void scan_number_literal(Scanner *s) {
     // TODO: add hex, octal, and binary literals.
     while(!is_end(s) && (isDigit(peek(s)) || peek(s) == '_')) {
         advance(s);
     }
+}
+
+static void scan_string_literal(Scanner *s) {
+    while(!is_end(s) && peek(s) != '"') {
+        advance(s);
+    }
+    advance(s); // consume the closing '"'.
 }
 
 static TokenType scan_keyword_or_identifier_type(Scanner *s) {
@@ -139,7 +146,17 @@ static TokenType scan_keyword_or_identifier_type(Scanner *s) {
             result = CHECK("return", 6, TK_RETURN);
             break;
         case 's':
-            result = CHECK("struct", 6, TK_STRUCT);
+            switch(length) {
+                case 6:
+                    result = CHECK("struct", 6, TK_STRUCT);
+                    break;
+                case 3:
+                    result = CHECK("str", 3, TK_STR);
+                    break;
+                default:
+                    result = TK_IDENTIFIER;
+                    break;
+            }
             break;
         case 'u':
             result = CHECK("u32", 3, TK_U32);
@@ -177,8 +194,8 @@ Token scan_token(Scanner *s) {
 
     char c = advance(s);
     if(isDigit(c)) {
-        scan_number_constant(s);
-        return make_token(s, TK_NUMBER);
+        scan_number_literal(s);
+        return make_token(s, TK_NUMBER_LITERAL);
     }
     if(isAscii(c) || c == '_') {
         Token tk = make_token(s, scan_keyword_or_identifier_type(s));
@@ -202,6 +219,9 @@ Token scan_token(Scanner *s) {
         case '!': return make_token(s, match(s, '=') ? TK_BANG_EQUAL : TK_BANG);
         case '<': return make_token(s, match(s, '=') ? TK_LESS_EQUAL : TK_LESS);
         case '>': return make_token(s, match(s, '=') ? TK_GREATER_EQUAL : TK_GREATER);
+        case '"':
+            scan_string_literal(s);
+            return make_token(s, TK_STRING_LITERAL);
         default:
             break;
     }

@@ -224,6 +224,7 @@ typedef struct parse_rule {
 static ASTNode *parse_precedence(Parser *p, Precedence min_prec);
 static ASTNode *parse_expression(Parser *p);
 static ASTNode *parse_number_literal_expr(Parser *p);
+static ASTNode *parse_string_literal_expr(Parser *p);
 static ASTNode *parse_grouping_expr(Parser *p);
 static ASTNode *parse_identifier_expr(Parser *p);
 static ASTNode *parse_unary_expr(Parser *p);
@@ -232,40 +233,41 @@ static ASTNode *parse_call_expr(Parser *p, ASTNode *callee);
 static ASTNode *parse_property_access_expr(Parser *p, ASTNode *lhs);
 
 static ParseRule rules[] = {
-    [TK_LPAREN]        = {parse_grouping_expr, parse_call_expr, PREC_CALL},
-    [TK_RPAREN]        = {NULL, NULL, PREC_LOWEST},
-    [TK_LBRACE]        = {NULL, NULL, PREC_LOWEST},
-    [TK_RBRACE]        = {NULL, NULL, PREC_LOWEST},
-    [TK_PLUS]          = {parse_unary_expr, parse_binary_expr, PREC_TERM},
-    [TK_STAR]          = {NULL, parse_binary_expr, PREC_FACTOR},
-    [TK_SLASH]         = {NULL, parse_binary_expr, PREC_FACTOR},
-    [TK_SEMICOLON]     = {NULL, NULL, PREC_LOWEST},
-    [TK_COLON]         = {NULL, NULL, PREC_LOWEST},
-    [TK_COMMA]         = {NULL, NULL, PREC_LOWEST},
-    [TK_DOT]           = {NULL, parse_property_access_expr, PREC_CALL},
-    [TK_MINUS]         = {parse_unary_expr, parse_binary_expr, PREC_TERM},
-    [TK_ARROW]         = {NULL, NULL, PREC_LOWEST},
-    [TK_EQUAL]         = {NULL, NULL, PREC_LOWEST},
-    [TK_EQUAL_EQUAL]   = {NULL, parse_binary_expr, PREC_EQUALITY},
-    [TK_BANG]          = {NULL, NULL, PREC_LOWEST},
-    [TK_BANG_EQUAL]    = {NULL, parse_binary_expr, PREC_EQUALITY},
-    [TK_LESS]          = {NULL, parse_binary_expr, PREC_COMPARISON},
-    [TK_LESS_EQUAL]    = {NULL, parse_binary_expr, PREC_COMPARISON},
-    [TK_GREATER]       = {NULL, parse_binary_expr, PREC_COMPARISON},
-    [TK_GREATER_EQUAL] = {NULL, parse_binary_expr, PREC_COMPARISON},
-    [TK_NUMBER]        = {parse_number_literal_expr, NULL, PREC_LOWEST},
-    [TK_IF]            = {NULL, NULL, PREC_LOWEST},
-    [TK_ELSE]          = {NULL, NULL, PREC_LOWEST},
-    [TK_WHILE]         = {NULL, NULL, PREC_LOWEST},
-    [TK_FN]            = {NULL, NULL, PREC_LOWEST},
-    [TK_RETURN]        = {NULL, NULL, PREC_LOWEST},
-    [TK_VAR]           = {NULL, NULL, PREC_LOWEST},
-    [TK_STRUCT]        = {NULL, NULL, PREC_LOWEST},
-    [TK_I32]           = {NULL, NULL, PREC_LOWEST},
-    [TK_U32]           = {NULL, NULL, PREC_LOWEST},
-    [TK_IDENTIFIER]    = {parse_identifier_expr, NULL, PREC_LOWEST},
-    [TK_GARBAGE]       = {NULL, NULL, PREC_LOWEST},
-    [TK_EOF]           = {NULL, NULL, PREC_LOWEST}
+    [TK_LPAREN]         = {parse_grouping_expr, parse_call_expr, PREC_CALL},
+    [TK_RPAREN]         = {NULL, NULL, PREC_LOWEST},
+    [TK_LBRACE]         = {NULL, NULL, PREC_LOWEST},
+    [TK_RBRACE]         = {NULL, NULL, PREC_LOWEST},
+    [TK_PLUS]           = {parse_unary_expr, parse_binary_expr, PREC_TERM},
+    [TK_STAR]           = {NULL, parse_binary_expr, PREC_FACTOR},
+    [TK_SLASH]          = {NULL, parse_binary_expr, PREC_FACTOR},
+    [TK_SEMICOLON]      = {NULL, NULL, PREC_LOWEST},
+    [TK_COLON]          = {NULL, NULL, PREC_LOWEST},
+    [TK_COMMA]          = {NULL, NULL, PREC_LOWEST},
+    [TK_DOT]            = {NULL, parse_property_access_expr, PREC_CALL},
+    [TK_MINUS]          = {parse_unary_expr, parse_binary_expr, PREC_TERM},
+    [TK_ARROW]          = {NULL, NULL, PREC_LOWEST},
+    [TK_EQUAL]          = {NULL, NULL, PREC_LOWEST},
+    [TK_EQUAL_EQUAL]    = {NULL, parse_binary_expr, PREC_EQUALITY},
+    [TK_BANG]           = {NULL, NULL, PREC_LOWEST},
+    [TK_BANG_EQUAL]     = {NULL, parse_binary_expr, PREC_EQUALITY},
+    [TK_LESS]           = {NULL, parse_binary_expr, PREC_COMPARISON},
+    [TK_LESS_EQUAL]     = {NULL, parse_binary_expr, PREC_COMPARISON},
+    [TK_GREATER]        = {NULL, parse_binary_expr, PREC_COMPARISON},
+    [TK_GREATER_EQUAL]  = {NULL, parse_binary_expr, PREC_COMPARISON},
+    [TK_NUMBER_LITERAL] = {parse_number_literal_expr, NULL, PREC_LOWEST},
+    [TK_STRING_LITERAL] = {parse_string_literal_expr, NULL, PREC_LOWEST},
+    [TK_IF]             = {NULL, NULL, PREC_LOWEST},
+    [TK_ELSE]           = {NULL, NULL, PREC_LOWEST},
+    [TK_WHILE]          = {NULL, NULL, PREC_LOWEST},
+    [TK_FN]             = {NULL, NULL, PREC_LOWEST},
+    [TK_RETURN]         = {NULL, NULL, PREC_LOWEST},
+    [TK_VAR]            = {NULL, NULL, PREC_LOWEST},
+    [TK_STRUCT]         = {NULL, NULL, PREC_LOWEST},
+    [TK_I32]            = {NULL, NULL, PREC_LOWEST},
+    [TK_U32]            = {NULL, NULL, PREC_LOWEST},
+    [TK_IDENTIFIER]     = {parse_identifier_expr, NULL, PREC_LOWEST},
+    [TK_GARBAGE]        = {NULL, NULL, PREC_LOWEST},
+    [TK_EOF]            = {NULL, NULL, PREC_LOWEST}
 };
 _Static_assert(sizeof(rules)/sizeof(rules[0]) == TK_TYPE_COUNT, "Missing token type(s) in parser rule table!");
 
@@ -293,6 +295,14 @@ static ASTNode *parse_number_literal_expr(Parser *p) {
     u64 value = strtoul(previous(p).lexeme, NULL, 10);
     // TODO: parse postfix types' (e.g. 123u32)
     return astNewLiteralValueNode(p->current.allocator, ND_NUMBER_LITERAL, previous(p).location, LITERAL_VALUE(LIT_NUMBER, number, value));
+}
+
+static ASTNode *parse_string_literal_expr(Parser *p) {
+    Token tk = previous(p);
+    // lexeme + 1 to trim the opening '"', and length - 2 to trim both '"'.
+    ASTString str = astProgramAddString(p->program, stringNCopy(tk.lexeme + 1, tk.length - 2));
+    // TODO: proccess escapes (e.g. \x1b[..., \033[..., \e[..., \27[... etc.).
+    return astNewLiteralValueNode(p->current.allocator, ND_STRING_LITERAL, tk.location, LITERAL_VALUE(LIT_STRING, str, str));
 }
 
 static ASTNode *parse_grouping_expr(Parser *p) {
@@ -571,6 +581,8 @@ static Type *parse_primitive_type(Parser *p) {
         return p->program->primitives.int32;
     } else if(match(p, TK_U32)) {
         return p->program->primitives.uint32;
+    } else if(match(p, TK_STR)) {
+        return p->program->primitives.str;
     }
     return NULL;
 }
@@ -886,12 +898,14 @@ static void synchronize(Parser *p) {
 
 static void init_primitive_types(ASTProgram *prog, ASTModule *root_module) {
 // The ModuleID of the root module is always 0.
-#define DEF(typename, type, name, size) {Type *ty; NEW0(ty); typeInit(ty, (type), astProgramAddString(prog, (name)), 0, (size)); prog->primitives.typename = astModuleAddType(root_module, ty);}
+#define DEF(typename, type, name, size) {Type *ty; NEW0(ty); typeInit(ty, (type), astProgramAddString(prog, (name)), (ModuleID)0, (size)); prog->primitives.typename = astModuleAddType(root_module, ty);}
 
+    // FIXME: do we need to add the typenames to the string table (because they are string literals)?
     // NOTE: Update IS_PRIMITIVE() in Types.h when adding new primitives.
     DEF(void_, TY_VOID, "void", 0);
     DEF(int32, TY_I32, "i32", 4);
     DEF(uint32, TY_U32, "u32", 4);
+    DEF(str, TY_STR, "str", 8); // FIXME: 8 bytes is the pointer size in 64bit architectures, this should be arch independent.
 
 #undef DEF
 }

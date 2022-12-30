@@ -3,6 +3,7 @@
 
 #include <stdio.h> // FILE
 #include <stdbool.h>
+#include "common.h"
 #include "Token.h" // Location
 
 // Can't include Ast.h ast it includes this file.
@@ -12,7 +13,8 @@ typedef usize ModuleID; // from Ast.h
 typedef enum type_type {
     TY_VOID,
     TY_I32, TY_U32,
-    //TY_PTR,
+    TY_STR,
+    //TY_PTR/REF,
     TY_FN,
     TY_STRUCT,
     TY_ID, // An identifier type is a place holder for types the parser can't resolve.
@@ -30,7 +32,7 @@ typedef struct type {
     union {
         //struct {
         //    struct ast_type *base;
-        //} ptr;
+        //} ptr/ref;
         struct {
             struct type *return_type;
             Array parameter_types; // Array<Type *>

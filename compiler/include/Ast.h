@@ -29,13 +29,15 @@ typedef char *ASTString;
 // A LiteralValue holds, well, a literal value.
 // For example number literals & strings.
 typedef enum literal_value_type {
-    LIT_NUMBER
+    LIT_NUMBER,
+    LIT_STRING
 } LiteralValueType;
 
 typedef struct literal_value {
     LiteralValueType type;
     union {
         u64 number; // Prefix operators are handled by the parser, so 'number' can be unsigned.
+        ASTString str;
     } as;
 } LiteralValue;
 
@@ -74,6 +76,7 @@ typedef enum control_flow {
 typedef enum ast_node_type {
     // Literal nodes
     ND_NUMBER_LITERAL,
+    ND_STRING_LITERAL,
 
     // Obj nodes
     ND_VAR_DECL,
@@ -236,6 +239,7 @@ typedef struct ast_program {
         Type *void_;
         Type *int32;
         Type *uint32;
+        Type *str;
     } primitives;
     // Holds a single copy of each string in the entire program.
     Table strings; // Table<char *, String>

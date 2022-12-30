@@ -199,6 +199,9 @@ static Type *get_expr_type(Validator *v, ASTNode *expr) {
         case ND_NUMBER_LITERAL: // The default number literal type is i32.
             ty = v->program->primitives.int32;
             break;
+        case ND_STRING_LITERAL:
+            ty = v->program->primitives.str;
+            break;
         case ND_VAR_DECL:
         case ND_VARIABLE:
         case ND_FUNCTION:
@@ -517,6 +520,7 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
         }
         // ignored nodes (no validating to do).
         case ND_NUMBER_LITERAL:
+        case ND_STRING_LITERAL:
         case ND_VARIABLE:
         case ND_FUNCTION:
             // Return early so the node isn't freed (there is no need to create a copy of nodes we don't change).
@@ -826,6 +830,7 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
         }
         // ignored nodes (no typechecking to do).
         case ND_NUMBER_LITERAL:
+        case ND_STRING_LITERAL:
         case ND_FUNCTION:
         case ND_VARIABLE: // TODO: is it ok to ignore this node?
         case ND_PROPERTY_ACCESS:

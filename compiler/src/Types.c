@@ -16,6 +16,7 @@ void typeInit(Type *ty, TypeType type, ASTString name, ModuleID decl_module, int
         case TY_VOID:
         case TY_I32:
         case TY_U32:
+        case TY_STR:
         case TY_ID:
             // nothing
             break;
@@ -35,6 +36,7 @@ void typeFree(Type *ty) {
         case TY_VOID:
         case TY_I32:
         case TY_U32:
+        case TY_STR:
         case TY_ID:
             // nothing
             break;
@@ -89,6 +91,7 @@ bool typeIsPrimitive(Type *ty) {
         case TY_VOID:
         case TY_I32:
         case TY_U32:
+        case TY_STR:
             return true;
         default:
             break;
@@ -156,6 +159,7 @@ static const char *type_type_name(TypeType type) {
         [TY_VOID]   = "TY_VOID",
         [TY_I32]    = "TY_I32",
         [TY_U32]    = "TY_U32",
+        [TY_STR]    = "TY_STR",
         [TY_FN]     = "TY_FN",
         [TY_STRUCT] = "TY_STRUCT",
         [TY_ID]     = "TY_ID"
@@ -209,6 +213,7 @@ void typePrint(FILE *to, Type *ty, bool compact) {
             case TY_VOID:
             case TY_I32:
             case TY_U32:
+            case TY_STR:
             case TY_ID:
                 break;
             default:

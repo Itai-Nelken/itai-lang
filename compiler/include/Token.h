@@ -54,7 +54,8 @@ typedef enum token_type {
     TK_GREATER, TK_GREATER_EQUAL,
 
     // Literals
-    TK_NUMBER,
+    TK_NUMBER_LITERAL,
+    TK_STRING_LITERAL,
 
     // keywords
     TK_IF, TK_ELSE,
@@ -64,7 +65,7 @@ typedef enum token_type {
     TK_STRUCT,
 
     // primitive types
-    TK_VOID, TK_I32, TK_U32,
+    TK_VOID, TK_I32, TK_U32, TK_STR,
 
     // identifier
     TK_IDENTIFIER,

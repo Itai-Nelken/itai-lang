@@ -45,6 +45,8 @@ static void free_type_callback(TableItem *item, bool is_last, void *cl) {
 }
 
 static unsigned hash_type(void *type) {
+    // TODO: use fn param types as part of the has for TY_FN so
+    //       there are no duplicate fn types.
     Type *ty = (Type *)type;
     // hash the name using the fnv-la string hashing algorithm.
     unsigned length = (unsigned)strlen(ty->name);
@@ -194,6 +196,9 @@ void literalValuePrint(FILE *to, LiteralValue value) {
     switch(value.type) {
         case LIT_NUMBER:
             fprintf(to, "\x1b[34m%lu\x1b[0m", value.as.number);
+            break;
+        case LIT_STRING:
+            fprintf(to, "'%s'", value.as.str);
             break;
         default:
             UNREACHABLE();
@@ -419,6 +424,7 @@ void astNodeFree(ASTNode *n, bool recursive) {
 static const char *node_name(ASTNodeType type) {
     switch(type) {
         case ND_NUMBER_LITERAL:
+        case ND_STRING_LITERAL:
             return "ASTLiteralValueNode";
         case ND_VAR_DECL:
         case ND_VARIABLE:
@@ -458,6 +464,7 @@ static const char *node_name(ASTNodeType type) {
 static const char *node_type_name(ASTNodeType type) {
     static const char *names[] = {
         [ND_NUMBER_LITERAL]  = "ND_NUMBER_LIERAL",
+        [ND_STRING_LITERAL]  = "ND_STRING_LITERAL",
         [ND_VAR_DECL]        = "ND_VAR_DECL",
         [ND_VARIABLE]        = "ND_VARIABLE",
         [ND_FUNCTION]        = "ND_FUNCTION",
@@ -498,6 +505,7 @@ void astNodePrint(FILE *to, ASTNode *n) {
     locationPrint(to, n->location, true);
     switch(n->node_type) {
         case ND_NUMBER_LITERAL:
+        case ND_STRING_LITERAL:
             fprintf(to, ", \x1b[1mvalue:\x1b[0m ");
             literalValuePrint(to, AS_LITERAL_NODE(n)->value);
             break;
