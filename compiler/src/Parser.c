@@ -593,6 +593,7 @@ static Type *new_fn_type(Parser *p, Type *return_type, Array parameters) {
     NEW0(ty);
     // FIXME: What should be the size of a function type?
     //        zero because functions cannot be stored (copied/cloned)?
+    //        8 (size of a pointer in 64bit architectures)?
     //        but what about closures/lambdas? the size of the implementing struct?
     typeInit(ty, TY_FN, NULL, p->current.module, 0);
     ty->as.fn.return_type = return_type;

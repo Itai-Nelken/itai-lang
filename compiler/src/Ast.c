@@ -45,8 +45,6 @@ static void free_type_callback(TableItem *item, bool is_last, void *cl) {
 }
 
 static unsigned hash_type(void *type) {
-    // TODO: use fn param types as part of the has for TY_FN so
-    //       there are no duplicate fn types.
     Type *ty = (Type *)type;
     // hash the name using the fnv-la string hashing algorithm.
     unsigned length = (unsigned)strlen(ty->name);
@@ -55,12 +53,16 @@ static unsigned hash_type(void *type) {
         hash ^= (char)ty->name[i];
         hash *= 16777619;
     }
+    if(ty->type == TY_FN) {
+        for(usize i = 0; i < ty->as.fn.parameter_types.used; ++i) {
+            hash |= hash_type(arrayGet(&ty->as.fn.parameter_types, i));
+        }
+        hash &= hash_type((void *)ty->as.fn.return_type);
+    }
     return (ty->type + (uintptr_t)hash) >> 2; // implicitly cast to 'unsigned', so extra bits are discarded.
 }
 
 static bool compare_type(void *a, void *b) {
-    // FIXME: Is there a better way to do this?
-    //        comparing types all the time isn't very efficient.
     return typeEqual((Type *)a, (Type *)b);
 }
 
@@ -116,8 +118,9 @@ void astModuleFree(ASTModule *module) {
 }
 
 Type *astModuleAddType(ASTModule *module, Type *ty) {
-    TableItem *existing_item;
+    TableItem *existing_item = NULL;
     if((existing_item = tableGet(&module->types, (void *)ty)) != NULL) {
+        typeFree(ty);
         FREE(ty);
         return (Type *)existing_item->key;
     }
@@ -513,7 +516,7 @@ void astNodePrint(FILE *to, ASTNode *n) {
         case ND_VARIABLE:
         case ND_FUNCTION:
             fputs(", \x1b[1mobj:\x1b[0m ", to);
-            astObjPrint(to, AS_OBJ_NODE(n)->obj);
+            astObjPrintCompact(to, AS_OBJ_NODE(n)->obj);
             break;
         case ND_ASSIGN:
         case ND_CALL:
@@ -648,6 +651,18 @@ static const char *obj_type_name(ASTObjType type) {
     return names[type];
 }
 
+void astObjPrintCompact(FILE *to, ASTObj *obj) {
+    if(obj == NULL) {
+        fprintf(to, "(null)");
+        return;
+    }
+    fprintf(to, "ASTObj{\x1b[1;36m%s\x1b[0m, ", obj_type_name(obj->type));
+    locationPrint(to, obj->location, true);
+    fprintf(to, ", '%s', ", obj->name);
+    typePrint(to, obj->data_type, true);
+    fputc('}', to);
+}
+
 void astObjPrint(FILE *to, ASTObj *obj) {
     if(obj == NULL) {
         fprintf(to, "(null)");
@@ -669,9 +684,9 @@ void astObjPrint(FILE *to, ASTObj *obj) {
         case OBJ_FN:
             fputs(", \x1b[1mreturn_type:\x1b[0m ", to);
             typePrint(to, obj->as.fn.return_type, true);
-            fputs(", \x1b[parameters:\x1b[0m ", to);
+            fputs(", \x1b[1mparameters:\x1b[0m [", to);
             PRINT_ARRAY(ASTObj *, astObjPrint, to, obj->as.fn.parameters);
-            fputs(", \x1b[1mlocals:\x1b[0m [", to);
+            fputs("], \x1b[1mlocals:\x1b[0m [", to);
             PRINT_ARRAY(ASTObj *, astObjPrint, to, obj->as.fn.locals);
             fputs("], \x1b[1mbody:\x1b[0m ", to);
             astNodePrint(to, AS_NODE(obj->as.fn.body));
@@ -684,6 +699,9 @@ void astObjPrint(FILE *to, ASTObj *obj) {
         case OBJ_EXTERN_FN:
             fputs(", \x1b[1mreturn_type:\x1b[0m ", to);
             typePrint(to, obj->as.fn.return_type, true);
+            fputs(", \x1b[1mparameters:\x1b[0m [", to);
+            PRINT_ARRAY(ASTObj *, astObjPrint, to, obj->as.fn.parameters);
+            fputc(']', to);
             break;
         default:
             UNREACHABLE();

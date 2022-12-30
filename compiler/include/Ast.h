@@ -458,6 +458,13 @@ void astObjFree(ASTObj *obj);
  ***/
 void astObjPrint(FILE *to, ASTObj *obj);
 
+/***
+ * Print an ASTObj in a compact format.
+ *
+ * @param to The stream to print to.
+ * @param obj The object to print.
+ ***/
+void astObjPrintCompact(FILE *to, ASTObj *obj);
 
 /* ASTModule */
 
