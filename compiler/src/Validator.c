@@ -954,7 +954,7 @@ bool validatorValidate(Validator *v, ASTProgram *prog) {
     if(!v->found_main) {
         Error *err;
         NEW0(err);
-        errorInit(err, ERR_ERROR, false, locationNew(0, 0, 0), "No entry point (hint: Consider adding a 'main' function).");
+        errorInit(err, ERR_ERROR, false, EMPTY_LOCATION(), "No entry point (hint: Consider adding a 'main' function).");
         v->had_error = true;
         compilerAddError(v->compiler, err);
     }

@@ -10,7 +10,7 @@ void typeInit(Type *ty, TypeType type, ASTString name, ModuleID decl_module, int
     ty->type = type;
     ty->name = name;
     ty->decl_module = decl_module;
-    ty->decl_location = locationNew(0, 0, 0); // FIXME: find a way to represent an empty location.
+    ty->decl_location = EMPTY_LOCATION();
     ty->size = size;
     switch(type) {
         case TY_VOID:

@@ -6,6 +6,7 @@
 #include "Array.h"
 #include "Table.h"
 #include "Error.h"
+#include "Token.h" // Location
 #include "Ast.h"
 #include "Scanner.h"
 #include "Parser.h"
@@ -23,9 +24,9 @@ void parserInit(Parser *p, Scanner *s, Compiler *c) {
     // set current and previous tokens to TK_GARBAGE with empty locations
     // so errors can be reported using them.
     p->previous_token.type = TK_GARBAGE;
-    p->previous_token.location = locationNew(0, 0, 0);
+    p->previous_token.location = EMPTY_LOCATION();
     p->current_token.type = TK_GARBAGE;
-    p->current_token.location = locationNew(0, 0, 0);
+    p->current_token.location = EMPTY_LOCATION();
     p->had_error = false;
     p->need_synchronize = false;
 }
@@ -633,7 +634,7 @@ static Type *parse_function_type(Parser *p) {
                 continue;
             }
             // Wrap the types in an ASTObj because of new_fn_type().
-            arrayPush(&parameters, (void *)astNewObj(OBJ_VAR, locationNew(0, 0, 0), locationNew(0, 0, 0), "", ty));
+            arrayPush(&parameters, (void *)astNewObj(OBJ_VAR, EMPTY_LOCATION(), EMPTY_LOCATION(), "", ty));
         } while(match(p, TK_COMMA));
     }
     if(!consume(p, TK_RPAREN)) {
