@@ -22,7 +22,7 @@ union align {
 };
 
 union header {
-    Arena arena;
+    Block block;
     union align a;
 };
 
