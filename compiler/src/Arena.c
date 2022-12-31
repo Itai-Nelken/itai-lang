@@ -52,11 +52,15 @@ void arenaFree(Arena *a) {
     a->blocks = NULL;
 }
 
+static inline size_t max(size_t a, size_t b) {
+    return a > b ? a : b;
+}
+
 void *arenaAlloc(Arena *a, size_t size) {
     size = (size + sizeof(union align) - 1) / sizeof(union align) * sizeof(union align);
     if(a->blocks->used + size > a->blocks->size) {
         // All blocks have at least 10K of memory.
-        a->blocks = new_block(size + ARENA_DEFAULT_BLOCK_SIZE, a->blocks);
+        a->blocks = new_block(max(size, ARENA_DEFAULT_BLOCK_SIZE), a->blocks);
     }
     a->blocks->used += size;
     return (void *)(a->blocks->data + a->blocks->used - size);
