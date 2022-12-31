@@ -109,6 +109,27 @@ bool typeEqual(Type *a, Type *b) {
         return false;
     }
 
+    // Compare function types regardless of their address
+    // because function types are equal even if they are in
+    // different modules.
+    if(a->type == TY_FN) {
+        if(!typeEqual(a->as.fn.return_type, b->as.fn.return_type)) {
+            return false;
+        }
+        if(a->as.fn.parameter_types.used != b->as.fn.parameter_types.used) {
+            return false;
+        }
+        // past here, both function types have the same return type and parameter count.
+        for(usize i = 0; i < a->as.fn.parameter_types.used; ++i) {
+            Type *a_param = ARRAY_GET_AS(Type *, &a->as.fn.parameter_types, i);
+            Type *b_param = ARRAY_GET_AS(Type *, &b->as.fn.parameter_types, i);
+            if(!typeEqual(a_param, b_param)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     if(a->decl_module != b->decl_module) {
         return false;
     }
