@@ -6,7 +6,8 @@
 
 typedef struct block {
     struct block *prev;
-    size_t size, used;
+    size_t size;
+    size_t used;
     char data[];
 } Block;
 
