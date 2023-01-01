@@ -10,8 +10,9 @@ The code generator currently generates C.
 ```
 Usage: ./ilc [options] file
 Options:
-	--help,     -h    Print this help.
-	--dump-ast, -d    Dump the parsed AST.
+	--help,        -h    Print this help.
+	--dump-ast,    -d    Dump the parsed AST.
+	--dump-tokens, -t    Dump the scanned tokens.
 ```
 The compiler currently compiles by default a file called `test.ilc` in the current directory.
 
