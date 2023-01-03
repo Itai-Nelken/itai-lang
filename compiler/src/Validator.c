@@ -948,7 +948,7 @@ static void typecheck_module_callback(void *module, usize index, void *validator
         typecheck_global_variable(v, g);
     }
     // TODO: handle errors here?
-    //       after all we wan't to typecheck everything always, but what about cascading errors?
+    //       after all we want to typecheck everything always, but what about cascading errors?
 
     // Objects
     FOR(i, m->objects) {
