@@ -764,6 +764,11 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
             TRY(typecheck_ast(v, AS_BINARY_NODE(n)->rhs));
             Type *lhs_ty = get_expr_type(v, AS_BINARY_NODE(n)->lhs);
             Type *rhs_ty = get_expr_type(v, AS_BINARY_NODE(n)->rhs);
+            if(IS_NUMERIC(lhs_ty) && IS_NUMERIC(rhs_ty)
+               && IS_UNSIGNED(lhs_ty) &&
+               NODE_IS(AS_BINARY_NODE(n)->rhs, ND_NUMBER_LITERAL) && IS_SIGNED(rhs_ty)) {
+                break;
+            }
             TRY(check_types(v, AS_BINARY_NODE(n)->rhs->location, lhs_ty, rhs_ty));
             break;
         }
