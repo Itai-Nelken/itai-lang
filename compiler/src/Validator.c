@@ -196,8 +196,13 @@ static bool validate_type(Validator *v, Type **ty);
 static Type *get_expr_type(Validator *v, ASTNode *expr) {
     Type *ty = NULL;
     switch(expr->node_type) {
-        case ND_NUMBER_LITERAL: // The default number literal type is i32.
-            ty = v->program->primitives.int32;
+        case ND_NUMBER_LITERAL:
+            if(AS_LITERAL_NODE(expr)->ty) {
+                ty = AS_LITERAL_NODE(expr)->ty;
+            } else {
+                // The default number literal type is i32.
+                ty = v->program->primitives.int32;
+            }
             break;
         case ND_STRING_LITERAL:
             ty = v->program->primitives.str;

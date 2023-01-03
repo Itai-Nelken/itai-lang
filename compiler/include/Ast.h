@@ -147,6 +147,7 @@ typedef struct ast_loop_node {
 typedef struct ast_expression_node {
     ASTNode header;
     LiteralValue value;
+    Type *ty; // For postfix types, can be NULL;
 } ASTLiteralValueNode;
 
 typedef struct ast_obj_node {
@@ -382,9 +383,10 @@ ASTNode *astNewLoopNode(Allocator *a, Location loc, ASTNode *init, ASTNode *cond
  * @param type The node type.
  * @param loc The Location of the node.
  * @param value The LiteralValue to store in the node.
+ * @param ty The type of the literal (optional).
  * @return The node as an ASTNode.
  ***/
-ASTNode *astNewLiteralValueNode(Allocator *a, ASTNodeType type, Location loc, LiteralValue value);
+ASTNode *astNewLiteralValueNode(Allocator *a, ASTNodeType type, Location loc, LiteralValue value, Type *ty);
 
 /***
  * Create a new ASTObjNode.

@@ -1,0 +1,6 @@
+/// expect error: Error: Invalid suffix 'void' (suffix must be a numeric type).
+
+var i = 123void;
+
+fn main() {}
+

@@ -324,11 +324,12 @@ ASTNode *astNewLoopNode(Allocator *a, Location loc, ASTNode *init, ASTNode *cond
     return AS_NODE(n);
 }
 
-ASTNode *astNewLiteralValueNode(Allocator *a, ASTNodeType type, Location loc, LiteralValue value) {
+ASTNode *astNewLiteralValueNode(Allocator *a, ASTNodeType type, Location loc, LiteralValue value, Type *ty) {
     ASTLiteralValueNode *n = a->allocFn(a->arg, sizeof(*n));
     //NEW0(n);
     n->header = make_header(type, loc);
     n->value = value;
+    n->ty = ty;
     return AS_NODE(n);
 }
 

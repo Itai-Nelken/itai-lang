@@ -292,9 +292,30 @@ static ASTNode *parse_identifier_expr(Parser *p) {
 
 static ASTNode *parse_number_literal_expr(Parser *p) {
     // TODO: Support hex, octal & binary.
+    Location loc = previous(p).location;
     u64 value = strtoul(previous(p).lexeme, NULL, 10);
-    // TODO: parse postfix types' (e.g. 123u32)
-    return astNewLiteralValueNode(p->current.allocator, ND_NUMBER_LITERAL, previous(p).location, LITERAL_VALUE(LIT_NUMBER, number, value));
+    Type *postfix_type = NULL;
+    switch(current(p).type) {
+        case TK_I32:
+            postfix_type = p->program->primitives.int32;
+            loc = locationMerge(loc, current(p).location);
+            advance(p);
+            break;
+        case TK_U32:
+            postfix_type = p->program->primitives.uint32;
+            loc = locationMerge(loc, current(p).location);
+            advance(p);
+            break;
+        case TK_STR:
+        case TK_VOID:
+            // Consume the type anyway to suppress further errors because of it.
+            advance(p);
+            error_at(p, locationMerge(loc, previous(p).location), stringFormat("Invalid suffix '%s' (suffix must be a numeric type).", tokenTypeString(previous(p).type)));
+            return NULL;
+        default:
+            break;
+    }
+    return astNewLiteralValueNode(p->current.allocator, ND_NUMBER_LITERAL, loc, LITERAL_VALUE(LIT_NUMBER, number, value), postfix_type);
 }
 
 static ASTNode *parse_string_literal_expr(Parser *p) {
@@ -302,7 +323,7 @@ static ASTNode *parse_string_literal_expr(Parser *p) {
     // lexeme + 1 to trim the opening '"', and length - 2 to trim both '"'.
     ASTString str = astProgramAddString(p->program, stringNCopy(tk.lexeme + 1, tk.length - 2));
     // TODO: proccess escapes (e.g. \x1b[..., \033[..., \e[..., \27[... etc.).
-    return astNewLiteralValueNode(p->current.allocator, ND_STRING_LITERAL, tk.location, LITERAL_VALUE(LIT_STRING, str, str));
+    return astNewLiteralValueNode(p->current.allocator, ND_STRING_LITERAL, tk.location, LITERAL_VALUE(LIT_STRING, str, str), NULL);
 }
 
 static ASTNode *parse_grouping_expr(Parser *p) {
