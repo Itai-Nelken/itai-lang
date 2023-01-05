@@ -26,7 +26,7 @@ static inline Location make_location(Scanner *s) {
     return locationNew(s->start, s->current, compilerGetCurrentFileID(s->compiler));
 }
 
-// Takes ownership 'message'
+// Note: ownership of 'message' is taken.
 static void add_error(Scanner *s, bool has_location, String message) {
     Error *err;
     NEW0(err);
