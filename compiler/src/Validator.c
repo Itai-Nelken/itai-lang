@@ -554,7 +554,7 @@ static bool validate_function(Validator *v, ASTObj *fn) {
     if(stringEqual(fn->name, "main")) {
         v->found_main = true;
         // TODO: validate main():
-        //       -  return type.
+        //       - return type.
         //       - parameters.
     }
 
@@ -606,11 +606,7 @@ static bool validate_struct(Validator *v, ASTObj *s) {
         if(!validate_type(v, &field->data_type))
             continue;
         arrayInsert(&s->data_type->as.structure.field_types, i, (void *)field->data_type);
-        //if(typeEqual(field->data_type, s->data_type)) {
-        //    error(v, field->location, "Struct '%s' cannot have a field that recursively contains it.", s->name);
-        //    tableFree(&declared_fields);
-        //    return false; // FIXME: check all fields before returning.
-        //}
+        // Note: The check for recursive structs is in typecheck_struct().
         TableItem *item = NULL;
         if((item = tableGet(&declared_fields, (void *)field->name)) != NULL) {
             ASTObj *existing_field = (ASTObj *)item->value;
@@ -957,8 +953,6 @@ static void typecheck_module_callback(void *module, usize index, void *validator
         ASTNode *g = ARRAY_GET_AS(ASTNode *, &m->globals, i);
         typecheck_global_variable(v, g);
     }
-    // TODO: handle errors here?
-    //       after all we want to typecheck everything always, but what about cascading errors?
 
     // Objects
     FOR(i, m->objects) {
