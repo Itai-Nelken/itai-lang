@@ -93,7 +93,7 @@ void arrayCopy(Array *dest, Array *src) {
 }
 
 void arrayReverse(Array *a) {
-    // The division below mught result in a float,
+    // The division below might result in a float
     // in which case it is rounded down which is what we want.
     for(size_t i = 0; i < a->used / 2; ++i) {
         void *tmp = a->data[i];

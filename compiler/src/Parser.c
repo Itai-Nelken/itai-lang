@@ -295,6 +295,9 @@ static ASTNode *parse_number_literal_expr(Parser *p) {
     Location loc = previous(p).location;
     u64 value = strtoul(previous(p).lexeme, NULL, 10);
     Type *postfix_type = NULL;
+    // Note: It isn't possible to use parse_type() here as the type
+    //       is optional and there isn't any way to know when there is
+    //       one and when there isn't.
     switch(current(p).type) {
         case TK_I32:
             postfix_type = p->program->primitives.int32;
