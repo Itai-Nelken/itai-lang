@@ -40,11 +40,13 @@ Location locationMerge(Location a, Location b);
 typedef enum token_type {
     // One character tokens
     TK_LPAREN, TK_RPAREN,
+    TK_LBRACKET, TK_RBRACKET,
     TK_LBRACE, TK_RBRACE,
     TK_PLUS,
     TK_STAR, TK_SLASH,
     TK_SEMICOLON, TK_COLON,
     TK_COMMA, TK_DOT,
+    TK_HASH,
 
     // one or two character tokens
     TK_MINUS, TK_ARROW,

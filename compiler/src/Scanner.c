@@ -215,6 +215,8 @@ Token scan_token(Scanner *s) {
     switch(c) {
         case '(': return make_token(s, TK_LPAREN);
         case ')': return make_token(s, TK_RPAREN);
+        case '[': return make_token(s, TK_LBRACKET);
+        case ']': return make_token(s, TK_RBRACKET);
         case '{': return make_token(s, TK_LBRACE);
         case '}': return make_token(s, TK_RBRACE);
         case '+': return make_token(s, TK_PLUS);
@@ -224,6 +226,7 @@ Token scan_token(Scanner *s) {
         case ':': return make_token(s, TK_COLON);
         case ',': return make_token(s, TK_COMMA);
         case '.': return make_token(s, TK_DOT);
+        case '#': return make_token(s, TK_HASH);
         case '-': return make_token(s, match(s, '>') ? TK_ARROW : TK_MINUS);
         case '=': return make_token(s, match(s, '=') ? TK_EQUAL_EQUAL : TK_EQUAL);
         case '!': return make_token(s, match(s, '=') ? TK_BANG_EQUAL : TK_BANG);

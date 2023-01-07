@@ -32,6 +32,8 @@ static const char *token_type_name(TokenType type) {
     static const char *names[] = {
         [TK_LPAREN]         = "TK_LPAREN",
         [TK_RPAREN]         = "TK_RPAREN",
+        [TK_LBRACKET]       = "TK_LBRACKET",
+        [TK_RBRACKET]       = "TK_RBRACKET",
         [TK_LBRACE]         = "TK_LBRACE",
         [TK_RBRACE]         = "TK_RBRACE",
         [TK_PLUS]           = "TK_PLUS",
@@ -41,6 +43,7 @@ static const char *token_type_name(TokenType type) {
         [TK_COLON]          = "TK_COLON",
         [TK_COMMA]          = "TK_COMMA",
         [TK_DOT]            = "TK_DOT",
+        [TK_HASH]           = "TK_HASH",
         [TK_MINUS]          = "TK_MINUS",
         [TK_ARROW]          = "TK_ARROW",
         [TK_EQUAL]          = "TK_EQUAL",
@@ -93,6 +96,8 @@ const char *tokenTypeString(TokenType type) {
     static const char *strings[] = {
         [TK_LPAREN]         = "(",
         [TK_RPAREN]         = ")",
+        [TK_LBRACKET]       = "[",
+        [TK_RBRACKET]       = "]",
         [TK_LBRACE]         = "{",
         [TK_RBRACE]         = "}",
         [TK_PLUS]           = "+",
@@ -102,6 +107,7 @@ const char *tokenTypeString(TokenType type) {
         [TK_COLON]          = ":",
         [TK_COMMA]          = ",",
         [TK_DOT]            = ".",
+        [TK_HASH]           = "#",
         [TK_MINUS]          = "-",
         [TK_ARROW]          = "->",
         [TK_EQUAL]          = "=",
