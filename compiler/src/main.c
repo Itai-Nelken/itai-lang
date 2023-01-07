@@ -38,7 +38,7 @@ bool parse_arguments(Options *opts, int argc, char **argv) {
                 printf("Usage: %s [options] file\n", argv[0]);
                 printf("Options:\n");
                 printf("\t--help,        -h    Print this help.\n");
-                printf("\t--dump-ast,    -d    Dump the parsed AST.\n");
+                printf("\t--dump-ast,    -d    Dump the parsed and validated AST.\n");
                 printf("\t--dump-tokens, -t    Dump the scanned tokens.\n");
                 return false;
             case 'd':
