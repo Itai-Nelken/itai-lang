@@ -1,5 +1,32 @@
 # Itai-Lang
 
+## Destructors
+A destructor is a bound function that is automatically called
+by the compiler when an object goes out of scope.<br>
+**Example:**
+```rust
+import "std/memory";
+
+struct Ptr<T> {
+	p: &T
+
+	fn new(T t) -> This {
+		return This{p: std::memory::new<T>(t)};
+	}
+
+	#[destructor]
+	fn free(&this) {
+		std::memory::free(this.p);
+	}
+}
+
+// Example usage:
+fn main() {
+	var ptr = Ptr<i32>::new(42);
+	// ptr goes out of scope, so its destructor is called.
+}
+```
+
 ## Memory managagement
 
 The recommended way to manage heap allocated memory is with the `Box<T>` type.<br>
