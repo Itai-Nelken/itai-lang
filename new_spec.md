@@ -331,7 +331,7 @@ int add(int a, int b) {
 ```
 The following code is used:
 ```rust
-#[source(add.o)]
+#[source("add.o")]
 extern fn add(i32, i32) -> i32;
 
 fn main() -> i32 {

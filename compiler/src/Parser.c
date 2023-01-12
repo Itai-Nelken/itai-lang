@@ -921,6 +921,35 @@ static ASTObj *parse_extern_decl(Parser *p) {
     return result;
 }
 
+static Attribute *parse_attribute(Parser *p) {
+    // Assumes '#' was already consumed.
+    Location start = previous(p).location;
+    TRY_CONSUME(p, TK_LBRACKET);
+
+    ASTString name = TRY(ASTString, parse_identifier(p));
+    Location name_loc = previous(p).location;
+    Attribute *attr = NULL;
+    if(stringEqual(name, "source")) {
+        TRY_CONSUME(p, TK_LPAREN);
+        TRY_CONSUME(p, TK_STRING_LITERAL);
+        ASTNode *arg = TRY(ASTNode *, parse_string_literal_expr(p));
+        TRY_CONSUME(p, TK_RPAREN);
+        // The Location is constructed later once the parsing of the attribute is done.
+        attr = attributeNew(ATTR_SOURCE, EMPTY_LOCATION());
+        attr->as.source = AS_LITERAL_NODE(arg)->value.as.str;
+    } else {
+        error_at(p, name_loc, stringFormat("Invalid attribute '%s'.", name));
+        return NULL;
+    }
+
+    if(!consume(p, TK_RBRACKET)) {
+        attributeFree(attr);
+        return NULL;
+    }
+    attr->location = locationMerge(start, previous(p).location);
+    return attr;
+}
+
 #undef TRY_CONSUME
 #undef TRY
 
@@ -999,6 +1028,12 @@ bool parserParse(Parser *p, ASTProgram *prog) {
             ASTObj *extern_decl = parse_extern_decl(p);
             if(extern_decl != NULL) {
                 arrayPush(&root_module->objects, (void *)extern_decl);
+            }
+        } else if(match(p, TK_HASH)) {
+            Attribute *attr = parse_attribute(p);
+            if(attr) {
+                // TODO: save the attribute.
+                attributeFree(attr);
             }
         } else {
             error_at(p, current(p).location, stringFormat("Expected one of ['fn', 'var'], but got '%s'.", tokenTypeString(current(p).type)));

@@ -179,6 +179,24 @@ typedef struct ast_list_node {
 #define AS_LIST_NODE(node) ((ASTListNode *)(node))
 
 
+/* Attribute */
+
+// Note: update tables in attributeTypeString() and attribute_type_name() when adding new types.
+typedef enum attribute_type {
+    ATTR_SOURCE,
+    //ATTR_DESTRUCTOR
+} AttributeType;
+
+typedef struct attribute {
+    AttributeType type;
+    Location location;
+    union {
+        ASTString source;
+        //ASTObj *destructor;
+    } as;
+} Attribute;
+
+
 /* ASTObj */
 
 // An ASTObj holds a object which in this context
@@ -430,6 +448,40 @@ ASTNode *astNewListNode(Allocator *a, ASTNodeType type, Location loc, ScopeID sc
  ***/
 void astNodePrint(FILE *to, ASTNode *n);
 
+
+/* Attribute */
+
+/***
+ * Create a new Attributute.
+ *
+ * @param type The AttributeType of the new attribute.
+ * @param loc The Location where the attribute was defined.
+ * @return The new attribute (heap allocated).
+ ***/
+Attribute *attributeNew(AttributeType type, Location loc);
+
+/***
+ * Free an Attribute.
+ *
+ * @param a The Attribute to free.
+ ***/
+void attributeFree(Attribute *a);
+
+/***
+ * Print an Attribute.
+ *
+ * @param to The stream to print to.
+ * @param a The Attribute to print.
+ ***/
+void attributePrint(FILE *to, Attribute *a);
+
+/***
+ * Return a user friendly string version of an AttributeType.
+ *
+ * @param type An AttributeType.
+ * @return The type as a user friendly string.
+ ***/
+const char *attributeTypeString(AttributeType type);
 
 /* ASTObj */
 

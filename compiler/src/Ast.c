@@ -578,6 +578,48 @@ void astNodePrint(FILE *to, ASTNode *n) {
 }
 
 
+/* Attribute */
+
+Attribute *attributeNew(AttributeType type, Location loc) {
+    Attribute *attr;
+    NEW0(attr);
+    attr->type = type;
+    attr->location = loc;
+    return attr;
+}
+
+void attributeFree(Attribute *a) {
+    FREE(a);
+}
+
+static const char *attribute_type_name(AttributeType type) {
+    static const char *types[] = {
+        [ATTR_SOURCE] = "ATTR_SOURCE",
+    };
+    return types[(u32)type];
+}
+
+void attributePrint(FILE *to, Attribute *a) {
+    fprintf(to, "Attribute{\x1b[1mtype: \x1b[0;35m%s\x1b[0m, \x1b[1mlocation:\x1b[0m ", attribute_type_name(a->type));
+    locationPrint(to, a->location, true);
+    switch(a->type) {
+        case ATTR_SOURCE:
+            fprintf(to, ", '%s'", a->as.source);
+            break;
+        default:
+            UNREACHABLE();
+    }
+    fputc('}', to);
+}
+
+const char *attributeTypeString(AttributeType type) {
+    static const char *types[] = {
+        [ATTR_SOURCE] = "source",
+    };
+    return types[(u32)type];
+}
+
+
 /* ASTObj */
 
 ASTObj *astNewObj(ASTObjType type, Location loc, Location name_loc, ASTString name, Type *data_type) {
