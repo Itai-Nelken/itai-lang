@@ -21,7 +21,8 @@ enum return_values {
 
 typedef struct options {
     const char *file_path;
-    bool dump_ast, dump_tokens;
+    bool dump_ast;
+    bool dump_tokens;
 } Options;
 
 bool parse_arguments(Options *opts, int argc, char **argv) {
@@ -118,7 +119,7 @@ int main(int argc, char **argv) {
     }
 
     if(!codegenGenerate(stdout, &prog)) {
-        fputs("\x1b[1;31mError: Codegenerator failed!\n", stderr);
+        fputs("\x1b[1;31mError: Codegenerator failed!\x1b[0m\n", stderr);
         return_value = RET_CODEGEN_ERROR;
         goto end;
     }
