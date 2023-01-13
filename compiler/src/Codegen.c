@@ -300,9 +300,9 @@ static void object_predecl_callback(void *object, void *codegen) {
             print(cg, "typedef struct %s %s;\n", obj->name, obj->name);
             break;
         case OBJ_EXTERN_FN:
+            print(cg, "// source: '%s'\n", obj->as.extern_fn.source_attr->as.source);
             print(cg, "extern ");
             gen_function_predecl(cg, obj->name, &obj->as.extern_fn.parameters, obj->as.extern_fn.return_type);
-            print(cg, " // source: '%s'", obj->as.extern_fn.source_attr->as.source);
             break;
         default:
             UNREACHABLE();
