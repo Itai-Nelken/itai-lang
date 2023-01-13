@@ -20,6 +20,7 @@ void parserInit(Parser *p, Scanner *s, Compiler *c) {
     p->current.allocator = NULL;
     p->current.function = NULL;
     p->current.scope = NULL;
+    p->current.attribute = NULL;
     p->can_assign = false;
     // set current and previous tokens to TK_GARBAGE with empty locations
     // so errors can be reported using them.
@@ -39,6 +40,10 @@ void parserFree(Parser *p) {
     p->current.module = 0;
     p->current.allocator = NULL;
     p->current.function = NULL;
+    if(p->current.attribute) {
+        attributeFree(p->current.attribute);
+        p->current.attribute = NULL;
+    }
     p->can_assign = false;
     p->previous_token.type = TK_GARBAGE;
     p->current_token.type = TK_GARBAGE;
@@ -180,6 +185,18 @@ static inline ScopeID enter_function(Parser *p, ASTObj *fn) {
 static inline void leave_function(Parser *p) {
     p->current.function = NULL;
     leave_scope(p);
+}
+
+static void store_attribute(Parser *p, Attribute *attr) {
+    VERIFY(p->current.attribute == NULL);
+    p->current.attribute = attr;
+}
+
+static Attribute *take_attribute(Parser *p) {
+    VERIFY(p->current.attribute);
+    Attribute *attr = p->current.attribute;
+    p->current.attribute = NULL;
+    return attr;
 }
 
 /* Helper macros */
@@ -913,8 +930,15 @@ static ASTObj *parse_extern_decl(Parser *p) {
             astObjFree(result);
             return NULL;
         }
-        arrayFree(&result->as.fn.locals);
-        result->type = OBJ_EXTERN_FN;
+        ASTObj *extern_fn = astNewObj(OBJ_EXTERN_FN, result->location, result->name_location, result->name, result->data_type);
+        arrayCopy(&extern_fn->as.extern_fn.parameters, &result->as.fn.parameters);
+        arrayClear(&result->as.fn.parameters);
+        extern_fn->as.extern_fn.return_type = result->as.fn.return_type;
+        if(p->current.attribute) {
+            extern_fn->as.extern_fn.source_attr = take_attribute(p);
+        }
+        astObjFree(result);
+        result = extern_fn;
     } else {
         error_at(p, current(p).location, "Invalid extern declaration (expected 'fn').");
     }
@@ -955,6 +979,10 @@ static Attribute *parse_attribute(Parser *p) {
 
 // synchronize to declaration boundaries.
 static void synchronize(Parser *p) {
+    // Get rid of the current attribute.
+    if(p->current.attribute) {
+        attributeFree(take_attribute(p));
+    }
     while(!is_eof(p)) {
         switch(current(p).type) {
             case TK_FN:
@@ -1032,8 +1060,13 @@ bool parserParse(Parser *p, ASTProgram *prog) {
         } else if(match(p, TK_HASH)) {
             Attribute *attr = parse_attribute(p);
             if(attr) {
-                // TODO: save the attribute.
-                attributeFree(attr);
+                if(p->current.attribute) {
+                    error_at(p, attr->location, "Too many attributes.");
+                    hint(p, p->current.attribute->location, "Previous attribute defined here.");
+                    attributeFree(attr);
+                } else {
+                    store_attribute(p, attr);
+                }
             }
         } else {
             error_at(p, current(p).location, stringFormat("Expected one of ['fn', 'var'], but got '%s'.", tokenTypeString(current(p).type)));

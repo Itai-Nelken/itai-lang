@@ -272,6 +272,19 @@ static void object_callback(void *object, void *codegen) {
     }
 }
 
+static void gen_function_predecl(Codegen *cg, ASTString name, Array *parameters, Type *return_type) {
+    gen_type(cg, return_type);
+    print(cg, " %s(", name);
+    for(usize i = 0; i < parameters->used; ++i) {
+        ASTObj *param = ARRAY_GET_AS(ASTObj *, parameters, i);
+        gen_type(cg, param->data_type);
+        if(i + 1 < parameters->used) {
+            print(cg, ", ");
+        }
+    }
+    print(cg, ");\n");
+}
+
 static void object_predecl_callback(void *object, void *codegen) {
     ASTObj *obj = (ASTObj *)object;
     Codegen *cg = (Codegen *)codegen;
@@ -281,27 +294,15 @@ static void object_predecl_callback(void *object, void *codegen) {
             // nothing
             break;
         case OBJ_FN:
-            // Note: do NOT use any fields other than return_type and parameters
-            //       without changing the OBJ_EXTERN_FN case to not use this case.
-            gen_type(cg, obj->as.fn.return_type);
-            print(cg, " %s(", obj->name);
-            for(usize i = 0; i < obj->as.fn.parameters.used; ++i) {
-                ASTObj *param = ARRAY_GET_AS(ASTObj *, &obj->as.fn.parameters, i);
-                gen_type(cg, param->data_type);
-                if(i + 1 < obj->as.fn.parameters.used) {
-                    print(cg, ", ");
-                }
-            }
-            print(cg, ");\n");
+            gen_function_predecl(cg, obj->name, &obj->as.fn.parameters, obj->as.fn.return_type);
             break;
         case OBJ_STRUCT:
             print(cg, "typedef struct %s %s;\n", obj->name, obj->name);
             break;
         case OBJ_EXTERN_FN:
             print(cg, "extern ");
-            obj->type = OBJ_FN; // Hack so the OBJ_FN case can be reused.
-            object_predecl_callback(object, codegen);
-            obj->type = OBJ_EXTERN_FN;
+            gen_function_predecl(cg, obj->name, &obj->as.extern_fn.parameters, obj->as.extern_fn.return_type);
+            print(cg, " // source: '%s'", obj->as.extern_fn.source_attr->as.source);
             break;
         default:
             UNREACHABLE();

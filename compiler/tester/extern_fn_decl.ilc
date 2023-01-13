@@ -1,6 +1,8 @@
 /// expect success
 
+#[source("print.o")]
 extern fn print_number(n: i32);
+#[source("print.o")]
 extern fn print_str(s: str);
 
 fn print_numbers(a: i32, separator: str, b: i32) {

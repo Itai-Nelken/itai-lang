@@ -674,8 +674,9 @@ void astObjFree(ASTObj *obj) {
             arrayFree(&obj->as.structure.fields);
             break;
         case OBJ_EXTERN_FN:
-            arrayMap(&obj->as.fn.parameters, free_object_callback, NULL);
-            arrayFree(&obj->as.fn.parameters);
+            arrayMap(&obj->as.extern_fn.parameters, free_object_callback, NULL);
+            arrayFree(&obj->as.extern_fn.parameters);
+            attributeFree(obj->as.extern_fn.source_attr);
             break;
         default:
             UNREACHABLE();
@@ -744,7 +745,8 @@ void astObjPrint(FILE *to, ASTObj *obj) {
             typePrint(to, obj->as.fn.return_type, true);
             fputs(", \x1b[1mparameters:\x1b[0m [", to);
             PRINT_ARRAY(ASTObj *, astObjPrint, to, obj->as.fn.parameters);
-            fputc(']', to);
+            fputs("], \x1b[1msource:\x1b[0m ", to);
+            attributePrint(to, obj->as.extern_fn.source_attr);
             break;
         default:
             UNREACHABLE();

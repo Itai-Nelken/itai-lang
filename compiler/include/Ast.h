@@ -226,10 +226,15 @@ typedef struct ast_obj {
             BlockScope *scopes;
             Array locals; // Array<ASTObj *>
             ASTListNode *body;
-        } fn; // OBJ_FN, OBJ_EXTERN_FN (without body, locals and scopes).
+        } fn; // OBJ_FN
         struct {
             Array fields; // Array<ASTObj *> (OBJ_VAR)
         } structure; // OBJ_STRUCT
+        struct {
+            Array parameters;
+            Type *return_type;
+            Attribute *source_attr; // After validating, guaranteed to be an ATTR_SOURCE.
+        } extern_fn; // OBJ_EXTERN_FN
     } as;
 } ASTObj;
 

@@ -622,9 +622,14 @@ static bool validate_struct(Validator *v, ASTObj *s) {
 }
 
 static bool validate_extern_fn(Validator *v, ASTObj *fn) {
-    UNUSED(v);
-    UNUSED(fn);
-    // TODO: check that #[source(file.o)] is set for this object.
+    if(fn->as.extern_fn.source_attr == NULL) {
+        error(v, fn->name_location, "Extern function '%s' has no 'source' attribute.", fn->name);
+        return false;
+    }
+    if(fn->as.extern_fn.source_attr->type != ATTR_SOURCE) {
+        error(v, fn->as.extern_fn.source_attr->location, "Invalid attribute '%s' for extern function.", attributeTypeString(fn->as.extern_fn.source_attr->type));
+        return false;
+    }
     return true;
 }
 

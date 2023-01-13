@@ -22,6 +22,7 @@ typedef struct parser {
         Allocator *allocator; // TODO: change with modules (also using a stack>)
         ASTObj *function; // NOTE: should be a stack when closures are supported?
         BlockScope *scope;
+        Attribute *attribute; // TODO: should be an array once support for multiple attributes is needed.
     } current;
 
     // state
