@@ -52,10 +52,10 @@ size_t stringLength(String s);
  * NOTE: if 'newSize' is smaller than the current length, data will be lost!
  *
  * @param s A string allocated by stringNew() or stringCopy().
- * @param newLength The new length. can't be 0.
+ * @param new_capacity The new length. can't be 0.
  * @return A new string of length 'newLength'.
  ***/
-String stringResize(String s, size_t newLength);
+String stringResize(String s, size_t new_capacity);
 
 /***
  * Copy 'length' characters from 's' into a new string.

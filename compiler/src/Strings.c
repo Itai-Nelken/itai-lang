@@ -6,70 +6,60 @@
 #include "memory.h"
 #include "Strings.h"
 
-// C = capacity
-// L = length
-// M = magic number
-// D = data
-// ________________________
-// |   |   |   |   |   |   | ...
-// | C | L | M | D | D | D | ...
-// |___|___|___|___|___|___| ...
-//
+typedef struct __attribute__((packed)) string_header {
+    size_t capacity;
+    size_t length;
+    size_t magic;
+    char data[];
+} StringHeader;
 
-enum slots {
-    CAPACITY   = 0,
-    LENGTH     = 1,
-    MAGIC      = 2,
-    SLOT_COUNT = 3
-};
-
-static inline size_t *from_str(char *s) {
-    return ((size_t *)s) - SLOT_COUNT;
+static inline StringHeader *from_str(String s) {
+    return &((StringHeader *)s)[-1];
 }
 
-static inline char *to_str(size_t *ptr) {
-    return (char *)(ptr + SLOT_COUNT);
+static inline String to_str(StringHeader *h) {
+    return h->data;
 }
 
 String stringNew(size_t capacity) {
-    size_t *ptr = ALLOC(sizeof(size_t) * SLOT_COUNT + sizeof(char) * (capacity + 1));
-    memset(ptr, 0, capacity + 1);
-    ptr[CAPACITY] = capacity + 1; // capacity
-    ptr[LENGTH] = 0; // length
-    ptr[MAGIC] = 0xDEADC0DE; // magic
-    return to_str(ptr);
+    StringHeader *h = ALLOC(sizeof(*h) + sizeof(char) * (capacity + 1));
+    memset(h, 0, sizeof(*h) + sizeof(char) * (capacity + 1));
+    h->capacity = capacity + 1;
+    h->length = 0;
+    h->magic = 0xDEADC0DE;
+    return to_str(h);
 }
 
 void stringFree(String s) {
     VERIFY(stringIsValid(s));
     // Remove the magic number in case the string is used again accidentally.
-    from_str(s)[MAGIC] = 0;
+    from_str(s)->magic = 0;
     FREE(from_str(s));
 }
 
 bool stringIsValid(String s) {
-    return from_str(s)[MAGIC] == 0xDEADC0DE;
+    return from_str(s)->magic == 0xDEADC0DE;
 }
 
 size_t stringLength(String s) {
-    return from_str(s)[LENGTH];
+    return from_str(s)->length;
 }
 
-String stringResize(String s, size_t newCapacity) {
-    VERIFY(newCapacity > 0);
-    size_t *ptr = from_str(s);
-    size_t oldCap = ptr[CAPACITY];
-    ptr = REALLOC(ptr, sizeof(size_t) * SLOT_COUNT + newCapacity);
-    ptr[CAPACITY] = newCapacity;
-    memset(to_str(ptr) + oldCap, 0, newCapacity - oldCap);
-    return to_str(ptr);
+String stringResize(String s, size_t new_capacity) {
+    VERIFY(new_capacity > 0);
+    StringHeader *h = from_str(s);
+    size_t old_capacity = h->capacity;
+    h = REALLOC(h, sizeof(*h) + sizeof(char) * new_capacity);
+    memset(to_str(h) + old_capacity, 0, new_capacity - old_capacity);
+    h->capacity = new_capacity;
+    return to_str(h);
 }
 
 String stringNCopy(const char *s, size_t length) {
     String str = stringNew(length);
     memcpy(str, s, length);
     str[length] = '\0';
-    from_str(str)[LENGTH] = length;
+    from_str(str)->length = length;
     return str;
 }
 
@@ -111,7 +101,7 @@ String stringVFormat(const char *format, va_list ap) {
 
     String s = stringNew(needed_length + 1);
     vsnprintf(s, needed_length + 1, format, ap);
-    from_str(s)[LENGTH] = needed_length;
+    from_str(s)->length = needed_length;
     return s;
 }
 
@@ -132,11 +122,11 @@ void stringAppend(String *dest, const char *format, ...) {
     String buffer = stringVFormat(format, ap);
     va_end(ap);
 
-    if(stringLength(*dest) + stringLength(buffer) + 1 > from_str(*dest)[CAPACITY]) {
+    if(stringLength(*dest) + stringLength(buffer) + 1 > from_str(*dest)->capacity) {
         *dest = stringResize(*dest, stringLength(*dest) + stringLength(buffer) + 1);
     }
     strncat(*dest, buffer, stringLength(buffer));
     // *dest is zeroed by stringNew() & stringResize(), so no need to terminate the string.
-    from_str(*dest)[LENGTH] += stringLength(buffer);
+    from_str(*dest)->length += stringLength(buffer);
     stringFree(buffer);
 }
