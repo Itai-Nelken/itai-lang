@@ -1,6 +1,6 @@
-/// expect error: Error: Unknown type 'TypeThatDoesNoeExist'.
+/// expect error: Error: Unknown type 'TypeThatDoesNotExist'.
 
 fn main() {
-	var a: TypeThatDoesNoeExist;
+	var a: TypeThatDoesNotExist;
 }
 
