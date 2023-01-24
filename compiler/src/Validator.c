@@ -550,6 +550,7 @@ static bool validate_type(Validator *v, Type **ty) {
     return true;
 }
 
+static bool typecheck_ast(Validator *v, ASTNode *n);
 static bool validate_function(Validator *v, ASTObj *fn) {
     if(stringEqual(fn->name, "main")) {
         v->found_main = true;
@@ -575,13 +576,37 @@ static bool validate_function(Validator *v, ASTObj *fn) {
         validate_type(v, ty);
     }
 
+    ASTListNode *new_body = AS_LIST_NODE(astNewListNode(v->current_allocator,
+                                                        fn->as.fn.body->header.node_type,
+                                                        fn->as.fn.body->header.location,
+                                                        fn->as.fn.body->scope,
+                                                        arrayLength(&fn->as.fn.body->nodes)));
+    new_body->control_flow = fn->as.fn.body->control_flow;
+    enter_scope(v, new_body->scope);
     FOR(i, fn->as.fn.body->nodes) {
         ASTNode *n = ARRAY_GET_AS(ASTNode *, &fn->as.fn.body->nodes, i);
-        ASTNode *new_n = validate_ast(v, n);
-        // It doesn't matter if [new_n] is NULL as it means there was an error
-        // and typechecking won't proceed.
-        arrayInsert(&fn->as.fn.body->nodes, i, (void *)new_n);
+        if(NODE_IS(n, ND_DEFER)) {
+            ASTNode *operand = validate_ast(v, AS_UNARY_NODE(n)->operand);
+            if(operand) {
+                // defers are typechecked here (so the validator is in the correct state).
+                if(!typecheck_ast(v, operand)) {
+                    v->had_error = true; // should be set if there was an error, but just in case set it again.
+                    continue;
+                }
+                arrayPush(&fn->as.fn.defers, (void *)operand);
+                // 'defer's aren't pushed back to the body as they are saved in the 'fn.defers' array
+                // and should be codegened separately as the function epilog.
+            }
+        } else {
+            ASTNode *new_n = validate_ast(v, n);
+            // It doesn't matter if [new_n] is NULL as it means there was an error
+            // and typechecking won't proceed.
+            arrayPush(&new_body->nodes, (void *)new_n);
+        }
     }
+    leave_scope(v);
+    fn->as.fn.body = new_body;
+    arrayReverse(&fn->as.fn.defers); // Reverse [defers] so they are generated in the correct order.
 
     if(fn->as.fn.return_type->type != TY_VOID) {
         if(fn->as.fn.body->control_flow == CF_NEVER_RETURNS) {
@@ -789,7 +814,7 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
             bool failed = false;
             enter_scope(v, AS_LIST_NODE(n)->scope);
             for(usize i = 0; i < AS_LIST_NODE(n)->nodes.used; ++i) {
-                failed = typecheck_ast(v, ARRAY_GET_AS(ASTNode *, &AS_LIST_NODE(n)->nodes, i));
+                failed = !typecheck_ast(v, ARRAY_GET_AS(ASTNode *, &AS_LIST_NODE(n)->nodes, i));
             }
             leave_scope(v);
             // failed == false -> success (return true).
@@ -857,6 +882,7 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
             break;
         case ND_ARGS: // see note in validate_ast() for the reason this node is an error here.
         case ND_IDENTIFIER: // see note in validate_ast() for the reason this node is an error here.
+        case ND_DEFER: // 'defer's should be removed from the body by validate_function().
         default:
             UNREACHABLE();
     }
@@ -890,6 +916,7 @@ static bool typecheck_function(Validator *v, ASTObj *fn) {
             had_error = true;
         }
     }
+    // fn.defers is typechecked in validate_function().
 
     v->current_function = NULL;
     return !had_error;

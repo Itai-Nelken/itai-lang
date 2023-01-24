@@ -149,7 +149,7 @@ static inline ScopeID enter_scope(Parser *p) {
         // Function scope, depth always == 1.
         p->current.scope = p->current.function->as.fn.scopes = blockScopeNew(NULL, 1);
         // FIXME: how to represent function scope.
-        return (ScopeID){.depth = 1, .index = 0};
+        return (ScopeID){.depth = FUNCTION_SCOPE_DEPTH, .index = 0};
     }
     // Block scope (meaning scopes inside a function scope).
     BlockScope *child = blockScopeNew(p->current.scope, p->current.scope->depth + 1);
@@ -237,7 +237,11 @@ typedef struct parse_rule {
     Precedence precedence;
 } ParseRule;
 
-/* Parse functions forward-declarations */
+/* Forward-declarations */
+static ASTNode *parse_function_body(Parser *p);
+static ASTNode *parse_statement(Parser *p);
+
+/* Parse functions */
 static ASTNode *parse_precedence(Parser *p, Precedence min_prec);
 static ASTNode *parse_expression(Parser *p);
 static ASTNode *parse_number_literal_expr(Parser *p);
@@ -252,6 +256,8 @@ static ASTNode *parse_property_access_expr(Parser *p, ASTNode *lhs);
 static ParseRule rules[] = {
     [TK_LPAREN]         = {parse_grouping_expr, parse_call_expr, PREC_CALL},
     [TK_RPAREN]         = {NULL, NULL, PREC_LOWEST},
+    [TK_LBRACKET]       = {NULL, NULL, PREC_LOWEST},
+    [TK_RBRACKET]       = {NULL, NULL, PREC_LOWEST},
     [TK_LBRACE]         = {NULL, NULL, PREC_LOWEST},
     [TK_RBRACE]         = {NULL, NULL, PREC_LOWEST},
     [TK_PLUS]           = {parse_unary_expr, parse_binary_expr, PREC_TERM},
@@ -261,6 +267,7 @@ static ParseRule rules[] = {
     [TK_COLON]          = {NULL, NULL, PREC_LOWEST},
     [TK_COMMA]          = {NULL, NULL, PREC_LOWEST},
     [TK_DOT]            = {NULL, parse_property_access_expr, PREC_CALL},
+    [TK_HASH]           = {NULL, NULL, PREC_LOWEST},
     [TK_MINUS]          = {parse_unary_expr, parse_binary_expr, PREC_TERM},
     [TK_ARROW]          = {NULL, NULL, PREC_LOWEST},
     [TK_EQUAL]          = {NULL, NULL, PREC_LOWEST},
@@ -280,8 +287,12 @@ static ParseRule rules[] = {
     [TK_RETURN]         = {NULL, NULL, PREC_LOWEST},
     [TK_VAR]            = {NULL, NULL, PREC_LOWEST},
     [TK_STRUCT]         = {NULL, NULL, PREC_LOWEST},
+    [TK_EXTERN]         = {NULL, NULL, PREC_LOWEST},
+    [TK_DEFER]          = {NULL, NULL, PREC_LOWEST},
+    [TK_VOID]           = {NULL, NULL, PREC_LOWEST},
     [TK_I32]            = {NULL, NULL, PREC_LOWEST},
     [TK_U32]            = {NULL, NULL, PREC_LOWEST},
+    [TK_STR]            = {NULL, NULL, PREC_LOWEST},
     [TK_IDENTIFIER]     = {parse_identifier_expr, NULL, PREC_LOWEST},
     [TK_GARBAGE]        = {NULL, NULL, PREC_LOWEST},
     [TK_EOF]            = {NULL, NULL, PREC_LOWEST}
@@ -519,8 +530,7 @@ static ASTNode *parse_block(Parser *p, ScopeID scope, ASTNode *(*parse_callback)
         }
         if(node) {
             arrayPush(&nodes, (void *)node);
-            // depth == 1 means function scope.
-            if(NODE_IS(node, ND_RETURN) && scope.depth == 1) {
+            if(NODE_IS(node, ND_RETURN) && scope.depth == FUNCTION_SCOPE_DEPTH) {
                 cf = CF_ALWAYS_RETURNS;
                 unreachable = true;
             } else {
@@ -560,7 +570,6 @@ static ASTNode *parse_return_stmt(Parser *p) {
     return astNewUnaryNode(p->current.allocator, ND_RETURN, locationMerge(start, previous(p).location), operand);
 }
 
-static ASTNode *parse_function_body(Parser *p);
 static ASTNode *parse_if_stmt(Parser *p) {
     // Assume 'if' is already consumed.
     Location start = previous(p).location;
@@ -596,6 +605,16 @@ static ASTNode *parse_while_loop_stmt(Parser *p) {
     return astNewLoopNode(p->current.allocator, locationMerge(start, previous(p).location), NULL, condition, NULL, body);
 }
 
+static ASTNode *parse_defer_stmt(Parser *p) {
+    // Assume 'defer' is already consumed.
+    Location start = previous(p).location;
+    ASTNode *operand = TRY(ASTNode *, parse_statement(p));
+    if(previous(p).type != TK_SEMICOLON) { // expr_stmt consumed the semicolon, other stmts don't (if, while etc.).
+        TRY_CONSUME(p, TK_SEMICOLON);
+    }
+    return astNewUnaryNode(p->current.allocator, ND_DEFER, locationMerge(start, previous(p).location), operand);
+}
+
 static ASTNode *parse_statement(Parser *p) {
     ASTNode *result = NULL;
     if(match(p, TK_LBRACE)) {
@@ -608,6 +627,8 @@ static ASTNode *parse_statement(Parser *p) {
         result = parse_if_stmt(p);
     } else if(match(p, TK_WHILE)) {
         result = parse_while_loop_stmt(p);
+    } else if(match(p, TK_DEFER)) {
+        result = parse_defer_stmt(p);
     } else {
         result = parse_expression_stmt(p);
     }

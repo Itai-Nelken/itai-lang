@@ -66,6 +66,7 @@ typedef enum token_type {
     TK_VAR,
     TK_STRUCT,
     TK_EXTERN,
+    TK_DEFER,
 
     // primitive types
     TK_VOID, TK_I32, TK_U32, TK_STR,

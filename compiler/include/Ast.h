@@ -57,6 +57,7 @@ typedef struct scope_id {
     usize index;
 } ScopeID;
 
+#define FUNCTION_SCOPE_DEPTH 1
 
 /* ControlFlow */
 
@@ -104,6 +105,7 @@ typedef enum ast_node_type {
     // Unary nodes
     ND_NEGATE,
     ND_RETURN,
+    ND_DEFER,
 
     // list nodes
     ND_BLOCK,
@@ -225,6 +227,7 @@ typedef struct ast_obj {
             Type *return_type;
             BlockScope *scopes;
             Array locals; // Array<ASTObj *>
+            Array defers; // Array<ASTNode *>
             ASTListNode *body;
         } fn; // OBJ_FN
         struct {

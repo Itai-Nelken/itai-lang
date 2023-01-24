@@ -123,6 +123,9 @@ static TokenType scan_keyword_or_identifier_type(Scanner *s) {
 
     TokenType result;
     switch(*lexeme) {
+        case 'd':
+            result = CHECK("defer", 5, TK_DEFER);
+            break;
         case 'e':
             switch(length) {
                 case 4:

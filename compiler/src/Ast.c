@@ -427,13 +427,16 @@ void astNodeFree(ASTNode *n, bool recursive) {
 
 static const char *node_name(ASTNodeType type) {
     switch(type) {
+        // literal nodes
         case ND_NUMBER_LITERAL:
         case ND_STRING_LITERAL:
             return "ASTLiteralValueNode";
+        // object nodes
         case ND_VAR_DECL:
         case ND_VARIABLE:
         case ND_FUNCTION:
             return "ASTObjNode";
+        // binary nodes
         case ND_ASSIGN:
         case ND_CALL:
         case ND_PROPERTY_ACCESS:
@@ -448,15 +451,21 @@ static const char *node_name(ASTNodeType type) {
         case ND_GT:
         case ND_GE:
             return "ASTBinaryNode";
+        // conditional nodes
         case ND_IF:
             return "ASTConditionalNode";
+        // loop nodes
         case ND_WHILE_LOOP:
             return "ASTLoopNode";
+        // unary nodes
         case ND_NEGATE:
         case ND_RETURN:
+        case ND_DEFER:
             return "ASTUnaryNode";
+        // identifier nodes
         case ND_IDENTIFIER:
             return "ASTIdentifierNode";
+        // list nodes
         case ND_BLOCK:
         case ND_ARGS:
             return "ASTListNode";
@@ -489,6 +498,7 @@ static const char *node_type_name(ASTNodeType type) {
         [ND_WHILE_LOOP]      = "ND_WHILE_LOOP",
         [ND_NEGATE]          = "ND_NEGATE",
         [ND_RETURN]          = "ND_RETURN",
+        [ND_DEFER]           = "ND_DEFER",
         [ND_BLOCK]           = "ND_BLOCK",
         [ND_ARGS]            = "ND_ARGS",
         [ND_IDENTIFIER]      = "ND_IDENTIFIER"
@@ -508,17 +518,20 @@ void astNodePrint(FILE *to, ASTNode *n) {
     fputs(", \x1b[1mlocation:\x1b[0m ", to);
     locationPrint(to, n->location, true);
     switch(n->node_type) {
+        // literal nodes
         case ND_NUMBER_LITERAL:
         case ND_STRING_LITERAL:
             fprintf(to, ", \x1b[1mvalue:\x1b[0m ");
             literalValuePrint(to, AS_LITERAL_NODE(n)->value);
             break;
+        // object nodes
         case ND_VAR_DECL:
         case ND_VARIABLE:
         case ND_FUNCTION:
             fputs(", \x1b[1mobj:\x1b[0m ", to);
             astObjPrintCompact(to, AS_OBJ_NODE(n)->obj);
             break;
+        // binary nodes
         case ND_ASSIGN:
         case ND_CALL:
         case ND_PROPERTY_ACCESS:
@@ -537,6 +550,7 @@ void astNodePrint(FILE *to, ASTNode *n) {
             fputs(", \x1b[1mrhs:\x1b[0m ", to);
             astNodePrint(to, AS_BINARY_NODE(n)->rhs);
             break;
+        // conditional nods
         case ND_IF:
             fputs(", \x1b[1mcondition:\x1b[0m ", to);
             astNodePrint(to, AS_CONDITIONAL_NODE(n)->condition);
@@ -545,6 +559,7 @@ void astNodePrint(FILE *to, ASTNode *n) {
             fputs(", \x1b[1melse:\x1b[0m ", to);
             astNodePrint(to, AS_CONDITIONAL_NODE(n)->else_);
             break;
+        // loop nodes
         case ND_WHILE_LOOP:
             // NOTE: ND_FOR_LOOP and ND_FOR_ITERATOR_LOOP
             //       should be printed separately because they use
@@ -554,14 +569,18 @@ void astNodePrint(FILE *to, ASTNode *n) {
             fputs(", \x1b[1mbody:\x1b[0m ", to);
             astNodePrint(to, AS_LOOP_NODE(n)->body);
             break;
+        // unary nodes
         case ND_NEGATE:
         case ND_RETURN:
+        case ND_DEFER:
             fputs(", \x1b[1moperand:\x1b[0m ", to);
             astNodePrint(to, AS_UNARY_NODE(n)->operand);
             break;
+        // identifier nodse
         case ND_IDENTIFIER:
             fprintf(to, ", \x1b[1midentifier:\x1b[0m '%s'", AS_IDENTIFIER_NODE(n)->identifier);
             break;
+        // list nodes
         case ND_BLOCK:
             fputs(", \x1b[1mscope:\x1b[0m ", to);
             scopeIDPrint(to, AS_LIST_NODE(n)->scope, true);
@@ -637,6 +656,7 @@ ASTObj *astNewObj(ASTObjType type, Location loc, Location name_loc, ASTString na
         case OBJ_FN:
             arrayInit(&o->as.fn.parameters);
             arrayInit(&o->as.fn.locals);
+            arrayInit(&o->as.fn.defers);
             break;
         case OBJ_STRUCT:
             arrayInit(&o->as.structure.fields);
@@ -666,6 +686,7 @@ void astObjFree(ASTObj *obj) {
             arrayFree(&obj->as.fn.parameters);
             arrayMap(&obj->as.fn.locals, free_object_callback, NULL);
             arrayFree(&obj->as.fn.locals);
+            arrayFree(&obj->as.fn.defers); // The nodes are owned by the parent module.
             blockScopeFree(obj->as.fn.scopes);
             //astNodeFree(AS_NODE(obj->as.fn.body), true); // body is owned by parent module.
             break;
@@ -732,6 +753,8 @@ void astObjPrint(FILE *to, ASTObj *obj) {
             PRINT_ARRAY(ASTObj *, astObjPrint, to, obj->as.fn.parameters);
             fputs("], \x1b[1mlocals:\x1b[0m [", to);
             PRINT_ARRAY(ASTObj *, astObjPrint, to, obj->as.fn.locals);
+            fputs("], \x1b[1mdefers:\x1b[0m [", to);
+            PRINT_ARRAY(ASTObj *, astObjPrint, to, obj->as.fn.defers);
             fputs("], \x1b[1mbody:\x1b[0m ", to);
             astNodePrint(to, AS_NODE(obj->as.fn.body));
             break;
