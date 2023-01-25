@@ -672,6 +672,11 @@ static bool validate_object(Validator *v, ASTObj *obj) {
         case OBJ_STRUCT:
             return validate_struct(v, obj);
         case OBJ_EXTERN_FN:
+            if(global_id_exists(v, obj->name)) { // TODO: unduplicate with 'case OBJ_FN'.
+                error(v, obj->location, "Symbol '%s' already exists.", obj->name);
+            } else {
+                add_global_id(v, obj->name);
+            }
             return validate_extern_fn(v, obj);
         default:
             UNREACHABLE();

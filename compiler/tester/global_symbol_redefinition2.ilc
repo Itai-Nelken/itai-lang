@@ -1,0 +1,6 @@
+/// expect error: Error: Symbol 'test' already exists.
+
+fn test() {}
+#[source("")]
+extern fn test(a: i32);
+
