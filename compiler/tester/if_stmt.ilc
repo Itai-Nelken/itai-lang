@@ -10,5 +10,11 @@ fn main() -> i32 {
 	} else {
 		return 0;
 	}
+
+	// The following tests an if statement
+	// with only one branch (the body).
+	if a <= b {
+		return a;
+	}
 }
 

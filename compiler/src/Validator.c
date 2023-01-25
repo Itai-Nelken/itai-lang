@@ -805,7 +805,9 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
         case ND_IF:
             TRY(typecheck_ast(v, AS_CONDITIONAL_NODE(n)->condition));
             TRY(typecheck_ast(v, AS_CONDITIONAL_NODE(n)->body));
-            TRY(typecheck_ast(v, AS_CONDITIONAL_NODE(n)->else_));
+            if(AS_CONDITIONAL_NODE(n)->else_) {
+                TRY(typecheck_ast(v, AS_CONDITIONAL_NODE(n)->else_));
+            }
             break;
         case ND_WHILE_LOOP:
             // NOTE: ND_FOR_LOOP and ND_FOR_ITERATOR_LOOP should be handled separately
