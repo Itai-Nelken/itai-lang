@@ -512,6 +512,7 @@ static void synchronize_in_block(Parser *p) {
     }
 }
 
+// block(parse_callback) -> parse_callback* '}' /* Note: the opening brace is consumed by the caller. */
 static ASTNode *parse_block(Parser *p, ScopeID scope, ASTNode *(*parse_callback)(Parser *p)) {
     // Assume '{' was already consumed.
     Location start = previous(p).location;
@@ -552,12 +553,14 @@ static ASTNode *parse_block(Parser *p, ScopeID scope, ASTNode *(*parse_callback)
     return AS_NODE(n);
 }
 
+// expression_stmt -> expression ';'
 static ASTNode *parse_expression_stmt(Parser *p) {
     ASTNode *expr = TRY(ASTNode *, parse_expression(p));
     TRY_CONSUME(p, TK_SEMICOLON);
     return expr;
 }
 
+// return_stmt -> 'return' expression? ';'
 static ASTNode *parse_return_stmt(Parser *p) {
     // Assume 'return' is already consumed.
     Location start = previous(p).location;
@@ -570,6 +573,7 @@ static ASTNode *parse_return_stmt(Parser *p) {
     return astNewUnaryNode(p->current.allocator, ND_RETURN, locationMerge(start, previous(p).location), operand);
 }
 
+// if_stmt -> 'if' expression '{' block(function_body) ('else' (if_stmt | '{' block(function_body)))?
 static ASTNode *parse_if_stmt(Parser *p) {
     // Assume 'if' is already consumed.
     Location start = previous(p).location;
@@ -605,16 +609,32 @@ static ASTNode *parse_while_loop_stmt(Parser *p) {
     return astNewLoopNode(p->current.allocator, locationMerge(start, previous(p).location), NULL, condition, NULL, body);
 }
 
+// defer_operand -> '{' block(expression_stmt) | expression
+static ASTNode *parse_defer_operand(Parser *p) {
+    ASTNode *result = NULL;
+    if(match(p, TK_LBRACE)) {
+        // FIXME: As variable declarations are not allowed, there is no need to enter a new scope,
+        //        but it isn't possible to get the current ScopeID so a new scope has to be entered
+        //        so it can be saved in the block.
+        ScopeID scope = enter_scope(p);
+        result = parse_block(p, scope, parse_expression_stmt);
+        leave_scope(p);
+    } else {
+        result = parse_expression(p);
+    }
+    return result;
+}
+
+// defer_stmt -> 'defer' defer_body ';'
 static ASTNode *parse_defer_stmt(Parser *p) {
     // Assume 'defer' is already consumed.
     Location start = previous(p).location;
-    ASTNode *operand = TRY(ASTNode *, parse_statement(p));
-    if(previous(p).type != TK_SEMICOLON) { // expr_stmt consumed the semicolon, other stmts don't (if, while etc.).
-        TRY_CONSUME(p, TK_SEMICOLON);
-    }
+    ASTNode *operand = TRY(ASTNode *, parse_defer_operand(p));
+    TRY_CONSUME(p, TK_SEMICOLON);
     return astNewUnaryNode(p->current.allocator, ND_DEFER, locationMerge(start, previous(p).location), operand);
 }
 
+// statement -> '{' block(function_body) | return_stmt | if_stmt | while_loop_stmt | defer_stmt | expression_stmt
 static ASTNode *parse_statement(Parser *p) {
     ASTNode *result = NULL;
     if(match(p, TK_LBRACE)) {
@@ -761,9 +781,9 @@ static Type *parse_type(Parser *p) {
     return ty;
 }
 
-// variable_decl -> 'var' identifier (':' type)? ('=' expression)? ';'
 // Notes: 1) The semicolon at the end isn't consumed.
 //        2) [var_loc] may be NULL.
+// variable_decl -> 'var' identifier (':' type)? ('=' expression)? ';'
 static ASTNode *parse_variable_decl(Parser *p, bool allow_initializer, Array *obj_array, Location *var_loc) {
     // Assumes 'var' was already consumed.
 
@@ -829,6 +849,7 @@ static ASTObj *parse_struct_decl(Parser *p) {
     return structure;
 }
 
+// function_body -> ('var' variable_decl ';' | statement)
 static ASTNode *parse_function_body(Parser *p) {
     VERIFY(p->current.function);
 
@@ -855,7 +876,7 @@ static ASTNode *parse_function_body(Parser *p) {
         result = var_node;
     } else {
         // no need for TRY() here as nothing is done with the result node
-        // other than return it.
+        // other than to return it.
         result = parse_statement(p);
     }
     return result;
@@ -887,6 +908,7 @@ static bool parse_parameter_list(Parser *p, Array *parameters) {
     return !had_error;
 }
 
+// Note: the body is not parsed if [parse_body] is set to false.
 // function_decl -> 'fn' identifier '(' parameter_list? ')' ('->' type)? block(fn_body)
 static ASTObj *parse_function_decl(Parser *p, bool parse_body) {
     // Assumes 'fn' was already consumed.

@@ -1,6 +1,0 @@
-/// expect error: Error: 'defer' is not allowed to change control flow.
-
-fn main() {
-	defer return;
-}
-

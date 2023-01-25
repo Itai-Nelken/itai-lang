@@ -586,10 +586,6 @@ static bool validate_function(Validator *v, ASTObj *fn) {
     FOR(i, fn->as.fn.body->nodes) {
         ASTNode *n = ARRAY_GET_AS(ASTNode *, &fn->as.fn.body->nodes, i);
         if(NODE_IS(n, ND_DEFER)) {
-            if(NODE_IS(AS_UNARY_NODE(n)->operand, ND_RETURN)) { // TODO: Add 'break', 'continue' etc.
-                error(v, AS_UNARY_NODE(n)->operand->location, "'defer' is not allowed to change control flow.");
-                continue;
-            }
             ASTNode *operand = validate_ast(v, AS_UNARY_NODE(n)->operand);
             if(operand) {
                 // defers are typechecked here (so the validator is in the correct state).

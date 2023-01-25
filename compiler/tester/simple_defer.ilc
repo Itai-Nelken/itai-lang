@@ -1,10 +1,11 @@
 /// expect success
 
+// value will end as 42.
 fn main() {
-	var value = 40;
+	var value = 15;
 	defer {
-		var tmp = value + 2;
-		value = tmp;
+		value = value + 10;
+		value = value + 2;
 	};
 	defer value = value * 2;
 }
