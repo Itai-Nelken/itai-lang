@@ -176,7 +176,7 @@ static void gen_stmt(Codegen *cg, ASTNode *n) {
                 print(cg, "// end defers\n");
                 print(cg, "return");
                 if(cg->current_function->as.fn.return_type->type != TY_VOID) {
-                    print(cg, "__ILC_INTERNAL_ID(return_value)");
+                    print(cg, " __ILC_INTERNAL_ID(return_value)");
                 }
                 print(cg, ";\n");
             }

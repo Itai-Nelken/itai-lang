@@ -74,9 +74,7 @@ void *arenaCalloc(Arena *a, size_t nmemb, size_t size) {
 }
 
 static void *alloc_callback(void *arena, size_t size) {
-    void *p = arenaAlloc((Arena *)arena, size);
-    memset(p, 0, size);
-    return p;
+    return arenaCalloc((Arena *)arena, 1, size);
 }
 
 static void *realloc_callback(void *arena, void *ptr, size_t size) {
