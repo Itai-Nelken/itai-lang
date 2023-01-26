@@ -538,6 +538,7 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
 }
 
 static bool validate_type(Validator *v, Type **ty) {
+    // *ty might be NULL if the type wasn't inferred yet.
     if(*ty && (*ty)->type == TY_ID) {
         ASTObj *s = find_struct(v, (*ty)->name);
         if(s) {
