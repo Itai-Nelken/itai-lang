@@ -106,6 +106,7 @@ typedef enum ast_node_type {
     ND_NEGATE,
     ND_RETURN,
     ND_DEFER,
+    ND_ADDROF, // for pointers: &<obj>
 
     // list nodes
     ND_BLOCK,

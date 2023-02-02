@@ -58,6 +58,8 @@ static unsigned hash_type(void *type) {
             hash |= hash_type(arrayGet(&ty->as.fn.parameter_types, i));
         }
         hash &= hash_type((void *)ty->as.fn.return_type);
+    } else if(ty->type == TY_PTR) {
+        hash &= hash_type((void *)ty->as.ptr.inner_type);
     }
     return (ty->type + (uintptr_t)hash) >> 2; // implicitly cast to 'unsigned', so extra bits are discarded.
 }
@@ -461,6 +463,7 @@ static const char *node_name(ASTNodeType type) {
         case ND_NEGATE:
         case ND_RETURN:
         case ND_DEFER:
+        case ND_ADDROF:
             return "ASTUnaryNode";
         // identifier nodes
         case ND_IDENTIFIER:
@@ -499,6 +502,7 @@ static const char *node_type_name(ASTNodeType type) {
         [ND_NEGATE]          = "ND_NEGATE",
         [ND_RETURN]          = "ND_RETURN",
         [ND_DEFER]           = "ND_DEFER",
+        [ND_ADDROF]          = "ND_ADDROF",
         [ND_BLOCK]           = "ND_BLOCK",
         [ND_ARGS]            = "ND_ARGS",
         [ND_IDENTIFIER]      = "ND_IDENTIFIER"
@@ -573,6 +577,7 @@ void astNodePrint(FILE *to, ASTNode *n) {
         case ND_NEGATE:
         case ND_RETURN:
         case ND_DEFER:
+        case ND_ADDROF:
             fputs(", \x1b[1moperand:\x1b[0m ", to);
             astNodePrint(to, AS_UNARY_NODE(n)->operand);
             break;

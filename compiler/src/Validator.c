@@ -98,6 +98,10 @@ static inline bool is_callable(ASTObj *obj) {
     return obj->data_type->type == TY_FN;
 }
 
+static inline bool is_lvalue(ASTNode *n) {
+    return NODE_IS(n, ND_VARIABLE);
+}
+
 static inline void enter_scope(Validator *v, ScopeID scope) {
     VERIFY(v->current_function); // We cannot enter a scope if we aren't inside a function.
     if(v->current_scope == NULL) {
@@ -193,6 +197,17 @@ static bool typecheck_ast(Validator *v, ASTNode *n);
 static bool validate_type(Validator *v, Type **ty, bool allow_pointers, Location *ptr_err_loc);
 
 
+static Type *ptr_type(Validator *v, Type *inner) {
+    Type *ptr;
+    NEW0(ptr);
+    ASTString name = astProgramAddString(v->program, stringFormat("&%s", inner->name));
+    // FIXME: check fixme about pointer type sizes in Parser.c
+    typeInit(ptr, TY_PTR, name, v->current_module, 8);
+    ptr->as.ptr.inner_type = inner;
+
+    return astModuleAddType(astProgramGetModule(v->program, v->current_module), ptr);
+}
+
 static Type *get_expr_type(Validator *v, ASTNode *expr) {
     Type *ty = NULL;
     switch(expr->node_type) {
@@ -240,6 +255,9 @@ static Type *get_expr_type(Validator *v, ASTNode *expr) {
         // prefix expressions (op a)
         case ND_NEGATE:
             ty = get_expr_type(v, AS_UNARY_NODE(expr)->operand);
+            break;
+        case ND_ADDROF:
+            ty = ptr_type(v, get_expr_type(v, AS_UNARY_NODE(expr)->operand));
             break;
         default:
             UNREACHABLE();
@@ -345,10 +363,19 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
             break;
         }
         // unary nodes
+        case ND_ADDROF:
         case ND_NEGATE: {
             ASTNode *operand = validate_ast(v, AS_UNARY_NODE(n)->operand);
-            if(!operand)
+            if(!operand) {
                 break;
+            }
+            // The following check is for ND_ADDROF nodes only.
+            // It checks that the object the address of will be taken
+            // is an lvalue.
+            if(NODE_IS(n, ND_ADDROF) && !is_lvalue(operand)) {
+                error(v, operand->location, "Expected an lvalue (variable).");
+                break;
+            }
             result = astNewUnaryNode(v->current_allocator, n->node_type, n->location, operand);
             break;
         }
@@ -531,6 +558,7 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
             // Return early so the node isn't freed (there is no need to create a copy of nodes we don't change).
             return n;
         case ND_ARGS: // Argument nodes should never appear outside of a call (which doesn't validate them using this function).
+        case ND_DEFER: // Defers are handled in validate_function().
         default:
             UNREACHABLE();
     }
@@ -836,6 +864,7 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
             // failed == true -> failure (return false).
             return !failed;
         }
+        case ND_ADDROF:
         case ND_NEGATE:
             return typecheck_ast(v, AS_UNARY_NODE(n)->operand);
         case ND_RETURN: {

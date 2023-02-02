@@ -87,6 +87,7 @@ static void gen_variable(ASTNode *variable, Codegen *cg);
 static void gen_expr(Codegen *cg, ASTNode *expr) {
     print(cg, "(");
     switch(expr->node_type) {
+        // Literal nodes
         case ND_NUMBER_LITERAL:
             print(cg, "%lu", AS_LITERAL_NODE(expr)->value.as.number);
             break;
@@ -110,6 +111,9 @@ static void gen_expr(Codegen *cg, ASTNode *expr) {
             }
             print(cg, ")");
             break;
+        case ND_PROPERTY_ACCESS:
+            gen_variable(expr, cg);
+            break;
         case ND_ADD:
         case ND_SUBTRACT:
         case ND_MULTIPLY:
@@ -129,12 +133,14 @@ static void gen_expr(Codegen *cg, ASTNode *expr) {
             print(cg, "-");
             gen_expr(cg, AS_UNARY_NODE(expr)->operand);
             break;
+        case ND_ADDROF:
+            print(cg, "&");
+            gen_expr(cg, AS_UNARY_NODE(expr)->operand);
+            break;
+        // Object nodes
         case ND_VARIABLE:
         case ND_FUNCTION:
             print(cg, "%s", AS_OBJ_NODE(expr)->obj->name);
-            break;
-        case ND_PROPERTY_ACCESS:
-            gen_variable(expr, cg);
             break;
         default:
             UNREACHABLE();

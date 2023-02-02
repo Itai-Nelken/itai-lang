@@ -268,7 +268,7 @@ static ParseRule rules[] = {
     [TK_COMMA]          = {NULL, NULL, PREC_LOWEST},
     [TK_DOT]            = {NULL, parse_property_access_expr, PREC_CALL},
     [TK_HASH]           = {NULL, NULL, PREC_LOWEST},
-    [TK_AMPERSAND]      = {NULL, NULL, PREC_LOWEST},
+    [TK_AMPERSAND]      = {parse_unary_expr, NULL, PREC_LOWEST},
     [TK_MINUS]          = {parse_unary_expr, parse_binary_expr, PREC_TERM},
     [TK_ARROW]          = {NULL, NULL, PREC_LOWEST},
     [TK_EQUAL]          = {NULL, NULL, PREC_LOWEST},
@@ -373,6 +373,8 @@ static ASTNode *parse_unary_expr(Parser *p) {
             return operand;
         case TK_MINUS:
             return astNewUnaryNode(p->current.allocator, ND_NEGATE, locationMerge(operator.location, operand->location), operand);
+        case TK_AMPERSAND:
+            return astNewUnaryNode(p->current.allocator, ND_ADDROF, locationMerge(operator.location, operand->location), operand);
         default: UNREACHABLE();
     }
 }
