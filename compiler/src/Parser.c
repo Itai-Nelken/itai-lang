@@ -268,6 +268,7 @@ static ParseRule rules[] = {
     [TK_COMMA]          = {NULL, NULL, PREC_LOWEST},
     [TK_DOT]            = {NULL, parse_property_access_expr, PREC_CALL},
     [TK_HASH]           = {NULL, NULL, PREC_LOWEST},
+    [TK_AMPERSAND]      = {NULL, NULL, PREC_LOWEST},
     [TK_MINUS]          = {parse_unary_expr, parse_binary_expr, PREC_TERM},
     [TK_ARROW]          = {NULL, NULL, PREC_LOWEST},
     [TK_EQUAL]          = {NULL, NULL, PREC_LOWEST},
@@ -774,9 +775,21 @@ static Type *parse_complex_type(Parser *p) {
 
 // type -> primitive_type | complex_type
 static Type *parse_type(Parser *p) {
+    bool is_pointer = false;
+    if(match(p, TK_AMPERSAND)) {
+        is_pointer = true;
+    }
     Type *ty = parse_primitive_type(p);
     if(!ty) {
         ty = TRY(Type *, parse_complex_type(p));
+    }
+    if(is_pointer) {
+        ASTString ptr_name = astProgramAddString(p->program, stringFormat("&%s", ty->name));
+        Type *ptr;
+        NEW0(ptr);
+        typeInit(ptr, TY_PTR, ptr_name, p->current.module, 8); // FIXME: don't use magic number for ptr type size here.
+        ptr->as.ptr.inner_type = ty;
+        ty = astModuleAddType(astProgramGetModule(p->program, p->current.module), ptr);
     }
     return ty;
 }

@@ -17,6 +17,7 @@ void typeInit(Type *ty, TypeType type, ASTString name, ModuleID decl_module, int
         case TY_I32:
         case TY_U32:
         case TY_STR:
+        case TY_PTR:
         case TY_ID:
             // nothing
             break;
@@ -37,6 +38,7 @@ void typeFree(Type *ty) {
         case TY_I32:
         case TY_U32:
         case TY_STR:
+        case TY_PTR: // The inner type isn't owned by the pointer type.
         case TY_ID:
             // nothing
             break;
@@ -128,6 +130,8 @@ bool typeEqual(Type *a, Type *b) {
             }
         }
         return true;
+    } else if(a->type == TY_PTR) {
+        return typeEqual(a->as.ptr.inner_type, b->as.ptr.inner_type);
     }
 
     if(a->decl_module != b->decl_module) {
@@ -181,6 +185,7 @@ static const char *type_type_name(TypeType type) {
         [TY_I32]    = "TY_I32",
         [TY_U32]    = "TY_U32",
         [TY_STR]    = "TY_STR",
+        [TY_PTR]    = "TY_PTR",
         [TY_FN]     = "TY_FN",
         [TY_STRUCT] = "TY_STRUCT",
         [TY_ID]     = "TY_ID"
@@ -200,6 +205,9 @@ void typePrint(FILE *to, Type *ty, bool compact) {
         fprintf(to, "Type{\x1b[1m%s\x1b[0m", type_type_name(ty->type));
         if(ty->type == TY_ID || ty->type == TY_STRUCT || ty->type == TY_FN) {
             fprintf(to, ", %s", ty->name);
+        } else if(ty->type == TY_PTR) {
+            fputs(", \x1b[1minner:\x1b[0m ", to);
+            typePrint(to, ty->as.ptr.inner_type, true);
         }
         fputc('}', to);
     } else {
@@ -230,6 +238,10 @@ void typePrint(FILE *to, Type *ty, bool compact) {
                     }
                 }
                 fputc(']', to);
+                break;
+            case TY_PTR:
+                fputs(", \x1b[1minner_type:\x1b[0m ", to);
+                typePrint(to, ty->as.ptr.inner_type, true);
                 break;
             case TY_VOID:
             case TY_I32:

@@ -14,7 +14,7 @@ typedef enum type_type {
     TY_VOID,
     TY_I32, TY_U32,
     TY_STR,
-    //TY_PTR/REF,
+    TY_PTR,
     TY_FN,
     TY_STRUCT,
     TY_ID, // An identifier type is a place holder for types the parser can't resolve.
@@ -30,9 +30,9 @@ typedef struct type {
     int size;
     //int align;
     union {
-        //struct {
-        //    struct ast_type *base;
-        //} ptr/ref;
+        struct {
+            struct type *inner_type;
+        } ptr;
         struct {
             struct type *return_type;
             Array parameter_types; // Array<Type *>

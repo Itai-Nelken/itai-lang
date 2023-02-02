@@ -58,6 +58,8 @@ static void gen_type(Codegen *cg, Type *ty) {
         TableItem *item;
         VERIFY((item = tableGet(&cg->fn_type_names, (void *)ty->name)) != NULL);
         print(cg, "%s", (ASTString)item->value);
+    } else if(ty->type == TY_PTR) {
+        print(cg, "%s*", ty->as.ptr.inner_type->name);
     } else {
         VERIFY(ty->type != TY_ID);
         print(cg, "%s", ty->name);

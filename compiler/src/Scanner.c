@@ -230,6 +230,7 @@ Token scan_token(Scanner *s) {
         case ',': return make_token(s, TK_COMMA);
         case '.': return make_token(s, TK_DOT);
         case '#': return make_token(s, TK_HASH);
+        case '&': return make_token(s, TK_AMPERSAND);
         case '-': return make_token(s, match(s, '>') ? TK_ARROW : TK_MINUS);
         case '=': return make_token(s, match(s, '=') ? TK_EQUAL_EQUAL : TK_EQUAL);
         case '!': return make_token(s, match(s, '=') ? TK_BANG_EQUAL : TK_BANG);
