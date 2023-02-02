@@ -190,7 +190,7 @@ static inline bool global_id_exists(Validator *v, ASTString id) {
 /* forward declarations */
 static ASTNode *validate_ast(Validator *v, ASTNode *n);
 static bool typecheck_ast(Validator *v, ASTNode *n);
-static bool validate_type(Validator *v, Type **ty);
+static bool validate_type(Validator *v, Type **ty, bool allow_pointers, Location *ptr_err_loc);
 
 
 static Type *get_expr_type(Validator *v, ASTNode *expr) {
@@ -537,9 +537,12 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
     return result;
 }
 
-static bool validate_type(Validator *v, Type **ty) {
+static bool validate_type(Validator *v, Type **ty, bool allow_pointers, Location *ptr_err_loc) {
     // *ty might be NULL if the type wasn't inferred yet.
-    if(*ty && (*ty)->type == TY_ID) {
+    if(*ty == NULL) {
+        return true;
+    }
+    if((*ty)->type == TY_ID) {
         ASTObj *s = find_struct(v, (*ty)->name);
         if(s) {
             *ty = s->data_type;
@@ -547,6 +550,10 @@ static bool validate_type(Validator *v, Type **ty) {
             error(v, (*ty)->decl_location, "Unknown type '%s'.", (*ty)->name);
             return false;
         }
+    } else if((*ty)->type == TY_PTR && !allow_pointers) {
+        VERIFY(ptr_err_loc);
+        error(v, *ptr_err_loc, "Pointer types are not allowed in this context.");
+        return false;
     }
     return true;
 }
@@ -564,17 +571,17 @@ static bool validate_function(Validator *v, ASTObj *fn) {
 
     FOR(i, fn->as.fn.locals) {
         ASTObj *l = ARRAY_GET_AS(ASTObj *, &fn->as.fn.locals, i);
-        validate_type(v, &l->data_type);
+        validate_type(v, &l->data_type, false, &l->location); // FIXME: use l.type_location
     }
     FOR(i, fn->as.fn.parameters) {
         ASTObj *p = ARRAY_GET_AS(ASTObj *, &fn->as.fn.parameters, i);
-        validate_type(v, &p->data_type);
+        validate_type(v, &p->data_type, true, NULL);
         tableSet(&v->visible_locals_in_current_function, (void *)p->name, (void *)p);
     }
     // FIXME: un-duplicate parameter types (currently both in fn object and fn type).
     FOR(i, fn->data_type->as.fn.parameter_types) {
         Type **ty = (Type **)(fn->data_type->as.fn.parameter_types.data + i);
-        validate_type(v, ty);
+        validate_type(v, ty, true, NULL);
     }
 
     ASTListNode *new_body = AS_LIST_NODE(astNewListNode(v->current_allocator,
@@ -629,7 +636,7 @@ static bool validate_struct(Validator *v, ASTObj *s) {
     tableInit(&declared_fields, NULL, NULL);
     FOR(i, s->as.structure.fields) {
         ASTObj *field = ARRAY_GET_AS(ASTObj *, &s->as.structure.fields, i);
-        if(!validate_type(v, &field->data_type))
+        if(!validate_type(v, &field->data_type, false, &field->location)) // FIXME: use field.type_location
             continue;
         arrayInsert(&s->data_type->as.structure.field_types, i, (void *)field->data_type);
         // Note: The check for recursive structs is in typecheck_struct().
@@ -662,7 +669,7 @@ static bool validate_extern_fn(Validator *v, ASTObj *fn) {
 static bool validate_object(Validator *v, ASTObj *obj) {
     switch(obj->type) {
         case OBJ_VAR:
-            return validate_type(v, &obj->data_type);
+            return validate_type(v, &obj->data_type, false, &obj->location); // FIXME: use obj.type_location
         case OBJ_FN:
             if(global_id_exists(v, obj->name)) {
                 error(v, obj->location, "Symbol '%s' already exists.", obj->name);
