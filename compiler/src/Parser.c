@@ -252,6 +252,7 @@ static ASTNode *parse_unary_expr(Parser *p);
 static ASTNode *parse_binary_expr(Parser *p, ASTNode *lhs);
 static ASTNode *parse_call_expr(Parser *p, ASTNode *callee);
 static ASTNode *parse_property_access_expr(Parser *p, ASTNode *lhs);
+static ASTNode *parse_deref_expr(Parser *p);
 
 static ParseRule rules[] = {
     [TK_LPAREN]         = {parse_grouping_expr, parse_call_expr, PREC_CALL},
@@ -261,7 +262,7 @@ static ParseRule rules[] = {
     [TK_LBRACE]         = {NULL, NULL, PREC_LOWEST},
     [TK_RBRACE]         = {NULL, NULL, PREC_LOWEST},
     [TK_PLUS]           = {parse_unary_expr, parse_binary_expr, PREC_TERM},
-    [TK_STAR]           = {NULL, parse_binary_expr, PREC_FACTOR},
+    [TK_STAR]           = {parse_deref_expr, parse_binary_expr, PREC_FACTOR},
     [TK_SLASH]          = {NULL, parse_binary_expr, PREC_FACTOR},
     [TK_SEMICOLON]      = {NULL, NULL, PREC_LOWEST},
     [TK_COLON]          = {NULL, NULL, PREC_LOWEST},
@@ -436,6 +437,25 @@ static ASTNode *parse_property_access_expr(Parser *p, ASTNode *lhs) {
         n = astNewBinaryNode(p->current.allocator, ND_ASSIGN, locationMerge(n->location, previous(p).location), n, value);
     }
     return n;
+}
+
+static ASTNode *parse_deref_expr(Parser *p) {
+    Location deref_operator_loc = previous(p).location;
+    bool old_can_assign = p->can_assign;
+    p->can_assign = false;
+    ASTNode *operand = parse_precedence(p, PREC_UNARY);
+    p->can_assign = old_can_assign;
+    if(!operand) {
+        return NULL;
+    }
+
+    ASTNode *deref_node = astNewUnaryNode(p->current.allocator, ND_DEREF, locationMerge(deref_operator_loc, operand->location), operand);
+
+    if(p->can_assign && match(p, TK_EQUAL)) {
+        ASTNode *rhs = TRY(ASTNode *, parse_expression(p));
+        return astNewBinaryNode(p->current.allocator, ND_ASSIGN, locationMerge(deref_node->location, rhs->location), deref_node, rhs);
+    }
+    return deref_node;
 }
 
 static ASTNode *parse_precedence(Parser *p, Precedence min_prec) {

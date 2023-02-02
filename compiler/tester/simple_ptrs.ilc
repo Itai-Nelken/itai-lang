@@ -1,0 +1,12 @@
+/// expect success
+
+fn change_value(value: &i32) {
+	*value = 42;
+}
+
+fn main() {
+	var value = 0;
+	change_value(&value);
+	// value should now be 42
+}
+

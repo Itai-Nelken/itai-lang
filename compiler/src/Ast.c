@@ -147,8 +147,10 @@ void astProgramInit(ASTProgram *prog) {
     tableInit(&prog->strings, NULL, NULL);
     arrayInit(&prog->modules);
 #define NULL_TY(name) prog->primitives.name = NULL;
+    NULL_TY(void_);
     NULL_TY(int32);
     NULL_TY(uint32);
+    NULL_TY(str);
 #undef NULL_TY
 }
 
@@ -464,6 +466,7 @@ static const char *node_name(ASTNodeType type) {
         case ND_RETURN:
         case ND_DEFER:
         case ND_ADDROF:
+        case ND_DEREF:
             return "ASTUnaryNode";
         // identifier nodes
         case ND_IDENTIFIER:
@@ -503,6 +506,7 @@ static const char *node_type_name(ASTNodeType type) {
         [ND_RETURN]          = "ND_RETURN",
         [ND_DEFER]           = "ND_DEFER",
         [ND_ADDROF]          = "ND_ADDROF",
+        [ND_DEREF]           = "ND_DEREF",
         [ND_BLOCK]           = "ND_BLOCK",
         [ND_ARGS]            = "ND_ARGS",
         [ND_IDENTIFIER]      = "ND_IDENTIFIER"
@@ -578,6 +582,7 @@ void astNodePrint(FILE *to, ASTNode *n) {
         case ND_RETURN:
         case ND_DEFER:
         case ND_ADDROF:
+        case ND_DEREF:
             fputs(", \x1b[1moperand:\x1b[0m ", to);
             astNodePrint(to, AS_UNARY_NODE(n)->operand);
             break;

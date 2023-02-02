@@ -106,7 +106,8 @@ typedef enum ast_node_type {
     ND_NEGATE,
     ND_RETURN,
     ND_DEFER,
-    ND_ADDROF, // for pointers: &<obj>
+    ND_ADDROF, // For pointers: &<obj>
+    ND_DEREF, // Pointer dereference: *<obj>
 
     // list nodes
     ND_BLOCK,
@@ -114,10 +115,10 @@ typedef enum ast_node_type {
 
     // other nodes
 
-    // An identifier will usually be replaced with an object.
+    // An identifier will be replaced with an object.
     // It exists because the parser doesn't always have all the information
-    // needed to build an object, so the identifier can be used instead
-    // and later the validator/typechecker replaces it with an object if needed.
+    // needed to build an object, so the identifier us used instead,
+    // and later the validator replaces it with an object.
     ND_IDENTIFIER,
     ND_TYPE_COUNT
 } ASTNodeType;
@@ -267,6 +268,7 @@ typedef struct ast_module {
 typedef struct ast_program {
     struct {
         // Primitive types (are owned by the root module).
+        // Note: astProgramInit() has to be updated when adding new primitives.
         Type *void_;
         Type *int32;
         Type *uint32;

@@ -250,6 +250,10 @@ static void gen_variable(ASTNode *variable, Codegen *cg) {
             }
         }
         arrayFree(&stack);
+    } else if(NODE_IS(variable, ND_DEREF)) {
+        print(cg, "(*");
+        gen_variable(AS_UNARY_NODE(variable)->operand, cg);
+        print(cg, ")");
     } else {
         UNREACHABLE();
     }
