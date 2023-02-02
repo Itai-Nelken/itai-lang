@@ -49,10 +49,11 @@ static void print(Codegen *cg, const char *format, ...) {
 //}
 
 static void gen_type(Codegen *cg, Type *ty) {
-    if(!ty) {
-        print(cg, "void");
-        return;
-    }
+    //if(!ty) {
+    //    print(cg, "void");
+    //    return;
+    //}
+    VERIFY(ty);
     if(ty->type == TY_FN) {
         TableItem *item;
         VERIFY((item = tableGet(&cg->fn_type_names, (void *)ty->name)) != NULL);

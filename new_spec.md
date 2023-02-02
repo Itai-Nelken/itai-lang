@@ -10,7 +10,7 @@ import "std/memory";
 struct Ptr<T> {
 	p: &T
 
-	fn new(T t) -> This {
+	fn new(t: T) -> This {
 		return This{p: std::memory::new<T>(t)};
 	}
 
