@@ -559,6 +559,9 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
             arrayFree(&stack);
             break;
         }
+        case ND_DEFER:
+            error(v, n->location, "'defer' is not allowed in this context.");
+            break;
         // ignored nodes (no validating to do).
         case ND_NUMBER_LITERAL:
         case ND_STRING_LITERAL:
@@ -567,7 +570,6 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
             // Return early so the node isn't freed (there is no need to create a copy of nodes we don't change).
             return n;
         case ND_ARGS: // Argument nodes should never appear outside of a call (which doesn't validate them using this function).
-        case ND_DEFER: // Defers are handled in validate_function().
         default:
             UNREACHABLE();
     }
