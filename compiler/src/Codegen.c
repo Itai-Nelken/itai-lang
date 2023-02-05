@@ -263,7 +263,7 @@ static void gen_variable(ASTNode *variable, Codegen *cg) {
     }
 }
 
-static void gen_function_decl(Codegen *cg, ASTObj *fn) {
+static void gen_function_def(Codegen *cg, ASTObj *fn) {
     gen_type(cg, fn->as.fn.return_type);
     print(cg, " %s(", fn->name);
     for(usize i = 0; i < fn->as.fn.parameters.used; ++i) {
@@ -301,7 +301,7 @@ static void object_callback(void *object, void *codegen) {
             break;
         case OBJ_FN:
             cg->current_function = obj;
-            gen_function_decl(cg, obj);
+            gen_function_def(cg, obj);
             cg->current_function = NULL;
             print(cg, "\n");
             break;
