@@ -876,6 +876,7 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
             return !failed;
         }
         case ND_ADDROF:
+        case ND_DEREF:
         case ND_NEGATE:
             return typecheck_ast(v, AS_UNARY_NODE(n)->operand);
         case ND_RETURN: {
