@@ -250,6 +250,7 @@ static ASTNode *parse_grouping_expr(Parser *p);
 static ASTNode *parse_identifier_expr(Parser *p);
 static ASTNode *parse_unary_expr(Parser *p);
 static ASTNode *parse_binary_expr(Parser *p, ASTNode *lhs);
+static ASTNode *parse_assignment(Parser *p, ASTNode *lhs);
 static ASTNode *parse_call_expr(Parser *p, ASTNode *callee);
 static ASTNode *parse_property_access_expr(Parser *p, ASTNode *lhs);
 static ASTNode *parse_deref_expr(Parser *p);
@@ -272,7 +273,7 @@ static ParseRule rules[] = {
     [TK_AMPERSAND]      = {parse_unary_expr, NULL, PREC_LOWEST},
     [TK_MINUS]          = {parse_unary_expr, parse_binary_expr, PREC_TERM},
     [TK_ARROW]          = {NULL, NULL, PREC_LOWEST},
-    [TK_EQUAL]          = {NULL, NULL, PREC_LOWEST},
+    [TK_EQUAL]          = {NULL, parse_assignment, PREC_ASSIGNMENT},
     [TK_EQUAL_EQUAL]    = {NULL, parse_binary_expr, PREC_EQUALITY},
     [TK_BANG]           = {NULL, NULL, PREC_LOWEST},
     [TK_BANG_EQUAL]     = {NULL, parse_binary_expr, PREC_EQUALITY},
@@ -312,12 +313,7 @@ static ASTString parse_identifier(Parser *p) {
 
 static ASTNode *parse_identifier_expr(Parser *p) {
     ASTString str = astProgramAddString(p->program, stringNCopy(previous(p).lexeme, previous(p).length));
-    ASTNode *id_node = astNewIdentifierNode(p->current.allocator, previous(p).location, str);
-    if(p->can_assign && match(p, TK_EQUAL)) {
-        ASTNode *rhs = TRY(ASTNode *, parse_expression(p));
-        return astNewBinaryNode(p->current.allocator, ND_ASSIGN, locationMerge(id_node->location, rhs->location), id_node, rhs);
-    }
-    return id_node;
+    return astNewIdentifierNode(p->current.allocator, previous(p).location, str);
 }
 
 static ASTNode *parse_number_literal_expr(Parser *p) {
@@ -400,6 +396,11 @@ static ASTNode *parse_binary_expr(Parser *p, ASTNode *lhs) {
         default: UNREACHABLE();
     }
     return astNewBinaryNode(p->current.allocator, node_type, locationMerge(lhs->location, rhs->location), lhs, rhs);
+}
+
+static ASTNode *parse_assignment(Parser *p, ASTNode *lhs) {
+    ASTNode *rhs = TRY(ASTNode *, parse_expression(p));
+    return astNewBinaryNode(p->current.allocator, ND_ASSIGN, locationMerge(lhs->location, rhs->location), lhs, rhs);
 }
 
 static ASTNode *parse_call_expr(Parser *p, ASTNode *callee) {
