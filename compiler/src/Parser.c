@@ -251,7 +251,6 @@ static ASTNode *parse_binary_expr(Parser *p, ASTNode *lhs);
 static ASTNode *parse_assignment(Parser *p, ASTNode *lhs);
 static ASTNode *parse_call_expr(Parser *p, ASTNode *callee);
 static ASTNode *parse_property_access_expr(Parser *p, ASTNode *lhs);
-static ASTNode *parse_deref_expr(Parser *p);
 
 static ParseRule rules[] = {
     [TK_LPAREN]         = {parse_grouping_expr, parse_call_expr, PREC_CALL},
@@ -261,7 +260,7 @@ static ParseRule rules[] = {
     [TK_LBRACE]         = {NULL, NULL, PREC_LOWEST},
     [TK_RBRACE]         = {NULL, NULL, PREC_LOWEST},
     [TK_PLUS]           = {parse_unary_expr, parse_binary_expr, PREC_TERM},
-    [TK_STAR]           = {parse_deref_expr, parse_binary_expr, PREC_FACTOR},
+    [TK_STAR]           = {parse_unary_expr, parse_binary_expr, PREC_FACTOR},
     [TK_SLASH]          = {NULL, parse_binary_expr, PREC_FACTOR},
     [TK_SEMICOLON]      = {NULL, NULL, PREC_LOWEST},
     [TK_COLON]          = {NULL, NULL, PREC_LOWEST},
@@ -370,6 +369,8 @@ static ASTNode *parse_unary_expr(Parser *p) {
             return astNewUnaryNode(p->current.allocator, ND_NEGATE, locationMerge(operator.location, operand->location), operand);
         case TK_AMPERSAND:
             return astNewUnaryNode(p->current.allocator, ND_ADDROF, locationMerge(operator.location, operand->location), operand);
+        case TK_STAR:
+            return astNewUnaryNode(p->current.allocator, ND_DEREF, locationMerge(operator.location, operand->location), operand);
         default: UNREACHABLE();
     }
 }
@@ -431,16 +432,6 @@ static ASTNode *parse_property_access_expr(Parser *p, ASTNode *lhs) {
     Location property_name_loc = previous(p).location;
 
     return astNewBinaryNode(p->current.allocator, ND_PROPERTY_ACCESS, locationMerge(lhs->location, property_name_loc), lhs, astNewIdentifierNode(p->current.allocator, property_name_loc, property_name));
-}
-
-static ASTNode *parse_deref_expr(Parser *p) {
-    Location deref_operator_loc = previous(p).location;
-    ASTNode *operand = TRY(ASTNode *, parse_precedence(p, PREC_UNARY));
-    if(!operand) {
-        return NULL;
-    }
-
-    return astNewUnaryNode(p->current.allocator, ND_DEREF, locationMerge(deref_operator_loc, operand->location), operand);
 }
 
 static ASTNode *parse_precedence(Parser *p, Precedence min_prec) {
