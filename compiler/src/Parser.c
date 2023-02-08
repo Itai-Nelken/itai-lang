@@ -21,7 +21,6 @@ void parserInit(Parser *p, Scanner *s, Compiler *c) {
     p->current.function = NULL;
     p->current.scope = NULL;
     p->current.attribute = NULL;
-    p->can_assign = false;
     // set current and previous tokens to TK_GARBAGE with empty locations
     // so errors can be reported using them.
     p->previous_token.type = TK_GARBAGE;
@@ -44,7 +43,6 @@ void parserFree(Parser *p) {
         attributeFree(p->current.attribute);
         p->current.attribute = NULL;
     }
-    p->can_assign = false;
     p->previous_token.type = TK_GARBAGE;
     p->current_token.type = TK_GARBAGE;
     p->had_error = false;
@@ -432,31 +430,17 @@ static ASTNode *parse_property_access_expr(Parser *p, ASTNode *lhs) {
     ASTString property_name = TRY(ASTString, parse_identifier(p));
     Location property_name_loc = previous(p).location;
 
-    ASTNode *n = astNewBinaryNode(p->current.allocator, ND_PROPERTY_ACCESS, locationMerge(lhs->location, property_name_loc), lhs, astNewIdentifierNode(p->current.allocator, property_name_loc, property_name));
-    if(p->can_assign && match(p, TK_EQUAL)) {
-        ASTNode *value = TRY(ASTNode *, parse_expression(p));
-        n = astNewBinaryNode(p->current.allocator, ND_ASSIGN, locationMerge(n->location, previous(p).location), n, value);
-    }
-    return n;
+    return astNewBinaryNode(p->current.allocator, ND_PROPERTY_ACCESS, locationMerge(lhs->location, property_name_loc), lhs, astNewIdentifierNode(p->current.allocator, property_name_loc, property_name));
 }
 
 static ASTNode *parse_deref_expr(Parser *p) {
     Location deref_operator_loc = previous(p).location;
-    bool old_can_assign = p->can_assign;
-    p->can_assign = false;
-    ASTNode *operand = parse_precedence(p, PREC_UNARY);
-    p->can_assign = old_can_assign;
+    ASTNode *operand = TRY(ASTNode *, parse_precedence(p, PREC_UNARY));
     if(!operand) {
         return NULL;
     }
 
-    ASTNode *deref_node = astNewUnaryNode(p->current.allocator, ND_DEREF, locationMerge(deref_operator_loc, operand->location), operand);
-
-    if(p->can_assign && match(p, TK_EQUAL)) {
-        ASTNode *rhs = TRY(ASTNode *, parse_expression(p));
-        return astNewBinaryNode(p->current.allocator, ND_ASSIGN, locationMerge(deref_node->location, rhs->location), deref_node, rhs);
-    }
-    return deref_node;
+    return astNewUnaryNode(p->current.allocator, ND_DEREF, locationMerge(deref_operator_loc, operand->location), operand);
 }
 
 static ASTNode *parse_precedence(Parser *p, Precedence min_prec) {
@@ -466,8 +450,6 @@ static ASTNode *parse_precedence(Parser *p, Precedence min_prec) {
         error(p, stringFormat("Expected an expression but got '%s'.", tokenTypeString(previous(p).type)));
         return NULL;
     }
-    bool old_can_assign = p->can_assign;
-    p->can_assign = min_prec <= PREC_ASSIGNMENT;
     ASTNode *tree = prefix(p);
     if(!tree) {
         // Assume the error was already reported.
@@ -479,18 +461,9 @@ static ASTNode *parse_precedence(Parser *p, Precedence min_prec) {
         tree = infix(p, tree);
         if(!tree) {
             // Assume the error was already reported.
-            // tree is already NULL, so we will return NULL after the label.
-            goto parse_precedence_end;
+            return NULL;
         }
     }
-
-    if(p->can_assign && match(p, TK_EQUAL)) {
-        error_at(p, tree->location, "Invalid assignmet target.");
-        // Don't return here as we need to restore 'can_assign'.
-        tree = NULL;
-    }
-parse_precedence_end:
-    p->can_assign = old_can_assign;
 
     return tree;
 }
