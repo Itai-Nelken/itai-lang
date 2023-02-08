@@ -343,7 +343,6 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
             result = validate_variable_declaration(v, n);
             break;
         case ND_ASSIGN:
-            // not relevant with arena -> // NOTE: return early because validate_assignment() frees [n].
             result = validate_assignment(v, n);
             break;
         case ND_BLOCK: {
