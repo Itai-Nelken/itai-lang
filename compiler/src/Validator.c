@@ -98,8 +98,10 @@ static inline bool is_callable(ASTObj *obj) {
     return obj->data_type->type == TY_FN;
 }
 
-static inline bool is_lvalue(ASTNode *n) {
-    return NODE_IS(n, ND_VARIABLE);
+static Type *get_expr_type(Validator *v, ASTNode *expr);
+static inline bool is_lvalue(Validator *v, ASTNode *n) {
+    Type *n_ty = get_expr_type(v, n);
+    return n_ty->type != TY_FN && n_ty->type != TY_VOID;
 }
 
 static inline void enter_scope(Validator *v, ScopeID scope) {
@@ -376,7 +378,7 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
             // The following check is for ND_ADDROF nodes only.
             // It checks that the object the address of will be taken
             // is an lvalue.
-            if((NODE_IS(n, ND_ADDROF) || NODE_IS(n, ND_DEREF)) && !is_lvalue(operand)) {
+            if((NODE_IS(n, ND_ADDROF) || NODE_IS(n, ND_DEREF)) && !is_lvalue(v, operand)) {
                 error(v, operand->location, "Expected an lvalue (variable).");
                 break;
             } else if(NODE_IS(n, ND_DEREF) && AS_OBJ_NODE(operand)->obj->data_type->type != TY_PTR) {
