@@ -101,6 +101,7 @@ static inline bool is_callable(ASTObj *obj) {
 static Type *get_expr_type(Validator *v, ASTNode *expr);
 static inline bool is_lvalue(Validator *v, ASTNode *n) {
     Type *n_ty = get_expr_type(v, n);
+    VERIFY(n_ty != NULL); // FIXME: handle case where this condition isn't true.
     return n_ty->type != TY_FN && n_ty->type != TY_VOID;
 }
 
@@ -532,6 +533,7 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
             while(arrayLength(&stack) > 0) {
                 ASTNode *rhs = ARRAY_POP_AS(ASTNode *, &stack); // The field.
                 if(AS_OBJ_NODE(lhs)->obj->data_type->type != TY_STRUCT) {
+                    // FIXME: Use lhs->location???
                     error(v, rhs->location, "Field access on value of non-struct type '%s'.", type_name(AS_OBJ_NODE(lhs)->obj->data_type));
                     break;
                 }
