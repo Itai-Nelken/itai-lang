@@ -99,10 +99,8 @@ static inline bool is_callable(ASTObj *obj) {
 }
 
 static Type *get_expr_type(Validator *v, ASTNode *expr);
-static inline bool is_lvalue(Validator *v, ASTNode *n) {
-    Type *n_ty = get_expr_type(v, n);
-    VERIFY(n_ty != NULL); // FIXME: handle case where this condition isn't true.
-    return n_ty->type != TY_FN && n_ty->type != TY_VOID;
+static inline bool is_variable(ASTNode *n) {
+    return NODE_IS(n, ND_VARIABLE) || NODE_IS(n, ND_DEREF);
 }
 
 static inline void enter_scope(Validator *v, ScopeID scope) {
@@ -376,14 +374,13 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
             if(!operand) {
                 break;
             }
-            // The following check is for ND_ADDROF nodes only.
+            // The following check is for ND_ADDROF & ND_DEREF only.
             // It checks that the object the address of will be taken
             // is an lvalue.
-            if((NODE_IS(n, ND_ADDROF) || NODE_IS(n, ND_DEREF)) && !is_lvalue(v, operand)) {
-                error(v, operand->location, "Expected an lvalue (variable).");
+            if((NODE_IS(n, ND_ADDROF) || NODE_IS(n, ND_DEREF)) && !is_variable(operand)) {
+                error(v, operand->location, "Expected a variable.");
                 break;
             } else if(NODE_IS(n, ND_DEREF) && AS_OBJ_NODE(operand)->obj->data_type->type != TY_PTR) {
-                // Note for above condition: lvalue means OBJ_VAR (see is_lvalue()).
                 error(v, operand->location, "Expected variable to be of pointer type.");
                 break;
             }

@@ -1,0 +1,6 @@
+/// expect error: Error: Expected a variable.
+
+fn main() {
+	*123;
+}
+
