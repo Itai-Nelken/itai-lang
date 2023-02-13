@@ -99,8 +99,25 @@ static inline bool is_callable(ASTObj *obj) {
 }
 
 static Type *get_expr_type(Validator *v, ASTNode *expr);
+// Note: validate the node before providing it to this function.
 static inline bool is_variable(ASTNode *n) {
+    // Notes: Update get_variable() if condition is changed.
+    //        The operand of ND_DEREF must be a variable,
+    //        so any nodes peovided MUST be validated with validate_ast()
+    //        first so no ND_DEREFs with non-variable operands
+    //        are passed to this function.
     return NODE_IS(n, ND_VARIABLE) || NODE_IS(n, ND_DEREF);
+}
+static inline ASTNode *get_variable_node(ASTNode *n) {
+    switch(n->node_type) {
+        case ND_VARIABLE:
+            return n;
+        case ND_DEREF:
+            VERIFY(NODE_IS(AS_UNARY_NODE(n)->operand, ND_VARIABLE));
+            return AS_UNARY_NODE(n)->operand;
+        default:
+            UNREACHABLE();
+    }
 }
 
 static inline void enter_scope(Validator *v, ScopeID scope) {
@@ -257,7 +274,7 @@ static Type *get_expr_type(Validator *v, ASTNode *expr) {
         case ND_NEGATE:
         case ND_DEREF:
             ty = get_expr_type(v, AS_UNARY_NODE(expr)->operand);
-            if(ty->type == TY_PTR) {
+            if(NODE_IS(expr, ND_DEREF) && ty->type == TY_PTR) {
                 ty = ty->as.ptr.inner_type;
             }
             break;
@@ -515,7 +532,7 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
                 arrayFree(&stack);
                 break;
             }
-            if(!NODE_IS(lhs, ND_VARIABLE)) {
+            if(!is_variable(lhs)) {
                 error(v, lhs->location, "Property access can only be done on variables.");
                 arrayFree(&stack);
                 break;
@@ -529,12 +546,13 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
             }
             while(arrayLength(&stack) > 0) {
                 ASTNode *rhs = ARRAY_POP_AS(ASTNode *, &stack); // The field.
-                if(AS_OBJ_NODE(lhs)->obj->data_type->type != TY_STRUCT) {
+                Type *lhs_ty = get_expr_type(v, lhs);
+                if(lhs_ty->type != TY_STRUCT) {
                     // FIXME: Use lhs->location???
-                    error(v, rhs->location, "Field access on value of non-struct type '%s'.", type_name(AS_OBJ_NODE(lhs)->obj->data_type));
+                    error(v, rhs->location, "Field access on value of non-struct type '%s'.", type_name(lhs_ty));
                     break;
                 }
-                ASTObj *s = find_struct(v, AS_OBJ_NODE(lhs)->obj->data_type->name);
+                ASTObj *s = find_struct(v, lhs_ty->name);
                 VERIFY(s); // The struct should exist if its type exists.
                 bool found = false;
                 FOR(i, s->as.structure.fields) {
@@ -589,10 +607,13 @@ static bool validate_type(Validator *v, Type **ty, bool allow_pointers, Location
             error(v, (*ty)->decl_location, "Unknown type '%s'.", (*ty)->name);
             return false;
         }
-    } else if((*ty)->type == TY_PTR && !allow_pointers) {
-        VERIFY(ptr_err_loc);
-        error(v, *ptr_err_loc, "Pointer types are not allowed in this context.");
-        return false;
+    } else if((*ty)->type == TY_PTR) {
+        if(!allow_pointers) {
+            VERIFY(ptr_err_loc);
+            error(v, *ptr_err_loc, "Pointer types are not allowed in this context.");
+            return false;
+        }
+        validate_type(v, &(*ty)->as.ptr.inner_type, true, NULL);
     }
     return true;
 }
