@@ -547,6 +547,11 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
             while(arrayLength(&stack) > 0) {
                 ASTNode *rhs = ARRAY_POP_AS(ASTNode *, &stack); // The field.
                 Type *lhs_ty = get_expr_type(v, lhs);
+                if(lhs_ty->type == TY_PTR && lhs_ty->as.ptr.inner_type->type == TY_STRUCT) {
+                    // FIXME: this will break if pointers are allowed as struct members.
+                    lhs = astNewUnaryNode(v->current_allocator, ND_DEREF, lhs->location, lhs);
+                    lhs_ty = lhs_ty->as.ptr.inner_type;
+                }
                 if(lhs_ty->type != TY_STRUCT) {
                     // FIXME: Use lhs->location???
                     error(v, rhs->location, "Field access on value of non-struct type '%s'.", type_name(lhs_ty));
@@ -696,6 +701,9 @@ static bool validate_struct(Validator *v, ASTObj *s) {
     tableInit(&declared_fields, NULL, NULL);
     FOR(i, s->as.structure.fields) {
         ASTObj *field = ARRAY_GET_AS(ASTObj *, &s->as.structure.fields, i);
+        // Pointers are not allowed as struct members.
+        // Note: if this is changed, auto-deref in property access will break.
+        //       see note in validate_ast():ND_PROPERTY_ACCESS:while(array.len() > 0):if(ty is ptr && ty.inner is struct).
         if(!validate_type(v, &field->data_type, false, &field->location)) // FIXME: use field.type_location
             continue;
         arrayInsert(&s->data_type->as.structure.field_types, i, (void *)field->data_type);
