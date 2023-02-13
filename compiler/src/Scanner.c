@@ -108,6 +108,10 @@ static void scan_number_literal(Scanner *s) {
 
 static void scan_string_literal(Scanner *s) {
     while(!is_end(s) && peek(s) != '"') {
+        // Allow escaped double-quotes (e.g. "value=\"%s\"")
+        if(peek(s) == '\\' && peek_next(s) == '"') {
+            advance(s);
+        }
         advance(s);
     }
     advance(s); // consume the closing '"'.
