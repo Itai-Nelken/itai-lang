@@ -5,7 +5,7 @@ struct Value {
 }
 
 fn change_value(v: &Value) {
-	v.n = 42; // replaced with (*v).n) by the compiler.
+	v.n = 42; // replaced with (*v).n by the compiler.
 }
 
 fn main() -> i32 {
