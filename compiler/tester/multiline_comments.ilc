@@ -1,0 +1,22 @@
+/// expect success
+
+/***
+ * This tests makes sure the scanner properly
+ * handles multiline comments.
+ * single line comments are tested in all tests
+ * because of the '///' header.
+ *
+ * /* Nested comments work,
+ *    /*/* even deeply nested ones! */*/
+ *   just like that. */
+ *
+ * Multiline comments will work anywhere in a
+ * program, the scanner doesn't know about
+ * the context of the sorounding program,
+ * it simply reads characters and tries to
+ * match them to a token, and comments are
+ * simply skipped and ignored.
+ ***/
+
+fn main() {}
+

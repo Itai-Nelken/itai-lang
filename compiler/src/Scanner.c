@@ -89,6 +89,20 @@ static void skip_whitespace(Scanner *s) {
                     while(!is_end(s) && peek(s) != '\n') {
                         advance(s);
                     }
+                } else if(peek_next(s) == '*') {
+                    // multiline comments, skip until '*/' (handling nested multiline comments).
+                    u8 depth = 1;
+                    advance(s); // consume the first '/'.
+                    while(!is_end(s) && depth > 0) {
+                        if(peek(s) == '/' && peek_next(s) == '*') {
+                            advance(s);
+                            depth++;
+                        } else if(peek(s) == '*' && peek_next(s) == '/') {
+                            advance(s);
+                            depth--;
+                        }
+                        advance(s);
+                    }
                 } else {
                     return;
                 }
