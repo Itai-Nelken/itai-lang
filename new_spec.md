@@ -57,23 +57,30 @@ import "std/memory";
 }
 ```
 
-## Error handling (Optional types)
-Error handling is achieved using the `Error` base class and Optionals.<br>
-Optionals are declared by appending a `?` (question mark) to a type (e.g `i64?` is an optional `i64`). values are automatically wrapped in An optional when returned in a function returning an optional or assigned to a variable that is an optional type.<br>
+## Error handling (Optional & Result types)
+Error handling is achieved using the `Error` base class and Optional & Result types.<br>
 
-An empty optional contains an error (`Error` or derived structs), empty errors are represented by `Error::new("")` or the shorthand `None`.<br>
-To get the state of an optional, the `is_error() -> bool` bound function is used.
+### Optional types
+A type is declared optional by appending a `?` (question mark) to it (e.g `i64?` is an optional `i64`). Values are automatically wrapped in an optional when returned in a function returning an optional type or assigned to a variable of an optional type.<br>
 
-An optional must be unwrapped to access the value stored in it, there are three ways to do so:
-1) Force unwrap: panic if there is no value.
-2) `or` blocks: executed on error, and provided with the error which is accessible using the parameter. `or` blocks must return.
+An empty optional is represented by the value `None`.<br>
+To get the state of an optional, the `has_value() -> bool` bound function is used.
+
+### Result types
+A type is declared as a result type by appending a `!` (exclamantion mark) to it (e.g. `i64!` is a result `i64`). As with optionals, values are automatically wrapped in a result type when returned from a function returning a result type or assigned to a variable of a result type.
+
+An empty result type contains an instance of the error type (`Error` or derived structs).<br>
+To get the state of a result type, the `is_error() -> bool` bound function is used.
+
+### Extracting the value from Optional & Result types
+Optional & Result types must be unwrapped to extract the value stored in them. There are three ways to do so:
+1) Force unwrap using the `!` operator: panic if there is no value.
+2) `or` blocks: executed if the optional is empty/the result contains an error. If the type is a result type, the error is is accessible using the parameter. `or` blocks must return.
 3) Propagate the error using the `?` operator: used to let caller handle the error.
 4) Using the `value_or(T) -> T` bound function: for default values.
 
 ```rust
-import "std/errors";
-
-using errors::Error;
+import "std/io";
 
 struct NotDivisibleByTwoError < Error {
     value: i32;
@@ -87,7 +94,7 @@ struct NotDivisibleByTwoError < Error {
     }
 }
 
-fn do_stuff(values: &[i32]) -> i64? {
+fn do_stuff(values: &[i32]) -> i64! {
     var sum = 0i64;
     for value in values {
         if value % 2 != 0 {
@@ -101,7 +108,7 @@ fn do_stuff(values: &[i32]) -> i64? {
 }
 
 
-fn test() -> i64? {
+fn test() -> i64! {
     var values = [2, 4, 6, 8];
 
     // use a default value:
@@ -117,13 +124,21 @@ fn test() -> i64? {
     return result;
 }
 
+fn test_optional() -> i64? {
+	// '&err' is syntactic sugar for 'err: &Error'.
+	var value = test() or &err {
+		io::eprintln("Error: %s", err.what());
+		return None;
+	};
+	return value;
+}
+
 fn main() {
-    // '&err' is syntactic sugar for 'err: &Error'.
-    var value = test() or &err {
-        eprintln("Error: %s", err.what());
+    var value = test_optional() or {
+		// The error is already outputted by 'test_optional()'.
         return 1;
     }
-    println("result: %d", value);
+    io::println("result: %d", value);
 }
 ```
 The base struct `Error` stores a string:
@@ -133,17 +148,17 @@ fn error() -> i32? {
 }
 ```
 
-If a function need to return nothing or an error, the special `void?` type is used. It represents nothing or an error.
+If a function needs to return nothing or an error, the special `void!` type is used.
 ```rust
 import "std/io";
 
-fn error_or_nothing() -> void? {
+fn error_or_nothing() -> void {
     if !something_that_might_fail() {
         return Error::new("The thing failed");
     }
-    // No need to return any value, after all void? means "error or nothing".
+    // No need to return any value because void! means "error or nothing".
     // The explicit return statement isn't needed either. Unless an error is returned,
-    // functions returning void? are the same as functions returning no value if an error is not returned.
+    // functions returning void! are the same as functions returning no value if an error is not returned.
     return;
 }
 
