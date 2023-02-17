@@ -394,10 +394,10 @@ static void module_callback(void *module, void *codegen) {
     Codegen *cg = (Codegen *)codegen;
 
     print(cg, "/* module %s */\n", m->name);
-    print(cg, "// function types:\n");
-    tableMap(&m->types, gen_fn_types, codegen);
     print(cg, "\n// pre-declarations:\n");
     arrayMap(&m->objects, object_predecl_callback, codegen);
+    print(cg, "// function types:\n");
+    tableMap(&m->types, gen_fn_types, codegen);
     print(cg, "\n// global variables:\n");
     arrayMap(&m->globals, global_variable_callback, codegen);
     print(cg, "\n// objects:\n");
