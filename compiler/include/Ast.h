@@ -236,7 +236,7 @@ typedef struct ast_obj {
             Array fields; // Array<ASTObj *> (OBJ_VAR)
         } structure; // OBJ_STRUCT
         struct {
-            Array parameters;
+            Array parameters; // Array<ASTObj *>
             Type *return_type;
             Attribute *source_attr; // After validating, guaranteed to be an ATTR_SOURCE.
         } extern_fn; // OBJ_EXTERN_FN

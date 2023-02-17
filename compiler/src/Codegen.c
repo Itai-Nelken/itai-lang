@@ -248,7 +248,12 @@ static void gen_variable(ASTNode *variable, Codegen *cg) {
         arrayPush(&stack, (void *)AS_BINARY_NODE(variable)->lhs);
         while(arrayLength(&stack) > 0) {
             ASTNode *n = ARRAY_POP_AS(ASTNode *, &stack);
-            gen_expr(cg, n);
+            if(NODE_IS(n, ND_DEREF)) {
+                print(cg, "(*%s)", AS_OBJ_NODE(AS_UNARY_NODE(n)->operand)->obj->name);
+            } else {
+                VERIFY(NODE_IS(n, ND_VARIABLE));
+                print(cg, "%s", AS_OBJ_NODE(n)->obj->name);
+            }
             if(arrayLength(&stack) > 0) {
                 print(cg, ".");
             }
