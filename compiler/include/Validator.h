@@ -14,7 +14,7 @@ typedef struct validator {
     Allocator *current_allocator;
     ASTObj *current_function;
     Scope *current_scope;
-    Table global_ids_in_current_module; // Table<ASTString, void>
+    Table declared_global_ids; // Table<ASTString, ASTObj *>
     Table visible_locals_in_current_function; // Table<ASTString, ASTObj *>
     bool found_main;
     bool had_error;

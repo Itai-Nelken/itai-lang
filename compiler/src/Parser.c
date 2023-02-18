@@ -143,12 +143,6 @@ static bool match(Parser *p, TokenType expected) {
 
 static inline ScopeID enter_scope(Parser *p) {
     VERIFY(p->current.function);
-    if(p->current.scope == NULL) {
-        // Function scope, depth always == 1.
-        p->current.scope = p->current.function->as.fn.scopes = scopeNew(NULL, 1, true);
-        // FIXME: how to represent function scope.
-        return (ScopeID){.depth = FUNCTION_SCOPE_DEPTH, .index = 0};
-    }
     // Block scope (meaning scopes inside a function scope).
     Scope *child = scopeNew(p->current.scope, p->current.scope->depth + 1, true);
     ScopeID id = scopeAddChild(p->current.scope, p->current.module, child);
@@ -161,12 +155,34 @@ static void leave_scope(Parser *p) {
     p->current.scope = p->current.scope->parent;
 }
 
-static inline void add_local_to_current_scope(Parser *p, ASTObj *local) {
+static inline void add_variable_to_current_scope(Parser *p, ASTObj *var) {
     VERIFY(p->current.scope != NULL);
-    VERIFY(tableSet(&p->current.scope->variables, (void *)local->name, (void *)local) == NULL);
+    ASTObj *prev = (ASTObj *)tableSet(&p->current.scope->variables, (void *)var->name, (void *)var);
+    if(prev != NULL) {
+        error_at(p, var->name_location, stringFormat("Redefinition of variable '%s'.", var->name));
+        hint(p, prev->name_location, "Previous definition here.");
+    }
 }
 
-static ASTObj *find_local_in_current_scope(Parser *p, ASTString name) {
+static inline void add_function_to_current_scope(Parser *p, ASTObj *fn) {
+    VERIFY(p->current.scope != NULL);
+    ASTObj *prev = (ASTObj *)tableSet(&p->current.scope->functions, (void *)fn->name, (void *)fn);
+    if(prev != NULL) {
+        error_at(p, fn->name_location, stringFormat("Redefinition of function '%s'.", fn->name));
+        hint(p, prev->name_location, "Previous definition here.");
+    }
+}
+
+static inline void add_structure_to_current_scope(Parser *p, ASTObj *structure) {
+    VERIFY(p->current.scope != NULL);
+    ASTObj *prev = (ASTObj *)tableSet(&p->current.scope->structures, (void *)structure->name, (void *)structure);
+    if(prev != NULL) {
+        error_at(p, structure->name_location, stringFormat("Redefinition of struct '%s'.", structure->name));
+        hint(p, prev->name_location, "Previous definition here.");
+    }
+}
+
+static ASTObj *find_variable_in_current_scope(Parser *p, ASTString name) {
     VERIFY(p->current.scope != NULL);
     TableItem *i = tableGet(&p->current.scope->variables, (void *)name);
     if(i) {
@@ -784,7 +800,7 @@ static Type *parse_type(Parser *p) {
 // Notes: 1) The semicolon at the end isn't consumed.
 //        2) [var_loc] may be NULL.
 // variable_decl -> 'var' identifier (':' type)? ('=' expression)? ';'
-static ASTNode *parse_variable_decl(Parser *p, bool allow_initializer, Array *obj_array, Location *var_loc) {
+static ASTNode *parse_variable_decl(Parser *p, bool allow_initializer, bool add_to_scope, Array *obj_array, Location *var_loc) {
     // Assumes 'var' was already consumed.
 
     ASTString name = TRY(ASTString, parse_identifier(p));
@@ -808,6 +824,9 @@ static ASTNode *parse_variable_decl(Parser *p, bool allow_initializer, Array *ob
     //       This is so that "ghost" objects that belong to half-parsed
     //       variables won't be in the array and cause weird problems later on.
     arrayPush(obj_array, (void *)var);
+    if(add_to_scope) {
+        add_variable_to_current_scope(p, var);
+    }
 
     // includes everything from the 'var' to the ';'.
     Location full_loc = locationMerge(name_loc, previous(p).location);
@@ -835,7 +854,8 @@ static ASTObj *parse_struct_decl(Parser *p) {
         return NULL;
     }
     while(current(p).type != TK_RBRACE) {
-        parse_variable_decl(p, false, &structure->as.structure.fields, NULL);
+        // FIXME: enter scope.
+        parse_variable_decl(p, false, false, &structure->as.structure.fields, NULL);
         consume(p, TK_SEMICOLON);
     }
     if(!consume(p, TK_RBRACE)) {
@@ -846,6 +866,7 @@ static ASTObj *parse_struct_decl(Parser *p) {
     structure->data_type = new_struct_type(p,structure->name, structure->as.structure.fields);
 
     structure->location = locationMerge(name_loc, previous(p).location);
+    add_structure_to_current_scope(p, structure);
     return structure;
 }
 
@@ -856,13 +877,13 @@ static ASTNode *parse_function_body(Parser *p) {
     ASTNode *result = NULL;
     if(match(p, TK_VAR)) {
         Location var_loc = previous(p).location;
-        ASTNode *var_node = TRY(ASTNode *, parse_variable_decl(p, true, &p->current.function->as.fn.locals, &var_loc));
+        ASTNode *var_node = TRY(ASTNode *, parse_variable_decl(p, true, false, &p->current.function->as.fn.locals, &var_loc));
         TRY_CONSUME(p, TK_SEMICOLON);
         // Get the name of the variable to push to check
         // for redefinitions and to save in the current scope.
         ASTObj *var_obj = ARRAY_GET_AS(ASTObj *, &p->current.function->as.fn.locals, arrayLength(&p->current.function->as.fn.locals) - 1);
         VERIFY(var_obj->type == OBJ_VAR);
-        ASTObj *existing_obj = find_local_in_current_scope(p, var_obj->name);
+        ASTObj *existing_obj = find_variable_in_current_scope(p, var_obj->name);
         if(existing_obj) {
             error_at(p, var_node->location, stringFormat("Redeclaration of local variable '%s'.", var_obj->name));
             hint(p, existing_obj->location, "Previous declaration here.");
@@ -872,7 +893,7 @@ static ASTNode *parse_function_body(Parser *p) {
             astObjFree((ASTObj *)arrayPop(&p->current.function->as.fn.locals));
             return NULL;
         }
-        add_local_to_current_scope(p, var_obj);
+        add_variable_to_current_scope(p, var_obj);
         result = var_node;
     } else {
         // no need for TRY() here as nothing is done with the result node
@@ -891,7 +912,7 @@ static bool parse_parameter_list(Parser *p, Array *parameters) {
         return true;
     }
     do {
-        ASTNode *param_var = parse_variable_decl(p, false, parameters, NULL);
+        ASTNode *param_var = parse_variable_decl(p, false, false, parameters, NULL);
         if(!param_var) {
             had_error = true;
         } else {
@@ -941,6 +962,7 @@ static ASTObj *parse_function_decl(Parser *p, bool parse_body) {
     fn->as.fn.return_type = return_type;
     arrayCopy(&fn->as.fn.parameters, &parameters);
     arrayFree(&parameters); // No need to free the contents of the array as they are owned by the fn now.
+    add_function_to_current_scope(p, fn);
 
     if(!parse_body) {
         return fn;
@@ -952,7 +974,7 @@ static ASTObj *parse_function_decl(Parser *p, bool parse_body) {
     ScopeID scope = enter_function(p, fn);
     // Add all parameters as locals to the function scope.
     for(usize i = 0; i < fn->as.fn.parameters.used; ++i) {
-        add_local_to_current_scope(p, ARRAY_GET_AS(ASTObj *, &fn->as.fn.parameters, i));
+        add_variable_to_current_scope(p, ARRAY_GET_AS(ASTObj *, &fn->as.fn.parameters, i));
     }
     fn->as.fn.body = AS_LIST_NODE(parse_block(p, scope, parse_function_body));
     leave_function(p);
@@ -969,6 +991,7 @@ static ASTObj *parse_extern_decl(Parser *p) {
     ASTObj *result = NULL;
     if(match(p, TK_FN)) {
         result = parse_function_decl(p, false);
+        // Note: [result] was already added to the current scope by parse_function_decl().
         if(!consume(p, TK_SEMICOLON)) {
             astObjFree(result);
             return NULL;
@@ -1071,6 +1094,7 @@ bool parserParse(Parser *p, ASTProgram *prog) {
     // Create the root module.
     ASTModule *root_module = astModuleNew(astProgramAddString(prog, "___root_module___"));
     p->current.module = astProgramAddModule(prog, root_module);
+    p->current.scope = root_module->scope;
     init_primitive_types(prog, root_module);
     p->current.allocator = &root_module->ast_allocator.alloc;
 
@@ -1084,7 +1108,7 @@ bool parserParse(Parser *p, ASTProgram *prog) {
             }
         } else if(match(p, TK_VAR)) {
             Location var_loc = previous(p).location;
-            ASTNode *global = parse_variable_decl(p, true, &root_module->scope->objects, &var_loc);
+            ASTNode *global = parse_variable_decl(p, true, true, &root_module->scope->objects, &var_loc);
             if(!consume(p, TK_SEMICOLON)) {
                 continue;
             }

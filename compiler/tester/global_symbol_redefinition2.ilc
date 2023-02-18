@@ -1,4 +1,4 @@
-/// expect error: Error: Symbol 'test' already exists.
+/// expect error: Error: Redefinition of function 'test'.
 
 fn test() {}
 #[source("")]

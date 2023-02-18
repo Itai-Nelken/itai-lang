@@ -21,7 +21,7 @@ void validatorInit(Validator *v, Compiler *c) {
     v->current_scope = NULL;
     v->found_main = false;
     v->had_error = false;
-    tableInit(&v->global_ids_in_current_module, NULL, NULL);
+    tableInit(&v->declared_global_ids, NULL, NULL);
     tableInit(&v->visible_locals_in_current_function, NULL, NULL);
 }
 
@@ -34,7 +34,7 @@ void validatorFree(Validator *v) {
     v->current_scope = NULL;
     v->found_main = false;
     v->had_error = false;
-    tableFree(&v->global_ids_in_current_module);
+    tableFree(&v->declared_global_ids);
     tableFree(&v->visible_locals_in_current_function);
 }
 
@@ -121,14 +121,7 @@ static inline ASTNode *get_variable_node(ASTNode *n) {
 }
 
 static inline void enter_scope(Validator *v, ScopeID scope) {
-    VERIFY(v->current_function); // We cannot enter a scope if we aren't inside a function.
-    if(v->current_scope == NULL) {
-        // entering function scope.
-        v->current_scope = v->current_function->as.fn.scopes;
-    } else {
-        // entering block scope.
-        v->current_scope = scopeGetChild(v->current_scope, scope);
-    }
+    v->current_scope = scopeGetChild(v->current_scope, scope);
 }
 
 static inline void leave_scope(Validator *v) {
@@ -196,14 +189,14 @@ static ASTObj *find_struct(Validator *v, ASTString name) {
     return NULL;
 }
 
-static inline void add_global_id(Validator *v, ASTString id) {
-    // The caller must check that a global id doesn't exist before adding it.
-    // The assertion makes sure that an id is added exactly once.
-    VERIFY(tableSet(&v->global_ids_in_current_module, (void *)id, NULL) == NULL);
-}
-
-static inline bool global_id_exists(Validator *v, ASTString id) {
-    return tableGet(&v->global_ids_in_current_module, (void *)id) != NULL;
+static bool global_id_exists(Validator *v, ASTObj *id, ASTObj **prev) {
+    TableItem *item;
+    if((item = tableGet(&v->declared_global_ids, (void *)id->name)) != NULL) {
+        *prev = (ASTObj *)item->value;
+        return true;
+    }
+    tableSet(&v->declared_global_ids, (void *)id->name, (void *)id);
+    return false;
 }
 
 
@@ -666,7 +659,7 @@ static bool validate_function(Validator *v, ASTObj *fn) {
                 }
                 arrayPush(&fn->as.fn.defers, (void *)operand);
                 // 'defer's aren't pushed back to the body as they are saved in the 'fn.defers' array
-                // and should be codegened separately as the function epilog.
+                // and should be codegened separately at the function epilogue.
             }
         } else {
             ASTNode *new_n = validate_ast(v, n);
@@ -736,22 +729,24 @@ static bool validate_object(Validator *v, ASTObj *obj) {
     switch(obj->type) {
         case OBJ_VAR:
             return validate_type(v, &obj->data_type, false, &obj->location); // FIXME: use obj.type_location
-        case OBJ_FN:
-            if(global_id_exists(v, obj->name)) {
+        case OBJ_FN: {
+            ASTObj *prev_decl = NULL;
+            if(global_id_exists(v, obj, &prev_decl)) {
                 error(v, obj->location, "Symbol '%s' already exists.", obj->name);
-            } else {
-                add_global_id(v, obj->name);
+                hint(v, prev_decl->location, "Previous declaration was here.");
             }
             return validate_function(v, obj);
+        }
         case OBJ_STRUCT:
             return validate_struct(v, obj);
-        case OBJ_EXTERN_FN:
-            if(global_id_exists(v, obj->name)) { // TODO: unduplicate with 'case OBJ_FN'.
+        case OBJ_EXTERN_FN: {
+            ASTObj *prev_decl = NULL;
+            if(global_id_exists(v, obj, &prev_decl)) { // TODO: unduplicate with 'case OBJ_FN'.
                 error(v, obj->location, "Symbol '%s' already exists.", obj->name);
-            } else {
-                add_global_id(v, obj->name);
+                hint(v, prev_decl->location, "Previous declaration was here.");
             }
             return validate_extern_fn(v, obj);
+        }
         default:
             UNREACHABLE();
     }
@@ -779,16 +774,17 @@ static void validate_module_callback(void *module, usize index, void *validator)
     Validator *v = (Validator *)validator;
     v->current_module = (ModuleID)index;
     v->current_allocator = &m->ast_allocator.alloc;
+    v->current_scope = m->scope;
 
     FOR(i, m->globals) {
         ASTNode *g = ARRAY_GET_AS(ASTNode *, &m->globals, i);
         ASTObj *var = NODE_IS(g, ND_ASSIGN)
                        ? AS_OBJ_NODE(AS_BINARY_NODE(g)->lhs)->obj
                        : AS_OBJ_NODE(g)->obj;
-        if(global_id_exists(v, var->name)) {
+        ASTObj *prev_decl = NULL;
+        if(global_id_exists(v, var, &prev_decl)) {
             error(v, var->location, "Global symbol '%s' redefined.", var->name);
-        } else {
-            add_global_id(v, var->name);
+            hint(v, prev_decl->location, "Previous declaration was here.");
         }
         ASTNode *new_g = validate_global_variable(v, g);
         if(new_g) {
@@ -797,23 +793,10 @@ static void validate_module_callback(void *module, usize index, void *validator)
     }
 
     // objects
-    Table declared_structs;
-    tableInit(&declared_structs, NULL, NULL);
     FOR(i, m->scope->objects) {
         ASTObj *obj = ARRAY_GET_AS(ASTObj *, &m->scope->objects, i);
-        if(obj->type == OBJ_STRUCT) {
-            TableItem *item = NULL;
-            if((item = tableGet(&declared_structs, (void *)obj->name)) != NULL) {
-                ASTObj *previous_declaration = (ASTObj *)item->value;
-                error(v, obj->name_location, "Redefiniton of struct '%s'.", obj->name);
-                hint(v, previous_declaration->name_location, "Previous definition here.");
-                continue;
-            }
-            tableSet(&declared_structs, (void *)obj->name, (void *)obj);
-        }
         validate_object(v, obj); // Note: no need to handle errors here as we want to validate all objects always.
     }
-    tableFree(&declared_structs);
     v->current_allocator = NULL;
 }
 
@@ -993,12 +976,14 @@ static bool typecheck_function(Validator *v, ASTObj *fn) {
 
     // The parser checks that parameters have types.
 
+    enter_scope(v, fn->as.fn.body->scope);
     FOR(i, fn->as.fn.body->nodes) {
         ASTNode *n = ARRAY_GET_AS(ASTNode *, &fn->as.fn.body->nodes, i);
         if(!typecheck_ast(v, n)) {
             had_error = true;
         }
     }
+    leave_scope(v);
     // fn.defers is typechecked in validate_function().
 
     v->current_function = NULL;
@@ -1062,6 +1047,7 @@ static void typecheck_module_callback(void *module, usize index, void *validator
     ASTModule *m = (ASTModule *)module;
     Validator *v = (Validator *)validator;
     v->current_module = (ModuleID)index;
+    v->current_scope = m->scope;
 
     // Global variables
     FOR(i, m->globals) {

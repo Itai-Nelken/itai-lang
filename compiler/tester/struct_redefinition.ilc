@@ -1,4 +1,4 @@
-/// expect error: Error: Redefiniton of struct 'T'.
+/// expect error: Error: Redefinition of struct 'T'.
 
 struct T {}
 struct T {}
