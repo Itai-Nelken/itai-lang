@@ -1,0 +1,5 @@
+/// expect error: Error: Symbol 'test' already exists.
+
+fn test() {}
+var test: i32;
+

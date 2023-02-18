@@ -1,0 +1,12 @@
+/// expect error: Error: Struct 'T' cannot have a field that recursively contains it.
+
+struct T {
+	v: V;
+}
+
+struct V {
+	t: T;
+}
+
+fn main() {}
+

@@ -1,0 +1,6 @@
+/// expect error: Error: Unknown type 'TypeThatDoesNotExist'.
+
+fn main() {
+	var a: TypeThatDoesNotExist;
+}
+

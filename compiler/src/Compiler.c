@@ -60,7 +60,6 @@ void compilerInit(Compiler *c) {
     c->current_file = 0; // 0 is a valid FileID, but initialize with it so current_file is a known value.
     arrayInit(&c->files);
     arrayInit(&c->errors);
-    c->current_file_contents = NULL;
 }
 
 static void free_file_callback(void *f, void *cl) {
@@ -82,9 +81,6 @@ void compilerFree(Compiler *c) {
     arrayFree(&c->files);
     arrayMap(&c->errors, free_error_callback, NULL);
     arrayFree(&c->errors);
-    if(c->current_file_contents) {
-        stringFree(c->current_file_contents);
-    }
 }
 
 FileID compilerAddFile(Compiler *c, const char *path) {

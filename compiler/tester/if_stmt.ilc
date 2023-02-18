@@ -1,0 +1,20 @@
+/// expect success
+
+fn main() -> i32 {
+	var a = 123;
+	var b = 321;
+	if a {
+		return a;
+	} else if b {
+		return b;
+	} else {
+		return 0;
+	}
+
+	// The following tests an if statement
+	// with only one branch (the body).
+	if a <= b {
+		return a;
+	}
+}
+

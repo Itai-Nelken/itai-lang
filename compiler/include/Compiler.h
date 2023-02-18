@@ -17,6 +17,16 @@ typedef struct file {
     String contents;
 } File;
 
+typedef struct compiler {
+    Array files; // Array<File *>
+    Array errors; // Array<Error *>
+    FileID current_file;
+    bool current_file_initialized; // if true current_file is valid, else it's invalid.
+} Compiler;
+
+
+/** File **/
+
 /***
  * Initialize a new File.
  *
@@ -51,13 +61,7 @@ const char *fileBasename(File *f);
 String fileRead(File *f);
 
 
-typedef struct compiler {
-    Array files; // Array<File *>
-    Array errors; // Array<Error *>
-    FileID current_file;
-    bool current_file_initialized; // if true current_file is valid, else it's invalid.
-    String current_file_contents;
-} Compiler;
+/** Compiler **/
 
 /***
  * Initialize a Compiler.

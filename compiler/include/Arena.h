@@ -2,74 +2,25 @@
 #define ARENA_H
 
 #include <stddef.h> // size_t
-#include <stdbool.h>
+#include "memory.h" // Allocator
 
-typedef struct block {
-	char *data;
-	char *current;
-	size_t size;
-	struct block *next;
-} ArenaBlock;
+// The default block size is 10K
+#define ARENA_DEFAULT_BLOCK_SIZE 10 * 1024
+
+typedef struct block Block;
 
 typedef struct arena {
-	ArenaBlock *blocks;
-	size_t block_size;
-	size_t block_count;
-	size_t bytes_allocated;
+	Block *blocks;
 } Arena;
 
-typedef struct arena_info {
-	size_t block_count;
-	size_t current_block_size;
-	size_t free_bytes_in_current_block;
-	size_t bytes_allocated_in_current_block;
-	size_t total_bytes_allocated;
-} ArenaInfo;
+void arenaInit(Arena *a);
 
-/***
- * Initialize a new Arena.
- * 
- * @param a A Arena to initialize.
- * @param block_size the initial size for each block.
- ***/
-void initArena(Arena *a, size_t block_size);
+void arenaFree(Arena *a);
 
-/***
- * Free an initialized Arena.
- * 
- * @param a An initialized Arena to free.
- ***/
-void freeArena(Arena *a);
+void *arenaAlloc(Arena *a, size_t size);
 
-/***
- * Get information about an Arena.
- * 
- * @param a An initialized Arena.
- * @return An ArenaInfo struct.
- ***/
-ArenaInfo arenaGetInfo(Arena *a);
+void *arenaCalloc(Arena *a, size_t nmemb, size_t size);
 
-/***
- * Allocate 'size' bytes from an Arena.
- * An extra byte is added before and after the allocated space.
- * If the current block doesn't have enough space, a new one will be added.
- * 
- * @param a An initialized Arena.
- * @param size The amount of bytes to allocate.
- * @return A pointer to the start of the allocated space.
- ***/
-void *arenaAllocate(Arena *a, size_t size);
-
-/***
- * Allocate 'count' elements of 'size' size and set them all to 0.
- * An extra byte is added before and after the allocated space.
- * If the current block doesn't have enough space, a new one will be added.
- * 
- * @param a An initialized Arena.
- * @param count The amount of elements to allocate.
- * @param size The size of each element.
- * @return A pointer to the start of the allocated space.
- ***/
-void *arenaClearAllocate(Arena *a, size_t count, size_t size);
+Allocator arenaMakeAllocator(Arena *a);
 
 #endif // ARENA_H

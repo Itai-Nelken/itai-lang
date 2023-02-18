@@ -1,0 +1,6 @@
+/// expect error: Error: Type mismatch: expected 'void' but got 'i32'.
+
+fn main() {
+	return 42;
+}
+

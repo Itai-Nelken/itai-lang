@@ -20,6 +20,9 @@ typedef struct location {
  ***/
 Location locationNew(u64 start, u64 end, FileID file);
 
+// FIXME: find a better way to represent an empty location.
+#define EMPTY_LOCATION() (locationNew(0, 0, 0))
+
 /***
  * Merge to Locations into a new Location.
  * NOTE: it is a checked runtime error:
@@ -32,104 +35,78 @@ Location locationNew(u64 start, u64 end, FileID file);
  ***/
 Location locationMerge(Location a, Location b);
 
-// Update tokenPrint(), tokenTypeString() and token_type_name() in Token.c when adding new token types.
+// Update tokenPrint(), tokenTypeString(), token_type_name() in Token.c
+// and the parse table in Parser.c when adding new token types.
 typedef enum token_type {
     // One character tokens
     TK_LPAREN, TK_RPAREN,
+    TK_LBRACKET, TK_RBRACKET,
     TK_LBRACE, TK_RBRACE,
     TK_PLUS,
     TK_STAR, TK_SLASH,
     TK_SEMICOLON, TK_COLON,
+    TK_COMMA, TK_DOT,
+    TK_HASH,
+    TK_AMPERSAND,
 
     // one or two character tokens
     TK_MINUS, TK_ARROW,
     TK_EQUAL, TK_EQUAL_EQUAL,
     TK_BANG, TK_BANG_EQUAL,
+    TK_LESS, TK_LESS_EQUAL,
+    TK_GREATER, TK_GREATER_EQUAL,
 
     // Literals
-    TK_NUMBER,
+    TK_NUMBER_LITERAL,
+    TK_STRING_LITERAL,
 
     // keywords
     TK_IF, TK_ELSE,
     TK_WHILE,
     TK_FN, TK_RETURN,
     TK_VAR,
+    TK_STRUCT,
+    TK_EXTERN,
+    TK_DEFER,
 
     // primitive types
-    TK_I32, TK_U32,
+    TK_VOID, TK_I32, TK_U32, TK_STR,
 
     // identifier
     TK_IDENTIFIER,
 
     // Other
     TK_GARBAGE,
-    TK_EOF
+    TK_EOF,
+    TK_TYPE_COUNT
 } TokenType;
-
-// Update print_number_constant() in Token.c when adding new types.
-typedef enum number_constant_type {
-    NUM_I64
-}  NumberConstantType;
-
-typedef struct number_constant {
-    NumberConstantType type;
-    union {
-        i64 int64;
-    } as;
-} NumberConstant;
 
 typedef struct token {
     TokenType type;
     Location location;
-    union {
-        NumberConstant number_constant;
-        struct {
-            char *text;
-            u32 length; // u32 because its used for printf later with '%.*s'
-        } identifier;
-    } as;
+    char *lexeme;
+    u32 length;
 } Token;
 
 /***
- * Make a new i64 NumberConstant.
+ * Make a new Token.
  *
- * @param value The value.
- * @return A NumberConstant with the value.
+ * @param type A TokenType.
+ * @param location The Location of the token.
+ * @param lexeme The lexeme the token represents.
+ * @param length The length of the lexeme.
+ * @return A new base Token.
  ***/
-NumberConstant numberConstantNewInt64(i64 value);
-
-/***
- * Make a new base Token.
- *
- @param type A TokenType.
- @param location The Location of the token.
- @return A new base Token.
- ***/
-Token tokenNew(TokenType type, Location location);
-
-/***
- * Make a new number constant Token.
- *
- * @param value A NumberConstant with the value.
- * @return A new number constant Token.
- ***/
-Token tokenNewNumberConstant(Location location, NumberConstant value);
-
-/***
- * Print a number constant.
- *
- * @param to The stream to print to.
- * @param value The number constant to print.
- ***/
-void printNumberConstant(FILE *to, NumberConstant value);
+Token tokenNew(TokenType type, Location location, char *lexeme, u32 length);
 
 /***
  * Print a Location.
  *
  * @param to The stream to print to.
  * @param loc The Location to print.
+ * @param compact Print the location in a compact way.
  ***/
-void printLocation(FILE *to, Location loc);
+void locationPrint(FILE *to, Location loc, bool compact);
 
 /***
  * Print a Token.

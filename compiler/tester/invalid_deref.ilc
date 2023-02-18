@@ -1,0 +1,7 @@
+/// expect error: Error: Expected variable to be of pointer type.
+
+fn main() {
+	var a: i32;
+	*a;
+}
+

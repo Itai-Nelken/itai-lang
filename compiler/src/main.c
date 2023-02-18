@@ -4,33 +4,52 @@
 #include "common.h"
 #include "memory.h"
 #include "Token.h"
-#include "ast.h"
+#include "Ast.h"
 #include "Compiler.h"
 #include "Scanner.h"
 #include "Parser.h"
 #include "Validator.h"
-#include "codegenerators/c_codegen.h"
+#include "Codegen.h"
+
+enum return_values {
+    RET_SUCCESS = 0,
+    RET_ARG_PARSE_FAILURE,
+    RET_PARSE_FAILURE,
+    RET_VALIDATE_ERROR,
+    RET_CODEGEN_ERROR
+};
 
 typedef struct options {
-    bool dump_ast;
     const char *file_path;
+    bool dump_ast;
+    bool dump_tokens;
 } Options;
 
 bool parse_arguments(Options *opts, int argc, char **argv) {
     struct option long_options[] = {
-        {"help",     no_argument, 0, 'h'},
-        {"dump_ast", no_argument, 0, 'd'},
-        {0,          0,           0,  0}
+        {"help",         no_argument, 0, 'h'},
+        {"dump-ast",     no_argument, 0, 'd'},
+        {"dump-tokens", no_argument, 0, 't'},
+        {0,              0,           0,  0}
     };
     int c;
-    while((c = getopt_long(argc, argv, "hd", long_options, NULL)) != -1) {
+    while((c = getopt_long(argc, argv, "hdt", long_options, NULL)) != -1) {
         switch(c) {
             case 'h':
-                printf("Usage: %s [-d|-h] file\n", argv[0]);
+                printf("Usage: %s [options] file\n", argv[0]);
+                printf("Options:\n");
+                printf("\t--help,        -h    Print this help.\n");
+                printf("\t--dump-ast,    -d    Dump the parsed and validated AST.\n");
+                printf("\t--dump-tokens, -t    Dump the scanned tokens.\n");
                 return false;
             case 'd':
                 opts->dump_ast = true;
                 break;
+            case 't':
+                opts->dump_tokens = true;
+                break;
+            default:
+                return false;
         }
     }
         if(optind >= argc) {
@@ -46,60 +65,68 @@ bool parse_arguments(Options *opts, int argc, char **argv) {
 }
 
 int main(int argc, char **argv) {
-    int return_value = 0;
+    int return_value = RET_SUCCESS;
     Compiler c;
     Scanner s;
     Parser p;
+    Validator v;
     ASTProgram prog;
     compilerInit(&c);
     scannerInit(&s, &c);
-    parserInit(&p, &c);
-    astInitProgram(&prog);
+    parserInit(&p, &s, &c);
+    validatorInit(&v, &c);
+    astProgramInit(&prog);
 
     Options opts = {
+        .file_path = "./test.ilc",
         .dump_ast = false,
-        .file_path = "../build/test.ilc"
+        .dump_tokens = false
     };
     if(!parse_arguments(&opts, argc, argv)) {
-        return_value = 1;
+        return_value = RET_ARG_PARSE_FAILURE;
         goto end;
+    }
+
+    if(opts.dump_tokens) {
+        parserSetDumpTokens(&p, true);
     }
 
     compilerAddFile(&c, opts.file_path);
 
-    bool result = parserParse(&p, &s, &prog);
-    if(!result) {
+    if(!parserParse(&p, &prog)) {
         if(compilerHadError(&c)) {
             compilerPrintErrors(&c);
         } else {
-            fputs("\x1b[1;31mError:\x1b[0m Parser failed but didn't report any errors!\n", stderr);
+            fputs("\x1b[1;31mError:\x1b[0m Parser failed with no errors!\n", stderr);
         }
-        return_value = 1;
+        return_value = RET_PARSE_FAILURE;
         goto end;
     }
 
-    result = validateAndTypecheckProgram(&c, &prog);
-    if(!result) {
+    if(!validatorValidate(&v, &prog)) {
         if(compilerHadError(&c)) {
             compilerPrintErrors(&c);
         } else {
-            fputs("\x1b[1;31mError:\x1b[0m Validator failed but didn't report any errors!\n", stderr);
+            fputs("\x1b[1;31mError:\x1b[0m Validator failed with no errors!\n", stderr);
         }
-        return_value = 1;
+        return_value = RET_VALIDATE_ERROR;
         goto end;
     }
 
     if(opts.dump_ast) {
-        astPrintProgram(stdout, &prog);
+        astProgramPrint(stdout, &prog);
         fputc('\n', stdout);
     }
 
-    if(!c_codegen(&prog)) {
-        fputs("\x1b[1;31mError:\x1b[0m code generator failed!\n", stderr);
+    if(!codegenGenerate(stdout, &prog)) {
+        fputs("\x1b[1;31mError: Codegenerator failed!\x1b[0m\n", stderr);
+        return_value = RET_CODEGEN_ERROR;
+        goto end;
     }
 
 end:
-    astFreeProgram(&prog);
+    astProgramFree(&prog);
+    validatorFree(&v);
     parserFree(&p);
     scannerFree(&s);
     compilerFree(&c);

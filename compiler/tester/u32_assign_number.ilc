@@ -1,0 +1,6 @@
+/// expect success
+
+fn main() {
+	var a: u32 = 123;
+}
+

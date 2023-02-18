@@ -2,7 +2,6 @@
 #include <stdbool.h>
 #include "common.h"
 #include "memory.h"
-#include "utilities.h"
 #include "Compiler.h"
 #include "Error.h"
 #include "Array.h"
@@ -27,17 +26,25 @@ static inline Location make_location(Scanner *s) {
     return locationNew(s->start, s->current, compilerGetCurrentFileID(s->compiler));
 }
 
-// Takes ownership 'message'
+// Note: ownership of 'message' is taken.
 static void add_error(Scanner *s, bool has_location, String message) {
     Error *err;
     NEW0(err);
-    errorInit(err, ERR_ERROR, has_location, has_location ? make_location(s) : locationNew(0, 0, 0), message);
+    errorInit(err, ERR_ERROR, has_location, has_location ? make_location(s) : EMPTY_LOCATION(), message);
     stringFree(message);
     compilerAddError(s->compiler, err);
 }
 
-static inline Token make_simple_token(Scanner *s, TokenType type) {
-    return tokenNew(type, locationNew(s->start, s->current, compilerGetCurrentFileID(s->compiler)));
+static inline Token make_token(Scanner *s, TokenType type) {
+    return tokenNew(type, locationNew(s->start, s->current, compilerGetCurrentFileID(s->compiler)), s->source + s->start, (u32)(s->current - s->start));
+}
+
+static inline bool isDigit(char c) {
+    return c >= '0' && c <= '9';
+}
+
+static inline bool isAscii(char c) {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 }
 
 static inline bool is_end(Scanner *s) {
@@ -82,6 +89,20 @@ static void skip_whitespace(Scanner *s) {
                     while(!is_end(s) && peek(s) != '\n') {
                         advance(s);
                     }
+                } else if(peek_next(s) == '*') {
+                    // multiline comments, skip until '*/' (handling nested multiline comments).
+                    u8 depth = 1;
+                    advance(s); // consume the first '/'.
+                    while(!is_end(s) && depth > 0) {
+                        if(peek(s) == '/' && peek_next(s) == '*') {
+                            advance(s);
+                            depth++;
+                        } else if(peek(s) == '*' && peek_next(s) == '/') {
+                            advance(s);
+                            depth--;
+                        }
+                        advance(s);
+                    }
                 } else {
                     return;
                 }
@@ -92,13 +113,22 @@ static void skip_whitespace(Scanner *s) {
     }
 }
 
-static Token scan_number_constant(Scanner *s) {
+static void scan_number_literal(Scanner *s) {
     // TODO: add hex, octal, and binary literals.
     while(!is_end(s) && (isDigit(peek(s)) || peek(s) == '_')) {
         advance(s);
     }
-    i64 value = strtol(&s->source[s->start], NULL, 10);
-    return tokenNewNumberConstant(locationNew(s->start, s->current, compilerGetCurrentFileID(s->compiler)), numberConstantNewInt64(value));
+}
+
+static void scan_string_literal(Scanner *s) {
+    while(!is_end(s) && peek(s) != '"') {
+        // Allow escaped double-quotes (e.g. "value=\"%s\"")
+        if(peek(s) == '\\' && peek_next(s) == '"') {
+            advance(s);
+        }
+        advance(s);
+    }
+    advance(s); // consume the closing '"'.
 }
 
 static TokenType scan_keyword_or_identifier_type(Scanner *s) {
@@ -111,8 +141,21 @@ static TokenType scan_keyword_or_identifier_type(Scanner *s) {
 
     TokenType result;
     switch(*lexeme) {
+        case 'd':
+            result = CHECK("defer", 5, TK_DEFER);
+            break;
         case 'e':
-            result = CHECK("else", 4, TK_ELSE);
+            switch(length) {
+                case 4:
+                    result = CHECK("else", 4, TK_ELSE);
+                    break;
+                case 6:
+                    result = CHECK("extern", 6, TK_EXTERN);
+                    break;
+                default:
+                    result = TK_IDENTIFIER;
+                    break;
+            }
             break;
         case 'f':
             result = CHECK("fn", 2, TK_FN);
@@ -133,11 +176,34 @@ static TokenType scan_keyword_or_identifier_type(Scanner *s) {
         case 'r':
             result = CHECK("return", 6, TK_RETURN);
             break;
+        case 's':
+            switch(length) {
+                case 6:
+                    result = CHECK("struct", 6, TK_STRUCT);
+                    break;
+                case 3:
+                    result = CHECK("str", 3, TK_STR);
+                    break;
+                default:
+                    result = TK_IDENTIFIER;
+                    break;
+            }
+            break;
         case 'u':
             result = CHECK("u32", 3, TK_U32);
             break;
         case 'v':
-            result = CHECK("var", 3, TK_VAR);
+            switch(length) {
+                case 3:
+                    result = CHECK("var", 3, TK_VAR);
+                    break;
+                case 4:
+                    result = CHECK("void", 4, TK_VOID);
+                    break;
+                default:
+                    result = TK_IDENTIFIER;
+                    break;
+            }
             break;
         case 'w':
             result = CHECK("while", 5, TK_WHILE);
@@ -154,38 +220,48 @@ Token scan_token(Scanner *s) {
     skip_whitespace(s);
     s->start = s->current;
     if(is_end(s)) {
-        return make_simple_token(s, TK_EOF);
+        return make_token(s, TK_EOF);
     }
 
     char c = advance(s);
     if(isDigit(c)) {
-        return scan_number_constant(s);
+        scan_number_literal(s);
+        return make_token(s, TK_NUMBER_LITERAL);
     }
     if(isAscii(c) || c == '_') {
-        Token tk = make_simple_token(s, scan_keyword_or_identifier_type(s));
-        tk.as.identifier.text = s->source + s->start;
-        tk.as.identifier.length = (u32)(s->current - s->start);
+        Token tk = make_token(s, scan_keyword_or_identifier_type(s));
         return tk;
     }
 
     switch(c) {
-        case '(': return make_simple_token(s, TK_LPAREN);
-        case ')': return make_simple_token(s, TK_RPAREN);
-        case '{': return make_simple_token(s, TK_LBRACE);
-        case '}': return make_simple_token(s, TK_RBRACE);
-        case '+': return make_simple_token(s, TK_PLUS);
-        case '*': return make_simple_token(s, TK_STAR);
-        case '/': return make_simple_token(s, TK_SLASH);
-        case ';': return make_simple_token(s, TK_SEMICOLON);
-        case ':': return make_simple_token(s, TK_COLON);
-        case '-': return make_simple_token(s, match(s, '>') ? TK_ARROW : TK_MINUS);
-        case '=': return make_simple_token(s, match(s, '=') ? TK_EQUAL_EQUAL : TK_EQUAL);
-        case '!': return make_simple_token(s, match(s, '=') ? TK_BANG_EQUAL : TK_BANG);
+        case '(': return make_token(s, TK_LPAREN);
+        case ')': return make_token(s, TK_RPAREN);
+        case '[': return make_token(s, TK_LBRACKET);
+        case ']': return make_token(s, TK_RBRACKET);
+        case '{': return make_token(s, TK_LBRACE);
+        case '}': return make_token(s, TK_RBRACE);
+        case '+': return make_token(s, TK_PLUS);
+        case '*': return make_token(s, TK_STAR);
+        case '/': return make_token(s, TK_SLASH);
+        case ';': return make_token(s, TK_SEMICOLON);
+        case ':': return make_token(s, TK_COLON);
+        case ',': return make_token(s, TK_COMMA);
+        case '.': return make_token(s, TK_DOT);
+        case '#': return make_token(s, TK_HASH);
+        case '&': return make_token(s, TK_AMPERSAND);
+        case '-': return make_token(s, match(s, '>') ? TK_ARROW : TK_MINUS);
+        case '=': return make_token(s, match(s, '=') ? TK_EQUAL_EQUAL : TK_EQUAL);
+        case '!': return make_token(s, match(s, '=') ? TK_BANG_EQUAL : TK_BANG);
+        case '<': return make_token(s, match(s, '=') ? TK_LESS_EQUAL : TK_LESS);
+        case '>': return make_token(s, match(s, '=') ? TK_GREATER_EQUAL : TK_GREATER);
+        case '"':
+            scan_string_literal(s);
+            return make_token(s, TK_STRING_LITERAL);
         default:
             break;
     }
     add_error(s, true, stringFormat("Unknown character '%c'!", c));
-    return make_simple_token(s, TK_GARBAGE);
+    return make_token(s, TK_GARBAGE);
 }
 
 static bool set_source(Scanner *s, FileID file) {
@@ -206,14 +282,14 @@ Token scannerNextToken(Scanner *s) {
         // the error was already reported, so we will simplt return
         // TK_EOF so the parser thinks we are at the end of the input
         // and will exit so errors can be printed.
-        return make_simple_token(s, TK_EOF);
+        return make_token(s, TK_EOF);
     }
     if(!s->source) {
         if(!set_source(s, compilerNextFile(s->compiler))) {
             s->failed_to_set_source = true;
             // if we can't set the source, assume we are at the end
             // of the input.
-            return make_simple_token(s, TK_EOF);
+            return make_token(s, TK_EOF);
         }
     }
     Token tk = scan_token(s);

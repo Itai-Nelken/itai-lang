@@ -7,7 +7,7 @@ public struct List<T> {
         value: T;
         next: &Item<T>;
         prev: &Item<T>;
-    };
+    }
 
     head: &Item;
     item_count: usize;
@@ -16,7 +16,7 @@ public struct List<T> {
         // T is infered.
         return This{
             head: null,
-            length: 0
+            item_count: 0
         };
     }
 
@@ -40,10 +40,13 @@ public struct List<T> {
 
     public fn pop(&this) -> T? {
         if .length() == 0 {
-            return None;
+            return null;
         }
+        .item_count--;
         var item = .head;
+        .head = .head.prev;
         .head.next = null;
         return item.value;
     }
 }
+

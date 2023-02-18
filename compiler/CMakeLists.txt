@@ -2,27 +2,28 @@ cmake_minimum_required(VERSION 3.16)
 project(icc VERSION 0.1 LANGUAGES C)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
-add_compile_options(-Wall -Wextra)
+add_compile_options(-Wall -Wextra -Werror)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(sources
-    src/utilities.c
-    src/Table.c
-    src/Strings.c
+    src/Arena.c
     src/Array.c
-    src/Token.c
-    src/ast.c
-    src/Types.c
-    src/Error.c
-    src/Symbols.c
+    src/Ast.c
+    src/Codegen.c
     src/Compiler.c
-    src/Scanner.c
+    src/Error.c
     src/Parser.c
+    src/Scanner.c
+    src/Table.c
+    src/Token.c
+    src/Types.c
+    src/utilities.c
     src/Validator.c
-    src/Codegenerator.c
-    src/codegenerators/c_codegen.c
+    src/Strings.c
 )
 
-add_library(compiler ${sources})
+add_library(compiler OBJECT ${sources})
 
 add_executable(ilc src/main.c)
 target_link_libraries(ilc compiler)

@@ -109,7 +109,7 @@ void *tableSet(Table *t, void *key, void *value) {
     Item *item = findItem(t->cmpFn, t->items, t->capacity, key, t->hashFn(key));
     void *old_value = NULL;
     // check if new item
-    if(item->is_empty && item->value != (void *)0xDEADC0DE) {
+    if(item->is_empty) {
         t->used++;
     } else {
         // The item already exists.
@@ -149,6 +149,16 @@ void tableMap(Table *t, void (*callback)(Item *item, bool is_last, void *cl), vo
     }
 }
 
+static void table_copy_callback(Item *item, bool is_last, void *dest) {
+    (void)is_last; // unused
+    Table *d = (Table *)dest;
+    tableSet(d, item->key, item->value); // return value can be discarded because no duplicates will occur (as the source table won't have them).
+}
+
+void tableCopy(Table *dest, Table *src) {
+    tableMap(src, table_copy_callback, (void *)dest);
+}
+
 void tableDelete(Table *t, void *key) {
     if(t->used == 0) {
         return;
@@ -162,6 +172,20 @@ void tableDelete(Table *t, void *key) {
     item->is_empty = true;
     item->key = NULL;
     item->value = (void *)0xDEADC0DE;
+    t->used--;
+}
+
+void tableClear(Table *t, void (*free_item_callback)(TableItem *item, void *cl), void *cl) {
+    for(size_t i = 0; i < t->capacity; ++i) {
+        Item *item = &t->items[i];
+        if(item->is_empty) {
+            continue;
+        }
+        if(free_item_callback) {
+            free_item_callback(item, cl);
+        }
+        tableDelete(t, (void *)item->key);
+    }
 }
 
 #undef Item

@@ -1,0 +1,16 @@
+/// expect success
+
+struct Value {
+	n: i32;
+}
+
+fn change_value(value: &Value) {
+	(*value).n = 42;
+}
+
+fn main() -> i32 {
+	var v: Value;
+	change_value(&v);
+	return v.n; // should be 42
+}
+

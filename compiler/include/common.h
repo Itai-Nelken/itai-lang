@@ -25,14 +25,12 @@ typedef size_t usize;
 typedef float f32;
 typedef double f64;
 
-typedef const char *str;
-
 #define VERIFY(x) ((x) ? ((void)0) : assertFail(#x, __FILE__, __LINE__, __func__))
 
 #define UNREACHABLE() do { \
-		fprintf(stderr, "\n============\nInternal error at %s(): %s:%d: unreachable state!\n============\n", __func__, __FILE__, __LINE__); \
-		abort(); \
-	} while(0);
+        fprintf(stderr, "\n============\nInternal error at %s(): %s:%d: unreachable state!\n============\n", __func__, __FILE__, __LINE__); \
+        abort(); \
+    } while(0);
 
 #define UNUSED(a) ((void)a)
 

@@ -1,0 +1,8 @@
+/// expect error: Error: 'defer' is not allowed in this context.
+
+fn main() {
+	while 1 {
+		defer 2;
+	}
+}
+

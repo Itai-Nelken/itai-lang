@@ -1,0 +1,7 @@
+/// expect error: Error: Unreachable code.
+
+fn main() {
+	return;
+	var a: i32;
+}
+

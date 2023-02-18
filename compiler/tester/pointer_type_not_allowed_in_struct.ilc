@@ -1,0 +1,8 @@
+/// expect error: Error: Pointer types are not allowed in this context.
+
+struct Test {
+	invalid_ptr_field: &i32;
+}
+
+fn main() {}
+

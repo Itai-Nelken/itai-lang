@@ -1,95 +1,102 @@
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
+#include "common.h"
+#include "memory.h" // Allocator
 #include "Arena.h"
 
+typedef struct block {
+    struct block *prev;
+    size_t size;
+    size_t used;
+    char data[];
+} Block;
+
 union align {
-	int i;
-	long l;
-	long *lp;
-	void *p;
-	void (*fp)(void);
-	float f;
-	double d;
-	long double ld;
+    int i;
+    long l;
+    long *lp;
+    void *p;
+    void (*fp)(void);
+    float f;
+    double d;
+    long double ld;
 };
 
-static ArenaBlock *newBlock(size_t size) {
-	ArenaBlock *b = calloc(1, sizeof(*b));
-	b->data = calloc(size, sizeof(*b->data));
-	b->current = b->data;
-	b->size = size;
-	b->next = NULL;
-	return b;
+union header {
+    Block block;
+    union align a;
+};
+
+static inline Block *new_block(size_t size, Block *prev) {
+    Block *b = malloc(sizeof(union header) + size);
+    b->size = size;
+    b->used = 0;
+    b->prev = prev;
+    return b;
 }
 
-static void freeBlocks(ArenaBlock *blocks) {
-	while(blocks != NULL) {
-		ArenaBlock *next = blocks->next;
-		free(blocks->data);
-		free(blocks);
-		blocks = next;
-	}
+static inline void free_blocks(Block *b) {
+    while(b) {
+        Block *prev = b->prev;
+        free(b);
+        b = prev;
+    }
 }
 
-void initArena(Arena *a, size_t block_size) {
-	a->blocks = newBlock(block_size);
-	a->block_size = block_size;
-	a->block_count = 1;
-	a->bytes_allocated = 0;
+
+void arenaInit(Arena *a) {
+    a->blocks = new_block(ARENA_DEFAULT_BLOCK_SIZE, NULL);
 }
 
-void freeArena(Arena *a) {
-	freeBlocks(a->blocks);
-	a->blocks = NULL;
-	a->block_size = a->block_count = a->bytes_allocated = 0;
+void arenaFree(Arena *a) {
+    free_blocks(a->blocks);
+    a->blocks = NULL;
 }
 
-static void addBlock(Arena *a, size_t size_needed) {
-	if(size_needed >= a->block_size) {
-		a->block_size += size_needed;
-	}
-	ArenaBlock *b = newBlock(a->block_size);
-	a->blocks->next = b;
-	a->blocks = b;
-	a->block_count++;
+static inline size_t max(size_t a, size_t b) {
+    return a > b ? a : b;
 }
 
-ArenaInfo arenaGetInfo(Arena *a) {
-	ArenaInfo info = {
-		.block_count = a->block_count,
-		.current_block_size = a->block_size,
-		.free_bytes_in_current_block = (size_t)(a->blocks->size - (a->blocks->current - a->blocks->data)),
-		.bytes_allocated_in_current_block = (size_t)(a->blocks->current - a->blocks->data),
-		.total_bytes_allocated = a->bytes_allocated
-	};
-	return info;
+void *arenaAlloc(Arena *a, size_t size) {
+    size = (size + sizeof(union align) - 1) / sizeof(union align) * sizeof(union align);
+    if(a->blocks->used + size > a->blocks->size) {
+        // All blocks have at least 10K of memory.
+        a->blocks = new_block(max(size, ARENA_DEFAULT_BLOCK_SIZE), a->blocks);
+    }
+    a->blocks->used += size;
+    return (void *)(a->blocks->data + a->blocks->used - size);
 }
 
-static void *allocate(Arena *a, size_t element_count, size_t element_size, size_t *total_size) {
-	// round the size up to an alignment boundary.
-	size_t size = (((element_count * element_size) + sizeof(union align) - 1) / (sizeof(union align)) * sizeof(union align));
-	if((size_t)((a->blocks->current + size) - a->blocks->data) > a->blocks->size) {
-		addBlock(a, size);
-	}
-	a->bytes_allocated += size;
-	a->blocks->current += size + 2 * element_size;
-	if(total_size) {
-		*total_size = size;
-	}
-	return (void *)(a->blocks->current - size + element_size);
+void *arenaCalloc(Arena *a, size_t nmemb, size_t size) {
+    void *p = arenaAlloc(a, nmemb * size);
+    memset(p, 0, nmemb * size);
+    return p;
 }
 
-void *arenaAllocate(Arena *a, size_t size) {
-	return allocate(a, size, 1, NULL);
+static void *alloc_callback(void *arena, size_t size) {
+    return arenaCalloc((Arena *)arena, 1, size);
 }
 
-// actually necessary? blocks are calloc()'ed so they are zeroed already.
-void *arenaClearAllocate(Arena *a, size_t count, size_t size) {
-	size_t total_size = 0;
-	void *ptr = allocate(a, count, size, &total_size);
-	if(ptr) {
-		memset(ptr - size, 0, total_size);
-	}
-	return ptr + 1;
+static void *realloc_callback(void *arena, void *ptr, size_t size) {
+    UNUSED(arena);
+    UNUSED(ptr);
+    UNUSED(size);
+    LOG_ERR("Arena doesn't support reallocation!\n");
+    UNREACHABLE();
+}
+
+static void free_callback(void *arena, void *ptr) {
+    UNUSED(arena);
+    UNUSED(ptr);
+    // Unlike realloc(), freeing memory in an arena will happen.
+    // so just do nothing.
+}
+
+Allocator arenaMakeAllocator(Arena *a) {
+    return (Allocator){
+        .allocFn = alloc_callback,
+        .reallocFn = realloc_callback,
+        .freeFn = free_callback,
+        .arg = (void *)a
+    };
 }

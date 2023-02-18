@@ -1,0 +1,8 @@
+/// expect success
+
+fn main() {
+	var a: i32 = 0;
+	var b = 41; // i32
+	var c = a + b; // 42
+}
+

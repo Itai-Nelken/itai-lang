@@ -1,0 +1,10 @@
+/// expect error: Error: Invalid assignment target (only variables can be assigned).
+
+// This test checks that the validator doesn't allow the
+// lvalue in an assignment to be something that cannot
+// be assigned (such as a function).
+
+fn main() {
+	main = 123;
+}
+

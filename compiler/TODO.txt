@@ -1,3 +1,0 @@
-- Improve symbol table so adding symbols will be better than the current O(n).
-- Make SymbolTable StringTable (so it stores ONLY strings). types will be stored in ASTProgram.
-- Add better tests.

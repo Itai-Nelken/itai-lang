@@ -1,0 +1,8 @@
+/// expect success
+
+fn test() {}
+
+fn main() {
+	test();
+}
+

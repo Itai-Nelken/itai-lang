@@ -1,0 +1,5 @@
+/// expect error: Error: Symbol 'a' doesn't exist in this scope.
+
+fn main() {
+	a.a;
+}

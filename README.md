@@ -1,36 +1,31 @@
 # Itai-lang
-A custom programming language based on C, Rust, and Go.
 
-An example of what the compiler can currently compile:
-```rust
-// A comment
-var a = 0;
+A custom programming language aiming at the simplicity of C with the power of C++, Rust and Go.
 
-fn main() {
-	var b = 1;
-	var c: u32 = 1;
-	if -1 {
-		1;
-	} else if +2 {
-		2;
-	} else {
-		3;
-	}
+The compiler currently parses only a small subset of the language and does some basic typechecking on it.\
+The code generator currently generates C.
 
-	a = test();
-	while a {
-		a = a - 1;
-	}
-}
+## Usage
 
-fn test() -> i32 {
-	return 1 + 2 * 4 / 2 + (2 + 3);
-}
 ```
+Usage: ./ilc [options] file
+Options:
+	--help,        -h    Print this help.
+	--dump-ast,    -d    Dump the parsed and validated AST.
+	--dump-tokens, -t    Dump the scanned tokens.
+```
+The compiler currently compiles by default a file called `test.ilc` in the current directory.
 
-The compiler currently transpiles the code to C that can be compiled with any modern C compiler.
+## Ideas being worked on
+
+There are a few programs in the `compiler` folder that are ideas being tested. They might be removed in the future.\
+Currently these programs are:
+* The `tester`: An experimental compiler-output based testing framework.
+* The `ir`: An experiment with a bytecode IR that might be used in the compiler.
+
 
 ## Full language spec
-The full spec for the language is [here](SPEC.md).
-It isn't final yet.
+
+The full spec for the language is [here](SPEC.md), it isn't final yet.\
+A new and improved spec is being written, it can be found [here](new_spec.md).
 

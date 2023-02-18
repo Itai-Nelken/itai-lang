@@ -1,0 +1,7 @@
+/// expect error: Error: Type mismatch: expected 'i32' but got 'u32'.
+
+fn main() -> i32 {
+	var a: u32 = 1;
+	return a;
+}
+

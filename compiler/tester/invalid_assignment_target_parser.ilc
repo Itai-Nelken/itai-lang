@@ -1,0 +1,11 @@
+/// expect error: Error: Invalid assignment target (only variables can be assigned).
+
+// This test checks that the parser parses the assignment
+// expression correctly.
+
+var a = 123;
+
+fn main() {
+	a+a = a+a;
+}
+

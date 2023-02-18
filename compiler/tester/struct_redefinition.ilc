@@ -1,0 +1,7 @@
+/// expect error: Error: Redefiniton of struct 'T'.
+
+struct T {}
+struct T {}
+
+fn main() {}
+

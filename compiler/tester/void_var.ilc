@@ -1,0 +1,6 @@
+/// expect error: Error: A variable cannot have the type 'void'.
+
+fn main() {
+	var a: void;
+}
+
