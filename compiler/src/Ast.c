@@ -211,6 +211,7 @@ Scope *scopeNew(Scope *parent_scope, u32 depth, bool is_block_scope) {
     arrayInit(&sc->objects);
     tableInit(&sc->variables, NULL, NULL);
     tableInit(&sc->functions, NULL, NULL);
+    tableInit(&sc->structures, NULL, NULL);
     tableInit(&sc->types, hash_type, compare_type);
     sc->parent = parent_scope;
     arrayInit(&sc->children);
@@ -254,6 +255,7 @@ void scopeFree(Scope *scope_list) {
     arrayFree(&scope_list->objects);
     tableFree(&scope_list->variables);
     tableFree(&scope_list->functions);
+    tableFree(&scope_list->structures);
     tableMap(&scope_list->types, free_type_callback, NULL);
     tableFree(&scope_list->types);
     arrayMap(&scope_list->children, free_scope_callback, NULL);

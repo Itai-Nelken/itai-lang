@@ -50,7 +50,7 @@ typedef struct scope {
     Array objects;
     Table variables; // Table<ASTString, ASTObj *>
     Table functions; // Table<ASTString, ASTObj *>
-    //Table structures; // Table<ASTString, ASTObj *>
+    Table structures; // Table<ASTString, ASTObj *>
     // Table enums; // Table<ASTString, ASTObj *>
     Table types; // Table<ASTString, Type *>
     // Table type_aliases;???

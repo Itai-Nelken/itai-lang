@@ -1098,6 +1098,7 @@ bool parserParse(Parser *p, ASTProgram *prog) {
             ASTObj *structure = parse_struct_decl(p);
             if(structure != NULL) {
                 arrayPush(&root_module->scope->objects, (void *)structure);
+                tableSet(&root_module->scope->structures, (void *)structure->name, (void *)structure);
             }
         } else if(match(p, TK_EXTERN)) {
             ASTObj *extern_decl = parse_extern_decl(p);
