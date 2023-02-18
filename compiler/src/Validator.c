@@ -151,7 +151,7 @@ static ASTObj *find_local_var(Validator *v, ASTString name) {
     VERIFY(v->current_function); // Local variables don't exist outside of a function.
     Scope *scope = v->current_scope ? v->current_scope : v->current_function->as.fn.scopes;
     while(scope) {
-        TableItem *i = tableGet(&scope->objects, (void *)name);
+        TableItem *i = tableGet(&scope->variables, (void *)name);
         if(i) {
             return (ASTObj *)i->value;
         }
@@ -178,19 +178,17 @@ static ASTObj *find_variable(Validator *v, ASTString name, bool *is_global) {
 
 static ASTObj *find_function(Validator *v, ASTString name) {
     ASTModule *current_module = astProgramGetModule(v->program, v->current_module);
-    for(usize i = 0; i < current_module->objects.used; ++i) {
-        ASTObj *obj = ARRAY_GET_AS(ASTObj *, &current_module->objects, i);
-        if((obj->type == OBJ_FN || obj->type == OBJ_EXTERN_FN) && obj->name == name) {
-            return obj;
-        }
+    TableItem *item = tableGet(&current_module->scope->functions, (void *)name);
+    if(item != NULL) {
+        return (ASTObj *)item->value;
     }
     return NULL;
 }
 
 static ASTObj *find_struct(Validator *v, ASTString name) {
     ASTModule *current_module = astProgramGetModule(v->program, v->current_module);
-    for(usize i = 0; i < current_module->objects.used; ++i) {
-        ASTObj *obj = ARRAY_GET_AS(ASTObj *, &current_module->objects, i);
+    for(usize i = 0; i < arrayLength(&current_module->scope->objects); ++i) {
+        ASTObj *obj = ARRAY_GET_AS(ASTObj *, &current_module->scope->objects, i);
         if(obj->type == OBJ_STRUCT && obj->name == name) {
             return obj;
         }
@@ -801,8 +799,8 @@ static void validate_module_callback(void *module, usize index, void *validator)
     // objects
     Table declared_structs;
     tableInit(&declared_structs, NULL, NULL);
-    FOR(i, m->objects) {
-        ASTObj *obj = ARRAY_GET_AS(ASTObj *, &m->objects, i);
+    FOR(i, m->scope->objects) {
+        ASTObj *obj = ARRAY_GET_AS(ASTObj *, &m->scope->objects, i);
         if(obj->type == OBJ_STRUCT) {
             TableItem *item = NULL;
             if((item = tableGet(&declared_structs, (void *)obj->name)) != NULL) {
@@ -1072,8 +1070,8 @@ static void typecheck_module_callback(void *module, usize index, void *validator
     }
 
     // Objects
-    FOR(i, m->objects) {
-        ASTObj *obj = ARRAY_GET_AS(ASTObj *, &m->objects, i);
+    FOR(i, m->scope->objects) {
+        ASTObj *obj = ARRAY_GET_AS(ASTObj *, &m->scope->objects, i);
         typecheck_object(v, obj); // Note: no need to handle errors as we wan't to typecheck all objects always.
     }
 }

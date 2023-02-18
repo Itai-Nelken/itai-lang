@@ -163,12 +163,12 @@ static void leave_scope(Parser *p) {
 
 static inline void add_local_to_current_scope(Parser *p, ASTObj *local) {
     VERIFY(p->current.scope != NULL);
-    VERIFY(tableSet(&p->current.scope->objects, (void *)local->name, (void *)local) == NULL);
+    VERIFY(tableSet(&p->current.scope->variables, (void *)local->name, (void *)local) == NULL);
 }
 
 static ASTObj *find_local_in_current_scope(Parser *p, ASTString name) {
     VERIFY(p->current.scope != NULL);
-    TableItem *i = tableGet(&p->current.scope->objects, (void *)name);
+    TableItem *i = tableGet(&p->current.scope->variables, (void *)name);
     if(i) {
         return (ASTObj *)i->value;
     }
@@ -1079,26 +1079,31 @@ bool parserParse(Parser *p, ASTProgram *prog) {
         if(match(p, TK_FN)) {
             ASTObj *fn = parse_function_decl(p, true);
             if(fn != NULL) {
-                arrayPush(&root_module->objects, (void *)fn);
+                arrayPush(&root_module->scope->objects, (void *)fn);
+                tableSet(&root_module->scope->functions, (void *)fn->name, (void *)fn);
             }
         } else if(match(p, TK_VAR)) {
             Location var_loc = previous(p).location;
-            ASTNode *global = parse_variable_decl(p, true, &root_module->objects, &var_loc);
+            ASTNode *global = parse_variable_decl(p, true, &root_module->scope->objects, &var_loc);
             if(!consume(p, TK_SEMICOLON)) {
                 continue;
             }
             if(global != NULL) {
                 arrayPush(&root_module->globals, (void *)global);
+                // The object will be the last element in the scope's object array.
+                ASTObj *var = ARRAY_GET_AS(ASTObj *, &root_module->scope->objects, arrayLength(&root_module->scope->objects) - 1);
+                tableSet(&root_module->scope->variables, (void *)var->name, (void *)var);
             }
         } else if(match(p, TK_STRUCT)) {
             ASTObj *structure = parse_struct_decl(p);
             if(structure != NULL) {
-                arrayPush(&root_module->objects, (void *)structure);
+                arrayPush(&root_module->scope->objects, (void *)structure);
             }
         } else if(match(p, TK_EXTERN)) {
             ASTObj *extern_decl = parse_extern_decl(p);
             if(extern_decl != NULL) {
-                arrayPush(&root_module->objects, (void *)extern_decl);
+                arrayPush(&root_module->scope->objects, (void *)extern_decl);
+                tableSet(&root_module->scope->functions, (void *)extern_decl->name, (void *)extern_decl);
             }
         } else if(match(p, TK_HASH)) {
             Attribute *attr = parse_attribute(p);

@@ -72,6 +72,15 @@ static void print_type_table_callback(TableItem *item, bool is_last, void *strea
     }
 }
 
+static void print_object_table_callback(TableItem *item, bool is_last, void *stream) {
+    FILE *to = (FILE *)stream;
+    ASTObj *obj = (ASTObj *)item->key;
+    astObjPrint(to, obj);
+    if(!is_last) {
+        fputs(", ", to);
+    }
+}
+
 static void print_string_table_callback(TableItem *item, bool is_last, void *stream) {
     FILE *to = (FILE *)stream;
     String s = (String)item->key;
@@ -97,15 +106,15 @@ ASTModule *astModuleNew(ASTString name) {
     m->name = name;
     arenaInit(&m->ast_allocator.storage);
     m->ast_allocator.alloc = arenaMakeAllocator(&m->ast_allocator.storage);
-    arrayInit(&m->objects);
+    m->scope = scopeNew(NULL, 0, false);
     arrayInit(&m->globals);
     tableInit(&m->types, hash_type, compare_type);
     return m;
 }
 
 void astModuleFree(ASTModule *module) {
-    arrayMap(&module->objects, free_object_callback, NULL);
-    arrayFree(&module->objects);
+    scopeFree(module->scope);
+    module->scope = NULL;
     arrayFree(&module->globals);
     arenaFree(&module->ast_allocator.storage);
     tableMap(&module->types, free_type_callback, NULL);
@@ -125,8 +134,8 @@ Type *astModuleAddType(ASTModule *module, Type *ty) {
 }
 
 void astModulePrint(FILE *to, ASTModule *module) {
-    fprintf(to, "ASTModule{\x1b[1mname:\x1b[0m '%s', \x1b[1mobjects:\x1b[0m [", module->name);
-    PRINT_ARRAY(ASTObj *, astObjPrint, to, module->objects);
+    fprintf(to, "ASTModule{\x1b[1mname:\x1b[0m '%s', \x1b[1mscope:\x1b[0m ", module->name);
+    scopePrint(to, module->scope);
     fputs("], \x1b[1mglobals:\x1b[0m [", to);
     PRINT_ARRAY(ASTNode *, astNodePrint, to, module->globals);
     fputs("], \x1b[1mtypes:\x1b[0m [", to);
@@ -215,7 +224,9 @@ Scope *scopeNew(Scope *parent_scope, u32 depth, bool is_block_scope) {
     NEW0(sc);
     sc->is_block_scope = is_block_scope;
     sc->depth = depth;
-    tableInit(&sc->objects, NULL, NULL);
+    arrayInit(&sc->objects);
+    tableInit(&sc->variables, NULL, NULL);
+    tableInit(&sc->functions, NULL, NULL);
     sc->parent = parent_scope;
     arrayInit(&sc->children);
     return sc;
@@ -243,9 +254,10 @@ void scopeFree(Scope *scope_list) {
     // No need to free the strings in the table as they are
     // ASTString's which are owned by the ASTProgram
     // being used for the parse.
-    // The same applies to the objects, but they are owned
-    // by the parent module/function of the scope.
-    tableFree(&scope_list->objects);
+    arrayMap(&scope_list->objects, free_object_callback, NULL);
+    arrayFree(&scope_list->objects);
+    tableFree(&scope_list->variables);
+    tableFree(&scope_list->functions);
     arrayMap(&scope_list->children, free_scope_callback, NULL);
     arrayFree(&scope_list->children);
     FREE(scope_list);
@@ -257,6 +269,20 @@ void scopeIDPrint(FILE *to, ScopeID scope_id, bool compact) {
     } else {
         fprintf(to, "ScopeID{\x1b[1mdepth:\x1b[0;34m %u\x1b[0m, \x1b[1mindex:\x1b[0;34m %zu\x1b[0m}", scope_id.depth, scope_id.index);
     }
+}
+
+void scopePrint(FILE *to, Scope *scope) {
+    fprintf(to, "Scope{\x1b[1mis_block_scope: \x1b[31m%s\x1b[0m", scope->is_block_scope ? "true" : "false");
+    fprintf(to, ", \x1b[1mdepth: \x1b[0;34m%u\x1b[0m", scope->depth);
+    // scope.objects isn't printed because all the objects in it will
+    // be printed in the scope.variables & scope.functions tables.
+    fputs(", \x1b[1mvariables:\x1b[0m [", to);
+    tableMap(&scope->variables, print_object_table_callback, (void *)to);
+    fputs(", \x1b[1mfunctions:\x1b[0m [", to);
+    tableMap(&scope->variables, print_object_table_callback, (void *)to);
+    fputs(", \x1b[1mchildren:\x1b[0m [", to);
+    PRINT_ARRAY(Scope *, scopePrint, to, scope->children);
+    fputs("]}", to);
 }
 
 

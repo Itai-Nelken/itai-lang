@@ -47,7 +47,11 @@ typedef struct literal_value {
 typedef struct scope {
     bool is_block_scope;
     u32 depth;
-    Table objects; // Table<ASTString, ASTObj *>
+    Array objects;
+    Table variables; // Table<ASTString, ASTObj *>
+    Table functions; // Table<ASTString, ASTObj *>
+    // Table structs; // Table<ASTString, ASTObj *>
+    // Table enums; // Table<ASTString, ASTObj *>
     // TODO: move types here.
     // Table type_aliases;???
     struct scope *parent;
@@ -259,7 +263,7 @@ typedef struct ast_module {
         Arena storage;
         Allocator alloc;
     } ast_allocator;
-    Array objects; // Array<ASTObj *>
+    Scope *scope;
     Array globals; // Array<ASTNode *> (ND_VARIABLE or ND_ASSIGN)
     Table types; // Table<ASTString, Type *>
 } ASTModule;
@@ -344,8 +348,18 @@ Scope *scopeGetChild(Scope *parent, ScopeID child_id);
  ***/
 void scopeFree(Scope *scope_list);
 
+
 /***
- * Print a ScopeID.
+ * Print a Scope to stream [stream].
+ * NOTE: all child scopes are printed recursively as well.
+ *
+ * @param to The stream to print to.
+ * @param scope The scope to print.
+ ***/
+void scopePrint(FILE *to, Scope *scope);
+
+/***
+ * Print a ScopeID to stream [stream].
  *
  * @param to The stream to print to.
  * @param scope_id The ScopeID to print.
