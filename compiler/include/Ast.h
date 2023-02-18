@@ -42,17 +42,20 @@ typedef struct literal_value {
 } LiteralValue;
 
 
-/* BlockScope */
+/* Scope */
 
-typedef struct block_scope {
+typedef struct scope {
+    bool is_block_scope;
     u32 depth;
-    Table visible_locals; // Table<ASTString, ASTObj *>
+    Table objects; // Table<ASTString, ASTObj *>
+    // TODO: move types here.
     // Table type_aliases;???
-    struct block_scope *parent;
+    struct scope *parent;
     Array children; // Array<BlockScope *>
-} BlockScope;
+} Scope;
 
 typedef struct scope_id {
+    ModuleID module;
     u32 depth;
     usize index;
 } ScopeID;
@@ -227,7 +230,7 @@ typedef struct ast_obj {
         struct {
             Array parameters; // Array<ASTObj *> (OBJ_VAR)
             Type *return_type;
-            BlockScope *scopes;
+            Scope *scopes;
             Array locals; // Array<ASTObj *>
             Array defers; // Array<ASTNode *>
             ASTListNode *body;
@@ -303,41 +306,43 @@ typedef struct ast_program {
 void literalValuePrint(FILE *to, LiteralValue value);
 
 
-/* BlockScope */
+/* Scope */
 
 /***
- * Create a new BlockScope.
+ * Create a new Scope.
  *
  * @param parent_scope The previous scope.
  * @param depth The depth of the scope.
+ * @param is_block_scope Set to true if the scope will be a block scope.
  * @return The new scope.
  ***/
-BlockScope *blockScopeNew(BlockScope *parent_scope, u32 depth);
+Scope *scopeNew(Scope *parent_scope, u32 depth, bool is_block_scope);
 
 /***
- * Add a child to a BlockScope.
+ * Add a child to a Scope.
  *
  * @param parent The parent scope.
+ * @param module The ModuleID of the containing module.
  * @param child The child scope to add.
  * @return The ScopeID of the added scope.
  ***/
-ScopeID blockScopeAddChild(BlockScope *parent, BlockScope *child);
+ScopeID scopeAddChild(Scope *parent, ModuleID module, Scope *child);
 
 /***
- * Get a child BlockScope.
+ * Get a child from Scope.
  *
  * @param parent The parent scope.
  * @param child_id The ScopeID of the child.
  * @return The child scope (always, panics on invalid scopeID);
  ***/
-BlockScope *blockScopeGetChild(BlockScope *parent, ScopeID child_id);
+Scope *scopeGetChild(Scope *parent, ScopeID child_id);
 
 /***
- * Free a list of BlockScopes's.
+ * Free a list of Scope's.
  *
  * @param scope_list The head of the scope list.
  ***/
-void blockScopeFree(BlockScope *scope_list);
+void scopeFree(Scope *scope_list);
 
 /***
  * Print a ScopeID.

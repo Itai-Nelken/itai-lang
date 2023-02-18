@@ -31,9 +31,9 @@ static void free_module_callback(void *module, void *cl) {
     astModuleFree((ASTModule *)module);
 }
 
-static void free_block_scope_callback(void *scope, void *cl) {
+static void free_scope_callback(void *scope, void *cl) {
     UNUSED(cl);
-    blockScopeFree((BlockScope *)scope);
+    scopeFree((Scope *)scope);
 }
 
 static void free_type_callback(TableItem *item, bool is_last, void *cl) {
@@ -214,33 +214,35 @@ void literalValuePrint(FILE *to, LiteralValue value) {
 }
 
 
-/* BlockScope */
+/* Scope */
 
-BlockScope *blockScopeNew(BlockScope *parent_scope, u32 depth) {
-    BlockScope *sc;
+Scope *scopeNew(Scope *parent_scope, u32 depth, bool is_block_scope) {
+    Scope *sc;
     NEW0(sc);
-    tableInit(&sc->visible_locals, NULL, NULL);
-    arrayInit(&sc->children);
+    sc->is_block_scope = is_block_scope;
     sc->depth = depth;
+    tableInit(&sc->objects, NULL, NULL);
     sc->parent = parent_scope;
+    arrayInit(&sc->children);
     return sc;
 }
 
-ScopeID blockScopeAddChild(BlockScope *parent, BlockScope *child) {
+ScopeID scopeAddChild(Scope *parent, ModuleID module, Scope *child) {
     ScopeID id;
+    id.module = module;
     id.depth = child->depth;
     id.index = arrayPush(&parent->children, (void *)child);
     return id;
 }
 
-BlockScope *blockScopeGetChild(BlockScope *parent, ScopeID child_id) {
+Scope *scopeGetChild(Scope *parent, ScopeID child_id) {
     VERIFY(parent->depth < child_id.depth);
-    BlockScope *child = ARRAY_GET_AS(BlockScope *, &parent->children, child_id.index);
+    Scope *child = ARRAY_GET_AS(Scope *, &parent->children, child_id.index);
     VERIFY(child);
     return child;
 }
 
-void blockScopeFree(BlockScope *scope_list) {
+void scopeFree(Scope *scope_list) {
     if(scope_list == NULL) {
         return;
     }
@@ -248,9 +250,9 @@ void blockScopeFree(BlockScope *scope_list) {
     // ASTString's which are owned by the ASTProgram
     // being used for the parse.
     // The same applies to the objects, but they are owned
-    // by the parent function of the scope.
-    tableFree(&scope_list->visible_locals);
-    arrayMap(&scope_list->children, free_block_scope_callback, NULL);
+    // by the parent module/function of the scope.
+    tableFree(&scope_list->objects);
+    arrayMap(&scope_list->children, free_scope_callback, NULL);
     arrayFree(&scope_list->children);
     FREE(scope_list);
 }
@@ -624,7 +626,7 @@ void astObjFree(ASTObj *obj) {
             arrayMap(&obj->as.fn.locals, free_object_callback, NULL);
             arrayFree(&obj->as.fn.locals);
             arrayFree(&obj->as.fn.defers); // The nodes are owned by the parent module.
-            blockScopeFree(obj->as.fn.scopes);
+            scopeFree(obj->as.fn.scopes);
             //astNodeFree(AS_NODE(obj->as.fn.body), true); // body is owned by parent module.
             break;
         case OBJ_STRUCT:

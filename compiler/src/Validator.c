@@ -127,7 +127,7 @@ static inline void enter_scope(Validator *v, ScopeID scope) {
         v->current_scope = v->current_function->as.fn.scopes;
     } else {
         // entering block scope.
-        v->current_scope = blockScopeGetChild(v->current_scope, scope);
+        v->current_scope = scopeGetChild(v->current_scope, scope);
     }
 }
 
@@ -149,9 +149,9 @@ static ASTObj *find_global_var(Validator *v, ASTString name) {
 
 static ASTObj *find_local_var(Validator *v, ASTString name) {
     VERIFY(v->current_function); // Local variables don't exist outside of a function.
-    BlockScope *scope = v->current_scope ? v->current_scope : v->current_function->as.fn.scopes;
+    Scope *scope = v->current_scope ? v->current_scope : v->current_function->as.fn.scopes;
     while(scope) {
-        TableItem *i = tableGet(&scope->visible_locals, (void *)name);
+        TableItem *i = tableGet(&scope->objects, (void *)name);
         if(i) {
             return (ASTObj *)i->value;
         }

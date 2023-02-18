@@ -145,13 +145,13 @@ static inline ScopeID enter_scope(Parser *p) {
     VERIFY(p->current.function);
     if(p->current.scope == NULL) {
         // Function scope, depth always == 1.
-        p->current.scope = p->current.function->as.fn.scopes = blockScopeNew(NULL, 1);
+        p->current.scope = p->current.function->as.fn.scopes = scopeNew(NULL, 1, true);
         // FIXME: how to represent function scope.
         return (ScopeID){.depth = FUNCTION_SCOPE_DEPTH, .index = 0};
     }
     // Block scope (meaning scopes inside a function scope).
-    BlockScope *child = blockScopeNew(p->current.scope, p->current.scope->depth + 1);
-    ScopeID id = blockScopeAddChild(p->current.scope, child);
+    Scope *child = scopeNew(p->current.scope, p->current.scope->depth + 1, true);
+    ScopeID id = scopeAddChild(p->current.scope, p->current.module, child);
     p->current.scope = child;
     return id;
 }
@@ -163,12 +163,12 @@ static void leave_scope(Parser *p) {
 
 static inline void add_local_to_current_scope(Parser *p, ASTObj *local) {
     VERIFY(p->current.scope != NULL);
-    VERIFY(tableSet(&p->current.scope->visible_locals, (void *)local->name, (void *)local) == NULL);
+    VERIFY(tableSet(&p->current.scope->objects, (void *)local->name, (void *)local) == NULL);
 }
 
 static ASTObj *find_local_in_current_scope(Parser *p, ASTString name) {
     VERIFY(p->current.scope != NULL);
-    TableItem *i = tableGet(&p->current.scope->visible_locals, (void *)name);
+    TableItem *i = tableGet(&p->current.scope->objects, (void *)name);
     if(i) {
         return (ASTObj *)i->value;
     }
@@ -421,7 +421,7 @@ static ASTNode *parse_call_expr(Parser *p, ASTNode *callee) {
         return NULL;
     }
     // FIXME: How to represent an empty ScopeID?
-    ASTListNode *arguments = AS_LIST_NODE(astNewListNode(p->current.allocator, ND_ARGS, loc, (ScopeID){0, 0}, arrayLength(&args)));
+    ASTListNode *arguments = AS_LIST_NODE(astNewListNode(p->current.allocator, ND_ARGS, loc, (ScopeID){.depth = 0, .module = 0, .index = 0}, arrayLength(&args)));
     arrayCopy(&arguments->nodes, &args);
     arrayFree(&args);
     return astNewBinaryNode(p->current.allocator, ND_CALL, locationMerge(callee->location, previous(p).location), callee, AS_NODE(arguments));
