@@ -292,7 +292,6 @@ static inline ASTNode make_header(ASTNodeType type, Location loc) {
 
 ASTNode *astNewUnaryNode(Allocator *a, ASTNodeType type, Location loc, ASTNode *operand) {
     ASTUnaryNode *n = allocatorAllocate(a, sizeof(*n));
-    //NEW0(n);
     n->header = make_header(type, loc);
     n->operand = operand;
     return AS_NODE(n);
@@ -300,7 +299,6 @@ ASTNode *astNewUnaryNode(Allocator *a, ASTNodeType type, Location loc, ASTNode *
 
 ASTNode *astNewBinaryNode(Allocator *a, ASTNodeType type, Location loc, ASTNode *lhs, ASTNode *rhs) {
     ASTBinaryNode *n = allocatorAllocate(a, sizeof(*n));
-    //NEW0(n);
     n->header = make_header(type, loc);
     n->lhs = lhs;
     n->rhs = rhs;
@@ -309,7 +307,6 @@ ASTNode *astNewBinaryNode(Allocator *a, ASTNodeType type, Location loc, ASTNode 
 
 ASTNode *astNewConditionalNode(Allocator *a, ASTNodeType type, Location loc, ASTNode *condition, ASTNode *body, ASTNode *else_) {
     ASTConditionalNode *n = allocatorAllocate(a, sizeof(*n));
-    //NEW0(n);
     n->header = make_header(type, loc);
     n->condition = condition;
     n->body = body;
@@ -319,7 +316,6 @@ ASTNode *astNewConditionalNode(Allocator *a, ASTNodeType type, Location loc, AST
 
 ASTNode *astNewLoopNode(Allocator *a, Location loc, ASTNode *init, ASTNode *cond, ASTNode *inc, ASTNode *body) {
     ASTLoopNode *n = allocatorAllocate(a, sizeof(*n));
-    //NEW0(n);
     n->header = make_header(ND_WHILE_LOOP, loc);
     n->initializer = init;
     n->condition = cond;
@@ -330,7 +326,6 @@ ASTNode *astNewLoopNode(Allocator *a, Location loc, ASTNode *init, ASTNode *cond
 
 ASTNode *astNewLiteralValueNode(Allocator *a, ASTNodeType type, Location loc, LiteralValue value, Type *ty) {
     ASTLiteralValueNode *n = allocatorAllocate(a, sizeof(*n));
-    //NEW0(n);
     n->header = make_header(type, loc);
     n->value = value;
     n->ty = ty;
@@ -339,7 +334,6 @@ ASTNode *astNewLiteralValueNode(Allocator *a, ASTNodeType type, Location loc, Li
 
 ASTNode *astNewObjNode(Allocator *a, ASTNodeType type, Location loc, ASTObj *obj) {
     ASTObjNode *n = allocatorAllocate(a, sizeof(*n));
-    //NEW0(n);
     n->header = make_header(type, loc);
     n->obj = obj;
     return AS_NODE(n);
@@ -347,7 +341,6 @@ ASTNode *astNewObjNode(Allocator *a, ASTNodeType type, Location loc, ASTObj *obj
 
 ASTNode *astNewIdentifierNode(Allocator *a, Location loc, ASTString str) {
     ASTIdentifierNode *n = allocatorAllocate(a, sizeof(*n));
-    //NEW0(n);
     n->header = make_header(ND_IDENTIFIER, loc);
     n->identifier = str;
     return AS_NODE(n);
@@ -355,7 +348,6 @@ ASTNode *astNewIdentifierNode(Allocator *a, Location loc, ASTString str) {
 
 ASTNode *astNewListNode(Allocator *a, ASTNodeType type, Location loc, ScopeID scope, size_t node_count) {
     ASTListNode *n = allocatorAllocate(a, sizeof(*n));
-    //NEW0(n);
     n->header = make_header(type, loc);
     n->scope = scope;
     n->control_flow = CF_NONE;
@@ -363,71 +355,6 @@ ASTNode *astNewListNode(Allocator *a, ASTNodeType type, Location loc, ScopeID sc
 
     return AS_NODE(n);
 }
-
-/*
-void astNodeFree(ASTNode *n, bool recursive) {
-    if(n == NULL) {
-        return;
-    }
-    switch(n->node_type) {
-        case ND_VAR_DECL:
-        case ND_VARIABLE:
-        case ND_FUNCTION:
-        case ND_NUMBER_LITERAL:
-        case ND_IDENTIFIER:
-            // nothing
-        break;
-        case ND_ASSIGN:
-        case ND_CALL:
-        case ND_PROPERTY_ACCESS:
-        case ND_ADD:
-        case ND_SUBTRACT:
-        case ND_MULTIPLY:
-        case ND_DIVIDE:
-        case ND_EQ:
-        case ND_NE:
-        case ND_LT:
-        case ND_LE:
-        case ND_GT:
-        case ND_GE:
-            if(recursive) {
-                astNodeFree(AS_BINARY_NODE(n)->lhs, true);
-                astNodeFree(AS_BINARY_NODE(n)->rhs, true);
-            }
-            break;
-        case ND_IF:
-            if(recursive) {
-                astNodeFree(AS_CONDITIONAL_NODE(n)->condition, true);
-                astNodeFree(AS_CONDITIONAL_NODE(n)->body, true);
-                astNodeFree(AS_CONDITIONAL_NODE(n)->else_, true);
-            }
-            break;
-        case ND_WHILE_LOOP:
-            if(recursive) {
-                astNodeFree(AS_LOOP_NODE(n)->initializer, true);
-                astNodeFree(AS_LOOP_NODE(n)->condition, true);
-                astNodeFree(AS_LOOP_NODE(n)->increment, true);
-                astNodeFree(AS_LOOP_NODE(n)->body, true);
-            }
-            break;
-        case ND_NEGATE:
-        case ND_RETURN:
-            if(recursive) {
-                astNodeFree(AS_UNARY_NODE(n)->operand, true);
-            }
-            break;
-        case ND_BLOCK:
-        case ND_ARGS:
-            if(recursive)
-                arrayMap(&AS_LIST_NODE(n)->nodes, free_node_callback, NULL);
-            arrayFree(&AS_LIST_NODE(n)->nodes);
-            break;
-        default:
-            UNREACHABLE();
-    }
-    FREE(n);
-}
-*/
 
 static const char *node_name(ASTNodeType type) {
     switch(type) {
