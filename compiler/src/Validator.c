@@ -221,7 +221,7 @@ static Type *ptr_type(Validator *v, Type *inner) {
     typeInit(ptr, TY_PTR, name, v->current_module, 8);
     ptr->as.ptr.inner_type = inner;
 
-    return astModuleAddType(astProgramGetModule(v->program, v->current_module), ptr);
+    return scopeAddType(astProgramGetModule(v->program, v->current_module)->scope, ptr);
 }
 
 static Type *get_expr_type(Validator *v, ASTNode *expr) {

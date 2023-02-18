@@ -50,9 +50,9 @@ typedef struct scope {
     Array objects;
     Table variables; // Table<ASTString, ASTObj *>
     Table functions; // Table<ASTString, ASTObj *>
-    // Table structs; // Table<ASTString, ASTObj *>
+    //Table structures; // Table<ASTString, ASTObj *>
     // Table enums; // Table<ASTString, ASTObj *>
-    // TODO: move types here.
+    Table types; // Table<ASTString, Type *>
     // Table type_aliases;???
     struct scope *parent;
     Array children; // Array<BlockScope *>
@@ -265,7 +265,6 @@ typedef struct ast_module {
     } ast_allocator;
     Scope *scope;
     Array globals; // Array<ASTNode *> (ND_VARIABLE or ND_ASSIGN)
-    Table types; // Table<ASTString, Type *>
 } ASTModule;
 
 /* ASTProgram */
@@ -340,6 +339,15 @@ ScopeID scopeAddChild(Scope *parent, ModuleID module, Scope *child);
  * @return The child scope (always, panics on invalid scopeID);
  ***/
 Scope *scopeGetChild(Scope *parent, ScopeID child_id);
+
+/***
+ * Intern a type saving it in scope's type table.
+ * NOTE: 'ty' MUST be heap allocated. ownership of it is taken.
+ *
+ * @param scope The scope to save the type in.
+ * @param ty A heap allocated type to intern.
+ ****/
+Type *scopeAddType(Scope *scope, Type *ty);
 
 /***
  * Free a list of Scope's.
@@ -566,15 +574,6 @@ ASTModule *astModuleNew(ASTString name);
  * @param module The module to free.
  ***/
 void astModuleFree(ASTModule *module);
-
-/***
- * Intern a type saving it in 'module's type table.
- * NOTE: 'ty' MUST be heap allocated. ownership of it is taken.
- *
- * @param module The module to save the type in.
- * @param ty A heap allocated type to intern.
- ****/
-Type *astModuleAddType(ASTModule *module, Type *ty);
 
 /***
  * Print an ASTModule.

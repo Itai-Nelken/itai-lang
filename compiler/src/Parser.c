@@ -680,7 +680,7 @@ static Type *new_fn_type(Parser *p, Type *return_type, Array parameters) {
     stringAppend(&name, ") -> %s", return_type ? return_type->name : "void");
     ty->name = astProgramAddString(p->program, name);
 
-    return astModuleAddType(astProgramGetModule(p->program, p->current.module), ty);
+    return scopeAddType(astProgramGetModule(p->program, p->current.module)->scope, ty);
 }
 
 // fields: Array<ASTObj *> (OBJ_VAR)
@@ -696,7 +696,7 @@ static Type *new_struct_type(Parser *p, ASTString name, Array fields) {
         arrayPush(field_types, (void *)member->data_type);
     }
 
-    return astModuleAddType(astProgramGetModule(p->program, p->current.module), ty);
+    return scopeAddType(astProgramGetModule(p->program, p->current.module)->scope, ty);
 }
 
 static Type *parse_type(Parser *p);
@@ -746,7 +746,7 @@ static Type *parse_type_from_identifier(Parser *p) {
     NEW0(ty);
     typeInit(ty, TY_ID, name, p->current.module, 0);
     ty->decl_location = loc;
-    return astModuleAddType(astProgramGetModule(p->program, p->current.module), ty);
+    return scopeAddType(astProgramGetModule(p->program, p->current.module)->scope, ty);
 }
 
 // complex_type -> fn_type | identifier_type
@@ -776,7 +776,7 @@ static Type *parse_type(Parser *p) {
         NEW0(ptr);
         typeInit(ptr, TY_PTR, ptr_name, p->current.module, 8); // FIXME: don't use magic number for ptr type size here.
         ptr->as.ptr.inner_type = ty;
-        ty = astModuleAddType(astProgramGetModule(p->program, p->current.module), ptr);
+        ty = scopeAddType(astProgramGetModule(p->program, p->current.module)->scope, ptr);
     }
     return ty;
 }
@@ -1044,7 +1044,7 @@ static void synchronize(Parser *p) {
 
 static void init_primitive_types(ASTProgram *prog, ASTModule *root_module) {
 // The ModuleID of the root module is always 0.
-#define DEF(typename, type, name, size) {Type *ty; NEW0(ty); typeInit(ty, (type), astProgramAddString(prog, (name)), (ModuleID)0, (size)); prog->primitives.typename = astModuleAddType(root_module, ty);}
+#define DEF(typename, type, name, size) {Type *ty; NEW0(ty); typeInit(ty, (type), astProgramAddString(prog, (name)), (ModuleID)0, (size)); prog->primitives.typename = scopeAddType(root_module->scope, ty);}
 
     // FIXME: do we need to add the typenames to the string table (because they are string literals)?
     // NOTE: Update IS_PRIMITIVE() in Types.h when adding new primitives.

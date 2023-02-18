@@ -108,7 +108,6 @@ ASTModule *astModuleNew(ASTString name) {
     m->ast_allocator.alloc = arenaMakeAllocator(&m->ast_allocator.storage);
     m->scope = scopeNew(NULL, 0, false);
     arrayInit(&m->globals);
-    tableInit(&m->types, hash_type, compare_type);
     return m;
 }
 
@@ -117,20 +116,7 @@ void astModuleFree(ASTModule *module) {
     module->scope = NULL;
     arrayFree(&module->globals);
     arenaFree(&module->ast_allocator.storage);
-    tableMap(&module->types, free_type_callback, NULL);
-    tableFree(&module->types);
     FREE(module);
-}
-
-Type *astModuleAddType(ASTModule *module, Type *ty) {
-    TableItem *existing_item = NULL;
-    if((existing_item = tableGet(&module->types, (void *)ty)) != NULL) {
-        typeFree(ty);
-        FREE(ty);
-        return (Type *)existing_item->key;
-    }
-    tableSet(&module->types, (void *)ty, NULL);
-    return ty;
 }
 
 void astModulePrint(FILE *to, ASTModule *module) {
@@ -138,8 +124,6 @@ void astModulePrint(FILE *to, ASTModule *module) {
     scopePrint(to, module->scope);
     fputs("], \x1b[1mglobals:\x1b[0m [", to);
     PRINT_ARRAY(ASTNode *, astNodePrint, to, module->globals);
-    fputs("], \x1b[1mtypes:\x1b[0m [", to);
-    tableMap(&module->types, print_type_table_callback, (void *)to);
     fputs("]}", to);
 }
 
@@ -227,6 +211,7 @@ Scope *scopeNew(Scope *parent_scope, u32 depth, bool is_block_scope) {
     arrayInit(&sc->objects);
     tableInit(&sc->variables, NULL, NULL);
     tableInit(&sc->functions, NULL, NULL);
+    tableInit(&sc->types, hash_type, compare_type);
     sc->parent = parent_scope;
     arrayInit(&sc->children);
     return sc;
@@ -247,6 +232,17 @@ Scope *scopeGetChild(Scope *parent, ScopeID child_id) {
     return child;
 }
 
+Type *scopeAddType(Scope *scope, Type *ty) {
+    TableItem *existing_item = NULL;
+    if((existing_item = tableGet(&scope->types, (void *)ty)) != NULL) {
+        typeFree(ty);
+        FREE(ty);
+        return (Type *)existing_item->key;
+    }
+    tableSet(&scope->types, (void *)ty, NULL);
+    return ty;
+}
+
 void scopeFree(Scope *scope_list) {
     if(scope_list == NULL) {
         return;
@@ -258,6 +254,8 @@ void scopeFree(Scope *scope_list) {
     arrayFree(&scope_list->objects);
     tableFree(&scope_list->variables);
     tableFree(&scope_list->functions);
+    tableMap(&scope_list->types, free_type_callback, NULL);
+    tableFree(&scope_list->types);
     arrayMap(&scope_list->children, free_scope_callback, NULL);
     arrayFree(&scope_list->children);
     FREE(scope_list);
@@ -280,6 +278,8 @@ void scopePrint(FILE *to, Scope *scope) {
     tableMap(&scope->variables, print_object_table_callback, (void *)to);
     fputs(", \x1b[1mfunctions:\x1b[0m [", to);
     tableMap(&scope->variables, print_object_table_callback, (void *)to);
+    fputs("], \x1b[1mtypes:\x1b[0m [", to);
+    tableMap(&scope->types, print_type_table_callback, (void *)to);
     fputs(", \x1b[1mchildren:\x1b[0m [", to);
     PRINT_ARRAY(Scope *, scopePrint, to, scope->children);
     fputs("]}", to);

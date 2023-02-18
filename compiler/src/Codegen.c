@@ -397,7 +397,7 @@ static void module_callback(void *module, void *codegen) {
     print(cg, "\n// pre-declarations:\n");
     arrayMap(&m->scope->objects, object_predecl_callback, codegen);
     print(cg, "// function types:\n");
-    tableMap(&m->types, gen_fn_types, codegen);
+    tableMap(&m->scope->types, gen_fn_types, codegen);
     print(cg, "\n// global variables:\n");
     arrayMap(&m->globals, global_variable_callback, codegen);
     print(cg, "\n// objects:\n");
