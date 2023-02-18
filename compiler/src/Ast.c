@@ -16,11 +16,6 @@ static void free_string_callback(TableItem *item, bool is_last, void *cl) {
     stringFree((String)item->value);
 }
 
-//static void free_node_callback(void *node, void *cl) {
-//    UNUSED(cl);
-//    astNodeFree(AS_NODE(node), true);
-//}
-
 static void free_object_callback(void *object, void *cl) {
     UNUSED(cl);
     astObjFree((ASTObj *)object);
@@ -111,7 +106,6 @@ ASTModule *astModuleNew(ASTString name) {
 void astModuleFree(ASTModule *module) {
     arrayMap(&module->objects, free_object_callback, NULL);
     arrayFree(&module->objects);
-    //arrayMap(&module->globals, free_node_callback, NULL); // global nodes are owned by the arena.
     arrayFree(&module->globals);
     arenaFree(&module->ast_allocator.storage);
     tableMap(&module->types, free_type_callback, NULL);
