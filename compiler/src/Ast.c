@@ -291,7 +291,7 @@ static inline ASTNode make_header(ASTNodeType type, Location loc) {
 }
 
 ASTNode *astNewUnaryNode(Allocator *a, ASTNodeType type, Location loc, ASTNode *operand) {
-    ASTUnaryNode *n = a->allocFn(a->arg, sizeof(*n));
+    ASTUnaryNode *n = allocatorAllocate(a, sizeof(*n));
     //NEW0(n);
     n->header = make_header(type, loc);
     n->operand = operand;
@@ -299,7 +299,7 @@ ASTNode *astNewUnaryNode(Allocator *a, ASTNodeType type, Location loc, ASTNode *
 }
 
 ASTNode *astNewBinaryNode(Allocator *a, ASTNodeType type, Location loc, ASTNode *lhs, ASTNode *rhs) {
-    ASTBinaryNode *n = a->allocFn(a->arg, sizeof(*n));
+    ASTBinaryNode *n = allocatorAllocate(a, sizeof(*n));
     //NEW0(n);
     n->header = make_header(type, loc);
     n->lhs = lhs;
@@ -308,7 +308,7 @@ ASTNode *astNewBinaryNode(Allocator *a, ASTNodeType type, Location loc, ASTNode 
 }
 
 ASTNode *astNewConditionalNode(Allocator *a, ASTNodeType type, Location loc, ASTNode *condition, ASTNode *body, ASTNode *else_) {
-    ASTConditionalNode *n = a->allocFn(a->arg, sizeof(*n));
+    ASTConditionalNode *n = allocatorAllocate(a, sizeof(*n));
     //NEW0(n);
     n->header = make_header(type, loc);
     n->condition = condition;
@@ -318,7 +318,7 @@ ASTNode *astNewConditionalNode(Allocator *a, ASTNodeType type, Location loc, AST
 }
 
 ASTNode *astNewLoopNode(Allocator *a, Location loc, ASTNode *init, ASTNode *cond, ASTNode *inc, ASTNode *body) {
-    ASTLoopNode *n = a->allocFn(a->arg, sizeof(*n));
+    ASTLoopNode *n = allocatorAllocate(a, sizeof(*n));
     //NEW0(n);
     n->header = make_header(ND_WHILE_LOOP, loc);
     n->initializer = init;
@@ -329,7 +329,7 @@ ASTNode *astNewLoopNode(Allocator *a, Location loc, ASTNode *init, ASTNode *cond
 }
 
 ASTNode *astNewLiteralValueNode(Allocator *a, ASTNodeType type, Location loc, LiteralValue value, Type *ty) {
-    ASTLiteralValueNode *n = a->allocFn(a->arg, sizeof(*n));
+    ASTLiteralValueNode *n = allocatorAllocate(a, sizeof(*n));
     //NEW0(n);
     n->header = make_header(type, loc);
     n->value = value;
@@ -338,7 +338,7 @@ ASTNode *astNewLiteralValueNode(Allocator *a, ASTNodeType type, Location loc, Li
 }
 
 ASTNode *astNewObjNode(Allocator *a, ASTNodeType type, Location loc, ASTObj *obj) {
-    ASTObjNode *n = a->allocFn(a->arg, sizeof(*n));
+    ASTObjNode *n = allocatorAllocate(a, sizeof(*n));
     //NEW0(n);
     n->header = make_header(type, loc);
     n->obj = obj;
@@ -346,7 +346,7 @@ ASTNode *astNewObjNode(Allocator *a, ASTNodeType type, Location loc, ASTObj *obj
 }
 
 ASTNode *astNewIdentifierNode(Allocator *a, Location loc, ASTString str) {
-    ASTIdentifierNode *n = a->allocFn(a->arg, sizeof(*n));
+    ASTIdentifierNode *n = allocatorAllocate(a, sizeof(*n));
     //NEW0(n);
     n->header = make_header(ND_IDENTIFIER, loc);
     n->identifier = str;
@@ -354,7 +354,7 @@ ASTNode *astNewIdentifierNode(Allocator *a, Location loc, ASTString str) {
 }
 
 ASTNode *astNewListNode(Allocator *a, ASTNodeType type, Location loc, ScopeID scope, size_t node_count) {
-    ASTListNode *n = a->allocFn(a->arg, sizeof(*n));
+    ASTListNode *n = allocatorAllocate(a, sizeof(*n));
     //NEW0(n);
     n->header = make_header(type, loc);
     n->scope = scope;

@@ -8,43 +8,34 @@ void arrayInit(Array *a) {
     arrayInitSized(a, ARRAY_INITIAL_CAPACITY);
 }
 
-static void *alloc_fn(void *arg, size_t size) {
+static void *alloc_callback(void *arg, size_t size) {
     UNUSED(arg);
     return calloc(1, size);
 }
 
-static void *realloc_fn(void *arg, void *ptr, size_t size) {
+static void *realloc_callback(void *arg, void *ptr, size_t size) {
     UNUSED(arg);
     return realloc(ptr, size);
 }
 
-static void free_fn(void *arg, void *ptr) {
+static void free_callback(void *arg, void *ptr) {
     UNUSED(arg);
     free(ptr);
 }
 
 void arrayInitSized(Array *a, size_t size) {
-    a->allocator = (Allocator){
-        .allocFn = alloc_fn,
-        .reallocFn = realloc_fn,
-        .freeFn = free_fn,
-        .arg = NULL
-    };
-    a->used = 0;
-    a->capacity = size == 0 ? ARRAY_INITIAL_CAPACITY : size;
-    a->data = a->allocator.allocFn(a->allocator.arg, a->capacity * sizeof(void *));
+    arrayInitAllocatorSized(a, allocatorNew(alloc_callback, realloc_callback, free_callback, NULL), size);
 }
 
 void arrayInitAllocatorSized(Array *a, Allocator alloc, size_t size) {
     a->allocator = alloc;
-    // TODO: un-duplicate with arrayInitSized().
     a->used = 0;
     a->capacity = size == 0 ? ARRAY_INITIAL_CAPACITY : size;
-    a->data = a->allocator.allocFn(a->allocator.arg, a->capacity * sizeof(void *));
+    a->data = allocatorAllocate(&a->allocator, sizeof(void *) * a->capacity);
 }
 
 void arrayFree(Array *a) {
-    a->allocator.freeFn(a->allocator.arg, a->data);
+    allocatorFree(&a->allocator, a->data);
     a->data = NULL;
     a->used = a->capacity = 0;
 }
@@ -56,7 +47,7 @@ size_t arrayLength(Array *a) {
 size_t arrayPush(Array *a, void *value) {
     if(a->used + 1 > a->capacity) {
         a->capacity *= 2;
-        a->data = a->allocator.reallocFn(a->allocator.arg, a->data, sizeof(void *) * a->capacity);
+        a->data = allocatorReallocate(&a->allocator, a->data, sizeof(void *) * a->capacity);
     }
     a->data[a->used++] = value;
     return a->used - 1;

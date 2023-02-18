@@ -93,10 +93,8 @@ static void free_callback(void *arena, void *ptr) {
 }
 
 Allocator arenaMakeAllocator(Arena *a) {
-    return (Allocator){
-        .allocFn = alloc_callback,
-        .reallocFn = realloc_callback,
-        .freeFn = free_callback,
-        .arg = (void *)a
-    };
+    return allocatorNew(alloc_callback,
+                        realloc_callback,
+                        free_callback,
+                        (void *)a);
 }

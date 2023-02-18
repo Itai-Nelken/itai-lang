@@ -13,6 +13,7 @@ set(sources
     src/Codegen.c
     src/Compiler.c
     src/Error.c
+    src/memory.c
     src/Parser.c
     src/Scanner.c
     src/Table.c
