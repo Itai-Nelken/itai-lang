@@ -74,7 +74,7 @@ static void print_type_table_callback(TableItem *item, bool is_last, void *strea
 
 static void print_object_table_callback(TableItem *item, bool is_last, void *stream) {
     FILE *to = (FILE *)stream;
-    ASTObj *obj = (ASTObj *)item->key;
+    ASTObj *obj = (ASTObj *)item->value;
     astObjPrint(to, obj);
     if(!is_last) {
         fputs(", ", to);
