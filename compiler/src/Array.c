@@ -66,7 +66,7 @@ void arrayInsert(Array *a, size_t index, void *value) {
 }
 
 void *arrayGet(Array *a, size_t index) {
-    if(index > a->used) {
+    if(index >= a->used) {
         return NULL;
     }
     return a->data[index];
