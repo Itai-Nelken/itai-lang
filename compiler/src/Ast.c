@@ -310,7 +310,7 @@ void scopePrint(FILE *to, Scope *scope) {
     tableMap(&scope->structures, print_object_table_callback, (void *)to);
     fputs("], \x1b[1mtypes:\x1b[0m [", to);
     tableMap(&scope->types, print_type_table_callback, (void *)to);
-    fputs(", \x1b[1mchildren:\x1b[0m [", to);
+    fputs("], \x1b[1mchildren:\x1b[0m [", to);
     for(usize i = 0; i < scope->children.length; ++i) {
         scopeIDPrint(to, scope->children.children_scope_ids[i], true);
         if(i + i < scope->children.length) { // If not the last element, print a comma followed by a space.
