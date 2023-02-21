@@ -649,7 +649,6 @@ ASTObj *astNewObj(ASTObjType type, Location loc, Location name_loc, ASTString na
             break;
         case OBJ_FN:
             arrayInit(&o->as.fn.parameters);
-            arrayInit(&o->as.fn.locals);
             arrayInit(&o->as.fn.defers);
             break;
         case OBJ_STRUCT:
@@ -679,9 +678,10 @@ void astObjFree(ASTObj *obj) {
         case OBJ_FN:
             arrayMap(&obj->as.fn.parameters, free_object_callback, NULL);
             arrayFree(&obj->as.fn.parameters);
-            arrayMap(&obj->as.fn.locals, free_object_callback, NULL);
-            arrayFree(&obj->as.fn.locals);
             arrayFree(&obj->as.fn.defers); // The nodes are owned by the parent module.
+            // Note: The body is owned by the parent module,
+            // and variables are owned by the scopes which
+            // which are owned by the parent module as well.
             break;
         case OBJ_STRUCT:
             obj->as.structure.scope = EMPTY_SCOPE_ID();
@@ -743,9 +743,7 @@ void astObjPrint(FILE *to, ASTObj *obj) {
             typePrint(to, obj->as.fn.return_type, true);
             fputs(", \x1b[1mparameters:\x1b[0m [", to);
             PRINT_ARRAY(ASTObj *, astObjPrint, to, obj->as.fn.parameters);
-            fputs("], \x1b[1mlocals:\x1b[0m [", to);
-            PRINT_ARRAY(ASTObj *, astObjPrint, to, obj->as.fn.locals);
-            fputs("], \x1b[1mdefers:\x1b[0m [", to);
+            fputs(", \x1b[1mdefers:\x1b[0m [", to);
             PRINT_ARRAY(ASTObj *, astObjPrint, to, obj->as.fn.defers);
             fputs("], \x1b[1mbody:\x1b[0m ", to);
             astNodePrint(to, AS_NODE(obj->as.fn.body));

@@ -900,14 +900,15 @@ static ASTObj *parse_struct_decl(Parser *p) {
 static ASTNode *parse_function_body(Parser *p) {
     VERIFY(p->current.function);
 
+    Scope *current_scope = astModuleGetScope(astProgramGetModule(p->program, p->current.module), p->current.scope);
     ASTNode *result = NULL;
     if(match(p, TK_VAR)) {
         Location var_loc = previous(p).location;
-        ASTNode *var_node = TRY(ASTNode *, parse_variable_decl(p, true, false, &p->current.function->as.fn.locals, &var_loc));
+        ASTNode *var_node = TRY(ASTNode *, parse_variable_decl(p, true, false, &current_scope->objects, &var_loc));
         TRY_CONSUME(p, TK_SEMICOLON);
         // Get the name of the variable to push to check
         // for redefinitions and to save in the current scope.
-        ASTObj *var_obj = ARRAY_GET_AS(ASTObj *, &p->current.function->as.fn.locals, arrayLength(&p->current.function->as.fn.locals) - 1);
+        ASTObj *var_obj = ARRAY_GET_AS(ASTObj *, &current_scope->objects, arrayLength(&current_scope->objects) - 1);
         VERIFY(var_obj->type == OBJ_VAR);
         ASTObj *existing_obj = find_variable_in_current_scope(p, var_obj->name);
         if(existing_obj) {
@@ -916,7 +917,7 @@ static ASTNode *parse_function_body(Parser *p) {
             // NOTE: arrayPop() is used even though we already have a reference
             //       to the object we want to free because we also want to remove
             //       the object from the array.
-            astObjFree((ASTObj *)arrayPop(&p->current.function->as.fn.locals));
+            astObjFree(ARRAY_POP_AS(ASTObj *, &current_scope->objects));
             return NULL;
         }
         add_variable_to_current_scope(p, var_obj);

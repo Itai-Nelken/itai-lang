@@ -630,9 +630,10 @@ static bool validate_function(Validator *v, ASTObj *fn) {
 
     v->current_function = fn;
 
-    FOR(i, fn->as.fn.locals) {
-        ASTObj *l = ARRAY_GET_AS(ASTObj *, &fn->as.fn.locals, i);
-        validate_type(v, &l->data_type, false, &l->location); // FIXME: use l.type_location
+    Scope *fn_scope = astModuleGetScope(astProgramGetModule(v->program, v->current_module), fn->as.fn.body->scope);
+    FOR(i, fn_scope->objects) {
+        ASTObj *obj = ARRAY_GET_AS(ASTObj *, &fn_scope->objects, i);
+        validate_type(v, &obj->data_type, false, &obj->location); // FIXME: use l.type_location
     }
     FOR(i, fn->as.fn.parameters) {
         ASTObj *p = ARRAY_GET_AS(ASTObj *, &fn->as.fn.parameters, i);

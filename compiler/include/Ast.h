@@ -239,7 +239,6 @@ typedef struct ast_obj {
         struct {
             Array parameters; // Array<ASTObj *> (OBJ_VAR)
             Type *return_type;
-            Array locals; // Array<ASTObj *>
             Array defers; // Array<ASTNode *>
             ASTListNode *body; // Note: contains the function's scope ScopeID.
         } fn; // OBJ_FN
