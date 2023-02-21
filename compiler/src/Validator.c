@@ -554,8 +554,10 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
                 ASTObj *s = find_struct(v, lhs_ty->name);
                 VERIFY(s); // The struct should exist if its type exists.
                 bool found = false;
-                FOR(i, s->as.structure.fields) {
-                    ASTObj *field = ARRAY_GET_AS(ASTObj *, &s->as.structure.fields, i);
+                Scope *s_scope = astModuleGetScope(astProgramGetModule(v->program, v->current_module), s->as.structure.scope);
+                FOR(i, s_scope->objects) {
+                    ASTObj *field = ARRAY_GET_AS(ASTObj *, &s_scope->objects, i);
+                    VERIFY(field->type == OBJ_VAR);
                     if(field->name == AS_IDENTIFIER_NODE(rhs)->identifier) {
                         ASTNode *new_property_node = astNewObjNode(v->current_allocator, ND_VARIABLE, field->location, field);
                         if(result) {
@@ -691,28 +693,18 @@ static bool validate_function(Validator *v, ASTObj *fn) {
 }
 
 static bool validate_struct(Validator *v, ASTObj *s) {
-    Table declared_fields;
-    tableInit(&declared_fields, NULL, NULL);
-    FOR(i, s->as.structure.fields) {
-        ASTObj *field = ARRAY_GET_AS(ASTObj *, &s->as.structure.fields, i);
+    Scope *scope = astModuleGetScope(astProgramGetModule(v->program, v->current_module), s->as.structure.scope);
+    FOR(i, scope->objects) {
+        ASTObj *field = ARRAY_GET_AS(ASTObj *, &scope->objects, i);
+        VERIFY(field->type == OBJ_VAR);
         // Pointers are not allowed as struct members.
         // Note: if this is changed, auto-deref in property access will break.
         //       see note in validate_ast():ND_PROPERTY_ACCESS:while(array.len() > 0):if(ty is ptr && ty.inner is struct).
         if(!validate_type(v, &field->data_type, false, &field->location)) // FIXME: use field.type_location
             continue;
         arrayInsert(&s->data_type->as.structure.field_types, i, (void *)field->data_type);
-        // Note: The check for recursive structs is in typecheck_struct().
-        TableItem *item = NULL;
-        if((item = tableGet(&declared_fields, (void *)field->name)) != NULL) {
-            ASTObj *existing_field = (ASTObj *)item->value;
-            error(v, field->location, "Redefinition of field '%s' in struct '%s'.", field->name, s->name);
-            hint(v, existing_field->location, "Field first defined here.");
-            tableFree(&declared_fields);
-            return false;
-        }
-        tableSet(&declared_fields, (void *)field->name, (void *)field);
+        // Note: The check for recursive structs is in typecheck_struct().x
     }
-    tableFree(&declared_fields);
     return true;
 }
 
@@ -1009,8 +1001,10 @@ static bool is_recursive_struct(Type *root_struct_type, Type *field_type) {
 static bool typecheck_struct(Validator *v, ASTObj *s) {
     bool had_error = false;
     usize size = 0;
-    FOR(i, s->as.structure.fields) {
-        ASTObj *field = ARRAY_GET_AS(ASTObj *, &s->as.structure.fields, i);
+    Scope *scope = astModuleGetScope(astProgramGetModule(v->program, v->current_module), s->as.structure.scope);
+    FOR(i, scope->objects) {
+        ASTObj *field = ARRAY_GET_AS(ASTObj *, &scope->objects, i);
+        VERIFY(field->type == OBJ_VAR);
         size += field->data_type->size;
         if(field->data_type == NULL) {
             error(v, field->location, "Field '%s' in struct '%s' has no type.", field->name, s->name);

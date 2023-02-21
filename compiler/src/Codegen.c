@@ -286,8 +286,10 @@ static void gen_function_def(Codegen *cg, ASTObj *fn) {
 
 static void gen_struct(Codegen *cg, ASTObj *s) {
     print(cg, "typedef struct %s {\n", s->name);
-    for(usize i = 0; i < s->as.structure.fields.used; ++i) {
-        ASTObj *member = ARRAY_GET_AS(ASTObj *, &s->as.structure.fields, i);
+    Scope *scope = astModuleGetScope(astProgramGetModule(cg->program, cg->current_module), s->as.structure.scope);
+    for(usize i = 0; i < arrayLength(&scope->objects); ++i) {
+        ASTObj *member = ARRAY_GET_AS(ASTObj *, &scope->objects, i);
+        VERIFY(member->type == OBJ_VAR);
         print(cg, "    "); // 4 spaces
         gen_type(cg, member->data_type);
         print(cg, " %s;\n", member->name);

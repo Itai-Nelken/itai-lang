@@ -651,7 +651,8 @@ ASTObj *astNewObj(ASTObjType type, Location loc, Location name_loc, ASTString na
             arrayInit(&o->as.fn.defers);
             break;
         case OBJ_STRUCT:
-            arrayInit(&o->as.structure.fields);
+            // FIXME: Should the scope somehow be initialized here?
+            o->as.structure.scope = EMPTY_SCOPE_ID();
             break;
         case OBJ_EXTERN_FN:
             arrayInit(&o->as.fn.parameters);
@@ -681,8 +682,7 @@ void astObjFree(ASTObj *obj) {
             arrayFree(&obj->as.fn.defers); // The nodes are owned by the parent module.
             break;
         case OBJ_STRUCT:
-            arrayMap(&obj->as.structure.fields, free_object_callback, NULL);
-            arrayFree(&obj->as.structure.fields);
+            obj->as.structure.scope = EMPTY_SCOPE_ID();
             break;
         case OBJ_EXTERN_FN:
             arrayMap(&obj->as.extern_fn.parameters, free_object_callback, NULL);
@@ -749,9 +749,9 @@ void astObjPrint(FILE *to, ASTObj *obj) {
             astNodePrint(to, AS_NODE(obj->as.fn.body));
             break;
         case OBJ_STRUCT:
-            fputs(", \x1b[1mmembers:\x1b[0m [", to);
-            PRINT_ARRAY(ASTObj *, astObjPrint, to, obj->as.structure.fields);
-            fputc(']', to);
+            fputs(", \x1b[1mscope:\x1b[0m ", to);
+            // FIXME: Ideally the actual scope should be printed.
+            scopeIDPrint(to, obj->as.structure.scope, false);
             break;
         case OBJ_EXTERN_FN:
             fputs(", \x1b[1mreturn_type:\x1b[0m ", to);

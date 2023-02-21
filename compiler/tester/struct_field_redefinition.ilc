@@ -1,4 +1,4 @@
-/// expect error: Error: Redefinition of field 'a' in struct 'T'.
+/// expect error: Error: Redefinition of variable 'a'.
 
 struct T {
 	a: i32;

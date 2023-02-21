@@ -244,7 +244,7 @@ typedef struct ast_obj {
             ASTListNode *body; // Note: contains the function's scope ScopeID.
         } fn; // OBJ_FN
         struct {
-            Array fields; // Array<ASTObj *> (OBJ_VAR)
+            ScopeID scope;
         } structure; // OBJ_STRUCT
         struct {
             Array parameters; // Array<ASTObj *>

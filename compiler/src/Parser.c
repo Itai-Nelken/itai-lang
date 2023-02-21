@@ -864,22 +864,32 @@ static ASTObj *parse_struct_decl(Parser *p) {
     Location name_loc = previous(p).location;
 
     ASTObj *structure = astNewObj(OBJ_STRUCT, name_loc, name_loc, name, NULL);
+    structure->as.structure.scope = enter_scope(p);
+    Scope *scope = astModuleGetScope(astProgramGetModule(p->program, p->current.module), structure->as.structure.scope);
 
     if(!consume(p, TK_LBRACE)) {
+        leave_scope(p);
         astObjFree(structure);
         return NULL;
     }
+    Array fields;
+    arrayInit(&fields);
     while(current(p).type != TK_RBRACE) {
-        // FIXME: enter scope.
-        parse_variable_decl(p, false, false, &structure->as.structure.fields, NULL);
+        parse_variable_decl(p, false, false, &fields, NULL);
+        ASTObj *field = ARRAY_GET_AS(ASTObj *, &fields, arrayLength(&fields) - 1);
+        arrayPush(&scope->objects, (void *)field);
+        add_variable_to_current_scope(p, field);
         consume(p, TK_SEMICOLON);
     }
+    leave_scope(p);
     if(!consume(p, TK_RBRACE)) {
+        arrayFree(&fields);
         astObjFree(structure);
         return NULL;
     }
 
-    structure->data_type = new_struct_type(p,structure->name, structure->as.structure.fields);
+    structure->data_type = new_struct_type(p,structure->name, fields);
+    arrayFree(&fields);
 
     structure->location = locationMerge(name_loc, previous(p).location);
     add_structure_to_current_scope(p, structure);
