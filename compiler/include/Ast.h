@@ -44,27 +44,32 @@ typedef struct literal_value {
 
 /* Scope */
 
+#define FUNCTION_SCOPE_DEPTH 1
+
+typedef struct scope_id {
+    ModuleID module;
+    usize index; // Index into the ASTModule::scopes array.
+} ScopeID;
+
+// FIXME: find a way to represent an empty ScopeID
+#define EMPTY_SCOPE_ID() ((ScopeID){.module = 0, .index = (usize)-1})
+
 typedef struct scope {
     bool is_block_scope;
-    u32 depth;
+    u32 depth; // For block scopes. // FIXME: find way to store "empty" depth.
     Array objects;
     Table variables; // Table<ASTString, ASTObj *>
     Table functions; // Table<ASTString, ASTObj *>
     Table structures; // Table<ASTString, ASTObj *>
     // Table enums; // Table<ASTString, ASTObj *>
     Table types; // Table<ASTString, Type *>
-    // Table type_aliases;???
-    struct scope *parent;
-    Array children; // Array<BlockScope *>
+    ScopeID parent;
+    struct { // Array cannot be used because ScopeID is not used as a pointer type.
+        ScopeID *children_scope_ids;
+        usize length;
+        usize capacity;
+    } children;
 } Scope;
-
-typedef struct scope_id {
-    ModuleID module;
-    u32 depth;
-    usize index;
-} ScopeID;
-
-#define FUNCTION_SCOPE_DEPTH 1
 
 /* ControlFlow */
 
@@ -234,10 +239,9 @@ typedef struct ast_obj {
         struct {
             Array parameters; // Array<ASTObj *> (OBJ_VAR)
             Type *return_type;
-            Scope *scopes;
             Array locals; // Array<ASTObj *>
             Array defers; // Array<ASTNode *>
-            ASTListNode *body;
+            ASTListNode *body; // Note: contains the function's scope ScopeID.
         } fn; // OBJ_FN
         struct {
             Array fields; // Array<ASTObj *> (OBJ_VAR)
@@ -258,13 +262,15 @@ typedef usize ModuleID;
 // An ASTModule holds all of a modules data
 // which includes functions, structs, enums, global variables, types etc.
 typedef struct ast_module {
+    ModuleID id;
     ASTString name;
     struct {
         Arena storage;
         Allocator alloc;
     } ast_allocator;
-    Scope *scope;
-    Array globals; // Array<ASTNode *> (ND_VARIABLE or ND_ASSIGN)
+    Array scopes; // Array<Scope *>
+    Scope *module_scope; // Owned by above array.
+    Array globals; // Array<ASTNode *> (ND_VAR_DECL or ND_ASSIGN)
 } ASTModule;
 
 /* ASTProgram */
@@ -314,31 +320,19 @@ void literalValuePrint(FILE *to, LiteralValue value);
 /***
  * Create a new Scope.
  *
- * @param parent_scope The previous scope.
- * @param depth The depth of the scope.
+ * @param parent_scope The ScopeID of the parent scope.
  * @param is_block_scope Set to true if the scope will be a block scope.
  * @return The new scope.
  ***/
-Scope *scopeNew(Scope *parent_scope, u32 depth, bool is_block_scope);
+Scope *scopeNew(ScopeID parent_scope, bool is_block_scope);
 
 /***
  * Add a child to a Scope.
  *
  * @param parent The parent scope.
- * @param module The ModuleID of the containing module.
- * @param child The child scope to add.
- * @return The ScopeID of the added scope.
+ * @param child_id The ScopeID of the child scope to add.
  ***/
-ScopeID scopeAddChild(Scope *parent, ModuleID module, Scope *child);
-
-/***
- * Get a child from Scope.
- *
- * @param parent The parent scope.
- * @param child_id The ScopeID of the child.
- * @return The child scope (always, panics on invalid scopeID);
- ***/
-Scope *scopeGetChild(Scope *parent, ScopeID child_id);
+void scopeAddChild(Scope *parent, ScopeID child_id);
 
 /***
  * Intern a type saving it in scope's type table.
@@ -582,6 +576,33 @@ void astModuleFree(ASTModule *module);
  * @param module The module to print.
  ****/
 void astModulePrint(FILE *to, ASTModule *module);
+
+/***
+ * Add a scope to an ASTModule.
+ *
+ * @param module The module to add the scope to.
+ * @param scope The scope to add.
+ * @return The ScopeID of the added scope.
+ ***/
+ScopeID astModuleAddScope(ASTModule *module, Scope *scope);
+
+/***
+ * Get a Scope stored in an ASTModule.
+ * NOTE: This function will panic if [id] is invalid.
+ *
+ * @param module The module containing the scope.
+ * @param id The ScopeID that refers to the wanted scope.
+ * @return A pointer to the Scope refered to by [id].
+ ***/
+Scope *astModuleGetScope(ASTModule *module, ScopeID id);
+
+/***
+ * Return the ScopeID of [module]'s scope.
+ *
+ * @param module An ASTModule.
+ * @return The ScopeID of [module]'s scope.
+ ***/
+ScopeID astModuleGetModuleScopeID(ASTModule *module);
 
 
 /* ASTProgram */

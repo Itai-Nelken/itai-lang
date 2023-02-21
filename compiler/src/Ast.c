@@ -106,25 +106,51 @@ ASTModule *astModuleNew(ASTString name) {
     m->name = name;
     arenaInit(&m->ast_allocator.storage);
     m->ast_allocator.alloc = arenaMakeAllocator(&m->ast_allocator.storage);
-    m->scope = scopeNew(NULL, 0, false);
+    arrayInit(&m->scopes);
+    m->module_scope = scopeNew(EMPTY_SCOPE_ID(), false);
+    // Note: if module_scope is not the first scope, change astModuleGetModuleScopeID().
+    arrayPush(&m->scopes, m->module_scope);
     arrayInit(&m->globals);
     return m;
 }
 
 void astModuleFree(ASTModule *module) {
-    scopeFree(module->scope);
-    module->scope = NULL;
+    module->module_scope = NULL;
+    arrayMap(&module->scopes, free_scope_callback, NULL);
+    arrayFree(&module->scopes);
     arrayFree(&module->globals);
     arenaFree(&module->ast_allocator.storage);
     FREE(module);
 }
 
 void astModulePrint(FILE *to, ASTModule *module) {
-    fprintf(to, "ASTModule{\x1b[1mname:\x1b[0m '%s', \x1b[1mscope:\x1b[0m ", module->name);
-    scopePrint(to, module->scope);
+    fprintf(to, "ASTModule{\x1b[1mname:\x1b[0m '%s', \x1b[1mscopes:\x1b[0m [", module->name);
+    PRINT_ARRAY(Scope *, scopePrint, to, module->scopes);
     fputs("], \x1b[1mglobals:\x1b[0m [", to);
     PRINT_ARRAY(ASTNode *, astNodePrint, to, module->globals);
     fputs("]}", to);
+}
+
+ScopeID astModuleAddScope(ASTModule *module, Scope *scope) {
+    ScopeID id;
+    id.module = module->id;
+    id.index = (ModuleID)arrayPush(&module->scopes, (void *)scope);
+    return id;
+}
+
+Scope *astModuleGetScope(ASTModule *module, ScopeID id) {
+    VERIFY(module->id == id.module);
+    VERIFY(id.index < arrayLength(&module->scopes));
+    Scope *scope = ARRAY_GET_AS(Scope *, &module->scopes, id.index);
+    VERIFY(scope != NULL);
+    return scope;
+}
+
+ScopeID astModuleGetModuleScopeID(ASTModule *module) {
+    return (ScopeID){
+        .module = module->id,
+        .index = 0
+    };
 }
 
 
@@ -203,34 +229,29 @@ void literalValuePrint(FILE *to, LiteralValue value) {
 
 /* Scope */
 
-Scope *scopeNew(Scope *parent_scope, u32 depth, bool is_block_scope) {
+Scope *scopeNew(ScopeID parent_scope, bool is_block_scope) {
     Scope *sc;
     NEW0(sc);
     sc->is_block_scope = is_block_scope;
-    sc->depth = depth;
+    sc->depth = 0;
     arrayInit(&sc->objects);
     tableInit(&sc->variables, NULL, NULL);
     tableInit(&sc->functions, NULL, NULL);
     tableInit(&sc->structures, NULL, NULL);
     tableInit(&sc->types, hash_type, compare_type);
+    // sc.children is lazy-allocated. see scopeAddChild()
     sc->parent = parent_scope;
-    arrayInit(&sc->children);
     return sc;
 }
 
-ScopeID scopeAddChild(Scope *parent, ModuleID module, Scope *child) {
-    ScopeID id;
-    id.module = module;
-    id.depth = child->depth;
-    id.index = arrayPush(&parent->children, (void *)child);
-    return id;
-}
-
-Scope *scopeGetChild(Scope *parent, ScopeID child_id) {
-    VERIFY(parent->depth < child_id.depth);
-    Scope *child = ARRAY_GET_AS(Scope *, &parent->children, child_id.index);
-    VERIFY(child);
-    return child;
+void scopeAddChild(Scope *parent, ScopeID child_id) {
+    if(parent->children.length + 1 > parent->children.capacity) {
+        // Note: The initial capacity of 4 is pretty random. 4 just seemed like a good number
+        //       that will be enough most of the time.
+        parent->children.capacity = parent->children.capacity == 0 ? 4 : parent->children.capacity * 2;
+        parent->children.children_scope_ids = REALLOC(parent->children.children_scope_ids, sizeof(*parent->children.children_scope_ids) * parent->children.capacity);
+    }
+    parent->children.children_scope_ids[parent->children.length++] = child_id;
 }
 
 Type *scopeAddType(Scope *scope, Type *ty) {
@@ -258,22 +279,25 @@ void scopeFree(Scope *scope_list) {
     tableFree(&scope_list->structures);
     tableMap(&scope_list->types, free_type_callback, NULL);
     tableFree(&scope_list->types);
-    arrayMap(&scope_list->children, free_scope_callback, NULL);
-    arrayFree(&scope_list->children);
+    scope_list->children.capacity = 0;
+    scope_list->children.length = 0;
+    if(scope_list->children.children_scope_ids != NULL) {
+        FREE(scope_list->children.children_scope_ids);
+        scope_list->children.children_scope_ids = NULL;
+    }
     FREE(scope_list);
 }
 
 void scopeIDPrint(FILE *to, ScopeID scope_id, bool compact) {
     if(compact) {
-        fprintf(to, "ScopeID{\x1b[1md:\x1b[0;34m%u\x1b[0m,\x1b[1mi:\x1b[0;34m%zu\x1b[0m}", scope_id.depth, scope_id.index);
+        fprintf(to, "ScopeID{\x1b[1mm:\x1b[0;34m%zu\x1b[0m,\x1b[1mi:\x1b[0;34m%zu\x1b[0m}", scope_id.module, scope_id.index);
     } else {
-        fprintf(to, "ScopeID{\x1b[1mdepth:\x1b[0;34m %u\x1b[0m, \x1b[1mindex:\x1b[0;34m %zu\x1b[0m}", scope_id.depth, scope_id.index);
+        fprintf(to, "ScopeID{\x1b[1mmodule:\x1b[0;34m %zu\x1b[0m, \x1b[1mindex:\x1b[0;34m %zu\x1b[0m}", scope_id.module, scope_id.index);
     }
 }
 
 void scopePrint(FILE *to, Scope *scope) {
     fprintf(to, "Scope{\x1b[1mis_block_scope: \x1b[31m%s\x1b[0m", scope->is_block_scope ? "true" : "false");
-    fprintf(to, ", \x1b[1mdepth: \x1b[0;34m%u\x1b[0m", scope->depth);
     // scope.objects isn't printed because all the objects in it will
     // be printed in the scope.variables & scope.functions tables.
     fputs(", \x1b[1mvariables:\x1b[0m [", to);
@@ -283,7 +307,12 @@ void scopePrint(FILE *to, Scope *scope) {
     fputs("], \x1b[1mtypes:\x1b[0m [", to);
     tableMap(&scope->types, print_type_table_callback, (void *)to);
     fputs(", \x1b[1mchildren:\x1b[0m [", to);
-    PRINT_ARRAY(Scope *, scopePrint, to, scope->children);
+    for(usize i = 0; i < scope->children.length; ++i) {
+        scopeIDPrint(to, scope->children.children_scope_ids[i], true);
+        if(i + i < scope->children.length) { // If not the last element, print a comma followed by a space.
+            fputs(", ", to);
+        }
+    }
     fputs("]}", to);
 }
 
@@ -648,8 +677,6 @@ void astObjFree(ASTObj *obj) {
             arrayMap(&obj->as.fn.locals, free_object_callback, NULL);
             arrayFree(&obj->as.fn.locals);
             arrayFree(&obj->as.fn.defers); // The nodes are owned by the parent module.
-            scopeFree(obj->as.fn.scopes);
-            //astNodeFree(AS_NODE(obj->as.fn.body), true); // body is owned by parent module.
             break;
         case OBJ_STRUCT:
             arrayMap(&obj->as.structure.fields, free_object_callback, NULL);

@@ -19,7 +19,8 @@ void parserInit(Parser *p, Scanner *s, Compiler *c) {
     p->current.module = 0;
     p->current.allocator = NULL;
     p->current.function = NULL;
-    p->current.scope = NULL;
+    p->current.scope = EMPTY_SCOPE_ID();
+    p->current.block_scope_depth = 0;
     p->current.attribute = NULL;
     // set current and previous tokens to TK_GARBAGE with empty locations
     // so errors can be reported using them.
@@ -39,6 +40,8 @@ void parserFree(Parser *p) {
     p->current.module = 0;
     p->current.allocator = NULL;
     p->current.function = NULL;
+    p->current.scope = EMPTY_SCOPE_ID();
+    p->current.block_scope_depth = 0;
     if(p->current.attribute) {
         attributeFree(p->current.attribute);
         p->current.attribute = NULL;
@@ -142,22 +145,31 @@ static bool match(Parser *p, TokenType expected) {
 }
 
 static inline ScopeID enter_scope(Parser *p) {
-    VERIFY(p->current.function);
-    // Block scope (meaning scopes inside a function scope).
-    Scope *child = scopeNew(p->current.scope, p->current.scope->depth + 1, true);
-    ScopeID id = scopeAddChild(p->current.scope, p->current.module, child);
-    p->current.scope = child;
-    return id;
+    ASTModule *module = astProgramGetModule(p->program, p->current.module);
+    Scope *parent = astModuleGetScope(module, p->current.scope);
+    bool is_block_scope = p->current.block_scope_depth >= FUNCTION_SCOPE_DEPTH;
+    Scope *child = scopeNew(p->current.scope, is_block_scope);
+    ScopeID child_id = astModuleAddScope(module, child);
+    scopeAddChild(parent, child_id);
+    p->current.scope = child_id;
+    if(is_block_scope) {
+        p->current.block_scope_depth++;
+        child->depth = p->current.block_scope_depth;
+    }
+    return child_id;
 }
 
 static void leave_scope(Parser *p) {
-    VERIFY(p->current.scope != NULL); // depth > 0 (global/file/module scope).
-    p->current.scope = p->current.scope->parent;
+    ASTModule *module = astProgramGetModule(p->program, p->current.module);
+    p->current.scope = astModuleGetScope(module, p->current.scope)->parent;
+    if(p->current.block_scope_depth >= FUNCTION_SCOPE_DEPTH) {
+        p->current.block_scope_depth--;
+    }
 }
 
 static inline void add_variable_to_current_scope(Parser *p, ASTObj *var) {
-    VERIFY(p->current.scope != NULL);
-    ASTObj *prev = (ASTObj *)tableSet(&p->current.scope->variables, (void *)var->name, (void *)var);
+    Scope *scope = astModuleGetScope(astProgramGetModule(p->program, p->current.module), p->current.scope);
+    ASTObj *prev = (ASTObj *)tableSet(&scope->variables, (void *)var->name, (void *)var);
     if(prev != NULL) {
         error_at(p, var->name_location, stringFormat("Redefinition of variable '%s'.", var->name));
         hint(p, prev->name_location, "Previous definition here.");
@@ -165,8 +177,8 @@ static inline void add_variable_to_current_scope(Parser *p, ASTObj *var) {
 }
 
 static inline void add_function_to_current_scope(Parser *p, ASTObj *fn) {
-    VERIFY(p->current.scope != NULL);
-    ASTObj *prev = (ASTObj *)tableSet(&p->current.scope->functions, (void *)fn->name, (void *)fn);
+    Scope *scope = astModuleGetScope(astProgramGetModule(p->program, p->current.module), p->current.scope);
+    ASTObj *prev = (ASTObj *)tableSet(&scope->functions, (void *)fn->name, (void *)fn);
     if(prev != NULL) {
         error_at(p, fn->name_location, stringFormat("Redefinition of function '%s'.", fn->name));
         hint(p, prev->name_location, "Previous definition here.");
@@ -174,8 +186,8 @@ static inline void add_function_to_current_scope(Parser *p, ASTObj *fn) {
 }
 
 static inline void add_structure_to_current_scope(Parser *p, ASTObj *structure) {
-    VERIFY(p->current.scope != NULL);
-    ASTObj *prev = (ASTObj *)tableSet(&p->current.scope->structures, (void *)structure->name, (void *)structure);
+    Scope *scope = astModuleGetScope(astProgramGetModule(p->program, p->current.module), p->current.scope);
+    ASTObj *prev = (ASTObj *)tableSet(&scope->structures, (void *)structure->name, (void *)structure);
     if(prev != NULL) {
         error_at(p, structure->name_location, stringFormat("Redefinition of struct '%s'.", structure->name));
         hint(p, prev->name_location, "Previous definition here.");
@@ -183,8 +195,8 @@ static inline void add_structure_to_current_scope(Parser *p, ASTObj *structure) 
 }
 
 static ASTObj *find_variable_in_current_scope(Parser *p, ASTString name) {
-    VERIFY(p->current.scope != NULL);
-    TableItem *i = tableGet(&p->current.scope->variables, (void *)name);
+    Scope *scope = astModuleGetScope(astProgramGetModule(p->program, p->current.module), p->current.scope);
+    TableItem *i = tableGet(&scope->variables, (void *)name);
     if(i) {
         return (ASTObj *)i->value;
     }
@@ -193,12 +205,16 @@ static ASTObj *find_variable_in_current_scope(Parser *p, ASTString name) {
 
 static inline ScopeID enter_function(Parser *p, ASTObj *fn) {
     p->current.function = fn;
+    p->current.block_scope_depth = FUNCTION_SCOPE_DEPTH; // FIXME: this won't work with closures.
     return enter_scope(p);
 }
 
 static inline void leave_function(Parser *p) {
-    p->current.function = NULL;
+    // FIXME: find a better way to represent function_scope_depth + 1.
+    VERIFY(p->current.block_scope_depth == FUNCTION_SCOPE_DEPTH + 1); // FIXME: this won't work with closures.
     leave_scope(p);
+    p->current.function = NULL;
+    p->current.block_scope_depth = 0;
 }
 
 static void store_attribute(Parser *p, Attribute *attr) {
@@ -436,8 +452,7 @@ static ASTNode *parse_call_expr(Parser *p, ASTNode *callee) {
         arrayFree(&args);
         return NULL;
     }
-    // FIXME: How to represent an empty ScopeID?
-    ASTListNode *arguments = AS_LIST_NODE(astNewListNode(p->current.allocator, ND_ARGS, loc, (ScopeID){.depth = 0, .module = 0, .index = 0}, arrayLength(&args)));
+    ASTListNode *arguments = AS_LIST_NODE(astNewListNode(p->current.allocator, ND_ARGS, loc, EMPTY_SCOPE_ID(), arrayLength(&args)));
     arrayCopy(&arguments->nodes, &args);
     arrayFree(&args);
     return astNewBinaryNode(p->current.allocator, ND_CALL, locationMerge(callee->location, previous(p).location), callee, AS_NODE(arguments));
@@ -535,7 +550,8 @@ static ASTNode *parse_block(Parser *p, ScopeID scope, ASTNode *(*parse_callback)
         }
         if(node) {
             arrayPush(&nodes, (void *)node);
-            if(NODE_IS(node, ND_RETURN) && scope.depth == FUNCTION_SCOPE_DEPTH) {
+            // FIXME: find a better way to represent function_scope_depth + 1.
+            if(NODE_IS(node, ND_RETURN) && p->current.block_scope_depth == FUNCTION_SCOPE_DEPTH + 1) {
                 cf = CF_ALWAYS_RETURNS;
                 unreachable = true;
             } else {
@@ -696,7 +712,7 @@ static Type *new_fn_type(Parser *p, Type *return_type, Array parameters) {
     stringAppend(&name, ") -> %s", return_type ? return_type->name : "void");
     ty->name = astProgramAddString(p->program, name);
 
-    return scopeAddType(astProgramGetModule(p->program, p->current.module)->scope, ty);
+    return scopeAddType(astProgramGetModule(p->program, p->current.module)->module_scope, ty);
 }
 
 // fields: Array<ASTObj *> (OBJ_VAR)
@@ -712,7 +728,7 @@ static Type *new_struct_type(Parser *p, ASTString name, Array fields) {
         arrayPush(field_types, (void *)member->data_type);
     }
 
-    return scopeAddType(astProgramGetModule(p->program, p->current.module)->scope, ty);
+    return scopeAddType(astProgramGetModule(p->program, p->current.module)->module_scope, ty);
 }
 
 static Type *parse_type(Parser *p);
@@ -762,7 +778,7 @@ static Type *parse_type_from_identifier(Parser *p) {
     NEW0(ty);
     typeInit(ty, TY_ID, name, p->current.module, 0);
     ty->decl_location = loc;
-    return scopeAddType(astProgramGetModule(p->program, p->current.module)->scope, ty);
+    return scopeAddType(astProgramGetModule(p->program, p->current.module)->module_scope, ty);
 }
 
 // complex_type -> fn_type | identifier_type
@@ -792,7 +808,7 @@ static Type *parse_type(Parser *p) {
         NEW0(ptr);
         typeInit(ptr, TY_PTR, ptr_name, p->current.module, 8); // FIXME: don't use magic number for ptr type size here.
         ptr->as.ptr.inner_type = ty;
-        ty = scopeAddType(astProgramGetModule(p->program, p->current.module)->scope, ptr);
+        ty = scopeAddType(astProgramGetModule(p->program, p->current.module)->module_scope, ptr);
     }
     return ty;
 }
@@ -1065,9 +1081,9 @@ static void synchronize(Parser *p) {
     }
 }
 
-static void init_primitive_types(ASTProgram *prog, ASTModule *root_module) {
+static void init_primitive_types(ASTProgram *prog, Scope *root_module_scope) {
 // The ModuleID of the root module is always 0.
-#define DEF(typename, type, name, size) {Type *ty; NEW0(ty); typeInit(ty, (type), astProgramAddString(prog, (name)), (ModuleID)0, (size)); prog->primitives.typename = scopeAddType(root_module->scope, ty);}
+#define DEF(typename, type, name, size) {Type *ty; NEW0(ty); typeInit(ty, (type), astProgramAddString(prog, (name)), (ModuleID)0, (size)); prog->primitives.typename = scopeAddType(root_module_scope, ty);}
 
     // FIXME: do we need to add the typenames to the string table (because they are string literals)?
     // NOTE: Update IS_PRIMITIVE() in Types.h when adding new primitives.
@@ -1094,8 +1110,9 @@ bool parserParse(Parser *p, ASTProgram *prog) {
     // Create the root module.
     ASTModule *root_module = astModuleNew(astProgramAddString(prog, "___root_module___"));
     p->current.module = astProgramAddModule(prog, root_module);
-    p->current.scope = root_module->scope;
-    init_primitive_types(prog, root_module);
+    root_module->id = p->current.module;
+    p->current.scope = astModuleGetModuleScopeID(root_module);
+    init_primitive_types(prog, root_module->module_scope);
     p->current.allocator = &root_module->ast_allocator.alloc;
 
     // TODO: move this to parse_module_body() when module suppport is added.
@@ -1103,32 +1120,32 @@ bool parserParse(Parser *p, ASTProgram *prog) {
         if(match(p, TK_FN)) {
             ASTObj *fn = parse_function_decl(p, true);
             if(fn != NULL) {
-                arrayPush(&root_module->scope->objects, (void *)fn);
-                tableSet(&root_module->scope->functions, (void *)fn->name, (void *)fn);
+                arrayPush(&root_module->module_scope->objects, (void *)fn);
+                tableSet(&root_module->module_scope->functions, (void *)fn->name, (void *)fn);
             }
         } else if(match(p, TK_VAR)) {
             Location var_loc = previous(p).location;
-            ASTNode *global = parse_variable_decl(p, true, true, &root_module->scope->objects, &var_loc);
+            ASTNode *global = parse_variable_decl(p, true, true, &root_module->module_scope->objects, &var_loc);
             if(!consume(p, TK_SEMICOLON)) {
                 continue;
             }
             if(global != NULL) {
                 arrayPush(&root_module->globals, (void *)global);
                 // The object will be the last element in the scope's object array.
-                ASTObj *var = ARRAY_GET_AS(ASTObj *, &root_module->scope->objects, arrayLength(&root_module->scope->objects) - 1);
-                tableSet(&root_module->scope->variables, (void *)var->name, (void *)var);
+                ASTObj *var = ARRAY_GET_AS(ASTObj *, &root_module->module_scope->objects, arrayLength(&root_module->module_scope->objects) - 1);
+                tableSet(&root_module->module_scope->variables, (void *)var->name, (void *)var);
             }
         } else if(match(p, TK_STRUCT)) {
             ASTObj *structure = parse_struct_decl(p);
             if(structure != NULL) {
-                arrayPush(&root_module->scope->objects, (void *)structure);
-                tableSet(&root_module->scope->structures, (void *)structure->name, (void *)structure);
+                arrayPush(&root_module->module_scope->objects, (void *)structure);
+                tableSet(&root_module->module_scope->structures, (void *)structure->name, (void *)structure);
             }
         } else if(match(p, TK_EXTERN)) {
             ASTObj *extern_decl = parse_extern_decl(p);
             if(extern_decl != NULL) {
-                arrayPush(&root_module->scope->objects, (void *)extern_decl);
-                tableSet(&root_module->scope->functions, (void *)extern_decl->name, (void *)extern_decl);
+                arrayPush(&root_module->module_scope->objects, (void *)extern_decl);
+                tableSet(&root_module->module_scope->functions, (void *)extern_decl->name, (void *)extern_decl);
             }
         } else if(match(p, TK_HASH)) {
             Attribute *attr = parse_attribute(p);

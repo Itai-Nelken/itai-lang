@@ -10,6 +10,7 @@
 typedef struct codegen {
     String output_buffer;
     ASTProgram *program;
+    ModuleID current_module;
     ASTObj *current_function;
     Table fn_type_names; // Table<ASTString, ASTString> (ilc typename, C typename)
     u32 fn_typename_counter;
@@ -18,6 +19,8 @@ typedef struct codegen {
 static void codegen_init(Codegen *cg, ASTProgram *prog) {
     cg->output_buffer = stringNew(1024); // start with a 1kb buffer.
     cg->program = prog;
+    cg->current_module = 0;
+    cg->current_function = NULL;
     tableInit(&cg->fn_type_names, NULL, NULL);
     cg->fn_typename_counter = 0;
 }
@@ -25,6 +28,8 @@ static void codegen_init(Codegen *cg, ASTProgram *prog) {
 static void codegen_free(Codegen *cg) {
     stringFree(cg->output_buffer);
     cg->program = NULL;
+    cg->current_module = 0;
+    cg->current_function = NULL;
     tableFree(&cg->fn_type_names);
     cg->fn_typename_counter = 0;
 }
@@ -167,8 +172,9 @@ static void gen_stmt(Codegen *cg, ASTNode *n) {
             break;
         case ND_BLOCK: {
             print(cg, "{\n");
-            bool is_function_scope = AS_LIST_NODE(n)->scope.depth == FUNCTION_SCOPE_DEPTH;
-            if(is_function_scope && cg->current_function->as.fn.return_type->type != TY_VOID) { // is function scope
+            Scope *scope = astModuleGetScope(astProgramGetModule(cg->program, cg->current_module), AS_LIST_NODE(n)->scope);
+            bool is_function_scope = scope->is_block_scope && scope->depth == FUNCTION_SCOPE_DEPTH;
+            if(is_function_scope && cg->current_function->as.fn.return_type->type != TY_VOID) {
                 gen_type(cg, cg->current_function->as.fn.return_type);
                 print(cg, " __ILC_INTERNAL_ID(return_value);\n\n");
             }
@@ -211,12 +217,6 @@ static void gen_stmt(Codegen *cg, ASTNode *n) {
             gen_expr(cg, AS_LOOP_NODE(n)->condition);
             print(cg, ") ");
             gen_stmt(cg, AS_LOOP_NODE(n)->body); // The newline is added by gen_stmt:ND_BLOCK.
-            break;
-        case ND_ASSIGN:
-            gen_variable(AS_BINARY_NODE(n)->lhs, cg);
-            print(cg, " = ");
-            gen_expr(cg, AS_BINARY_NODE(n)->rhs);
-            print(cg, ";\n");
             break;
         case ND_VAR_DECL:
             gen_variable(n, cg);
@@ -382,11 +382,11 @@ static void global_variable_callback(void *variable, void *codegen) {
     ASTNode *g = AS_NODE(variable);
     Codegen *cg = (Codegen *)codegen;
     if(NODE_IS(g, ND_ASSIGN)) {
-        gen_stmt(cg, g);
+        gen_expr(cg, g);
     } else {
         gen_variable(g, cg);
-        print(cg, ";\n");
     }
+    print(cg, ";\n");
 }
 
 static void module_callback(void *module, void *codegen) {
@@ -395,13 +395,13 @@ static void module_callback(void *module, void *codegen) {
 
     print(cg, "/* module %s */\n", m->name);
     print(cg, "\n// pre-declarations:\n");
-    arrayMap(&m->scope->objects, object_predecl_callback, codegen);
+    arrayMap(&m->module_scope->objects, object_predecl_callback, codegen);
     print(cg, "// function types:\n");
-    tableMap(&m->scope->types, gen_fn_types, codegen);
+    tableMap(&m->module_scope->types, gen_fn_types, codegen);
     print(cg, "\n// global variables:\n");
     arrayMap(&m->globals, global_variable_callback, codegen);
     print(cg, "\n// objects:\n");
-    arrayMap(&m->scope->objects, object_callback, codegen);
+    arrayMap(&m->module_scope->objects, object_callback, codegen);
     print(cg, "/* end module '%s' */\n\n", m->name);
 }
 

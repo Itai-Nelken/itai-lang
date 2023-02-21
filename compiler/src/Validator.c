@@ -121,11 +121,11 @@ static inline ASTNode *get_variable_node(ASTNode *n) {
 }
 
 static inline void enter_scope(Validator *v, ScopeID scope) {
-    v->current_scope = scopeGetChild(v->current_scope, scope);
+    v->current_scope = astModuleGetScope(astProgramGetModule(v->program, v->current_module), scope);
 }
 
 static inline void leave_scope(Validator *v) {
-    v->current_scope = v->current_scope->parent;
+    v->current_scope = astModuleGetScope(astProgramGetModule(v->program, v->current_module), v->current_scope->parent);
 }
 
 static ASTObj *find_global_var(Validator *v, ASTString name) {
@@ -142,13 +142,18 @@ static ASTObj *find_global_var(Validator *v, ASTString name) {
 
 static ASTObj *find_local_var(Validator *v, ASTString name) {
     VERIFY(v->current_function); // Local variables don't exist outside of a function.
-    Scope *scope = v->current_scope ? v->current_scope : v->current_function->as.fn.scopes;
-    while(scope) {
+    ASTModule *current_module = astProgramGetModule(v->program, v->current_module);
+    Scope *scope = v->current_scope;
+    while(scope != NULL) {
         TableItem *i = tableGet(&scope->variables, (void *)name);
         if(i) {
             return (ASTObj *)i->value;
         }
-        scope = scope->parent;
+        // FIXME: Allow astModuleGetScope() to return NULL in this case to remove this hacky if statement.
+        if(scope->parent.module == EMPTY_SCOPE_ID().module && scope->parent.index == EMPTY_SCOPE_ID().index) {
+            break;
+        }
+        scope = astModuleGetScope(current_module, scope->parent);
     }
     return NULL;
 }
@@ -171,7 +176,7 @@ static ASTObj *find_variable(Validator *v, ASTString name, bool *is_global) {
 
 static ASTObj *find_function(Validator *v, ASTString name) {
     ASTModule *current_module = astProgramGetModule(v->program, v->current_module);
-    TableItem *item = tableGet(&current_module->scope->functions, (void *)name);
+    TableItem *item = tableGet(&current_module->module_scope->functions, (void *)name);
     if(item != NULL) {
         return (ASTObj *)item->value;
     }
@@ -180,11 +185,9 @@ static ASTObj *find_function(Validator *v, ASTString name) {
 
 static ASTObj *find_struct(Validator *v, ASTString name) {
     ASTModule *current_module = astProgramGetModule(v->program, v->current_module);
-    for(usize i = 0; i < arrayLength(&current_module->scope->objects); ++i) {
-        ASTObj *obj = ARRAY_GET_AS(ASTObj *, &current_module->scope->objects, i);
-        if(obj->type == OBJ_STRUCT && obj->name == name) {
-            return obj;
-        }
+    TableItem *item = tableGet(&current_module->module_scope->structures, (void *)name);
+    if(item != NULL) {
+        return (ASTObj *)item->value;
     }
     return NULL;
 }
@@ -214,7 +217,7 @@ static Type *ptr_type(Validator *v, Type *inner) {
     typeInit(ptr, TY_PTR, name, v->current_module, 8);
     ptr->as.ptr.inner_type = inner;
 
-    return scopeAddType(astProgramGetModule(v->program, v->current_module)->scope, ptr);
+    return scopeAddType(astProgramGetModule(v->program, v->current_module)->module_scope, ptr);
 }
 
 static Type *get_expr_type(Validator *v, ASTNode *expr) {
@@ -774,7 +777,7 @@ static void validate_module_callback(void *module, usize index, void *validator)
     Validator *v = (Validator *)validator;
     v->current_module = (ModuleID)index;
     v->current_allocator = &m->ast_allocator.alloc;
-    v->current_scope = m->scope;
+    v->current_scope = m->module_scope;
 
     FOR(i, m->globals) {
         ASTNode *g = ARRAY_GET_AS(ASTNode *, &m->globals, i);
@@ -793,8 +796,8 @@ static void validate_module_callback(void *module, usize index, void *validator)
     }
 
     // objects
-    FOR(i, m->scope->objects) {
-        ASTObj *obj = ARRAY_GET_AS(ASTObj *, &m->scope->objects, i);
+    FOR(i, m->module_scope->objects) {
+        ASTObj *obj = ARRAY_GET_AS(ASTObj *, &m->module_scope->objects, i);
         validate_object(v, obj); // Note: no need to handle errors here as we want to validate all objects always.
     }
     v->current_allocator = NULL;
@@ -1047,7 +1050,7 @@ static void typecheck_module_callback(void *module, usize index, void *validator
     ASTModule *m = (ASTModule *)module;
     Validator *v = (Validator *)validator;
     v->current_module = (ModuleID)index;
-    v->current_scope = m->scope;
+    v->current_scope = m->module_scope;
 
     // Global variables
     FOR(i, m->globals) {
@@ -1056,9 +1059,9 @@ static void typecheck_module_callback(void *module, usize index, void *validator
     }
 
     // Objects
-    FOR(i, m->scope->objects) {
-        ASTObj *obj = ARRAY_GET_AS(ASTObj *, &m->scope->objects, i);
-        typecheck_object(v, obj); // Note: no need to handle errors as we wan't to typecheck all objects always.
+    FOR(i, m->module_scope->objects) {
+        ASTObj *obj = ARRAY_GET_AS(ASTObj *, &m->module_scope->objects, i);
+        typecheck_object(v, obj); // Note: no need to handle errors as we want to typecheck all objects always.
     }
 }
 
