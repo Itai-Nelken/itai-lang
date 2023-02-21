@@ -303,7 +303,9 @@ void scopePrint(FILE *to, Scope *scope) {
     fputs(", \x1b[1mvariables:\x1b[0m [", to);
     tableMap(&scope->variables, print_object_table_callback, (void *)to);
     fputs(", \x1b[1mfunctions:\x1b[0m [", to);
-    tableMap(&scope->variables, print_object_table_callback, (void *)to);
+    tableMap(&scope->functions, print_object_table_callback, (void *)to);
+    fputs(", \x1b[1mstructures:\x1b[0m [", to);
+    tableMap(&scope->structures, print_object_table_callback, (void *)to);
     fputs("], \x1b[1mtypes:\x1b[0m [", to);
     tableMap(&scope->types, print_type_table_callback, (void *)to);
     fputs(", \x1b[1mchildren:\x1b[0m [", to);
