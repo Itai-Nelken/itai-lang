@@ -650,6 +650,7 @@ ModuleID astProgramAddModule(ASTProgram *prog, ASTModule *module);
 
 /***
  * Get an ASTModule using its ModuleID from an ASTProgram.
+ * NOTE: This function will panic if [id] is invalid.
  *
  * @param prog The ASTProgram to get the module from.
  * @param id The ModuleID of the module to get.

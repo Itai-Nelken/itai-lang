@@ -204,8 +204,10 @@ ModuleID astProgramAddModule(ASTProgram *prog, ASTModule *module) {
 }
 
 ASTModule *astProgramGetModule(ASTProgram *prog, ModuleID id) {
-    // arrayGet() handles the id being out of bounds.
-    return ARRAY_GET_AS(ASTModule *, &prog->modules, id);
+    // arrayGet() returns NULL on invalid indexes.
+    ASTModule *m = ARRAY_GET_AS(ASTModule *, &prog->modules, id);
+    VERIFY(m != NULL);
+    return m;
 }
 
 
