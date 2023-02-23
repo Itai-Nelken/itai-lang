@@ -301,7 +301,7 @@ void scopeIDPrint(FILE *to, ScopeID scope_id, bool compact) {
 void scopePrint(FILE *to, Scope *scope) {
     fprintf(to, "Scope{\x1b[1mis_block_scope: \x1b[31m%s\x1b[0m", scope->is_block_scope ? "true" : "false");
     // scope.objects isn't printed because all the objects in it will
-    // be printed in the scope.variables & scope.functions tables.
+    // be printed in the scope.variables, scope.functions, & scope.structures tables.
     fputs(", \x1b[1mvariables:\x1b[0m [", to);
     tableMap(&scope->variables, print_object_table_callback, (void *)to);
     fputs("], \x1b[1mfunctions:\x1b[0m [", to);
