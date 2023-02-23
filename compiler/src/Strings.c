@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h> // memcpy(), memset()
+#include <stddef.h> // offsetof
 #include <stdarg.h>
 #include <stdbool.h>
 #include "common.h"
@@ -14,7 +15,8 @@ typedef struct __attribute__((packed)) string_header {
 } StringHeader;
 
 static inline StringHeader *from_str(String s) {
-    return &((StringHeader *)s)[-1];
+    //return &((StringHeader *)s)[-1];
+    return (StringHeader *)(s - offsetof(StringHeader, data));
 }
 
 static inline String to_str(StringHeader *h) {
