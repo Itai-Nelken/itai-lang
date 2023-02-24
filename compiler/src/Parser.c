@@ -632,9 +632,10 @@ static ASTNode *parse_while_loop_stmt(Parser *p) {
 static ASTNode *parse_defer_operand(Parser *p) {
     ASTNode *result = NULL;
     if(match(p, TK_LBRACE)) {
-        // FIXME: As variable declarations are not allowed, there is no need to enter a new scope,
-        //        but it isn't possible to get the current ScopeID so a new scope has to be entered
-        //        so it can be saved in the block.
+        // Note: Because variable declarations are not allowed in defer blocks,
+        //       a scope isn't needed. But it isn't possible to use the current scope
+        //       because then it would be exited twice which isn't possible.
+        //       Because of that, a new scope is entered altough it isn't needed.
         ScopeID scope = enter_scope(p);
         result = parse_block(p, scope, parse_expression_stmt);
         leave_scope(p);

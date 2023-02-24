@@ -51,7 +51,7 @@ typedef struct scope_id {
     usize index; // Index into the ASTModule::scopes array.
 } ScopeID;
 
-// FIXME: find a way to represent an empty ScopeID
+// FIXME: find a better way to represent an empty ScopeID
 #define EMPTY_SCOPE_ID() ((ScopeID){.module = 0, .index = (usize)-1})
 
 typedef struct scope {
