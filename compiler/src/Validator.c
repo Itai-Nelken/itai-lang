@@ -101,18 +101,19 @@ static inline bool is_callable(ASTObj *obj) {
 static Type *get_expr_type(Validator *v, ASTNode *expr);
 // Note: validate the node before providing it to this function.
 static inline bool is_variable(ASTNode *n) {
-    // Notes: Update get_variable() if condition is changed.
-    //        The operand of ND_DEREF must be a variable,
+    // Notes: Update get_variable_node() if condition is changed.
+    //        The operands of ND_DEREF & ND_ADDROG must be variables,
     //        so any nodes peovided MUST be validated with validate_ast()
-    //        first so no ND_DEREFs with non-variable operands
+    //        first so no ND_DEREFs & ND_ADDROF with non-variable operands
     //        are passed to this function.
-    return NODE_IS(n, ND_VARIABLE) || NODE_IS(n, ND_DEREF);
+    return NODE_IS(n, ND_VARIABLE) || NODE_IS(n, ND_DEREF) || NODE_IS(n, ND_ADDROF);
 }
 static inline ASTNode *get_variable_node(ASTNode *n) {
     switch(n->node_type) {
         case ND_VARIABLE:
             return n;
         case ND_DEREF:
+        case ND_ADDROF:
             VERIFY(NODE_IS(AS_UNARY_NODE(n)->operand, ND_VARIABLE));
             return AS_UNARY_NODE(n)->operand;
         default:
@@ -314,9 +315,8 @@ static ASTNode *validate_assignment(Validator *v, ASTNode *n) {
     if(NODE_IS(lhs, ND_VAR_DECL)) {
         ASTObj *var = AS_OBJ_NODE(lhs)->obj;
         // a) Check that the variable isn't being assigned itself.
-        // FIXME: check deref and addrof as well.
-        if(NODE_IS(rhs, ND_VARIABLE) && AS_OBJ_NODE(rhs)->obj == var) {
-            error(v, rhs->location, "Variable '%s' assigned to itself in declaration.", AS_OBJ_NODE(rhs)->obj->name);
+        if(is_variable(rhs) && AS_OBJ_NODE(get_variable_node(rhs))->obj == var) {
+            error(v, rhs->location, "Variable '%s' assigned to itself in declaration.", AS_OBJ_NODE(get_variable_node(rhs))->obj->name);
         }
         // b) Try to infer its type if necessary.
         if(var->data_type == NULL) {
@@ -386,13 +386,13 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
                 break;
             }
             // The following check is for ND_ADDROF & ND_DEREF only.
-            // It checks that the object the address of will be taken
+            // It checks that the object whose address will be taken
             // is an lvalue.
             if((NODE_IS(n, ND_ADDROF) || NODE_IS(n, ND_DEREF)) && !is_variable(operand)) {
                 error(v, operand->location, "Expected a variable.");
                 break;
             } else if(NODE_IS(n, ND_DEREF) && AS_OBJ_NODE(operand)->obj->data_type->type != TY_PTR) {
-                error(v, operand->location, "Expected variable to be of pointer type.");
+                error(v, operand->location, "Expected variable to be of a pointer type.");
                 break;
             }
             result = astNewUnaryNode(v->current_allocator, n->node_type, n->location, operand);
@@ -937,7 +937,7 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
         case ND_NUMBER_LITERAL:
         case ND_STRING_LITERAL:
         case ND_FUNCTION:
-        case ND_VARIABLE: // TODO: is it ok to ignore this node?
+        case ND_VARIABLE:
         case ND_PROPERTY_ACCESS:
             break;
         case ND_ARGS: // see note in validate_ast() for the reason this node is an error here.
