@@ -355,3 +355,24 @@ fn main() -> i32 {
 ```
 The C file has to be compiled to an object file (`.o`), and then the itai-lang compiler will link it to the program.
 
+## Struct destructuring
+It is possible to assign values stored in a `struct` to variables in a single declaration:
+```rust
+struct Values {
+	a: i32;
+	b: &str;
+}
+
+fn main() {
+	var values = Values{a: 42, b: "The Answer to the Ultimate Question of Life, the Universe, and Everything"};
+	var Values{a, b} = values;
+	// 'a' is 'values.a', and 'b' is 'values.b'
+}
+```
+
+The line `var Values{a, b} = values;` is equivalent to the following:
+```go
+var a = values.a;
+var b = values.b;
+```
+
