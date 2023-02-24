@@ -813,7 +813,6 @@ static bool typecheck_assignment(Validator *v, ASTNode *n) {
 }
 
 static bool typecheck_variable_declaration(Validator *v, ASTNode *decl) {
-    // FIXME: The validator already does this, change to check if type is 'void' later (if void becomes a type).
     if(AS_OBJ_NODE(decl)->obj->data_type == NULL) {
         error(v, decl->location, "Variable '%s' has no type.", AS_OBJ_NODE(decl)->obj->name);
         hint(v, AS_OBJ_NODE(decl)->obj->location, "Consider adding an explicit type here.");
