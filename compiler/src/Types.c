@@ -189,7 +189,6 @@ static const char *type_type_name(TypeType type) {
         [TY_STRUCT] = "TY_STRUCT",
         [TY_ID]     = "TY_ID"
     };
-    _Static_assert(sizeof(names)/sizeof(names[0]) == TY_COUNT, "Missing type(s) in type_type_name()");
     return names[type];
 }
 

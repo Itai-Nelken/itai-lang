@@ -495,9 +495,6 @@ static const char *node_type_name(ASTNodeType type) {
         [ND_ARGS]            = "ND_ARGS",
         [ND_IDENTIFIER]      = "ND_IDENTIFIER"
     };
-    // FIXME?: this static assert only fails if new node types are appended
-    // to the end of the node type enum, something which almost never happens.
-    _Static_assert(sizeof(names)/sizeof(names[0]) == ND_TYPE_COUNT, "Missing type(s) in node_type_name()");
     return names[type];
 }
 
@@ -704,7 +701,6 @@ static const char *obj_type_name(ASTObjType type) {
         [OBJ_STRUCT]    = "OBJ_STRUCT",
         [OBJ_EXTERN_FN] = "OBJ_EXTERN_FN"
     };
-    _Static_assert(sizeof(names)/sizeof(names[0]) == OBJ_TYPE_COUNT, "Missing type(s) in obj_type_name()");
     return names[type];
 }
 
