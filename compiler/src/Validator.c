@@ -314,6 +314,7 @@ static ASTNode *validate_assignment(Validator *v, ASTNode *n) {
     if(NODE_IS(lhs, ND_VAR_DECL)) {
         ASTObj *var = AS_OBJ_NODE(lhs)->obj;
         // a) Check that the variable isn't being assigned itself.
+        // FIXME: check deref and addrof as well.
         if(NODE_IS(rhs, ND_VARIABLE) && AS_OBJ_NODE(rhs)->obj == var) {
             error(v, rhs->location, "Variable '%s' assigned to itself in declaration.", AS_OBJ_NODE(rhs)->obj->name);
         }
@@ -546,8 +547,7 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
                     lhs_ty = lhs_ty->as.ptr.inner_type;
                 }
                 if(lhs_ty->type != TY_STRUCT) {
-                    // FIXME: Use lhs->location???
-                    error(v, rhs->location, "Field access on value of non-struct type '%s'.", type_name(lhs_ty));
+                    error(v, lhs->location, "Field access on value of non-struct type '%s'.", type_name(lhs_ty));
                     break;
                 }
                 ASTObj *s = find_struct(v, lhs_ty->name);
