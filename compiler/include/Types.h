@@ -27,8 +27,6 @@ typedef struct type {
     ASTString name;
     Location decl_location;
     ModuleID decl_module; // The module that contains the type.
-    int size;
-    //int align;
     union {
         struct {
             struct type *inner_type;
@@ -66,9 +64,8 @@ bool typeIsFunction(Type *ty);
  * @param type The type of the Type.
  * @param name The type's name.
  * @param decl_module The ModuleID of the module containing the type.
- * @param size The size of the type.
  ***/
-void typeInit(Type *ty, TypeType type, ASTString name, ModuleID decl_module, int size);
+void typeInit(Type *ty, TypeType type, ASTString name, ModuleID decl_module);
 
 /***
  * Free a Type.

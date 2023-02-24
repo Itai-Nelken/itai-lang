@@ -693,11 +693,7 @@ static Type *parse_primitive_type(Parser *p) {
 static Type *new_fn_type(Parser *p, Type *return_type, Array parameters) {
     Type *ty;
     NEW0(ty);
-    // FIXME: What should be the size of a function type?
-    //        zero because functions cannot be stored (copied/cloned)?
-    //        8 (size of a pointer in 64bit architectures)?
-    //        but what about closures/lambdas? the size of the implementing struct?
-    typeInit(ty, TY_FN, NULL, p->current.module, 0);
+    typeInit(ty, TY_FN, NULL, p->current.module);
     ty->as.fn.return_type = return_type;
     
     String name = stringCopy("fn(");
@@ -719,9 +715,7 @@ static Type *new_fn_type(Parser *p, Type *return_type, Array parameters) {
 static Type *new_struct_type(Parser *p, ASTString name, Array fields) {
     Type *ty;
     NEW0(ty);
-    // The size of the struct is calculated by the typechecker
-    // because we don't know all types (for example ID types have no size).
-    typeInit(ty, TY_STRUCT, name, p->current.module, 0);
+    typeInit(ty, TY_STRUCT, name, p->current.module);
     Array *field_types = &ty->as.structure.field_types;
     for(usize i = 0; i < fields.used; ++i) {
         ASTObj *member = ARRAY_GET_AS(ASTObj *, &fields, i);
@@ -776,7 +770,7 @@ static Type *parse_type_from_identifier(Parser *p) {
     Location loc = previous(p).location;
     Type *ty;
     NEW0(ty);
-    typeInit(ty, TY_ID, name, p->current.module, 0);
+    typeInit(ty, TY_ID, name, p->current.module);
     ty->decl_location = loc;
     return scopeAddType(astProgramGetModule(p->program, p->current.module)->module_scope, ty);
 }
@@ -806,7 +800,7 @@ static Type *parse_type(Parser *p) {
         ASTString ptr_name = astProgramAddString(p->program, stringFormat("&%s", ty->name));
         Type *ptr;
         NEW0(ptr);
-        typeInit(ptr, TY_PTR, ptr_name, p->current.module, 8); // FIXME: don't use magic number for ptr type size here.
+        typeInit(ptr, TY_PTR, ptr_name, p->current.module);
         ptr->as.ptr.inner_type = ty;
         ty = scopeAddType(astProgramGetModule(p->program, p->current.module)->module_scope, ptr);
     }
@@ -1092,16 +1086,15 @@ static void synchronize(Parser *p) {
     }
 }
 
-static void init_primitive_types(ASTProgram *prog, Scope *root_module_scope) {
-// The ModuleID of the root module is always 0.
-#define DEF(typename, type, name, size) {Type *ty; NEW0(ty); typeInit(ty, (type), astProgramAddString(prog, (name)), (ModuleID)0, (size)); prog->primitives.typename = scopeAddType(root_module_scope, ty);}
+static void init_primitive_types(ASTProgram *prog, ASTModule *root_module) {
+#define DEF(typename, type, name) {Type *ty; NEW0(ty); typeInit(ty, (type), astProgramAddString(prog, (name)), root_module->id); prog->primitives.typename = scopeAddType(root_module->module_scope, ty);}
 
     // FIXME: do we need to add the typenames to the string table (because they are string literals)?
     // NOTE: Update IS_PRIMITIVE() in Types.h when adding new primitives.
-    DEF(void_, TY_VOID, "void", 0);
-    DEF(int32, TY_I32, "i32", 4);
-    DEF(uint32, TY_U32, "u32", 4);
-    DEF(str, TY_STR, "str", 8); // FIXME: 8 bytes is the pointer size in 64bit architectures, this should be arch independent.
+    DEF(void_, TY_VOID, "void");
+    DEF(int32, TY_I32, "i32");
+    DEF(uint32, TY_U32, "u32");
+    DEF(str, TY_STR, "str");
 
 #undef DEF
 }
@@ -1123,7 +1116,7 @@ bool parserParse(Parser *p, ASTProgram *prog) {
     p->current.module = astProgramAddModule(prog, root_module);
     root_module->id = p->current.module;
     p->current.scope = astModuleGetModuleScopeID(root_module);
-    init_primitive_types(prog, root_module->module_scope);
+    init_primitive_types(prog, root_module);
     p->current.allocator = &root_module->ast_allocator.alloc;
 
     // TODO: move this to parse_module_body() when module suppport is added.

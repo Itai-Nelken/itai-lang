@@ -6,12 +6,11 @@
 #include "Array.h"
 #include "Types.h"
 
-void typeInit(Type *ty, TypeType type, ASTString name, ModuleID decl_module, int size) {
+void typeInit(Type *ty, TypeType type, ASTString name, ModuleID decl_module) {
     ty->type = type;
     ty->name = name;
     ty->decl_module = decl_module;
     ty->decl_location = EMPTY_LOCATION();
-    ty->size = size;
     switch(type) {
         case TY_VOID:
         case TY_I32:
@@ -213,7 +212,6 @@ void typePrint(FILE *to, Type *ty, bool compact) {
     } else {
         fprintf(to, "Type{\x1b[1mtype:\x1b[0m %s", type_type_name(ty->type));
         fprintf(to, ", \x1b[1mname:\x1b[0m '%s'", ty->name);
-        fprintf(to, ", \x1b[1msize:\x1b[0m %d", ty->size);
         switch(ty->type) {
             case TY_FN:
                 fputs(", \x1b[1mreturn_type:\x1b[0m ", to);

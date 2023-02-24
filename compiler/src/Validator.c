@@ -214,8 +214,7 @@ static Type *ptr_type(Validator *v, Type *inner) {
     Type *ptr;
     NEW0(ptr);
     ASTString name = astProgramAddString(v->program, stringFormat("&%s", inner->name));
-    // FIXME: check fixme about pointer type sizes in Parser.c
-    typeInit(ptr, TY_PTR, name, v->current_module, 8);
+    typeInit(ptr, TY_PTR, name, v->current_module);
     ptr->as.ptr.inner_type = inner;
 
     return scopeAddType(astProgramGetModule(v->program, v->current_module)->module_scope, ptr);
@@ -999,12 +998,10 @@ static bool is_recursive_struct(Type *root_struct_type, Type *field_type) {
 
 static bool typecheck_struct(Validator *v, ASTObj *s) {
     bool had_error = false;
-    usize size = 0;
     Scope *scope = astModuleGetScope(astProgramGetModule(v->program, v->current_module), s->as.structure.scope);
     FOR(i, scope->objects) {
         ASTObj *field = ARRAY_GET_AS(ASTObj *, &scope->objects, i);
         VERIFY(field->type == OBJ_VAR);
-        size += field->data_type->size;
         if(field->data_type == NULL) {
             error(v, field->location, "Field '%s' in struct '%s' has no type.", field->name, s->name);
             had_error = true;
@@ -1019,7 +1016,6 @@ static bool typecheck_struct(Validator *v, ASTObj *s) {
             had_error = true;
         }
     }
-    s->data_type->size = size;
     return !had_error; // true on success, false on failure.
 }
 
