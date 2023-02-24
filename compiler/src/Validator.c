@@ -798,6 +798,7 @@ static void validate_module_callback(void *module, usize index, void *validator)
 /** Typechecker **/
 
 static bool typecheck_assignment(Validator *v, ASTNode *n) {
+    TRY(typecheck_ast(v, AS_BINARY_NODE(n)->lhs));
     TRY(typecheck_ast(v, AS_BINARY_NODE(n)->rhs));
     Type *lhs_ty = get_expr_type(v, AS_BINARY_NODE(n)->lhs);
     Type *rhs_ty = get_expr_type(v, AS_BINARY_NODE(n)->rhs);

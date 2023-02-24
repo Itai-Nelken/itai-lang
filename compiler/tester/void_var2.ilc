@@ -1,0 +1,8 @@
+/// expect error: Error: A variable cannot have the type 'void'.
+
+fn returns_nothing() {}
+
+fn main() {
+	var a = returns_nothing();
+}
+
