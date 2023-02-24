@@ -303,7 +303,6 @@ static ASTNode *validate_assignment(Validator *v, ASTNode *n) {
     }
     if(!(NODE_IS(lhs, ND_VARIABLE) || NODE_IS(lhs, ND_DEREF) || NODE_IS(lhs, ND_VAR_DECL) || NODE_IS(lhs, ND_PROPERTY_ACCESS))) {
         error(v, lhs->location, "Invalid assignment target (only variables can be assigned).");
-        AS_BINARY_NODE(n)->lhs = lhs; // hack to make the call below also free [lhs].
         return NULL;
     }
     // 2) Validate [rhs] - the expression whose value is being assigned to the variable.
@@ -830,7 +829,6 @@ static bool typecheck_ast(Validator *v, ASTNode *n) {
         case ND_VAR_DECL:
             TRY(typecheck_variable_declaration(v, n));
             break;
-        //case ND_VARIABLE:
         case ND_ASSIGN:
             TRY(typecheck_assignment(v, n));
             break;
