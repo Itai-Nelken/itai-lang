@@ -53,6 +53,11 @@ static void print(Codegen *cg, const char *format, ...) {
 //    return false;
 //}
 
+// Note: [prefix] & [postfix] can be NULL if not needed.
+static void gen_internal_id(Codegen *cg, const char *name, const char *prefix, const char *postfix) {
+    print(cg, "%s___ilc_internal__%s%s", name, prefix ? prefix : "", postfix ? postfix : "");
+}
+
 static void gen_type(Codegen *cg, Type *ty) {
     //if(!ty) {
     //    print(cg, "void");
@@ -164,7 +169,7 @@ static void gen_stmt(Codegen *cg, ASTNode *n) {
     switch(n->node_type) {
         case ND_RETURN:
             if(AS_UNARY_NODE(n)->operand) {
-                print(cg, "__ILC_INTERNAL_ID(return_value) = ");
+                gen_internal_id(cg, "return_value", NULL, " = ");
                 gen_expr(cg, AS_UNARY_NODE(n)->operand);
                 print(cg, ";\n");
             }
@@ -176,7 +181,8 @@ static void gen_stmt(Codegen *cg, ASTNode *n) {
             bool is_function_scope = scope->is_block_scope && scope->depth == FUNCTION_SCOPE_DEPTH;
             if(is_function_scope && cg->current_function->as.fn.return_type->type != TY_VOID) {
                 gen_type(cg, cg->current_function->as.fn.return_type);
-                print(cg, " __ILC_INTERNAL_ID(return_value);\n\n");
+                print(cg, " ");
+                gen_internal_id(cg, "return_value", " ", ";\n\n");
             }
             print(cg, "// start block\n");
             for(usize i = 0; i < AS_LIST_NODE(n)->nodes.used; ++i) {
@@ -195,7 +201,7 @@ static void gen_stmt(Codegen *cg, ASTNode *n) {
                 print(cg, "// end defers\n");
                 print(cg, "return");
                 if(cg->current_function->as.fn.return_type->type != TY_VOID) {
-                    print(cg, " __ILC_INTERNAL_ID(return_value)");
+                    gen_internal_id(cg, "return_value", " ", NULL);
                 }
                 print(cg, ";\n");
             }
@@ -412,7 +418,6 @@ static void gen_header(Codegen *cg) {
     print(cg, "#include <stdint.h>\n#include <stdbool.h>\n\n");
     print(cg, "// primitive types:\n");
     print(cg, "typedef int32_t i32;\ntypedef uint32_t u32;\ntypedef const char *str;\n\n");
-    print(cg, "// macros\n#define __ILC_INTERNAL_ID(id) ____ilc_internal_##id\n\n");
 }
 
 bool codegenGenerate(FILE *output, ASTProgram *prog) {
