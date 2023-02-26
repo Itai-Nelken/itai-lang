@@ -75,7 +75,7 @@ To get the state of a result type, the `is_error() -> bool` bound function is us
 ### Extracting the value from Optional & Result types
 Optional & Result types must be unwrapped to extract the value stored in them. There are three ways to do so:
 1) Force unwrap using the `!` operator: panic if there is no value.
-2) `or` blocks: executed if the optional is empty/the result contains an error. If the type is a result type, the error is is accessible using the parameter. `or` blocks must return.
+2) `or` blocks: executed if the optional is empty/the result contains an error. If the type is a result type, the error is accessible using the parameter. `or` blocks must return.
 3) Propagate the error using the `?` operator: used to let caller handle the error.
 4) Using the `value_or(T) -> T` bound function: for default values.
 
