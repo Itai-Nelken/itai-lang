@@ -152,7 +152,7 @@ If a function needs to return nothing or an error, the special `void!` type is u
 ```rust
 import "std/io";
 
-fn error_or_nothing() -> void {
+fn error_or_nothing() -> void! {
     if !something_that_might_fail() {
         return Error::new("The thing failed");
     }
