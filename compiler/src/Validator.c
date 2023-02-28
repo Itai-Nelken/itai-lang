@@ -592,6 +592,7 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
     return result;
 }
 
+// Note: [ptr_err_loc] MUST be valid if [allow_pointers] is false.
 static bool validate_type(Validator *v, Type **ty, bool allow_pointers, Location *ptr_err_loc) {
     // *ty might be NULL if the type wasn't inferred yet.
     if(*ty == NULL) {
@@ -642,6 +643,11 @@ static bool validate_function(Validator *v, ASTObj *fn) {
         Type **ty = (Type **)(fn->data_type->as.fn.parameter_types.data + i);
         validate_type(v, ty, true, NULL);
     }
+
+    // TODO: return if above type validations fail.
+
+    // FIXME: Use fn.type_location.
+    TRY(validate_type(v, &fn->as.fn.return_type, false, &fn->location));
 
     ASTListNode *new_body = AS_LIST_NODE(astNewListNode(v->current_allocator,
                                                         fn->as.fn.body->header.node_type,

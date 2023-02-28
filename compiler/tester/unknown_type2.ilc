@@ -1,0 +1,4 @@
+/// expect error: Error: Unknown type 'T'.
+
+fn main() -> T {}
+

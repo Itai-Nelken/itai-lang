@@ -165,8 +165,8 @@ Error: Expected '{' but got '<eof>'.
 which is wrong (there is no line 3).
 */
 
-/* 
-Error: reason
+/* Error/Hint format:
+Error/Hint: reason
 ---- file.ext:<line>:<char>
  1 |
  2 | fn test(abc) {
