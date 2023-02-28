@@ -55,7 +55,7 @@ static void print(Codegen *cg, const char *format, ...) {
 
 // Note: [prefix] & [postfix] can be NULL if not needed.
 static void gen_internal_id(Codegen *cg, const char *name, const char *prefix, const char *postfix) {
-    print(cg, "%s___ilc_internal__%s%s", name, prefix ? prefix : "", postfix ? postfix : "");
+    print(cg, "%s___ilc_internal__%s%s", prefix ? prefix : "", name, postfix ? postfix : "");
 }
 
 static void gen_type(Codegen *cg, Type *ty) {
