@@ -172,7 +172,7 @@ static inline void add_variable_to_current_scope(Parser *p, ASTObj *var) {
     ASTObj *prev = (ASTObj *)tableSet(&scope->variables, (void *)var->name, (void *)var);
     if(prev != NULL) {
         error_at(p, var->name_location, stringFormat("Redefinition of variable '%s'.", var->name));
-        hint(p, prev->name_location, "Previous definition here.");
+        hint(p, prev->name_location, "Previous definition was here.");
     }
 }
 
@@ -181,7 +181,7 @@ static inline void add_function_to_current_scope(Parser *p, ASTObj *fn) {
     ASTObj *prev = (ASTObj *)tableSet(&scope->functions, (void *)fn->name, (void *)fn);
     if(prev != NULL) {
         error_at(p, fn->name_location, stringFormat("Redefinition of function '%s'.", fn->name));
-        hint(p, prev->name_location, "Previous definition here.");
+        hint(p, prev->name_location, "Previous definition was here.");
     }
 }
 
@@ -190,7 +190,7 @@ static inline void add_structure_to_current_scope(Parser *p, ASTObj *structure) 
     ASTObj *prev = (ASTObj *)tableSet(&scope->structures, (void *)structure->name, (void *)structure);
     if(prev != NULL) {
         error_at(p, structure->name_location, stringFormat("Redefinition of struct '%s'.", structure->name));
-        hint(p, prev->name_location, "Previous definition here.");
+        hint(p, prev->name_location, "Previous definition was here.");
     }
 }
 
@@ -907,7 +907,7 @@ static ASTNode *parse_function_body(Parser *p) {
         ASTObj *existing_obj = find_variable_in_current_scope(p, var_obj->name);
         if(existing_obj) {
             error_at(p, var_node->location, stringFormat("Redeclaration of local variable '%s'.", var_obj->name));
-            hint(p, existing_obj->location, "Previous declaration here.");
+            hint(p, existing_obj->location, "Previous declaration was here.");
             // NOTE: arrayPop() is used even though we already have a reference
             //       to the object we want to free because we also want to remove
             //       the object from the array.

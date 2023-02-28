@@ -311,6 +311,7 @@ static ASTNode *validate_assignment(Validator *v, ASTNode *n) {
         // a) Check that the variable isn't being assigned itself.
         if(is_variable(rhs) && AS_OBJ_NODE(get_variable_node(rhs))->obj == var) {
             error(v, rhs->location, "Variable '%s' assigned to itself in declaration.", AS_OBJ_NODE(get_variable_node(rhs))->obj->name);
+            return NULL;
         }
         // b) Try to infer its type if necessary.
         if(var->data_type == NULL) {
@@ -724,8 +725,8 @@ static bool validate_object(Validator *v, ASTObj *obj) {
         case OBJ_FN: {
             ASTObj *prev_decl = NULL;
             if(global_id_exists(v, obj, &prev_decl)) {
-                error(v, obj->location, "Symbol '%s' already exists.", obj->name);
-                hint(v, prev_decl->location, "Previous declaration was here.");
+                error(v, obj->name_location, "Symbol '%s' already exists.", obj->name);
+                hint(v, prev_decl->name_location, "Previous declaration was here.");
             }
             return validate_function(v, obj);
         }
@@ -734,8 +735,8 @@ static bool validate_object(Validator *v, ASTObj *obj) {
         case OBJ_EXTERN_FN: {
             ASTObj *prev_decl = NULL;
             if(global_id_exists(v, obj, &prev_decl)) { // TODO: unduplicate with 'case OBJ_FN'.
-                error(v, obj->location, "Symbol '%s' already exists.", obj->name);
-                hint(v, prev_decl->location, "Previous declaration was here.");
+                error(v, obj->name_location, "Symbol '%s' already exists.", obj->name);
+                hint(v, prev_decl->name_location, "Previous declaration was here.");
             }
             return validate_extern_fn(v, obj);
         }
