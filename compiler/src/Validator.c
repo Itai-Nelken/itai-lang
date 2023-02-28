@@ -488,12 +488,15 @@ static ASTNode *validate_ast(Validator *v, ASTNode *n) {
             if(v->had_error)
                 break;
             Array *parameters = &callee->data_type->as.fn.parameter_types;
-            if(parameters->used != arguments->nodes.used) {
+            if(arrayLength(parameters) != arrayLength(&arguments->nodes)) {
                 error(v, arguments->header.location, "Expected %zu %s but got %zu.",
-                      parameters->used, parameters->used == 1 ? "argument" : "arguments",
+                      arrayLength(parameters), arrayLength(parameters) == 1 ? "argument" : "arguments",
                       arguments->nodes.used);
+                hint(v, callee->name_location, "Function '%s' defined here with %zu %s.",
+                    callee->name,
+                    arrayLength(parameters),
+                    arrayLength(parameters) == 1 ? "parameter" : "parameters");
             }
-            // Free [arguments] (rhs) but not the actual nodes because they where already freed.
             result = astNewBinaryNode(v->current_allocator, n->node_type, n->location, callee_node, AS_NODE(new_args));
             break;
         }
