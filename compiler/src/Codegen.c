@@ -178,10 +178,10 @@ static void gen_stmt(Codegen *cg, ASTNode *n) {
         case ND_BLOCK: {
             print(cg, "{\n");
             Scope *scope = astModuleGetScope(astProgramGetModule(cg->program, cg->current_module), AS_LIST_NODE(n)->scope);
-            bool is_function_scope = scope->is_block_scope && scope->depth == FUNCTION_SCOPE_DEPTH;
+            // FIXME: find a better way to represent FUNCTION_SCOPE_DEPTH + 1
+            bool is_function_scope = scope->is_block_scope && scope->depth == FUNCTION_SCOPE_DEPTH + 1;
             if(is_function_scope && cg->current_function->as.fn.return_type->type != TY_VOID) {
                 gen_type(cg, cg->current_function->as.fn.return_type);
-                print(cg, " ");
                 gen_internal_id(cg, "return_value", " ", ";\n\n");
             }
             print(cg, "// start block\n");
