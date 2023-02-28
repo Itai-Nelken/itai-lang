@@ -82,12 +82,7 @@ static inline const char *type_name(Type *ty) {
 }
 
 static bool check_types(Validator *v, Location loc, Type *a, Type *b) {
-    if(!a || !b) {
-        // It is an error for a type to be NULL.
-        error(v, loc, "Type mismatch: expected '%s' but got '%s'.", type_name(a), type_name(b));
-        return false;
-    }
-    if(!typeEqual(a, b)) {
+    if(a == NULL || b == NULL || !typeEqual(a, b)) {
         error(v, loc, "Type mismatch: expected '%s' but got '%s'.", type_name(a), type_name(b));
         return false;
     }
