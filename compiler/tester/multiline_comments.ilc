@@ -1,7 +1,7 @@
 /// expect success
 
 /***
- * This tests makes sure the scanner properly
+ * This test makes sure the scanner properly
  * handles multiline comments.
  * single line comments are tested in all tests
  * because of the '///' header.
