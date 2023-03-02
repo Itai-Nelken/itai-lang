@@ -72,6 +72,14 @@ size_t arrayPush(Array *a, void *value);
 void *arrayPop(Array *a);
 
 /***
+ * Insert [value] at the start of the array (shofst the whole array right).
+ *
+ * @param a The Array to use.
+ * @param value The value to prepend.
+ ***/
+void arrayPrepend(Array *a, void *value);
+
+/***
  * Insert a value at index [index].
  * NOTE: will abort if index is out of bounds.
  *
