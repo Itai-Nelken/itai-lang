@@ -816,6 +816,7 @@ static ASTNode *parse_variable_decl(Parser *p, bool allow_initializer, bool add_
     ASTString name = TRY(ASTString, parse_identifier(p));
     Location name_loc = previous(p).location;
 
+    // For variables, the type is NULL until it is parsed or infered.
     Type *type = NULL;
     if(match(p, TK_COLON)) {
         type = TRY(Type *, parse_type(p));
