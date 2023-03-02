@@ -1,0 +1,8 @@
+/// expect error: Error: Expected '<identifier>' but got '+'.
+
+struct T {
+	+;
+}
+
+fn main() {}
+

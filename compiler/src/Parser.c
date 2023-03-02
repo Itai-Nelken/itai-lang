@@ -869,7 +869,7 @@ static ASTObj *parse_struct_decl(Parser *p) {
     Array fields;
     arrayInit(&fields);
     while(current(p).type != TK_RBRACE) {
-        parse_variable_decl(p, false, false, &fields, NULL);
+        TRY(ASTNode *, parse_variable_decl(p, false, false, &fields, NULL));
         ASTObj *field = ARRAY_GET_AS(ASTObj *, &fields, arrayLength(&fields) - 1);
         arrayPush(&scope->objects, (void *)field);
         add_variable_to_current_scope(p, field);
