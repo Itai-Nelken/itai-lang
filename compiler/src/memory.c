@@ -21,3 +21,4 @@ void *allocatorReallocate(Allocator *a, void *ptr, size_t size) {
 void allocatorFree(Allocator *a, void *ptr) {
     a->freeFn(a->user_data, ptr);
 }
+
