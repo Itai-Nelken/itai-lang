@@ -308,18 +308,15 @@ static void object_callback(void *object, void *codegen) {
     Codegen *cg = (Codegen *)codegen;
 
     switch(obj->type) {
-        case OBJ_VAR:
-        case OBJ_EXTERN_FN:
-            // nothing
+        case OBJ_VAR: // Variables are generated when declared (ND_VAR_DECL).
+        case OBJ_EXTERN_FN: // Extern declarations are generated in gen_object_predecl().
+        case OBJ_STRUCT: // Structs are generated in gen_module().
+            // Nothing
             break;
         case OBJ_FN:
             cg->current_function = obj;
             gen_function_def(cg, obj);
             cg->current_function = NULL;
-            print(cg, "\n");
-            break;
-        case OBJ_STRUCT:
-            gen_struct(cg, obj);
             print(cg, "\n");
             break;
         default:
@@ -346,13 +343,11 @@ static void object_predecl_callback(void *object, void *codegen) {
 
     switch(obj->type) {
         case OBJ_VAR:
+        case OBJ_STRUCT:
             // nothing
             break;
         case OBJ_FN:
             gen_function_predecl(cg, obj->name, &obj->as.fn.parameters, obj->as.fn.return_type);
-            break;
-        case OBJ_STRUCT:
-            print(cg, "typedef struct %s %s;\n", obj->name, obj->name);
             break;
         case OBJ_EXTERN_FN:
             print(cg, "// source: '%s'\n", obj->as.extern_fn.source_attr->as.source);
@@ -397,14 +392,107 @@ static void global_variable_callback(void *variable, void *codegen) {
     print(cg, ";\n");
 }
 
+static void collect_type_callback(TableItem *item, bool is_last, void *type_array) {
+    UNUSED(is_last);
+    Type *ty = (Type *)item->key;
+    switch(ty->type) {
+        case TY_STRUCT:
+            arrayPush((Array *)type_array, (void *)ty);
+        default:
+            break;
+    }
+}
+
+// type_table: Table<ASTString, Type *>
+// output: Array<Type *>
+static void topologically_sort_types(Table *type_table, Array *output) {
+    Array types;
+    arrayInit(&types);
+    tableMap(type_table, collect_type_callback, (void *)&types);
+
+    Table dependencies; // Table<Type *, i64)
+    tableInit(&dependencies, (tableHashFn)typeHash, (tableCmpFn)typeEqual);
+
+#define FOR(index_var_name, array) for(usize index_var_name = 0; index_var_name < arrayLength(&(array)); ++index_var_name)
+    FOR(i, types) {
+        Type *ty = ARRAY_GET_AS(Type *, &types, i);
+        if(ty->type == TY_STRUCT) {
+            FOR(j, ty->as.structure.field_types) {
+                Type *field_ty = ARRAY_GET_AS(Type *, &ty->as.structure.field_types, j);
+                TableItem *item = tableGet(&dependencies, (void *)field_ty);
+                i64 existing = item == NULL ? 0 : (i64)item->value;
+                tableSet(&dependencies, (void *)field_ty, (void *)existing);
+            }
+        } else {
+            UNREACHABLE();
+        }
+        if(tableGet(&dependencies, (void *)ty) == NULL) {
+            tableSet(&dependencies, (void *)ty, (void *)0l);
+        }
+    }
+
+    Array stack;
+    arrayInit(&stack);
+    FOR(i, types) {
+        Type *ty = ARRAY_GET_AS(Type *, &types, i);
+        TableItem *item = tableGet(&dependencies, (void *)ty);
+        if((i64)item->value == 0) {
+            arrayPush(&stack, (void *)ty);
+        }
+    }
+
+    arrayClear(output);
+    while(arrayLength(&stack) > 0) {
+        Type *ty = ARRAY_POP_AS(Type *, &stack);
+        arrayPush(output, (void *)ty);
+        if(ty->type == TY_STRUCT) {
+            FOR(i, ty->as.structure.field_types) {
+                Type *field_ty = ARRAY_GET_AS(Type *, &ty->as.structure.field_types, i);
+                TableItem *item = tableGet(&dependencies, (void *)field_ty);
+                i64 existing = item == NULL ? 0 : (i64)item->value;
+                tableSet(&dependencies, (void *)field_ty, (void *)existing);
+            }
+        } else {
+            UNREACHABLE();
+        }
+    }
+    arrayFree(&stack);
+#undef FOR
+
+    if(arrayLength(output) != arrayLength(&types)) {
+        LOG_ERR("internal error: Undetected cyclic structs!");
+        UNREACHABLE();
+    }
+    // Reverse output array so structure with the least dependencies
+    // will be first, then the next one etc.
+    // The last structure has the most dependencies.
+    // Note: dependency means that another struct depends on it.
+    arrayReverse(output);
+
+    tableFree(&dependencies);
+    arrayFree(&types);
+}
+
 static void module_callback(void *module, void *codegen) {
     ASTModule *m = (ASTModule *)module;
     Codegen *cg = (Codegen *)codegen;
 
     print(cg, "/* module %s */\n", m->name);
-    print(cg, "\n// pre-declarations:\n");
+    print(cg, "\n// structures:\n");
+    Array sorted_struct_types; // Array<Type *>
+    arrayInit(&sorted_struct_types);
+    topologically_sort_types(&astProgramGetModule(cg->program, cg->current_module)->module_scope->types, &sorted_struct_types);
+    for(usize i = 0; i < arrayLength(&sorted_struct_types); ++i) {
+        Type *ty = ARRAY_GET_AS(Type *, &sorted_struct_types, i);
+        ASTObj *s = scopeGetStruct(m->module_scope, ty->name);
+        gen_struct(cg, s);
+        print(cg, "\n");
+    }
+    arrayFree(&sorted_struct_types);
+    // Note: The newline before is printed by the loop/print before if no structs.
+    print(cg, "// pre-declarations:\n");
     arrayMap(&m->module_scope->objects, object_predecl_callback, codegen);
-    print(cg, "// function types:\n");
+    print(cg, "\n// function types:\n");
     tableMap(&m->module_scope->types, gen_fn_types, codegen);
     print(cg, "\n// global variables:\n");
     arrayMap(&m->globals, global_variable_callback, codegen);
