@@ -368,6 +368,15 @@ void scopePrint(FILE *to, Scope *scope);
  ***/
 void scopeIDPrint(FILE *to, ScopeID scope_id, bool compact);
 
+/***
+ * Get a struct using its name from scope [sc].
+ *
+ * @param sc The scope in which to search for the struct.
+ * @param name The name of the struct to search for.
+ * @return The struct or NULL if it doesn't exist.
+ ***/
+ASTObj *scopeGetStruct(Scope *sc, ASTString name);
+
 
 /* ControlFlow */
 

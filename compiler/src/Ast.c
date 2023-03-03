@@ -305,6 +305,11 @@ void scopePrint(FILE *to, Scope *scope) {
     fputs("]}", to);
 }
 
+ASTObj *scopeGetStruct(Scope *sc, ASTString name) {
+    TableItem *item = tableGet(&sc->structures, (void *)name);
+    return item == NULL ? NULL : (ASTObj *)item->value;
+}
+
 
 /* ControlFlow */
 
