@@ -419,9 +419,11 @@ static void topologically_sort_types(Table *type_table, Array *output) {
         if(ty->type == TY_STRUCT) {
             FOR(j, ty->as.structure.field_types) {
                 Type *field_ty = ARRAY_GET_AS(Type *, &ty->as.structure.field_types, j);
-                TableItem *item = tableGet(&dependencies, (void *)field_ty);
-                i64 existing = item == NULL ? 0 : (i64)item->value;
-                tableSet(&dependencies, (void *)field_ty, (void *)existing);
+                if(field_ty->type == TY_STRUCT) {
+                    TableItem *item = tableGet(&dependencies, (void *)field_ty);
+                    i64 existing = item == NULL ? 0 : (i64)item->value;
+                    tableSet(&dependencies, (void *)field_ty, (void *)(existing + 1));
+                }
             }
         } else {
             UNREACHABLE();
@@ -448,9 +450,14 @@ static void topologically_sort_types(Table *type_table, Array *output) {
         if(ty->type == TY_STRUCT) {
             FOR(i, ty->as.structure.field_types) {
                 Type *field_ty = ARRAY_GET_AS(Type *, &ty->as.structure.field_types, i);
-                TableItem *item = tableGet(&dependencies, (void *)field_ty);
-                i64 existing = item == NULL ? 0 : (i64)item->value;
-                tableSet(&dependencies, (void *)field_ty, (void *)existing);
+                if(field_ty->type == TY_STRUCT) {
+                    TableItem *item = tableGet(&dependencies, (void *)field_ty);
+                    i64 existing = (i64)item->value;
+                    tableSet(&dependencies, (void *)field_ty, (void *)(existing - 1));
+                    if(existing == 1) {
+                        arrayPush(&stack, item->key);
+                    }
+                }
             }
         } else {
             UNREACHABLE();
