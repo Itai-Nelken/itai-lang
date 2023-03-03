@@ -84,6 +84,14 @@ void typeFree(Type *ty);
 bool typeEqual(Type *a, Type *b);
 
 /***
+ * Hash a type.
+ *
+ * @param ty The type to hash.
+ * @return The hash of the type.
+ ***/
+unsigned typeHash(Type *ty);
+
+/***
  * Print a Type to stream 'to'.
  *
  * @param to The stream to print to.

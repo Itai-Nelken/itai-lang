@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h>
 #include "common.h"
 #include "Token.h" // Location
 #include "Ast.h"
@@ -176,6 +177,25 @@ bool typeEqual(Type *a, Type *b) {
 
     return true;
 */
+}
+
+unsigned typeHash(Type *ty) {
+    // hash the name using the fnv-la string hashing algorithm.
+    unsigned length = (unsigned)strlen(ty->name);
+    unsigned hash = 2166136261u;
+    for(unsigned i = 0; i < length; ++i) {
+        hash ^= (char)ty->name[i];
+        hash *= 16777619;
+    }
+    if(ty->type == TY_FN) {
+        for(usize i = 0; i < ty->as.fn.parameter_types.used; ++i) {
+            hash |= typeHash(ARRAY_GET_AS(Type *, &ty->as.fn.parameter_types, i));
+        }
+        hash &= typeHash(ty->as.fn.return_type);
+    } else if(ty->type == TY_PTR) {
+        hash &= typeHash(ty->as.ptr.inner_type);
+    }
+    return (unsigned)((ty->type + (uintptr_t)hash) >> 2); // Hash is cast to 'unsigned', so extra bits are discarded.
 }
 
 static const char *type_type_name(TypeType type) {

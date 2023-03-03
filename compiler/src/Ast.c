@@ -41,22 +41,7 @@ static void free_type_callback(TableItem *item, bool is_last, void *cl) {
 
 static unsigned hash_type(void *type) {
     Type *ty = (Type *)type;
-    // hash the name using the fnv-la string hashing algorithm.
-    unsigned length = (unsigned)strlen(ty->name);
-    unsigned hash = 2166136261u;
-    for(unsigned i = 0; i < length; ++i) {
-        hash ^= (char)ty->name[i];
-        hash *= 16777619;
-    }
-    if(ty->type == TY_FN) {
-        for(usize i = 0; i < ty->as.fn.parameter_types.used; ++i) {
-            hash |= hash_type(arrayGet(&ty->as.fn.parameter_types, i));
-        }
-        hash &= hash_type((void *)ty->as.fn.return_type);
-    } else if(ty->type == TY_PTR) {
-        hash &= hash_type((void *)ty->as.ptr.inner_type);
-    }
-    return (ty->type + (uintptr_t)hash) >> 2; // implicitly cast to 'unsigned', so extra bits are discarded.
+    return typeHash(ty);
 }
 
 static bool compare_type(void *a, void *b) {
