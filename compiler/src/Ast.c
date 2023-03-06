@@ -730,7 +730,7 @@ void astObjPrint(FILE *to, ASTObj *obj) {
             fputs(", \x1b[1mparameters:\x1b[0m [", to);
             PRINT_ARRAY(ASTObj *, astObjPrint, to, obj->as.fn.parameters);
             fputs("], \x1b[1mdefers:\x1b[0m [", to);
-            PRINT_ARRAY(ASTObj *, astObjPrint, to, obj->as.fn.defers);
+            PRINT_ARRAY(ASTNode *, astNodePrint, to, obj->as.fn.defers);
             fputs("], \x1b[1mbody:\x1b[0m ", to);
             astNodePrint(to, AS_NODE(obj->as.fn.body));
             break;
