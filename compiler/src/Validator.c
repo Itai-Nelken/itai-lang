@@ -629,23 +629,27 @@ static bool validate_function(Validator *v, ASTObj *fn) {
     v->current_function = fn;
 
     Scope *fn_scope = astModuleGetScope(astProgramGetModule(v->program, v->current_module), fn->as.fn.body->scope);
+    bool had_error = false;
     FOR(i, fn_scope->objects) {
         ASTObj *obj = ARRAY_GET_AS(ASTObj *, &fn_scope->objects, i);
-        validate_type(v, &obj->data_type, false, &obj->location); // FIXME: use l.type_location
+        had_error = had_error ? true : !validate_type(v, &obj->data_type, false, &obj->location); // FIXME: use l.type_location
     }
     VERIFY(arrayLength(&fn->as.fn.parameters) == arrayLength(&fn->data_type->as.fn.parameter_types));
     for(usize i = 0; i < arrayLength(&fn->as.fn.parameters); ++i) {
         // Validate the type in the parameter variable object.
         ASTObj *p = ARRAY_GET_AS(ASTObj *, &fn->as.fn.parameters, i);
-        validate_type(v, &p->data_type, true, NULL);
+        had_error = had_error ? true : !validate_type(v, &p->data_type, true, NULL);
         tableSet(&v->visible_locals_in_current_function, (void *)p->name, (void *)p);
 
         // Validate the type in the function data type.
         Type **ty = (Type **)(fn->data_type->as.fn.parameter_types.data + i);
-        validate_type(v, ty, true, NULL);
+        had_error = had_error ? true : !validate_type(v, ty, true, NULL);
     }
 
-    // TODO: return if above type validations fail.
+    // If validating types failed, don't validate the body to stop cascading errors.
+    if(had_error) {
+        return false;
+    }
 
     // FIXME: Use fn.type_location.
     TRY(validate_type(v, &fn->as.fn.return_type, false, &fn->location));
