@@ -1,36 +1,26 @@
-#ifndef OPS_H
-#define OPS_H
+#ifndef OPCODE_H
+#define OPCODE_H
 
-#include <stdint.h>
 
 typedef enum op_type {
-    OP_IMM, // IMM <i64>
-    OP_ST, // ST <data index>
-    OP_LD, // LD <data index>
-    OP_STL, // STL <local index>
-    OP_LDL, // LDL <local index>
-    OP_ARG, // ARG <arg num>
-    OP_ADJ, // ADJ <num>
-    OP_ADD, //OP_SUB, // ADD/SUB
-    //OP_MUL, OP_DIV, // MUL/DIV
-    OP_ENT, // ENT <local byte count>
-    OP_LEV, // LEV
-    OP_SR, // SR
-    OP_LR, // LR (push the value in the register)
-    OP_CALL, // CALL <bytecode array index>
-    //OP_JMP // JMP <bytecode array index>
-    OP_COUNT
-} OpType;
+    OP_START_FUNCTION, // arg1: <function> (temp stack effect implementation defined)
+    OP_END_FUNCTION, // no args, (temp stack effect dependent on OP_START_FUNCTION)
+    OP_RETURN, // arg1: OpArg, pops 1 temp
+    OP_CALL, // arg1: <function>, pops <function>.parameters temp
 
-_Static_assert(OP_COUNT < 16, "Too many opcodes");
+    OP_STORE_GLOBAL, // arg1: <global>, arg2: <offset>, pops 1 temp
+    OP_LOAD_GLOBAL, // arg1: <global>, arg2: <offset>, pushes 1 temp
+    OP_STORE_LOCAL, // arg1: <local>, arg2: <offset>, pops 1 temp
+    OP_LOAD_LOCAL, // arg1: <local>, arg2: <offset>, pushes 1 temp
 
-// 4 bits for opcode, 12 bits for argument
-typedef uint16_t OpCode;
+    OP_ADD, // no args, pops 2 temp pushes 1 temp
 
-#define ENCODE(op) ((OpCode)((op) << 12))
-#define ENCODE_ARG(op, arg) ((OpCode)(((op) << 12) + (arg)))
+    OP_IMM, // arg1: <number literal>, pushes 1 temp (//TODO: support large literals (larger than 255 (UINT8_MAX)))
+} OpCode;
 
-#define DECODE(opcode) ((OpCode)(((opcode) & 0xf000) >> 12))
-#define DECODE_ARG(opcode) (((opcode) & 0x0fff))
+typedef enum op_arg {
+    ARG_VALUE,
+    ARG_NONE
+} OpArg;
 
-#endif // OPS_H
+#endif // OPCODE_H

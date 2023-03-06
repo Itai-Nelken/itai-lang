@@ -1,76 +1,74 @@
 # IR
 
-## Data structures
-* Temporary values along with stack (call) frames are loaded into a stack.
-* Global data (global variables, strings etc.) is stored in an indexed collection (An array for example).
-* Functions are stored in the bytecode array. The index of a function is the index of its first instruction (`ENT`).
-
-## Registers
-There are 3 registers:
-- `sp`  - The stack pointer, not accesible.
-- `bp`  - The base pointer, not accesible.
-- `r` - The general purpose register, read/write.
-
-## Function definition
-To begin a function, `ENT` must be executed with the number of bytes to reserve for locals provided.\
-To leave a function, `LEV` must be executed.\
-Return values are saved in the `r` register using the `SR` instruction. To load the returned value the `LR` instruction is used.
-
-### Function arguments
-The arguments to a function have to be pushed to the stack before calling the function.\
-After the function returns, the arguments must be removed. That is achieved using the `ADJ <num params to pop>` instruction.
-
-## Instructions
-|  Name  |     Usage      |  Notes  |
-| :----: |     :---:      |  :---:  |
-| `IMM`  |  `imm <num>`   | The argument is 12 bits. only positive numbers are supproted. |
-|  `ST`  |   `st <idx>`   | `<idx>` is an index into the data section. |
-|  `LD`  |   `ld <idx>`   | `<idx>` is an index into the data section. |
-| `ARG`  |  `arg <n>`     | `<n>` is the argument to get (0 -> last arg, 1 -> one before last arg etc.). |
-| `ADJ`  |  `adj <count>` | `<count>` is the number of arguments to remove from the stack. |
-| `ADD`  |  `add`         | The 2 operands are popped from the stack. |
-| `ENT`  |  `ent <bytes>` | `<bytes>` is the number of bytes to reserve for locals in the call frame. |
-| `LEV`  |  `lev`         | - |
-|  `SR`  |   `sr`         | - |
-|  `LR`  |   `lr`         | - |
-| `CALL` |  `call <idx>`  | `<idx>` is the index of the `ent` instruction of the function to call. |
-
 ```rust
-var a = 41;
+var a = 42;
+> IMM 42 <- temporarily store the immediate value 42.
+> STORE_GLOBAL <a>, 0 <- store the temporarily stored value in the global `a` (0 is an offset used for structs).
 
-> IMM 41 // [41]
-> ST 0 // []
-
-fn test() -> i32 { // idx: 2
-    return 42;
+fn do_nothing() {
+    return;
 }
+> START_FUNCTION, <do_nothing>
+> RETURN NONE
+> END_FUNCTION
 
-> ENT 0 // [<return address>]
-> IMM 42 // [..., 42]
-> SR // [...]
-> LEV // []
-
-fn do_stuff() { // idx: 6
-    a = a + 1;
+fn test() -> i32 {
+    var l = a;
+    return l;
 }
+> START_FUNCTION <test> <- start the function `test` (gives a reader all available info on the function).
+> LOAD_GLOBAL <a>, 0
+> STORE_LOCAL <l>, 0
+> LOAD_LOCAL <l>, 0
+> RETURN VAL <- set the return value & return.
+> END_FUNCTION
 
-> ENT 0 // [<return address>]
-> LD 0 // [..., <a>]
-> ADD // [..., <a> + 1]
-> ST 0 // [...]
-> LEV // []
-
-fn main() -> i32 { // idx: 11
-    do_stuff();
-    a = test();
-    return a;
+fn add(a: i32, b: i32) -> i32 {
+    return a + b;
 }
+> START_FUNCTION <add>
+> LOAD_LOCAL <a>, 0 <- arguments are treated as locals.
+> LOAD_LOCAL <b>, 0
+> ADD <- stores the result as a temporary.
+> RETURN
+> END_FUNCTION
 
-> ENT 4 // [<return address>]
-> CALL 6 // [...]
-> CALL 2 // [..., 42]
-> ST 0 // [...]
-> LD 0 // [..., 42]
-> SR // [...]
-> LEV // []
+struct T {
+    a: i32;
+    b: i32;
+}
+fn sum_T(t: &T) -> i32 {
+    return t.a + t.b;
+}
+> START_FUNCTION <sum_T>
+> LOAD_LOCAL <t>, 0 <- load t.a
+> LOAD_LOCAL <t>, 4 <- load t.b (`t` + 4 bytes).
+> ADD
+> RETURN
+> END_FUNCTION
 ```
+
+# Function related instructions #
+START_FUNCTION <fn> - start function <fn>
+END_FUNCTION - end a function
+RETURN <VAL/NONE> - return from a function, if argument is VAL the temporary value is returned.
+CALL <fn> - call a function, gets arguments from temporary stack.
+
+# Variable related instructions #
+STORE_GLOBAL <global>, <offset> - store the temporary value at <global> + <offset>.
+LOAD_GLOBAL <global>, <offset> - load the global at <global> + <offset>.
+STORE_LOCAL <local>, <offset> - store the temporary value at <local> + <offset>.
+LOAD_LOCAL <local>, <offset> - load the local at <local> + <offset>.
+
+# Operators #
+ADD
+SUBTRACT
+MULTIPLY
+DIVIDE
+MODULO
+...
+
+DEREF - dereference the address in the temporary value.
+
+# Other #
+IMM <number literal>
