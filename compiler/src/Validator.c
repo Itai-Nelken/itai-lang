@@ -633,13 +633,14 @@ static bool validate_function(Validator *v, ASTObj *fn) {
         ASTObj *obj = ARRAY_GET_AS(ASTObj *, &fn_scope->objects, i);
         validate_type(v, &obj->data_type, false, &obj->location); // FIXME: use l.type_location
     }
-    FOR(i, fn->as.fn.parameters) {
+    VERIFY(arrayLength(&fn->as.fn.parameters) == arrayLength(&fn->data_type->as.fn.parameter_types));
+    for(usize i = 0; i < arrayLength(&fn->as.fn.parameters); ++i) {
+        // Validate the type in the parameter variable object.
         ASTObj *p = ARRAY_GET_AS(ASTObj *, &fn->as.fn.parameters, i);
         validate_type(v, &p->data_type, true, NULL);
         tableSet(&v->visible_locals_in_current_function, (void *)p->name, (void *)p);
-    }
-    // FIXME: un-duplicate parameter types (currently both in fn object and fn type).
-    FOR(i, fn->data_type->as.fn.parameter_types) {
+
+        // Validate the type in the function data type.
         Type **ty = (Type **)(fn->data_type->as.fn.parameter_types.data + i);
         validate_type(v, ty, true, NULL);
     }
