@@ -725,25 +725,23 @@ static bool validate_extern_fn(Validator *v, ASTObj *fn) {
 }
 
 static bool validate_object(Validator *v, ASTObj *obj) {
+    if(obj->type == OBJ_FN || obj->type == OBJ_EXTERN_FN) {
+        ASTObj *prev_decl = NULL;
+        if(global_id_exists(v, obj, &prev_decl)) {
+            error(v, obj->name_location, "Symbol '%s' already exists.", obj->name);
+            hint(v, prev_decl->name_location, "Previous declaration was here.");
+        }
+    }
+
     switch(obj->type) {
         case OBJ_VAR:
             return validate_type(v, &obj->data_type, false, &obj->location); // FIXME: use obj.type_location
         case OBJ_FN: {
-            ASTObj *prev_decl = NULL;
-            if(global_id_exists(v, obj, &prev_decl)) {
-                error(v, obj->name_location, "Symbol '%s' already exists.", obj->name);
-                hint(v, prev_decl->name_location, "Previous declaration was here.");
-            }
             return validate_function(v, obj);
         }
         case OBJ_STRUCT:
             return validate_struct(v, obj);
         case OBJ_EXTERN_FN: {
-            ASTObj *prev_decl = NULL;
-            if(global_id_exists(v, obj, &prev_decl)) { // TODO: unduplicate with 'case OBJ_FN'.
-                error(v, obj->name_location, "Symbol '%s' already exists.", obj->name);
-                hint(v, prev_decl->name_location, "Previous declaration was here.");
-            }
             return validate_extern_fn(v, obj);
         }
         default:
