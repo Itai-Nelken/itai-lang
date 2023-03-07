@@ -705,7 +705,8 @@ static Type *new_fn_type(Parser *p, Type *return_type, Array parameters) {
         }
         arrayPush(&ty->as.fn.parameter_types, param->data_type);
     }
-    stringAppend(&name, ") -> %s", return_type ? return_type->name : "void");
+    VERIFY(return_type);
+    stringAppend(&name, ") -> %s", return_type->name);
     ty->name = astProgramAddString(p->program, name);
 
     return scopeAddType(astProgramGetModule(p->program, p->current.module)->module_scope, ty);
