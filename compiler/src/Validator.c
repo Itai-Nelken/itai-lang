@@ -712,7 +712,7 @@ static bool validate_struct(Validator *v, ASTObj *s) {
         if(!validate_type(v, &field->data_type, false, &field->location)) // FIXME: use field.type_location
             continue;
         arrayInsert(&s->data_type->as.structure.field_types, i, (void *)field->data_type);
-        // Note: The check for recursive structs is in typecheck_struct().x
+        // Note: The check for recursive structs is in typecheck_struct().
     }
     return true;
 }

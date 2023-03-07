@@ -1127,7 +1127,6 @@ bool parserParse(Parser *p, ASTProgram *prog) {
             ASTObj *fn = parse_function_decl(p, true);
             if(fn != NULL) {
                 arrayPush(&root_module->module_scope->objects, (void *)fn);
-                tableSet(&root_module->module_scope->functions, (void *)fn->name, (void *)fn);
             }
         } else if(match(p, TK_VAR)) {
             Location var_loc = previous(p).location;
@@ -1137,21 +1136,16 @@ bool parserParse(Parser *p, ASTProgram *prog) {
             }
             if(global != NULL) {
                 arrayPush(&root_module->globals, (void *)global);
-                // The object will be the last element in the scope's object array.
-                ASTObj *var = ARRAY_GET_AS(ASTObj *, &root_module->module_scope->objects, arrayLength(&root_module->module_scope->objects) - 1);
-                tableSet(&root_module->module_scope->variables, (void *)var->name, (void *)var);
             }
         } else if(match(p, TK_STRUCT)) {
             ASTObj *structure = parse_struct_decl(p);
             if(structure != NULL) {
                 arrayPush(&root_module->module_scope->objects, (void *)structure);
-                tableSet(&root_module->module_scope->structures, (void *)structure->name, (void *)structure);
             }
         } else if(match(p, TK_EXTERN)) {
             ASTObj *extern_decl = parse_extern_decl(p);
             if(extern_decl != NULL) {
                 arrayPush(&root_module->module_scope->objects, (void *)extern_decl);
-                tableSet(&root_module->module_scope->functions, (void *)extern_decl->name, (void *)extern_decl);
             }
         } else if(match(p, TK_HASH)) {
             Attribute *attr = parse_attribute(p);
