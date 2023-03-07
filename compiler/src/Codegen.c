@@ -106,6 +106,7 @@ static void gen_expr(Codegen *cg, ASTNode *expr) {
             break;
         // Binary nodes
         case ND_ASSIGN:
+            // FIXME: Do not allow ND_VAR_DECL in lhs.
             gen_variable(AS_BINARY_NODE(expr)->lhs, cg);
             print(cg, " = ");
             gen_expr(cg, AS_BINARY_NODE(expr)->rhs);
@@ -228,6 +229,15 @@ static void gen_stmt(Codegen *cg, ASTNode *n) {
             gen_variable(n, cg);
             print(cg, ";\n");
             break;
+        case ND_ASSIGN:
+            if(NODE_IS(AS_BINARY_NODE(n)->lhs, ND_VAR_DECL)) {
+                gen_variable(AS_BINARY_NODE(n)->lhs, cg);
+                print(cg, " = ");
+                gen_expr(cg, AS_BINARY_NODE(n)->rhs);
+                print(cg, ";\n");
+                break;
+            }
+            // fallthrough
         default:
             gen_expr(cg, n);
             print(cg, ";\n");
@@ -385,7 +395,10 @@ static void global_variable_callback(void *variable, void *codegen) {
     ASTNode *g = AS_NODE(variable);
     Codegen *cg = (Codegen *)codegen;
     if(NODE_IS(g, ND_ASSIGN)) {
-        gen_expr(cg, g);
+        // FIXME: unduplicate with gen_stmt():ND_ASSIGN
+        gen_variable(AS_BINARY_NODE(g)->lhs, cg);
+        print(cg, " = ");
+        gen_expr(cg, AS_BINARY_NODE(g)->rhs);
     } else {
         gen_variable(g, cg);
     }
