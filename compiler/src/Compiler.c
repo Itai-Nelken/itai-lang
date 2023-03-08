@@ -120,6 +120,11 @@ FileID compilerGetCurrentFileID(Compiler *c) {
     return c->current_file;
 }
 
+FileID compilerGetFirstFileID(Compiler *c) {
+    UNUSED(c);
+    return (FileID)0;
+}
+
 void compilerAddError(Compiler *c, Error *err) {
     arrayPush(&c->errors, (void *)err);
 }

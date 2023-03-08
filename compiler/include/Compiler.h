@@ -114,10 +114,18 @@ File *compilerGetFile(Compiler *c, FileID id);
 /***
  * Return the FileID of the current file.
  *
- * @param c The compiler to get the File from.
+ * @param c The compiler to get the current FileID from.
  * @return The FileID of the current file.
  ***/
 FileID compilerGetCurrentFileID(Compiler *c);
+
+/***
+ * Return the FileID of the first file.
+ *
+ * @param c The compiler to get the first FileID from.
+ * @return The FileID of the first file.
+ ***/
+FileID compilerGetFirstFileID(Compiler *c);
 
 /***
  * Add an Error to a Compiler.

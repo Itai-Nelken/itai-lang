@@ -29,7 +29,7 @@ bool parse_arguments(Options *opts, int argc, char **argv) {
     struct option long_options[] = {
         {"help",         no_argument, 0, 'h'},
         {"dump-ast",     no_argument, 0, 'd'},
-        {"dump-tokens", no_argument, 0, 't'},
+        {"dump-tokens",  no_argument, 0, 't'},
         {0,              0,           0,  0}
     };
     int c;
