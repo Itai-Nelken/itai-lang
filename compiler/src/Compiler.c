@@ -22,7 +22,7 @@ void fileFree(File *f) {
 
 const char *fileBasename(File *f) {
     char *p = strrchr(f->path, '/');
-    return (const char *)(p ? p + 1 : p);
+    return (const char *)(p ? p + 1 : f->path);
 }
 
 String fileRead(File *f) {
