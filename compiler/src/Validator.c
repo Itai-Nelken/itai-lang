@@ -97,9 +97,9 @@ static Type *get_expr_type(Validator *v, ASTNode *expr);
 // Note: validate the node before providing it to this function.
 static inline bool is_variable(ASTNode *n) {
     // Notes: Update get_variable_node() if condition is changed.
-    //        The operands of ND_DEREF & ND_ADDROG must be variables,
+    //        The operands of ND_DEREF & ND_ADDROF must be variables,
     //        so any nodes peovided MUST be validated with validate_ast()
-    //        first so no ND_DEREFs & ND_ADDROF with non-variable operands
+    //        first so no ND_DEREFs & ND_ADDROFs with non-variable operands
     //        are passed to this function.
     return NODE_IS(n, ND_VARIABLE) || NODE_IS(n, ND_DEREF) || NODE_IS(n, ND_ADDROF);
 }
