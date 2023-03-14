@@ -2,10 +2,6 @@
 #include <stdlib.h> // abort()
 #include "utilities.h"
 
-inline int alignTo(int n, int align) {
-    return (n + align - 1) / align * align;
-}
-
 void assertFail(const char *assertion, const char *file, const int line, const char *func) {
     fflush(stdout);
     fprintf(stderr, "\n============\nInternal error at %s(): %s:%d:", func, file, line);
