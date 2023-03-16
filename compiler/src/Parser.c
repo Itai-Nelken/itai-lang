@@ -194,7 +194,8 @@ static inline void add_structure_to_current_scope(Parser *p, ASTObj *structure) 
     }
 }
 
-static ASTObj *find_variable_in_current_scope(Parser *p, ASTString name) {
+// FIXME: remove unused or function.
+__attribute__((unused)) static ASTObj *find_variable_in_current_scope(Parser *p, ASTString name) {
     Scope *scope = astModuleGetScope(astProgramGetModule(p->program, p->current.module), p->current.scope);
     TableItem *i = tableGet(&scope->variables, (void *)name);
     if(i) {
@@ -900,23 +901,8 @@ static ASTNode *parse_function_body(Parser *p) {
     ASTNode *result = NULL;
     if(match(p, TK_VAR)) {
         Location var_loc = previous(p).location;
-        ASTNode *var_node = TRY(ASTNode *, parse_variable_decl(p, true, false, &current_scope->objects, &var_loc));
+        ASTNode *var_node = TRY(ASTNode *, parse_variable_decl(p, true, true, &current_scope->objects, &var_loc));
         TRY_CONSUME(p, TK_SEMICOLON);
-        // Get the name of the variable to push to check
-        // for redefinitions and to save in the current scope.
-        ASTObj *var_obj = ARRAY_GET_AS(ASTObj *, &current_scope->objects, arrayLength(&current_scope->objects) - 1);
-        VERIFY(var_obj->type == OBJ_VAR);
-        ASTObj *existing_obj = find_variable_in_current_scope(p, var_obj->name);
-        if(existing_obj) {
-            error_at(p, var_node->location, stringFormat("Redeclaration of local variable '%s'.", var_obj->name));
-            hint(p, existing_obj->location, "Previous declaration was here.");
-            // NOTE: arrayPop() is used even though we already have a reference
-            //       to the object we want to free because we also want to remove
-            //       the object from the array.
-            astObjFree(ARRAY_POP_AS(ASTObj *, &current_scope->objects));
-            return NULL;
-        }
-        add_variable_to_current_scope(p, var_obj);
         result = var_node;
     } else {
         // no need for TRY() here as nothing is done with the result node

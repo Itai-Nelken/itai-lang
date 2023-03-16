@@ -1,0 +1,7 @@
+/// expect error: Error: Redefinition of variable 'a'.
+
+fn main() {
+	var a: i32;
+	var a: i32;
+}
+
