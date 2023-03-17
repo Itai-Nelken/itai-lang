@@ -872,11 +872,23 @@ static ASTObj *parse_struct_decl(Parser *p) {
     Array fields;
     arrayInit(&fields);
     while(current(p).type != TK_RBRACE) {
-        TRY(ASTNode *, parse_variable_decl(p, false, false, &fields, NULL));
-        ASTObj *field = ARRAY_GET_AS(ASTObj *, &fields, arrayLength(&fields) - 1);
-        arrayPush(&scope->objects, (void *)field);
-        add_variable_to_current_scope(p, field);
-        consume(p, TK_SEMICOLON);
+        if(current(p).type == TK_IDENTIFIER) {
+            if(parse_variable_decl(p, false, true, &fields, NULL) == NULL) {
+                continue;
+            }
+            // Note: We need a reference to all fields to generate the struct type later,
+            //       so we push all fields to a temporary array ('fields') and then push
+            //       them to the scope object array as well.
+            ASTObj *field = ARRAY_GET_AS(ASTObj *, &fields, arrayLength(&fields) - 1);
+            arrayPush(&scope->objects, (void *)field);
+            consume(p, TK_SEMICOLON);
+        } else {
+            error_at(p, current(p).location, stringFormat("Expected field or function declaration but got '%s'.", tokenTypeString(current(p).type)));
+            // Advance so we don't get stuck on the same token.
+            advance(p);
+            // If there is a semicolon, consume it as well to stop cascading errors for inputs such as '+;'
+            match(p, TK_SEMICOLON);
+        }
     }
     leave_scope(p);
     if(!consume(p, TK_RBRACE)) {
