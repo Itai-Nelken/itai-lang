@@ -4,9 +4,9 @@
 #include <stdlib.h>
 
 typedef struct allocator {
-    void *(*allocFn)(void *arg, size_t size);
-    void *(*reallocFn)(void *arg, void *ptr, size_t size);
-    void (*freeFn)(void *arg, void *ptr);
+    void *(*allocFn)(void *user_data, size_t size);
+    void *(*reallocFn)(void *user_data, void *ptr, size_t size);
+    void (*freeFn)(void *user_data, void *ptr);
     void *user_data;
 } Allocator;
 
