@@ -883,7 +883,7 @@ static ASTObj *parse_struct_decl(Parser *p) {
             arrayPush(&scope->objects, (void *)field);
             consume(p, TK_SEMICOLON);
         } else {
-            error_at(p, current(p).location, stringFormat("Expected field or function declaration but got '%s'.", tokenTypeString(current(p).type)));
+            error_at(p, current(p).location, stringFormat("Expected field declaration but got '%s'.", tokenTypeString(current(p).type)));
             // Advance so we don't get stuck on the same token.
             advance(p);
             // If there is a semicolon, consume it as well to stop cascading errors for inputs such as '+;'
