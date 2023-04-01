@@ -872,7 +872,7 @@ static ASTObj *parse_struct_decl(Parser *p) {
     Array fields;
     arrayInit(&fields);
     while(current(p).type != TK_RBRACE) {
-        if(current(p).type == TK_IDENTIFIER) {
+        if(current(p).type == TK_IDENTIFIER) { // Note: can't consume because parse_variable_decl() does so.
             if(parse_variable_decl(p, false, true, &fields, NULL) == NULL) {
                 continue;
             }
@@ -897,7 +897,7 @@ static ASTObj *parse_struct_decl(Parser *p) {
         return NULL;
     }
 
-    structure->data_type = new_struct_type(p,structure->name, fields);
+    structure->data_type = new_struct_type(p, structure->name, fields);
     arrayFree(&fields);
 
     structure->location = locationMerge(name_loc, previous(p).location);
