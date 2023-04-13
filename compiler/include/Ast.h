@@ -1,320 +1,105 @@
 #ifndef AST_H
 #define AST_H
 
-#include <stdio.h>
-#include "common.h" // u64
-#include "memory.h" // Allocator
-#include "Token.h" // Location
+#include "common.h"
+#include "memory.h"
+#include "Token.h"
 #include "Strings.h"
 #include "Table.h"
-#include "Types.h"
+#include "Array.h"
 #include "Arena.h"
 
-/** Types **/
 
-// forward declarations
+// Can't include Types.h as it includes this file.
+typedef struct type Type; // from Types.h
+
+/* pre-declarations */
 typedef struct ast_obj ASTObj;
-
+typedef u64 ModuleID;
+#define EMPTY_MODULE_ID ((ModuleID)-1)
 
 /* ASTString */
 
-// An ASTString represents an interned string.
-// an ASTString can be used interchangeably with String as long
-// as it isn't freed.
-typedef char *ASTString;
+// An ASTInternedString holds a unique string.
+// It is guaranteed that to equal ASTInternedStrings will point
+// to the same string in memory.
+typedef char *ASTInternedString;
+
+// An ASTString is an interned string with a location.
+// It is used to represent strings in the source code (such as identifiers & string literals).
+// [data] should NOT be changed.
+// [data] can be used as a 'String' (with stringDuplicate() for example) as long as it isn't changed.
+typedef struct ast_string {
+    Location location;
+    ASTInternedString data;
+} ASTString;
+
+/***
+ * Print an ASTString.
+ *
+ * @param to The stream to print to.
+ * @param str The ASTString to print.
+ ***/
+void astStringPrint(FILE *to, ASTString *str);
 
 
-/* LiteralValue */
+/* ConstantValue */
 
-// A LiteralValue holds, well, a literal value.
-// For example number literals & strings.
-typedef enum literal_value_type {
-    LIT_NUMBER,
-    LIT_STRING
-} LiteralValueType;
+typedef enum value_type {
+    VAL_NUMBER,
+    VAL_STRING
+} ValueType;
 
-typedef struct literal_value {
-    LiteralValueType type;
+typedef struct value {
+    ValueType type;
     union {
-        u64 number; // Prefix operators are handled by the parser, so 'number' can be unsigned.
-        ASTString str;
+        u64 number;
+        ASTString string;
     } as;
-} LiteralValue;
+} Value;
+
+/***
+ * Create a new Value.
+ *
+ * @param literal_type (type: ValueType) The type of the value.
+ * @param value_name (type: C identifier) The name of the value's field in the 'as' union.
+ * @param value (type: any) The value itself (must be a constexpr).
+ ***/
+#define MAKE_VALUE(value_type, value_name, value) ((Value){.type = (value_type), .as.value_name = (value)})
+
+/***
+ * Print a Value.
+ *
+ * @param to The stream to print to.
+ * @param value The value to print.
+ ***/
+void valuePrint(FILE *to, Value value);
 
 
 /* Scope */
-
-#define FUNCTION_SCOPE_DEPTH 1
 
 typedef struct scope_id {
     ModuleID module;
     usize index; // Index into the ASTModule::scopes array.
 } ScopeID;
 
-// FIXME: find a better way to represent an empty ScopeID
-#define EMPTY_SCOPE_ID() ((ScopeID){.module = 0, .index = (usize)-1})
+// FIXME: find a better way to represent an empty ScopeID.
+#define EMPTY_SCOPE_ID ((ScopeID){.module = EMPTY_MODULE_ID, .index = (usize)-1})
 
 typedef struct scope {
-    bool is_block_scope;
-    u32 depth; // For block scopes. // FIXME: find way to store "empty" depth.
-    Array objects;
-    Table variables; // Table<ASTString, ASTObj *>
-    Table functions; // Table<ASTString, ASTObj *>
-    Table structures; // Table<ASTString, ASTObj *>
-    // Table enums; // Table<ASTString, ASTObj *>
-    Table types; // Table<ASTString, Type *>
+    Array objects; // Array<ASTObj *> - owns the objects stored in all the tables below.
+    Table variables; // Table<ASTInternedString, ASTObj *>
+    Table functions; // Table<ASTInternedString, ASTObj *>
+    Table structures; // Table<ASTInternedString, ASTObj *>
+    //Table enums; // Table<ASTInternedString, ASTObj *>
+    Table types; // Table<ASTInternedString, Type *>
     ScopeID parent;
-    struct { // Array cannot be used because ScopeID is not used as a pointer type.
+    struct { // The Array type cannot be used because ScopeID is not used as a pointer type.
         ScopeID *children_scope_ids;
         usize length;
         usize capacity;
     } children;
 } Scope;
-
-/* ControlFlow */
-
-typedef enum control_flow {
-    CF_NONE,
-    CF_NEVER_RETURNS,
-    CF_MAY_RETURN,
-    CF_ALWAYS_RETURNS
-} ControlFlow;
-
-
-/* ASTNode */
-
-// An ASTNode holds an expression.
-// for example, 1 + 2 is represented as:
-// binary(op(+), literal(1), literal(2)).
-typedef enum ast_node_type {
-    // Literal nodes
-    ND_NUMBER_LITERAL,
-    ND_STRING_LITERAL,
-
-    // Obj nodes
-    ND_VAR_DECL,
-    ND_VARIABLE,
-    ND_FUNCTION,
-
-    // Binary nodes
-    ND_ASSIGN,
-    ND_CALL,
-    ND_PROPERTY_ACCESS,
-    ND_ADD,
-    ND_SUBTRACT,
-    ND_MULTIPLY,
-    ND_DIVIDE,
-    ND_EQ, ND_NE,
-    ND_LT, ND_LE,
-    ND_GT, ND_GE,
-
-    // Conditional nodes
-    ND_IF,
-
-    // Loop nodes
-    ND_WHILE_LOOP,
-
-    // Unary nodes
-    ND_NEGATE,
-    ND_RETURN,
-    ND_DEFER,
-    ND_ADDROF, // For pointers: &<obj>
-    ND_DEREF, // Pointer dereference: *<obj>
-
-    // list nodes
-    ND_BLOCK,
-    ND_ARGS,
-
-    // other nodes
-
-    // An identifier will be replaced with an object.
-    // It exists because the parser doesn't always have all the information
-    // needed to build an object, so the identifier us used instead,
-    // and later the validator replaces it with an object.
-    ND_IDENTIFIER,
-    ND_TYPE_COUNT
-} ASTNodeType;
-
-typedef struct ast_node {
-    ASTNodeType node_type;
-    Location location;
-} ASTNode;
-
-typedef struct ast_unary_node {
-    ASTNode header;
-    ASTNode *operand;
-} ASTUnaryNode;
-
-typedef struct ast_binary_node {
-    ASTNode header;
-    ASTNode *lhs, *rhs;
-} ASTBinaryNode;
-
-typedef struct ast_conditional_node {
-    ASTNode header;
-    ASTNode *condition, *body, *else_;
-} ASTConditionalNode;
-
-typedef struct ast_loop_node {
-    ASTNode header;
-    ASTNode *initializer, *condition, *increment, *body;
-} ASTLoopNode;
-
-typedef struct ast_expression_node {
-    ASTNode header;
-    LiteralValue value;
-    Type *ty; // For postfix types, can be NULL;
-} ASTLiteralValueNode;
-
-typedef struct ast_obj_node {
-    ASTNode header;
-    ASTObj *obj;
-} ASTObjNode;
-
-typedef struct ast_identifier_node {
-    ASTNode header;
-    ASTString identifier;
-} ASTIdentifierNode;
-
-typedef struct ast_list_node {
-    ASTNode header;
-    ScopeID scope;
-    ControlFlow control_flow;
-    Array nodes; // Array<ASTNode *>
-} ASTListNode;
-
-#define NODE_IS(node, type) ((node)->node_type == (type))
-#define AS_NODE(node) ((ASTNode *)(node))
-#define AS_UNARY_NODE(node) ((ASTUnaryNode *)(node))
-#define AS_BINARY_NODE(node) ((ASTBinaryNode *)(node))
-#define AS_CONDITIONAL_NODE(node) ((ASTConditionalNode *)(node))
-#define AS_LOOP_NODE(node) ((ASTLoopNode *)(node))
-#define AS_LITERAL_NODE(node) ((ASTLiteralValueNode *)(node))
-#define AS_OBJ_NODE(node) ((ASTObjNode *)(node))
-#define AS_IDENTIFIER_NODE(node) ((ASTIdentifierNode *)(node))
-#define AS_LIST_NODE(node) ((ASTListNode *)(node))
-
-
-/* Attribute */
-
-// Note: update tables in attributeTypeString() and attribute_type_name() when adding new types.
-typedef enum attribute_type {
-    ATTR_SOURCE,
-    //ATTR_DESTRUCTOR
-} AttributeType;
-
-typedef struct attribute {
-    AttributeType type;
-    Location location;
-    union {
-        ASTString source;
-        //ASTObj *destructor;
-    } as;
-} Attribute;
-
-
-/* ASTObj */
-
-// An ASTObj holds a object which in this context
-// means functions, variables, structs, enums etc.
-typedef enum ast_obj_type {
-    OBJ_VAR, OBJ_FN,
-    OBJ_STRUCT,
-    OBJ_EXTERN_FN,
-    OBJ_TYPE_COUNT
-} ASTObjType;
-
-typedef struct ast_obj {
-    ASTObjType type;
-    Location location, name_location;
-    ASTString name;
-    Type *data_type;
-
-    union {
-        //struct {
-        //  bool is_const;
-        //  bool is_parameter;
-        //  bool is_struct_field;
-        //} var; // OBJ_VAR
-        struct {
-            Array parameters; // Array<ASTObj *> (OBJ_VAR)
-            Type *return_type;
-            Array defers; // Array<ASTNode *>
-            ASTListNode *body; // Note: contains the function's scope ScopeID.
-        } fn; // OBJ_FN
-        struct {
-            ScopeID scope;
-        } structure; // OBJ_STRUCT
-        struct {
-            Array parameters; // Array<ASTObj *>
-            Type *return_type;
-            Attribute *source_attr; // After validating, guaranteed to be an ATTR_SOURCE.
-        } extern_fn; // OBJ_EXTERN_FN
-    } as;
-} ASTObj;
-
-/* ASTModule */
-
-// A ModuleID is an index into the ASTProgram::modules array.
-typedef usize ModuleID;
-
-// An ASTModule holds all of a modules data
-// which includes functions, structs, enums, global variables, types etc.
-typedef struct ast_module {
-    ModuleID id;
-    ASTString name;
-    struct {
-        Arena storage;
-        Allocator alloc;
-    } ast_allocator;
-    Array scopes; // Array<Scope *>
-    Scope *module_scope; // Owned by above array.
-    Array globals; // Array<ASTNode *> (ND_VAR_DECL or ND_ASSIGN)
-} ASTModule;
-
-/* ASTProgram */
-
-// An ASTProgram holds all the information
-// belonging to a program like functions & types.
-typedef struct ast_program {
-    struct {
-        // Primitive types (are owned by the root module).
-        // Note: astProgramInit() has to be updated when adding new primitives.
-        Type *void_;
-        Type *int32;
-        Type *uint32;
-        Type *str;
-    } primitives;
-    // Holds a single copy of each string in the entire program.
-    Table strings; // Table<char *, String>
-    // Holds all modules in a program.
-    Array modules; // Array<ASTModule *>
-} ASTProgram;
-
-
-/** Functions **/
-
-/* LiteralValue */
-
-/***
- * Create a new LiteralValue.
- *
- * @param literal_type (type: LiteralValueType) The type of the value.
- * @param value_name (type: C identifier) The name of the value's field in the 'as' union.
- * @param value (type: any) The value itself (must be a constexpr).
- ***/
-#define LITERAL_VALUE(literal_type, value_name, value) ((LiteralValue){.type = (literal_type), .as.value_name = (value)})
-
-/***
- * Print a LiteralValue.
- *
- * @param to The stream to print to.
- * @param value The value to print.
- ***/
-void literalValuePrint(FILE *to, LiteralValue value);
-
-
-/* Scope */
 
 /***
  * Create a new Scope.
@@ -380,116 +165,352 @@ ASTObj *scopeGetStruct(Scope *sc, ASTString name);
 
 /* ControlFlow */
 
+typedef enum control_flow {
+    CF_NONE,
+    CF_NEVER_RETURNS,
+    CF_MAY_RETURN,
+    CF_ALWAYS_RETURNS,
+    __CF_STATE_COUNT
+} ControlFlow;
+
+/***
+ * Update a ControlFlow with a new one.
+ *
+ * @param old The old ControlFlow.
+ * @param new The new ControlFlow.
+ * @return The updated ControlFlow.
+ ***/
 ControlFlow controlFlowUpdate(ControlFlow old, ControlFlow new);
 
 
-/* ASTNode */
+/* AST nodes - common */
+
+#define NODE_IS(expr, type_) ((expr)->type == (type_))
+
+/* AST nodes - ASTExprNode */
+
+typedef enum ast_expression_node_type {
+    // Constant value nodes
+    EXPR_NUMBER_CONSTANT,
+    EXPR_STRING_CONSTANT,
+
+    // Obj nodes
+    EXPR_VARIABLE,
+    EXPR_FUNCTION,
+
+    // Binary nodes
+    EXPR_ASSIGN,
+    EXPR_PROPERTY_ACCESS,
+    EXPR_ADD,
+    EXPR_SUBTRACT,
+    EXPR_MULTIPLY,
+    EXPR_DIVIDE,
+    EXPR_EQ, EXPR_NE,
+    EXPR_LT, EXPR_LE,
+    EXPR_GT, EXPR_GE,
+
+    // Unary nodes
+    EXPR_NEGATE,
+    EXPR_ADDROF, // For pointers: &<obj>
+    EXPR_DEREF, // Pointer dereference: *<obj>
+
+    // Call node
+    EXPR_CALL,
+
+    // Other nodes
+
+    // An identifier will be replaced with an object.
+    // It exists because the parser doesn't always have all the information
+    // needed to build an object, so the identifier us used instead,
+    // and later the validator replaces it with an object.
+    EXPR_IDENTIFIER,
+    __EXPR_TYPE_COUNT
+} ASTExprNodeType;
+
+// The base expression node type.
+typedef struct ast_expression_node {
+    ASTExprNodeType type;
+    Location location;
+    Type *data_type; // The data type the expression evaluates to.
+} ASTExprNode;
+
+// Stores a constant value using the 'Value' container type.
+typedef struct ast_constant_value_expr {
+    ASTExprNode header;
+    Value value;
+} ASTConstantValueExpr;
+
+// Stores a pointer to an ASTObj.
+typedef struct ast_obj_expr {
+    ASTExprNode header;
+    ASTObj *obj;
+} ASTObjExpr;
+
+// Used for unary expressions (such as -<lval/rval>, &<lval>, *<lval> etc.).
+typedef struct ast_unary_expr {
+    ASTExprNode header;
+    ASTExprNode *operand;
+} ASTUnaryExpr;
+
+// Used for binary expressions (such as <lval/rval> + <lval/rval> etc.)
+typedef struct ast_binary_expr {
+    ASTExprNode header;
+    ASTExprNode *lhs;
+    ASTExprNode *rhs;
+} ASTBinaryExpr;
+
+typedef struct ast_call_expr {
+    ASTExprNode header;
+    ASTExprNode *callee;
+    Array arguments; // Array<ASTExprNode *>
+} ASTCallExpr;
+
+typedef struct ast_identifier_expr {
+    ASTExprNode header;
+    ASTString id;
+} ASTIdentifierExpr;
+
+#define AS_CONSTANT_VALUE_EXPR(expr) ((ASTConstantValueExpr *)(expr))
+#define AS_OBJ_EXPR(expr) ((ASTObjExpr *)(expr))
+#define AS_UNARY_EXPR(expr) ((ASTUnaryExpr *)(expr))
+#define AS_BINARY_EXPR(expr) ((ASTBinaryExpr *)(expr))
+#define AS_CALL_EXPR(expr) ((ASTCallExpr *)(expr))
+#define AS_IDENTIFIER_EXPR(expr) ((ASTIdentifierExpr *)(expr))
 
 /***
- * Create a new ASTUnaryNode.
- *
- * @param a The allocator to use.
- * @param type The node type.
- * @param loc The Location of the node.
- * @param operand The operand.
- * @return The node as an ASTNode.
- ***/
-ASTNode *astNewUnaryNode(Allocator *a, ASTNodeType type, Location loc, ASTNode *operand);
-
-/***
- * Create a new ASTBinaryNode.
- *
- * @param a The allocator to use.
- * @param type The node type.
- * @param loc The Location of the node.
- * @param lhs The left child.
- * @param rhs The right child.
- * @return The node as an ASTNode.
- ***/
-ASTNode *astNewBinaryNode(Allocator *a, ASTNodeType type, Location loc, ASTNode *lhs, ASTNode *rhs);
-
-/***
- * Create a new ASTConditionalNode.
- *
- * @param a The allocator to use.
- * @param type The node type.
- * @param loc The Location of the node.
- * @param condition The condition expression node.
- * @param body The body block node.
- * @param else_ The else_ block node.
- * @return The node as an ASTNode.
- ***/
-ASTNode *astNewConditionalNode(Allocator *a, ASTNodeType type, Location loc, ASTNode *condition, ASTNode *body, ASTNode *else_);
-
-/***
- * Create a new ASTLoopNode.
- *
- * @param a The allocator to use.
- * @param loc The Location of the node.
- * @param init The initializer caluse expression node.
- * @param cond The condition caluse expression node.
- * @param inc The increment caluse expression node.
- * @param body The body block node.
- * @return The node as an ASTNode.
- ***/
-ASTNode *astNewLoopNode(Allocator *a, Location loc, ASTNode *init, ASTNode *cond, ASTNode *inc, ASTNode *body);
-
-/***
- * Create a new ASTLiteralValueNode.
- *
- * @param a The allocator to use.
- * @param type The node type.
- * @param loc The Location of the node.
- * @param value The LiteralValue to store in the node.
- * @param ty The type of the literal (optional).
- * @return The node as an ASTNode.
- ***/
-ASTNode *astNewLiteralValueNode(Allocator *a, ASTNodeType type, Location loc, LiteralValue value, Type *ty);
-
-/***
- * Create a new ASTObjNode.
- * NOTE: Ownership of 'obj' is NOT taken.
- *
- * @param a The allocator to use.
- * @param type The node type.
- * @param loc The Location of the node.
- * @param obj The ASTObj to store in the node.
- * @return The node as an ASTNode.
- ***/
-ASTNode *astNewObjNode(Allocator *a, ASTNodeType type, Location loc, ASTObj *obj);
-
-/***
- * Create a new ASTIdentifierNode (node type: ND_IDENTIFIER).
- *
- * @param a The allocator to use.
- * @param loc The Location of the node.
- * @param str The ASTString containing the identifier.
- * @return The node as an ASTNode.
- ***/
-ASTNode *astNewIdentifierNode(Allocator *a, Location loc, ASTString str);
-
-/***
- * Create a new ASTListNode.
- *
- * @param a The Allocator to use to allocate the node.
- * @param type The type of the node.
- * @param loc The Location of the node.
- * @param scope The ScopeID of the block the node represents.
- * @param node_count The amount of nodes (if unknown, can be 0).
- * @return The node as an ASTNode.
- ***/
-ASTNode *astNewListNode(Allocator *a, ASTNodeType type, Location loc, ScopeID scope, size_t node_count);
-
-/***
- * Print an AST.
+ * Print an ASTExprNode tree.
  *
  * @param to The stream to print to.
  * @param n The root node of the tree.
  ***/
-void astNodePrint(FILE *to, ASTNode *n);
+void astExprNodePrint(FILE *to, ASTExprNode *n);
+
+/***
+ * Create a new ASTConstantValueExpr node.
+ *
+ * @param a The allocator to use.
+ * @param type The expr node type.
+ * @param loc The Location of the node.
+ * @param value The Value to store in the node.
+ * @param ty (optional) The type of the value.
+ * @return The node as an ASTExprNode.
+ ***/
+ASTExprNode *astNewConstantValueExpr(Allocator *a, ASTExprNodeType type, Location loc, Value value, Type *value_ty);
+
+/***
+ * Create a new ASTObjExpr node.
+ * NOTE: Ownership of 'obj' is NOT taken.
+ *
+ * @param a The allocator to use.
+ * @param type The expr node type.
+ * @param loc The Location of the node.
+ * @param obj The ASTObj to store in the node.
+ * @return The node as an ASTExprNode.
+ ***/
+ASTExprNode *astNewObjExpr(Allocator *a, ASTExprNodeType type, Location loc, ASTObj *obj);
+
+
+// TODO: unary+binary expr: add type hint?
+/***
+ * Create a new ASTUnaryExpr node.
+ *
+ * @param a The allocator to use.
+ * @param type The expr node type.
+ * @param loc The Location of the node.
+ * @param operand The operand.
+ * @return The node as an ASTExprNode.
+ ***/
+ASTExprNode *astNewUnaryExpr(Allocator *a, ASTExprNodeType type, Location loc, ASTExprNode *operand);
+
+/***
+ * Create a new ASTBinaryExpr node.
+ *
+ * @param a The allocator to use.
+ * @param type The expr node type.
+ * @param loc The Location of the node.
+ * @param lhs The left child.
+ * @param rhs The right child.
+ * @return The node as an ASTExprNode.
+ ***/
+ASTExprNode *astNewBinaryExpr(Allocator *a, ASTExprNodeType type, Location loc, ASTExprNode *lhs, ASTExprNode *rhs);
+
+/***
+ * Create a new ASTCallExpr node.
+ * NOTE: Ownership of [arguments] is NOT taken.
+ *
+ * @param a The allocator to use.
+ * @param loc The Location of the node.
+ * @param callee The callee.
+ * @param arguments An Array<ASTExprNode *> containing the arguments.
+ ***/
+ASTExprNode *astNewCallExpr(Allocator *a, Location loc, ASTExprNode *callee, Array *arguments);
+
+
+/***
+ * Create a new ASTIdentifierExpr node (node type: EXPR_IDENTIFIER).
+ *
+ * @param a The allocator to use.
+ * @param loc The Location of the node.
+ * @param id An ASTString containing the identifier.
+ * @return The node as an ASTExprNode.
+ ***/
+ASTExprNode *astNewIdentifierExpr(Allocator *a, Location loc, ASTString id);
+
+
+/* AST node - ASTStmtNode */
+
+typedef enum ast_stmt_node_type {
+    // VarDecl node
+    STMT_VAR_DECL,
+
+    // Block node
+    STMT_BLOCK,
+
+    // Conditional node
+    STMT_IF,
+
+    // Loop node
+    STMT_WHILE_LOOP,
+
+    // Expr nodes
+    STMT_RETURN,
+    STMT_DEFER,
+    STMT_EXPR,
+
+    __STMT_TYPE_COUNT
+} ASTStmtNodeType;
+
+typedef struct ast_stmt_node {
+    ASTStmtNodeType type;
+    Location location;
+} ASTStmtNode;
+
+typedef struct ast_var_decl_stmt {
+    ASTStmtNode header;
+    ASTObj *variable;
+    ASTExprNode *initializer; // optional
+} ASTVarDeclStmt;
+
+typedef struct ast_block_stmt {
+    ASTStmtNode header;
+    ScopeID scope;
+    ControlFlow control_flow;
+    Array nodes; // Array<AstStmtNode *>
+} ASTBlockStmt;
+
+typedef struct ast_conditional_stmt {
+    ASTStmtNode header;
+    ASTExprNode *condition;
+    ASTBlockStmt *then;
+    ASTStmtNode *else_;
+} ASTConditionalStmt;
+
+typedef struct ast_loop_stmt {
+    ASTStmtNode header;
+    ASTStmtNode *initializer;
+    ASTExprNode *condition;
+    ASTExprNode *increment;
+    ASTBlockStmt *body;
+} ASTLoopStmt;
+
+typedef struct ast_expr_stmt {
+    ASTStmtNode header;
+    ASTExprNode *expr;
+} ASTExprStmt;
+
+#define AS_VAR_DECL_STMT(stmt) ((ASTVarDeclStmt *)(stmt))
+#define AS_BLOCK_STMT(stmt) ((ASTBlockStmt *)(stmt))
+#define AS_CONDITIONAL_STMT(stmt) ((ASTConditionalStmt *)(stmt))
+#define AS_LOOP_STMT(stmt) ((ASTLoopStmt *)(stmt))
+#define AS_EXPR_STMT(stmt) ((ASTExprStmt *)(stmt))
+
+/***
+ * Print an ASTStmtNode tree.
+ *
+ * @param to The stream to print to.
+ * @param n The root node of the tree.
+ ***/
+void astStmtNodePrint(FILE *to, ASTStmtNode *n);
+
+/***
+ * Create a new ASTVarDeclStmt node (node type: STMT_VAR_DECL).
+ *
+ * @param a The allocator to use.
+ * @param loc The Location of the node.
+ * @param obj The ASTObj of the variable to declare.
+ * @param initializer (optional) The initializer.
+ * @return The node as an ASTStmtNode.
+ ***/
+ASTStmtNode *astNewVarDeclStmt(Allocator *a, Location loc, ASTObj *variable, ASTExprNode *initializer);
+
+
+/***
+ * Create a new ASTBlockStmt node (STMT_BLOCK).
+ * NOTE: Ownership of [nodes] is NOT taken.
+ *
+ * @param a The Allocator to use to allocate the node.
+ * @param loc The Location of the node.
+ * @param scope The ScopeID of the block the node represents.
+ * @param control_flow The control flow for the block.
+ * @param nodes An Array<ASTStmtNode *> containing the nodes in the block.
+ * @return The node as an ASTStmtNode.
+ ***/
+ASTStmtNode *astNewBlockStmt(Allocator *a, Location loc, ScopeID scope, ControlFlow control_flow, Array *nodes);
+
+/***
+ * Create a new ASTConditionalStmt node (STMT_IF).
+ *
+ * @param a The Allocator to use to allocate the node.
+ * @param loc The Location of the node.
+ * @param condition The condition expression.
+ * @param then The body (to be executed if the condition evaluates to 'true').
+ * @param else_ (optional) The else clause (to be executed if the condition evaluates to 'false').
+ * @return The node as an ASTStmtNode.
+ ***/
+ASTStmtNode *astNewConditionalStmt(Allocator *a, Location loc, ASTExprNode *condition, ASTBlockStmt *then, ASTStmtNode *else_);
+
+/***
+ * Create a new ASTLoopStmt node.
+ *
+ * @param a The Allocator to use to allocate the node.
+ * @param type The stmt node type for the new node.
+ * @param loc The Location of the node.
+ * @param initializer (optional) The initializer statement.
+ * @param condition The condition for the loop.
+ * @param increment (optional) The increment expression.
+ * @param body The body of the loop.
+ * @return The node as an ASTStmtNode.
+ ***/
+ASTStmtNode *astNewLoopStmt(Allocator *a, ASTStmtNodeType type, Location loc, ASTStmtNode *initializer, ASTExprNode *condition, ASTExprNode *increment, ASTBlockStmt *body);
+
+/***
+ * Create a new ASTExprStmt node.
+ *
+ * @param a The Allocator to use to allocate the node.
+ * @param type The stmt node type for the new node
+ * @param loc The Location of the node.
+ * @param expr The expression.
+ * @return The node as an ASTStmtNode.
+ ***/
+ASTStmtNode *astNewExprStmt(Allocator *a, ASTStmtNodeType type, Location loc, ASTExprNode *expr);
 
 
 /* Attribute */
+
+// Note: update tables in attributeTypeString() and attribute_type_name() when adding new types.
+typedef enum attribute_type {
+    ATTR_SOURCE,
+    //ATTR_DESTRUCTOR
+} AttributeType;
+
+typedef struct attribute {
+    AttributeType type;
+    Location location;
+    union {
+        ASTString source;
+        //ASTObj *destructor;
+    } as;
+} Attribute;
 
 /***
  * Create a new Attributute.
@@ -523,7 +544,46 @@ void attributePrint(FILE *to, Attribute *a);
  ***/
 const char *attributeTypeString(AttributeType type);
 
+
 /* ASTObj */
+
+// An ASTObj holds a object which in this context
+// means functions, variables, structs, enums etc.
+typedef enum ast_obj_type {
+    OBJ_VAR, OBJ_FN,
+    OBJ_STRUCT,
+    OBJ_EXTERN_FN,
+    OBJ_TYPE_COUNT
+} ASTObjType;
+
+typedef struct ast_obj {
+    ASTObjType type;
+    Location location, name_location;
+    ASTString name;
+    Type *data_type;
+
+    union {
+        //struct {
+        //  bool is_const;
+        //  bool is_parameter;
+        //  bool is_struct_field;
+        //} var; // OBJ_VAR
+        struct {
+            Array parameters; // Array<ASTObj *> (OBJ_VAR)
+            Type *return_type;
+            Array defers; // Array<ASTExprStmt *>
+            ASTBlockStmt *body; // Note: contains the function's scope ScopeID.
+        } fn; // OBJ_FN
+        struct {
+            ScopeID scope;
+        } structure; // OBJ_STRUCT
+        struct {
+            Array parameters; // Array<ASTObj *>
+            Type *return_type;
+            Attribute *source_attr; // After validating, guaranteed to be an ATTR_SOURCE.
+        } extern_fn; // OBJ_EXTERN_FN
+    } as;
+} ASTObj;
 
 /***
  * Create a new ASTObj.
@@ -560,7 +620,25 @@ void astObjPrint(FILE *to, ASTObj *obj);
  ***/
 void astObjPrintCompact(FILE *to, ASTObj *obj);
 
+
 /* ASTModule */
+
+// A ModuleID is an index into the ASTProgram::modules array.
+typedef u64 ModuleID;
+
+// An ASTModule holds all of a modules data
+// which includes functions, structs, enums, global variables, types etc.
+typedef struct ast_module {
+    ModuleID id;
+    ASTString name; // FIXME: Root module name has no location.
+    struct {
+        Arena storage;
+        Allocator alloc;
+    } ast_allocator;
+    Array scopes; // Array<Scope *>
+    Scope *module_scope; // Owned by above array.
+    Array globals; // Array<ASTVarDeclStmt *> (ND_VAR_DECL)
+} ASTModule;
 
 /***
  * Create a new ASTModule.
@@ -615,6 +693,23 @@ ScopeID astModuleGetModuleScopeID(ASTModule *module);
 
 /* ASTProgram */
 
+// An ASTProgram holds all the information
+// belonging to a program like functions & types.
+typedef struct ast_program {
+    struct {
+        // Primitive types (are owned by the root module).
+        // Note: astProgramInit() has to be updated when adding new primitives.
+        Type *void_;
+        Type *int32;
+        Type *uint32;
+        Type *str;
+    } primitives;
+    // Holds a single copy of each string in the entire program.
+    Table strings; // Table<ASTInternedString, String>
+    // Holds all modules in a program.
+    Array modules; // Array<ASTModule *>
+} ASTProgram;
+
 /***
  * Initialize an ASTProgram.
  *
@@ -639,12 +734,12 @@ void astProgramPrint(FILE *to, ASTProgram *prog);
 
 /***
  * Intern a string.
- * NOTE: If 'str' is a String, ownership of it is taken.
+ * NOTE: Ownership of [str] is NOT taken.
  *
  * @param prog The ASTProgram to save the string in.
  * @param str The string to intern (if 'str' is a String, ownership of it is taken).
  ***/
-ASTString astProgramAddString(ASTProgram *prog, char *str);
+ASTInternedString astProgramAddString(ASTProgram *prog, char *str);
 
 /***
  * Add an ASTModule to an ASTProgram and return its id.
