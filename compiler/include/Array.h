@@ -158,4 +158,13 @@ void arrayMapIndex(Array *a, void (*callback)(void *item, size_t index, void *cl
  ***/
 #define ARRAY_GET_AS(type, array, index) ((type)arrayGet(array, index))
 
+/***
+ * Wrapper macro for a loop over an Array.
+ * NOTE: [index_variable_name] MUST be a valid C identifier for a variable as a new variable will be created with it.
+ *
+ * @param index_variable_name (type: C identifier) The name of the index variable to create.
+ * @param array (type: Array) The Array to loop over.
+ ***/
+#define ARRAY_FOR(index_variable_name, array) for(size_t index_variable_name = 0; index_variable_name < arrayLength(&(array)); ++(index_variable_name))
+
 #endif // ARRAYS_H
