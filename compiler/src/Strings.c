@@ -23,6 +23,11 @@ static inline String to_str(StringHeader *h) {
     return h->data;
 }
 
+// TODO: remove this function.
+static bool is_valid(String s) {
+    return from_str(s)->magic == 0xDEADC0DE;
+}
+
 String stringNew(size_t capacity) {
     StringHeader *h = ALLOC(sizeof(*h) + sizeof(char) * (capacity + 1));
     memset(h, 0, sizeof(*h) + sizeof(char) * (capacity + 1));
@@ -33,14 +38,10 @@ String stringNew(size_t capacity) {
 }
 
 void stringFree(String s) {
-    VERIFY(stringIsValid(s));
+    VERIFY(is_valid(s));
     // Remove the magic number in case the string is used again accidentally.
     from_str(s)->magic = 0;
     FREE(from_str(s));
-}
-
-bool stringIsValid(String s) {
-    return from_str(s)->magic == 0xDEADC0DE;
 }
 
 size_t stringLength(String s) {
@@ -70,18 +71,18 @@ String stringCopy(const char *s) {
 }
 
 String stringDuplicate(String s) {
-    VERIFY(stringIsValid(s));
+    VERIFY(is_valid(s));
     return stringNCopy((const char *)s, stringLength(s));
 }
 
 bool stringEqual(char *s1, char *s2) {
     size_t length1, length2;
-    if(stringIsValid(s1)) {
+    if(is_valid(s1)) {
         length1 = stringLength(s1);
     } else {
         length1 = strlen(s1);
     }
-    if(stringIsValid(s2)) {
+    if(is_valid(s2)) {
         length2 = stringLength(s2);
     } else {
         length2 = strlen(s2);
@@ -117,7 +118,7 @@ String stringFormat(const char *format, ...) {
 }
 
 void stringAppend(String *dest, const char *format, ...) {
-    VERIFY(stringIsValid(*dest));
+    VERIFY(is_valid(*dest));
     va_list ap;
 
     va_start(ap, format);

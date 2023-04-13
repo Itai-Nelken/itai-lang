@@ -32,14 +32,6 @@ String stringNew(size_t length);
 void stringFree(String s);
 
 /***
- * Check if a string was created by stringNew(), stringCopy(), or stringDuplicate().
- *
- * @param s A string.
- * @return true if valid, false if not.
- ***/
-bool stringIsValid(String s);
-
-/***
  * Return the length of a string allocated with stringNew() or stringCopy().
  * 
  * @param s A string allocated by stringNew() or stringCopy().
