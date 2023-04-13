@@ -28,5 +28,3 @@ add_library(compiler OBJECT ${sources})
 
 add_executable(ilc src/main.c)
 target_link_libraries(ilc compiler)
-add_executable(tests tests.c)
-target_link_libraries(tests compiler)
