@@ -10,17 +10,14 @@ set(sources
     src/Arena.c
     src/Array.c
     src/Ast.c
-    src/Codegen.c
     src/Compiler.c
     src/Error.c
     src/memory.c
-    src/Parser.c
     src/Scanner.c
     src/Table.c
-    src/Token.c
     src/Types.c
+    src/Token.c
     src/utilities.c
-    src/Validator.c
     src/Strings.c
 )
 

@@ -1,5 +1,4 @@
 #include <stdio.h>
-//#include <stdlib.h> // labs()
 #include <stdbool.h>
 #include "common.h"
 #include "memory.h"
@@ -69,6 +68,7 @@ static inline struct line *get_last_line(struct line_array *lines) {
 }
 
 static void collect_lines(String file_contents, Location loc, struct line_array *lines, struct line *first_error_line) {
+    VERIFY(loc.start < stringLength(file_contents) && loc.end < stringLength(file_contents));
     u64 prev_start = 0, prev_end = 0, current_start = 0;
     u64 line_number = 1;
     for(usize i = 0; i < stringLength(file_contents); ++i) {
@@ -212,9 +212,6 @@ void errorPrint(Error *err, Compiler *c, FILE *to) {
                 fputc(c, to);
             }
             fprintf(to, "%s\x1b[1m^-", error_type_color(err->type));
-            //for(u64 i = 0; i < labs((isize)err->location.end - (isize)err->location.start - 1); ++i) {
-            //    fputc('~', to);
-            //}
             fprintf(to, "\x1b[0;1m %s\x1b[0m\n", err->message);
         }
     }

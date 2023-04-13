@@ -30,7 +30,7 @@ static inline Location make_location(Scanner *s) {
 static void add_error(Scanner *s, bool has_location, String message) {
     Error *err;
     NEW0(err);
-    errorInit(err, ERR_ERROR, has_location, has_location ? make_location(s) : EMPTY_LOCATION(), message);
+    errorInit(err, ERR_ERROR, has_location, has_location ? make_location(s) : EMPTY_LOCATION, message);
     stringFree(message);
     compilerAddError(s->compiler, err);
 }

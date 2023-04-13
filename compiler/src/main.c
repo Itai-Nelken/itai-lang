@@ -7,9 +7,6 @@
 #include "Ast.h"
 #include "Compiler.h"
 #include "Scanner.h"
-#include "Parser.h"
-#include "Validator.h"
-#include "Codegen.h"
 
 enum return_values {
     RET_SUCCESS = 0,
@@ -66,15 +63,15 @@ bool parse_arguments(Options *opts, int argc, char **argv) {
 
 int main(int argc, char **argv) {
     int return_value = RET_SUCCESS;
-    Compiler c;
-    Scanner s;
-    Parser p;
-    Validator v;
+    //Compiler c;
+    //Scanner s;
+    //Parser p;
+    //Validator v;
     ASTProgram prog;
-    compilerInit(&c);
-    scannerInit(&s, &c);
-    parserInit(&p, &s, &c);
-    validatorInit(&v, &c);
+    //compilerInit(&c);
+    //scannerInit(&s, &c);
+    //parserInit(&p, &s, &c);
+    //validatorInit(&v, &c);
     astProgramInit(&prog);
 
     Options opts = {
@@ -88,47 +85,47 @@ int main(int argc, char **argv) {
     }
 
     if(opts.dump_tokens) {
-        parserSetDumpTokens(&p, true);
+    //    parserSetDumpTokens(&p, true);
     }
 
-    compilerAddFile(&c, opts.file_path);
+    //compilerAddFile(&c, opts.file_path);
 
-    if(!parserParse(&p, &prog)) {
-        if(compilerHadError(&c)) {
-            compilerPrintErrors(&c);
-        } else {
-            fputs("\x1b[1;31mError:\x1b[0m Parser failed with no errors!\n", stderr);
-        }
-        return_value = RET_PARSE_FAILURE;
-        goto end;
-    }
+    //if(!parserParse(&p, &prog)) {
+    //    if(compilerHadError(&c)) {
+    //        compilerPrintErrors(&c);
+    //    } else {
+    //        fputs("\x1b[1;31mError:\x1b[0m Parser failed with no errors!\n", stderr);
+    //    }
+    //    return_value = RET_PARSE_FAILURE;
+    //    goto end;
+    //}
 
-    if(!validatorValidate(&v, &prog)) {
-        if(compilerHadError(&c)) {
-            compilerPrintErrors(&c);
-        } else {
-            fputs("\x1b[1;31mError:\x1b[0m Validator failed with no errors!\n", stderr);
-        }
-        return_value = RET_VALIDATE_ERROR;
-        goto end;
-    }
+    //if(!validatorValidate(&v, &prog)) {
+    //    if(compilerHadError(&c)) {
+    //        compilerPrintErrors(&c);
+    //    } else {
+    //        fputs("\x1b[1;31mError:\x1b[0m Validator failed with no errors!\n", stderr);
+    //    }
+    //    return_value = RET_VALIDATE_ERROR;
+    //    goto end;
+    //}
 
     if(opts.dump_ast) {
         astProgramPrint(stdout, &prog);
         fputc('\n', stdout);
     }
 
-    if(!codegenGenerate(stdout, &prog)) {
-        fputs("\x1b[1;31mError: Codegenerator failed!\x1b[0m\n", stderr);
-        return_value = RET_CODEGEN_ERROR;
-        goto end;
-    }
+    //if(!codegenGenerate(stdout, &prog)) {
+    //    fputs("\x1b[1;31mError: Codegenerator failed!\x1b[0m\n", stderr);
+    //    return_value = RET_CODEGEN_ERROR;
+    //    goto end;
+    //}
 
 end:
     astProgramFree(&prog);
-    validatorFree(&v);
-    parserFree(&p);
-    scannerFree(&s);
-    compilerFree(&c);
+    //validatorFree(&v);
+    //parserFree(&p);
+    //scannerFree(&s);
+    //compilerFree(&c);
     return return_value;
 }

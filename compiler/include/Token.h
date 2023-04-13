@@ -21,7 +21,7 @@ typedef struct location {
 Location locationNew(u64 start, u64 end, FileID file);
 
 // FIXME: find a better way to represent an empty location.
-#define EMPTY_LOCATION() (locationNew(0, 0, 0))
+#define EMPTY_LOCATION (locationNew((u64)-1, (u64)-1, (u64)-1))
 
 /***
  * Merge to Locations into a new Location.
