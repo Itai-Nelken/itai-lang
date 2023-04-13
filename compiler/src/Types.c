@@ -11,7 +11,7 @@ void typeInit(Type *ty, TypeType type, ASTString name, ModuleID decl_module) {
     ty->type = type;
     ty->name = name;
     ty->decl_module = decl_module;
-    ty->decl_location = EMPTY_LOCATION();
+    ty->decl_location = EMPTY_LOCATION;
     switch(type) {
         case TY_VOID:
         case TY_I32:
@@ -22,10 +22,10 @@ void typeInit(Type *ty, TypeType type, ASTString name, ModuleID decl_module) {
             // nothing
             break;
         case TY_FN:
-            arrayInit(&ty->as.fn.parameter_types);
+            ty->as.fn_obj = NULL;
             break;
         case TY_STRUCT:
-            arrayInit(&ty->as.structure.field_types);
+            ty->as.struct_obj = NULL;
             break;
         default:
             UNREACHABLE();
@@ -43,12 +43,10 @@ void typeFree(Type *ty) {
             // nothing
             break;
         case TY_FN:
-            // No need to free the actual types as ownership of them is not taken.
-            arrayFree(&ty->as.fn.parameter_types);
+            ty->as.fn_obj = NULL;
             break;
         case TY_STRUCT:
-            // No need to free the actual types as ownership of them is not taken.
-            arrayFree(&ty->as.structure.field_types);
+            ty->as.struct_obj = NULL;
             break;
         default:
             UNREACHABLE();
@@ -115,17 +113,17 @@ bool typeEqual(Type *a, Type *b) {
     // because function types are equal even if they are in
     // different modules.
     if(a->type == TY_FN) {
-        if(!typeEqual(a->as.fn.return_type, b->as.fn.return_type)) {
+        if(!typeEqual(a->as.fn_obj->as.fn.return_type, b->as.fn_obj->as.fn.return_type)) {
             return false;
         }
-        if(a->as.fn.parameter_types.used != b->as.fn.parameter_types.used) {
+        if(arrayLength(&a->as.fn_obj->as.fn.parameters) != arrayLength(&b->as.fn_obj->as.fn.parameters)) {
             return false;
         }
         // past here, both function types have the same return type and parameter count.
-        for(usize i = 0; i < a->as.fn.parameter_types.used; ++i) {
-            Type *a_param = ARRAY_GET_AS(Type *, &a->as.fn.parameter_types, i);
-            Type *b_param = ARRAY_GET_AS(Type *, &b->as.fn.parameter_types, i);
-            if(!typeEqual(a_param, b_param)) {
+        ARRAY_FOR(i, a->as.fn_obj->as.fn.parameters) {
+            ASTObj *a_param = ARRAY_GET_AS(ASTObj *, &a->as.fn_obj->as.fn.parameters, i);
+            ASTObj *b_param = ARRAY_GET_AS(ASTObj *, &b->as.fn_obj->as.fn.parameters, i);
+            if(!typeEqual(a_param->data_type, b_param->data_type)) {
                 return false;
             }
         }
@@ -137,61 +135,23 @@ bool typeEqual(Type *a, Type *b) {
     if(a->decl_module != b->decl_module) {
         return false;
     }
-    // If both types are from the same module (above test), we can simply compare their addresses.
+    // If both types are from the same module (above test), we can simply compare their addresses in memory.
     return a == b;
-/*
-    // from here on, both types have the same TY_* type and are in the same module.
-    if(a->type == TY_FN) {
-        if(!typeEqual(a->as.fn.return_type, b->as.fn.return_type)) {
-            return false;
-        }
-        if(a->as.fn.parameter_types.used != b->as.fn.parameter_types.used) {
-            return false;
-        }
-        // past here, both function types have the same return type and parameter count.
-        for(usize i = 0; i < a->as.fn.parameter_types.used; ++i) {
-            Type *a_param = ARRAY_GET_AS(Type *, &a->as.fn.parameter_types, i);
-            Type *b_param = ARRAY_GET_AS(Type *, &b->as.fn.parameter_types, i);
-            if(!typeEqual(a_param, b_param)) {
-                return false;
-            }
-        }
-    } else if(a->type == TY_STRUCT) {
-        if(a->as.structure.field_types.used != b->as.structure.field_types.used) {
-            return false;
-        }
-        for(usize i = 0; i < a->as.structure.field_types.used; ++i) {
-            Type *a_field = ARRAY_GET_AS(Type *, &a->as.structure.field_types, i);
-            Type *b_field = ARRAY_GET_AS(Type *, &b->as.structure.field_types, i);
-            if(!typeEqual(a_field, b_field)) {
-                return false;
-            }
-        }
-    } else if(a->type == TY_ID) {
-        // It is ok to check the names as we already made sure
-        // both types are in the same module.
-        if(!stringEqual(a->name, b->name)) {
-            return false;
-        }
-    }
-
-    return true;
-*/
 }
 
 unsigned typeHash(Type *ty) {
     // hash the name using the fnv-la string hashing algorithm.
-    unsigned length = (unsigned)strlen(ty->name);
+    unsigned length = (unsigned)stringLength(ty->name.data);
     unsigned hash = 2166136261u;
     for(unsigned i = 0; i < length; ++i) {
-        hash ^= (char)ty->name[i];
+        hash ^= (char)ty->name.data[i];
         hash *= 16777619;
     }
     if(ty->type == TY_FN) {
-        for(usize i = 0; i < ty->as.fn.parameter_types.used; ++i) {
-            hash |= typeHash(ARRAY_GET_AS(Type *, &ty->as.fn.parameter_types, i));
+        ARRAY_FOR(i, ty->as.fn_obj->as.fn.parameters) {
+            hash |= typeHash(ARRAY_GET_AS(ASTObj *, &ty->as.fn_obj->as.fn.parameters, i)->data_type);
         }
-        hash &= typeHash(ty->as.fn.return_type);
+        hash &= typeHash(ty->as.fn_obj->as.fn.return_type);
     } else if(ty->type == TY_PTR) {
         hash &= typeHash(ty->as.ptr.inner_type);
     }
@@ -213,16 +173,16 @@ static const char *type_type_name(TypeType type) {
 }
 
 void typePrint(FILE *to, Type *ty, bool compact) {
-    VERIFY(ty);
-    //if(ty == NULL) {
-    //    fputs("(null)", to);
-    //    return;
-    //}
+    if(ty == NULL) {
+        fputs("(null)", to);
+        return;
+    }
 
     if(compact) {
         fprintf(to, "Type{\x1b[1m%s\x1b[0m", type_type_name(ty->type));
         if(ty->type == TY_ID || ty->type == TY_STRUCT || ty->type == TY_FN) {
-            fprintf(to, ", %s", ty->name);
+            fputs(", ", to);
+            astStringPrint(to, &ty->name);
         } else if(ty->type == TY_PTR) {
             fputs(", \x1b[1minner:\x1b[0m ", to);
             typePrint(to, ty->as.ptr.inner_type, true);
@@ -230,32 +190,18 @@ void typePrint(FILE *to, Type *ty, bool compact) {
         fputc('}', to);
     } else {
         fprintf(to, "Type{\x1b[1mtype:\x1b[0m %s", type_type_name(ty->type));
-        fprintf(to, ", \x1b[1mname:\x1b[0m '%s'", ty->name);
+        fputs(", \x1b[1mname:\x1b[0m ", to);
+        astStringPrint(to, &ty->name);
         switch(ty->type) {
             case TY_FN:
-                fputs(", \x1b[1mreturn_type:\x1b[0m ", to);
-                typePrint(to, ty->as.fn.return_type, true);
-                fputs(", \x1b[1mparameter_types:\x1b[0m [", to);
-                for(usize i = 0; i < ty->as.fn.parameter_types.used; ++i) {
-                    Type *param_ty = ARRAY_GET_AS(Type *, &ty->as.fn.parameter_types, i);
-                    typePrint(to, param_ty, true);
-                    if(i + 1 < ty->as.fn.parameter_types.used) {
-                        fputs(", ", to);
-                    }
-                }
-                fputc(']', to);
+                fputs(", \x1b[1mfn_obj:\x1b[0m ", to);
+                astObjPrint(to, ty->as.fn_obj);
                 break;
-            case TY_STRUCT:
-                fputs(", \x1b[1mfield_types:\x1b[0m [", to);
-                for(usize i = 0; i < ty->as.structure.field_types.used; ++i) {
-                    Type *field_ty = ARRAY_GET_AS(Type *, &ty->as.structure.field_types, i);
-                    typePrint(to, field_ty, true);
-                    if(i + 1 < ty->as.structure.field_types.used) {
-                        fputs(", ", to);
-                    }
-                }
-                fputc(']', to);
+            case TY_STRUCT: {
+                fputs(", \x1b[1mstruct_obj:\x1b[0m ", to);
+                astObjPrint(to, ty->as.struct_obj);
                 break;
+            }
             case TY_PTR:
                 fputs(", \x1b[1minner_type:\x1b[0m ", to);
                 typePrint(to, ty->as.ptr.inner_type, true);

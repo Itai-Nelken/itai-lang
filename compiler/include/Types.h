@@ -3,12 +3,8 @@
 
 #include <stdio.h> // FILE
 #include <stdbool.h>
-#include "common.h"
 #include "Token.h" // Location
-
-// Can't include Ast.h ast it includes this file.
-typedef char *ASTString; // from Ast.h
-typedef usize ModuleID; // from Ast.h
+#include "Ast.h" // ASTString
 
 typedef enum type_type {
     TY_VOID,
@@ -31,13 +27,7 @@ typedef struct type {
         struct {
             struct type *inner_type;
         } ptr;
-        struct {
-            struct type *return_type;
-            Array parameter_types; // Array<Type *>
-        } fn;
-        struct {
-            Array field_types; // Array<Type *>
-        } structure;
+        ASTObj *fn_obj, *struct_obj;
     } as;
 } Type;
 
