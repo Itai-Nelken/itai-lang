@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <assert.h>
-#include <stddef.h> // ssize_t
+#include <sys/types.h> // ssize_t
 #include "common.h"
 #include "memory.h"
 #include "Array.h"

@@ -3,7 +3,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <stddef.h> // size_t, ssize_t
+#include <stddef.h> // size_t
+#include <sys/types.h> // ssize_t
 #include <stdbool.h>
 #include <stdint.h>
 #include "utilities.h"
