@@ -185,7 +185,7 @@ ControlFlow controlFlowUpdate(ControlFlow old, ControlFlow new);
 
 /* AST nodes - common */
 
-#define NODE_IS(expr, type_) ((expr)->type == (type_))
+#define NODE_IS(node, type_) ((node)->type == (type_))
 
 /* AST nodes - ASTExprNode */
 
