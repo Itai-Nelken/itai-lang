@@ -282,7 +282,7 @@ fn main() {
     base.print(); // "Base"
     derived.print(); // "Derived"
 
-    var derived_as_base = as<Base>(derived);
+    var derived_as_base = as<&Base>(&derived);
     derived_as_base.print(); // still "Derived".
 }
 ```
@@ -291,10 +291,10 @@ To check the actual type of a polymorphic type, the `is` operator is used:
 ```rust
 // Using the same types as the previous example:
 
-fn test(a: Base) {
-	if a is Base {
+fn test(a: &Base) {
+	if a is &Base {
 		println("The type of 'a' is Base");
-	} else if a is Derived {
+	} else if a is &Derived {
 		println("The type of 'a' is Derived");
 	} else {
 		println("The type of 'a' is unknown");
@@ -302,6 +302,7 @@ fn test(a: Base) {
 }
 ```
 
+Note that runtime polymorphism only works through pointers, usually to instances stored in the heap using one of the smart pointer types such as `Box<T>`.
 
 ## Expect statement
 The `expect` statement is used to make sure a condition is true and if not that the error is handled.
