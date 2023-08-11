@@ -5,14 +5,14 @@
 #include "Strings.h"
 #include "Compiler.h"
 #include "Scanner.h"
-#include "Ast.h"
+#include "Ast/ParsedAst.h"
 #include "Token.h"
 
 typedef struct parser {
     // input/output/errors
     Compiler *compiler;
     Scanner *scanner;
-    ASTProgram *program;
+    ASTParsedProgram *program;
 
     // options
     bool dump_tokens;
@@ -69,6 +69,6 @@ void parserSetDumpTokens(Parser *p, bool value);
  * @param prog An ASTProgram.
  * @return true on success or false on failure.
  ***/
-bool parserParse(Parser *p, ASTProgram *prog);
+bool parserParse(Parser *p, ASTParsedProgram *prog);
 
 #endif // PARSER_H

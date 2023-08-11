@@ -6,7 +6,7 @@
 #include "Error.h"
 #include "Compiler.h"
 #include "Scanner.h"
-#include "Ast.h"
+#include "Ast/ParsedAst.h"
 #include "Token.h"
 #include "Types/ParsedType.h"
 #include "Parser.h"
@@ -136,10 +136,10 @@ static bool match(Parser *p, TokenType expected) {
 }
 
 static inline ScopeID enter_scope(Parser *p) {
-    ASTModule *module = astParsedProgramGetModule(p->program, p->current.module);
-    Scope *parent = astParsedModuleGetScope(module, p->current.scope);
+    ASTParsedModule *module = astParsedProgramGetModule(p->program, p->current.module);
+    ParsedScope *parent = astParsedModuleGetScope(module, p->current.scope);
     // FIXME: A child scope may be a block scope even if the parent isn't.
-    Scope *child = scopeNew(p->current.scope, parent->is_block_scope);
+    ParsedScope *child = scopeNew(p->current.scope, parent->is_block_scope);
     ScopeID child_id = astParsedModuleAddScope(module, child);
     scopeAddChild(parent, child_id);
     p->current.scope = child_id;
@@ -151,16 +151,16 @@ static inline ScopeID enter_scope(Parser *p) {
 }
 
 static void leave_scope(Parser *p) {
-    ASTModule *module = astParsedProgramGetModule(p->program, p->current.module);
+    ASTParsedModule *module = astParsedProgramGetModule(p->program, p->current.module);
     p->current.scope = astParsedModuleGetScope(module, p->current.scope)->parent;
     if(p->current.block_scope_depth >= FUNCTION_SCOPE_DEPTH) {
         p->current.block_scope_depth--;
     }
 }
 
-static inline void add_variable_to_current_scope(Parser *p, ASTObj *var) {
-    Scope *scope = astParsedModuleGetScope(astParsedProgramGetModule(p->program, p->current.module), p->current.scope);
-    ASTObj *prev = (ASTObj *)tableSet(&scope->variables, (void *)var->name.data, (void *)var);
+static inline void add_variable_to_current_scope(Parser *p, ASTParsedObj *var) {
+    ParsedScope *scope = astParsedModuleGetScope(astParsedProgramGetModule(p->program, p->current.module), p->current.scope);
+    ASTParsedObj *prev = (ASTParsedObj *)tableSet(&scope->variables, (void *)var->name.data, (void *)var);
     if(prev != NULL) {
         error_at(p, var->name.location, stringFormat("Redefinition of variable '%s'.", var->name));
         hint(p, prev->name.location, "Previous definition was here.");
@@ -198,8 +198,8 @@ typedef enum precedence {
     PREC_PRIMARY    = 12  // highest
 } Precedence;
 
-typedef ASTExprNode *(*PrefixParseFn)(Parser *p);
-typedef ASTExprNode *(*InfixParseFn)(Parser *p, ASTExprNode *lhs);
+typedef ASTParsedExprNode *(*PrefixParseFn)(Parser *p);
+typedef ASTParsedExprNode *(*InfixParseFn)(Parser *p, ASTParsedExprNode *lhs);
 
 typedef struct parse_rule {
     PrefixParseFn prefix;
@@ -278,29 +278,29 @@ static ParsedType *parse_type_from_identifier(Parser *p) {
 }
 
 // complex_type -> fn_type | identifier_type
-static Type *parse_complex_type(Parser *p) {
+static ParsedType *parse_complex_type(Parser *p) {
     if(match(p, TK_FN)) {
-        return TRY(Type *, parse_function_type(p));
+        return TRY(ParsedType *, parse_function_type(p));
     } else if(current(p).type == TK_IDENTIFIER) {
-        return TRY(Type *, parse_type_from_identifier(p));
+        return TRY(ParsedType *, parse_type_from_identifier(p));
     }
     error_at(p, current(p).location, "Expected typename.");
     return NULL;
 }
 
 // type -> primitive_type | complex_type
-static Type *parse_type(Parser *p) {
+static ParsedType *parse_type(Parser *p) {
     bool is_pointer = false;
     if(match(p, TK_AMPERSAND)) {
         is_pointer = true;
     }
-    Type *ty = parse_primitive_type(p);
+    ParsedType *ty = parse_primitive_type(p);
     if(!ty) {
-        ty = TRY(Type *, parse_complex_type(p));
+        ty = TRY(ParsedType *, parse_complex_type(p));
     }
     if(is_pointer) {
         ASTInternedString ptr_name = astParsedProgramAddString(p->program, tmp_buffer_format(p, "&%s", ty->name.data));
-        Type *ptr;
+        ParsedType *ptr;
         NEW0(ptr);
         // FIXME: Add ty->name.location?
         typeInit(ptr, TY_PTR, AST_STRING(ptr_name, EMPTY_LOCATION), p->current.module);
@@ -316,7 +316,7 @@ static Type *parse_type(Parser *p) {
 // Notes: 1) The semicolon at the end isn't consumed.
 //        2) [var_loc] may be NULL.
 // variable_decl -> 'var' identifier (':' type)? ('=' expression)? ';'
-static ASTStmtNode *parse_variable_decl(Parser *p, bool allow_initializer, bool add_to_scope, Array *obj_array, Location *var_loc) {
+static ASTParsedStmtNode *parse_variable_decl(Parser *p, bool allow_initializer, bool add_to_scope, Array *obj_array, Location *var_loc) {
     // Assumes 'var' was already consumed.
 
     ASTInternedString name_str = TRY(ASTInternedString, parse_identifier(p));
@@ -324,17 +324,17 @@ static ASTStmtNode *parse_variable_decl(Parser *p, bool allow_initializer, bool 
     ASTString name = AST_STRING(name_str, name_loc);
 
     // For variables, the type is NULL until it is parsed or infered.
-    Type *type = NULL;
+    ParsedType *type = NULL;
     if(match(p, TK_COLON)) {
-        type = TRY(Type *, parse_type(p));
+        type = TRY(ParsedType *, parse_type(p));
     }
 
-    ASTExprNode *initializer = NULL;
+    ASTParsedExprNode *initializer = NULL;
     if(allow_initializer && match(p, TK_EQUAL)) {
-        initializer = TRY(ASTExprNode *, parse_expression(p));
+        initializer = TRY(ASTParsedExprNode *, parse_expression(p));
     }
 
-    ASTObj *var = astNewObj(OBJ_VAR, name_loc, name, type);
+    ASTParsedObj *var = astNewParsedObj(OBJ_VAR, name_loc, name, type);
 
     // Add the variable object.
     // NOTE: The object is being pushed to the array
@@ -377,8 +377,8 @@ static void synchronize(Parser *p) {
     }
 }
 
-static void add_primitive_types(ASTProgram *prog, ASTModule *root_module) {
-#define DEF(typename, type, name) {Type *ty; NEW0(ty); typeInit(ty, (type), AST_STRING(astProgramAddString(prog, (name)), EMPTY_LOCATION), root_module->id); prog->primitives.typename = scopeAddType(root_module->module_scope, ty);}
+static void add_primitive_types(ASTParsedProgram *prog, ASTParsedModule *root_module) {
+#define DEF(typename, type, name) {ParsedType *ty; NEW0(ty); parsedTypeInit(ty, (type), AST_STRING(astParsedProgramAddString(prog, (name)), EMPTY_LOCATION), root_module->id); prog->primitives.typename = parsedScopeAddType(root_module->module_scope, ty);}
 
     // FIXME: do we need to add the typenames to the string table (because they are string literals)?
     // NOTE: Update IS_PRIMITIVE() in Types.h when adding new primitives.
@@ -390,7 +390,7 @@ static void add_primitive_types(ASTProgram *prog, ASTModule *root_module) {
 #undef DEF
 }
 
-bool parserParse(Parser *p, ASTProgram *prog) {
+bool parserParse(Parser *p, ASTParsedProgram *prog) {
     p->program = prog;
 
     // Get the first token.
@@ -403,10 +403,10 @@ bool parserParse(Parser *p, ASTProgram *prog) {
     }
 
     // Create the root module (A special module that represents the toplevel scope (file scope)).
-    ASTModule *root_module = astNewParsedModule(AST_STRING(astParsedProgramAddString(prog, "___root_module___"), EMPTY_LOCATION));
+    ASTParsedModule *root_module = astNewParsedModule(AST_STRING(astParsedParsedProgramAddString(prog, "___root_module___"), EMPTY_LOCATION));
     p->current.module = astParsedProgramAddModule(prog, root_module);
     root_module->id = p->current.module;
-    p->current.scope = astModuleGetModuleScopeID(root_module);
+    p->current.scope = astParsedModuleGetModuleScopeID(root_module);
     add_primitive_types(prog, root_module);
     p->current.allocator = &root_module->ast_allocator.alloc;
 
@@ -417,7 +417,7 @@ bool parserParse(Parser *p, ASTProgram *prog) {
             UNREACHABLE();
         } else if(match(p, TK_VAR)) {
             Location var_loc = previous(p).location;
-            ASTStmtNode *var = parse_variable_decl(p, true, true, &root_module->module_scope->objects, &var_loc);
+            ASTParsedStmtNode *var = parse_variable_decl(p, true, true, &root_module->module_scope->objects, &var_loc);
             if(!consume(p, TK_SEMICOLON)) {
                 continue;
             }
