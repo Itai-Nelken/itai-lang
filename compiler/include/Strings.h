@@ -40,6 +40,14 @@ void stringFree(String s);
 size_t stringLength(String s);
 
 /***
+ * Clear a String.
+ * NOTE: The whole string is zeroed.
+ *
+ * @param s The String to clear.
+ ***/
+void stringClear(String s);
+
+/***
  * Resize a string allocated by stringNew() or stringCopy().
  * NOTE: if 'newSize' is smaller than the current length, data will be lost!
  *
@@ -100,6 +108,15 @@ String stringVFormat(const char *format, va_list ap);
  * @return A new String containing the formatted format string.
  ***/
 String stringFormat(const char *format, ...);
+
+/***
+ * Append [format] to [dest] (printf-like formatting supported using arfguments in [ap]).
+ *
+ * @param dest the destination string.
+ * @param format the string to append (printf-like format specifiers supported).
+ * @param ap The vaargs
+ ***/
+void stringVAppend(String *dest, const char *format, va_list ap);
 
 /***
  * Append format to dest (printf-like formatting supported)

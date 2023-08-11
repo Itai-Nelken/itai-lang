@@ -48,6 +48,12 @@ size_t stringLength(String s) {
     return from_str(s)->length;
 }
 
+void stringClear(String s) {
+    StringHeader *h = from_str(s);
+    memset(from_str(s)->data, 0, h->capacity);
+    h->length = 0;
+}
+
 String stringResize(String s, size_t new_capacity) {
     VERIFY(new_capacity > 0);
     StringHeader *h = from_str(s);
@@ -117,14 +123,10 @@ String stringFormat(const char *format, ...) {
     return s;
 }
 
-void stringAppend(String *dest, const char *format, ...) {
+void stringVAppend(String *dest, const char *format, va_list ap) {
     VERIFY(is_valid(*dest));
-    va_list ap;
 
-    va_start(ap, format);
     String buffer = stringVFormat(format, ap);
-    va_end(ap);
-
     if(stringLength(*dest) + stringLength(buffer) + 1 > from_str(*dest)->capacity) {
         *dest = stringResize(*dest, stringLength(*dest) + stringLength(buffer) + 1);
     }
@@ -132,4 +134,11 @@ void stringAppend(String *dest, const char *format, ...) {
     // *dest is zeroed by stringNew() & stringResize(), so no need to terminate the string.
     from_str(*dest)->length += stringLength(buffer);
     stringFree(buffer);
+}
+
+void stringAppend(String *dest, const char *format, ...) {
+    va_list ap;
+    va_start(ap, format);
+    stringVAppend(dest, format, ap);
+    va_end(ap);
 }
