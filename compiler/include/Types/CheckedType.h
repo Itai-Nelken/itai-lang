@@ -17,7 +17,7 @@ typedef struct checked_type {
         struct {
             struct checked_type *inner_type;
         } ptr;
-        ASTObj *fn_obj, *struct_obj;
+        ASTCheckedObj *fn_obj, *struct_obj;
     } as;
 } CheckedType;
 

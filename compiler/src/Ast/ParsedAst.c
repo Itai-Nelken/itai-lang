@@ -71,7 +71,7 @@ ParsedScope *parsedScopeNew(ScopeID parent_scope, bool is_block_scope) {
     tableInit(&sc->variables, NULL, NULL);
     tableInit(&sc->functions, NULL, NULL);
     tableInit(&sc->structures, NULL, NULL);
-    tableInit(&sc->types, NULL, NULL);
+    tableInit(&sc->types, hash_type, compare_type);
     // sc.children is lazy-allocated. see scopeAddChild().
     sc->parent = parent_scope;
     return sc;
@@ -582,14 +582,14 @@ void astPrintParsedObj(FILE *to, ASTParsedObj *obj) {
     fputs(", \x1b[1mname:\x1b[0m ", to);
     astStringPrint(to, &obj->name);
     fputs(", \x1b[1mdata_type:\x1b[0m ", to);
-    typePrint(to, obj->data_type, true);
+    parsedTypePrint(to, obj->data_type, true);
     switch(obj->type) {
         case OBJ_VAR:
             // nothing
             break;
         case OBJ_FN:
             fputs(", \x1b[1mreturn_type:\x1b[0m ", to);
-            typePrint(to, obj->as.fn.return_type, true);
+            parsedTypePrint(to, obj->as.fn.return_type, true);
             fputs(", \x1b[1mparameters:\x1b[0m [", to);
             PRINT_ARRAY(ASTParsedObj *, astPrintParsedObj, to, obj->as.fn.parameters);
             fputs("], \x1b[1mbody:\x1b[0m ", to);
@@ -602,7 +602,7 @@ void astPrintParsedObj(FILE *to, ASTParsedObj *obj) {
             break;
         case OBJ_EXTERN_FN:
             fputs(", \x1b[1mreturn_type:\x1b[0m ", to);
-            typePrint(to, obj->as.fn.return_type, true);
+            parsedTypePrint(to, obj->as.fn.return_type, true);
             fputs(", \x1b[1mparameters:\x1b[0m [", to);
             PRINT_ARRAY(ASTParsedObj *, astPrintParsedObj, to, obj->as.fn.parameters);
             fputs("], \x1b[1msource:\x1b[0m ", to);
@@ -624,7 +624,7 @@ ASTParsedModule *astNewParsedModule(ASTString name) {
     arenaInit(&m->ast_allocator.storage);
     m->ast_allocator.alloc = arenaMakeAllocator(&m->ast_allocator.storage);
     arrayInit(&m->scopes);
-    m->module_scope = scopeNew(EMPTY_SCOPE_ID, false);
+    m->module_scope = parsedScopeNew(EMPTY_SCOPE_ID, false);
     // Note: if module_scope is not the first scope, change astParsedModuleGetModuleScopeID().
     arrayPush(&m->scopes, m->module_scope);
     arrayInit(&m->globals);

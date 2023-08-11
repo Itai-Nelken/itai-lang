@@ -72,9 +72,9 @@ bool checkedTypeEqual(CheckedType *a, CheckedType *b) {
         }
         // past here, both function types have the same return type and parameter count.
         ARRAY_FOR(i, a->as.fn_obj->as.fn.parameters) {
-            ASTObj *a_param = ARRAY_GET_AS(ASTObj *, &a->as.fn_obj->as.fn.parameters, i);
-            ASTObj *b_param = ARRAY_GET_AS(ASTObj *, &b->as.fn_obj->as.fn.parameters, i);
-            if(!typeEqual(a_param->data_type, b_param->data_type)) {
+            ASTCheckedObj *a_param = ARRAY_GET_AS(ASTCheckedObj *, &a->as.fn_obj->as.fn.parameters, i);
+            ASTCheckedObj *b_param = ARRAY_GET_AS(ASTCheckedObj *, &b->as.fn_obj->as.fn.parameters, i);
+            if(!checkedTypeEqual(a_param->data_type, b_param->data_type)) {
                 return false;
             }
         }
@@ -100,7 +100,7 @@ unsigned checkedTypeHash(CheckedType *ty) {
     }
     if(ty->type == TY_FN) {
         ARRAY_FOR(i, ty->as.fn_obj->as.fn.parameters) {
-            hash |= checkedTypeHash(ARRAY_GET_AS(ASTObj *, &ty->as.fn_obj->as.fn.parameters, i)->data_type);
+            hash |= checkedTypeHash(ARRAY_GET_AS(ASTCheckedObj *, &ty->as.fn_obj->as.fn.parameters, i)->data_type);
         }
         hash &= checkedTypeHash(ty->as.fn_obj->as.fn.return_type);
     } else if(ty->type == TY_PTR) {
@@ -122,7 +122,7 @@ void checkedTypePrint(FILE *to, CheckedType *ty, bool compact) {
             astStringPrint(to, &ty->name);
         } else if(ty->type == TY_PTR) {
             fputs(", \x1b[1minner:\x1b[0m ", to);
-            typePrint(to, ty->as.ptr.inner_type, true);
+            checkedTypePrint(to, ty->as.ptr.inner_type, true);
         }
         fputc('}', to);
     } else {
@@ -132,16 +132,16 @@ void checkedTypePrint(FILE *to, CheckedType *ty, bool compact) {
         switch(ty->type) {
             case TY_FN:
                 fputs(", \x1b[1mfn_obj:\x1b[0m ", to);
-                astObjPrint(to, ty->as.fn_obj);
+                astPrintCheckedObj(to, ty->as.fn_obj);
                 break;
             case TY_STRUCT: {
                 fputs(", \x1b[1mstruct_obj:\x1b[0m ", to);
-                astObjPrint(to, ty->as.struct_obj);
+                astPrintCheckedObj(to, ty->as.struct_obj);
                 break;
             }
             case TY_PTR:
                 fputs(", \x1b[1minner_type:\x1b[0m ", to);
-                typePrint(to, ty->as.ptr.inner_type, true);
+                checkedTypePrint(to, ty->as.ptr.inner_type, true);
                 break;
             case TY_VOID:
             case TY_I32:

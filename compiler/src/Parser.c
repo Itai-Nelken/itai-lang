@@ -139,9 +139,9 @@ static inline ScopeID enter_scope(Parser *p) {
     ASTParsedModule *module = astParsedProgramGetModule(p->program, p->current.module);
     ParsedScope *parent = astParsedModuleGetScope(module, p->current.scope);
     // FIXME: A child scope may be a block scope even if the parent isn't.
-    ParsedScope *child = scopeNew(p->current.scope, parent->is_block_scope);
+    ParsedScope *child = parsedScopeNew(p->current.scope, parent->is_block_scope);
     ScopeID child_id = astParsedModuleAddScope(module, child);
-    scopeAddChild(parent, child_id);
+    parsedScopeAddChild(parent, child_id);
     p->current.scope = child_id;
     if(child->is_block_scope) {
         p->current.block_scope_depth++;
@@ -265,6 +265,11 @@ static ASTInternedString parse_identifier(Parser *p) {
 
 /** Type parser **/
 // FIXME: when adding parse_function_type, the function obj is needed which is bad as we don't always have it...)
+static ParsedType *parse_function_type(Parser *p) {
+    UNUSED(p);
+    LOG_ERR("parse_function_type() is unimplemented!");
+    UNREACHABLE();
+}
 
 // identifier_type -> identifier (The identifier has to be a type of a struct, enum, or type alias).
 static ParsedType *parse_type_from_identifier(Parser *p) {
@@ -272,9 +277,9 @@ static ParsedType *parse_type_from_identifier(Parser *p) {
     Location loc = previous(p).location;
     ParsedType *ty;
     NEW0(ty);
-    typeInit(ty, TY_ID, AST_STRING(name, loc), p->current.module);
+    parsedTypeInit(ty, TY_ID, AST_STRING(name, loc), p->current.module);
     ty->decl_location = loc;
-    return scopeAddType(astParsedProgramGetModule(p->program, p->current.module)->module_scope, ty);
+    return parsedScopeAddType(astParsedProgramGetModule(p->program, p->current.module)->module_scope, ty);
 }
 
 // complex_type -> fn_type | identifier_type
@@ -285,6 +290,20 @@ static ParsedType *parse_complex_type(Parser *p) {
         return TRY(ParsedType *, parse_type_from_identifier(p));
     }
     error_at(p, current(p).location, "Expected typename.");
+    return NULL;
+}
+
+// primitive_type -> i32 | u32
+static ParsedType *parse_primitive_type(Parser *p) {
+    if(match(p, TK_VOID)) {
+        return p->program->primitives.void_;
+    } else if(match(p, TK_I32)) {
+        return p->program->primitives.int32;
+    } else if(match(p, TK_U32)) {
+        return p->program->primitives.uint32;
+    } else if(match(p, TK_STR)) {
+        return p->program->primitives.str;
+    }
     return NULL;
 }
 
@@ -303,9 +322,9 @@ static ParsedType *parse_type(Parser *p) {
         ParsedType *ptr;
         NEW0(ptr);
         // FIXME: Add ty->name.location?
-        typeInit(ptr, TY_PTR, AST_STRING(ptr_name, EMPTY_LOCATION), p->current.module);
+        parsedTypeInit(ptr, TY_PTR, AST_STRING(ptr_name, EMPTY_LOCATION), p->current.module);
         ptr->as.ptr.inner_type = ty;
-        ty = scopeAddType(astParsedProgramGetModule(p->program, p->current.module)->module_scope, ptr);
+        ty = parsedScopeAddType(astParsedProgramGetModule(p->program, p->current.module)->module_scope, ptr);
     }
     return ty;
 }
@@ -351,7 +370,7 @@ static ASTParsedStmtNode *parse_variable_decl(Parser *p, bool allow_initializer,
     if(var_loc) {
         full_loc = locationMerge(*var_loc, full_loc);
     }
-    return astNewVarDeclStmt(p->current.allocator, full_loc, var, initializer);
+    return astNewParsedVarDeclStmt(p->current.allocator, full_loc, var, initializer);
 }
 
 
@@ -403,7 +422,7 @@ bool parserParse(Parser *p, ASTParsedProgram *prog) {
     }
 
     // Create the root module (A special module that represents the toplevel scope (file scope)).
-    ASTParsedModule *root_module = astNewParsedModule(AST_STRING(astParsedParsedProgramAddString(prog, "___root_module___"), EMPTY_LOCATION));
+    ASTParsedModule *root_module = astNewParsedModule(AST_STRING(astParsedProgramAddString(prog, "___root_module___"), EMPTY_LOCATION));
     p->current.module = astParsedProgramAddModule(prog, root_module);
     root_module->id = p->current.module;
     p->current.scope = astParsedModuleGetModuleScopeID(root_module);

@@ -25,12 +25,12 @@ static void free_type_table_callback(TableItem *item, bool is_last, void *cl) {
 
 static void free_scope_callback(void *scope, void *cl) {
     UNUSED(cl);
-    parsedScopeFree((CheckedScope *)scope);
+    checkedScopeFree((CheckedScope *)scope);
 }
 
 static void free_module_callback(void *module, void *cl) {
     UNUSED(cl);
-    astFreeParsedModule((ASTCheckedModule *)module);
+    astFreeCheckedModule((ASTCheckedModule *)module);
 }
 
 static void print_type_table_callback(TableItem *item, bool is_last, void *stream) {
@@ -51,6 +51,17 @@ static void print_object_table_callback(TableItem *item, bool is_last, void *str
     }
 }
 
+static unsigned hash_type(void *type) {
+    CheckedType *ty = (CheckedType *)type;
+    return checkedTypeHash(ty);
+}
+
+static bool compare_type(void *a_type, void *b_type) {
+    CheckedType *a = (CheckedType *)a_type;
+    CheckedType *b = (CheckedType *)b_type;
+    return checkedTypeEqual(a, b);
+}
+
 
 /* CheckedScope */
 
@@ -63,7 +74,7 @@ CheckedScope *checkedScopeNew(ScopeID parent_scope, bool is_block_scope) {
     tableInit(&sc->variables, NULL, NULL);
     tableInit(&sc->functions, NULL, NULL);
     tableInit(&sc->structures, NULL, NULL);
-    tableInit(&sc->types, NULL, NULL);
+    tableInit(&sc->types, hash_type, compare_type);
     // sc.children is lazy-allocated. see scopeAddChild().
     sc->parent = parent_scope;
     return sc;
@@ -378,11 +389,11 @@ void astCheckedStmtNodePrint(FILE *to, ASTCheckedStmtNode *n) {
     locationPrint(to, n->location, true);
     switch(n->type) {
         // VarDeck node
-        caseCHECKEDD_STMT_VAR_DECL:
+        case CHECKED_STMT_VAR_DECL:
             fputs(", \x1b[1mvariable:\x1b[0m ", to);
-            astParsedObjPrintCompact(to, NODE_AS(ASTCheckedVarDeclStmt, n)->variable);
+            astCheckedObjPrintCompact(to, NODE_AS(ASTCheckedVarDeclStmt, n)->variable);
             fputs(", \x1b[1minitializer:\x1b[0m ", to);
-            astParsedExprNodePrint(to, NODE_AS(ASTCheckedVarDeclStmt, n)->initializer);
+            astCheckedExprNodePrint(to, NODE_AS(ASTCheckedVarDeclStmt, n)->initializer);
             break;
         // Block nodes
         case CHECKED_STMT_BLOCK:
@@ -397,29 +408,29 @@ void astCheckedStmtNodePrint(FILE *to, ASTCheckedStmtNode *n) {
         // Conditional nodes
         case CHECKED_STMT_IF:
             fputs(", \x1b[1mcondition:\x1b[0m ", to);
-            astParsedExprNodePrint(to, NODE_AS(ASTCheckedConditionalStmt, n)->condition);
+            astCheckedExprNodePrint(to, NODE_AS(ASTCheckedConditionalStmt, n)->condition);
             fputs(", \x1b[1mthen:\x1b[0m ", to);
-            astParsedStmtNodePrint(to, (ASTCheckedStmtNode *)(NODE_AS(ASTCheckedConditionalStmt, n)->then));
+            astCheckedStmtNodePrint(to, (ASTCheckedStmtNode *)(NODE_AS(ASTCheckedConditionalStmt, n)->then));
             fputs(", \x1b[1melse:\x1b[0m ", to);
-            astParsedStmtNodePrint(to, (ASTCheckedStmtNode *)(NODE_AS(ASTCheckedConditionalStmt, n)->else_));
+            astCheckedStmtNodePrint(to, (ASTCheckedStmtNode *)(NODE_AS(ASTCheckedConditionalStmt, n)->else_));
             break;
         // Loop node
         case CHECKED_STMT_WHILE_LOOP:
             fputs(", \x1b[1minitializer:\x1b[0m ", to);
-            astParsedStmtNodePrint(to, NODE_AS(ASTCheckedLoopStmt, n)->initializer);
+            astCheckedStmtNodePrint(to, NODE_AS(ASTCheckedLoopStmt, n)->initializer);
             fputs(", \x1b[1mcondition:\x1b[0m ", to);
-            astParsedExprNodePrint(to, NODE_AS(ASTCheckedLoopStmt, n)->condition);
+            astCheckedExprNodePrint(to, NODE_AS(ASTCheckedLoopStmt, n)->condition);
             fputs(", \x1b[1mincrement:\x1b[0m ", to);
-            astParsedExprNodePrint(to, NODE_AS(ASTCheckedLoopStmt, n)->increment);
+            astCheckedExprNodePrint(to, NODE_AS(ASTCheckedLoopStmt, n)->increment);
             fputs(", \x1b[1mbody:\x1b[0m ", to);
-            astParsedStmtNodePrint(to, (ASTCheckedStmtNode *)(NODE_AS(ASTCheckedLoopStmt, n)->body));
+            astCheckedStmtNodePrint(to, (ASTCheckedStmtNode *)(NODE_AS(ASTCheckedLoopStmt, n)->body));
             break;
         // Expr nodes
         case CHECKED_STMT_RETURN:
         case CHECKED_STMT_DEFER:
         case CHECKED_STMT_EXPR:
             fputs(", \x1b[1mexpr:\x1b[0m", to);
-            astParsedExprNodePrint(to, NODE_AS(ASTCheckedExprStmt, n)->expr);
+            astCheckedExprNodePrint(to, NODE_AS(ASTCheckedExprStmt, n)->expr);
             break;
         default:
             UNREACHABLE();
@@ -545,7 +556,7 @@ void astCheckedObjPrintCompact(FILE *to, ASTCheckedObj *obj) {
         fprintf(to, "(null)");
         return;
     }
-    fprintf(to, "ASTCheckedObj{\x1b[1;36m%s\x1b[0m, ", obj_type_name(obj->type));
+    fprintf(to, "ASTCheckedObj{\x1b[1;36m%s\x1b[0m, ", __ast_obj_type_name(obj->type));
     locationPrint(to, obj->location, true);
     fputs(", ", to);
     astStringPrint(to, &obj->name);
@@ -560,7 +571,7 @@ void astPrintCheckedObj(FILE *to, ASTCheckedObj *obj) {
         return;
     }
 
-    fprintf(to, "ASTCheckedObj{\x1b[1mtype: \x1b[36m%s\x1b[0m", obj_type_name(obj->type));
+    fprintf(to, "ASTCheckedObj{\x1b[1mtype: \x1b[36m%s\x1b[0m", __ast_obj_type_name(obj->type));
     fputs(", \x1b[1mlocation:\x1b[0m ", to);
     locationPrint(to, obj->location, true);
     // Note: name loc is not printed to declutter the output.
@@ -568,18 +579,18 @@ void astPrintCheckedObj(FILE *to, ASTCheckedObj *obj) {
     fputs(", \x1b[1mname:\x1b[0m ", to);
     astStringPrint(to, &obj->name);
     fputs(", \x1b[1mdata_type:\x1b[0m ", to);
-    typePrint(to, obj->data_type, true);
+    checkedTypePrint(to, obj->data_type, true);
     switch(obj->type) {
         case OBJ_VAR:
             // nothing
             break;
         case OBJ_FN:
             fputs(", \x1b[1mreturn_type:\x1b[0m ", to);
-            typePrint(to, obj->as.fn.return_type, true);
+            checkedTypePrint(to, obj->as.fn.return_type, true);
             fputs(", \x1b[1mparameters:\x1b[0m [", to);
             PRINT_ARRAY(ASTCheckedObj *, astPrintCheckedObj, to, obj->as.fn.parameters);
             fputs("], \x1b[1mbody:\x1b[0m ", to);
-            astCheckedtmtNodePrint(to, (ASTCheckedStmtNode *)obj->as.fn.body);
+            astCheckedStmtNodePrint(to, (ASTCheckedStmtNode *)obj->as.fn.body);
             break;
         case OBJ_STRUCT:
             fputs(", \x1b[1mscope:\x1b[0m ", to);
@@ -588,7 +599,7 @@ void astPrintCheckedObj(FILE *to, ASTCheckedObj *obj) {
             break;
         case OBJ_EXTERN_FN:
             fputs(", \x1b[1mreturn_type:\x1b[0m ", to);
-            typePrint(to, obj->as.fn.return_type, true);
+            checkedTypePrint(to, obj->as.fn.return_type, true);
             fputs(", \x1b[1mparameters:\x1b[0m [", to);
             PRINT_ARRAY(ASTCheckedObj *, astPrintCheckedObj, to, obj->as.fn.parameters);
             fputs("], \x1b[1msource:\x1b[0m ", to);
@@ -610,7 +621,7 @@ ASTCheckedModule *astNewCheckedModule(ASTString name) {
     arenaInit(&m->ast_allocator.storage);
     m->ast_allocator.alloc = arenaMakeAllocator(&m->ast_allocator.storage);
     arrayInit(&m->scopes);
-    m->module_scope = scopeNew(EMPTY_SCOPE_ID, false);
+    m->module_scope = checkedScopeNew(EMPTY_SCOPE_ID, false);
     // Note: if module_scope is not the first scope, change astCheckedModuleGetModuleScopeID().
     arrayPush(&m->scopes, m->module_scope);
     arrayInit(&m->globals);

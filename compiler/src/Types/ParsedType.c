@@ -67,7 +67,7 @@ bool parsedTypeEqual(ParsedType *a, ParsedType *b) {
     // because function types are equal even if they are in
     // different modules.
     if(a->type == TY_FN) {
-        if(!typeEqual(a->as.fn.return_type, b->as.fn.return_type)) {
+        if(!parsedTypeEqual(a->as.fn.return_type, b->as.fn.return_type)) {
             return false;
         }
         if(a->as.fn.parameter_types.used != b->as.fn.parameter_types.used) {
@@ -77,13 +77,13 @@ bool parsedTypeEqual(ParsedType *a, ParsedType *b) {
         for(usize i = 0; i < a->as.fn.parameter_types.used; ++i) {
             ParsedType *a_param = ARRAY_GET_AS(ParsedType *, &a->as.fn.parameter_types, i);
             ParsedType *b_param = ARRAY_GET_AS(ParsedType *, &b->as.fn.parameter_types, i);
-            if(!typeEqual(a_param, b_param)) {
+            if(!parsedTypeEqual(a_param, b_param)) {
                 return false;
             }
         }
         return true;
     } else if(a->type == TY_PTR) {
-        return typeEqual(a->as.ptr.inner_type, b->as.ptr.inner_type);
+        return parsedTypeEqual(a->as.ptr.inner_type, b->as.ptr.inner_type);
     }
 
     if(a->decl_module != b->decl_module) {

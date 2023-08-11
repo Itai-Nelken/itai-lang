@@ -4,7 +4,8 @@
 #include "common.h"
 #include "memory.h"
 #include "Token.h"
-#include "Ast.h"
+#include "Ast/ParsedAst.h"
+#include "Ast/CheckedAst.h"
 #include "Compiler.h"
 #include "Scanner.h"
 
@@ -67,12 +68,12 @@ int main(int argc, char **argv) {
     //Scanner s;
     //Parser p;
     //Validator v;
-    ASTProgram prog;
+    ASTParsedProgram parsed_prog;
     //compilerInit(&c);
     //scannerInit(&s, &c);
     //parserInit(&p, &s, &c);
     //validatorInit(&v, &c);
-    astProgramInit(&prog);
+    astParsedProgramInit(&parsed_prog);
 
     Options opts = {
         .file_path = "./test.ilc",
@@ -111,7 +112,7 @@ int main(int argc, char **argv) {
     //}
 
     if(opts.dump_ast) {
-        astProgramPrint(stdout, &prog);
+        astParsedProgramPrint(stdout, &parsed_prog);
         fputc('\n', stdout);
     }
 
@@ -122,7 +123,7 @@ int main(int argc, char **argv) {
     //}
 
 end:
-    astProgramFree(&prog);
+    astParsedProgramFree(&parsed_prog);
     //validatorFree(&v);
     //parserFree(&p);
     //scannerFree(&s);
