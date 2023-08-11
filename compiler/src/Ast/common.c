@@ -164,7 +164,7 @@ const char *attributeTypeString(AttributeType type) {
 
 /* ASTObj - common */
 
-const char *__obj_type_name(ASTObjType type) {
+const char *__ast_obj_type_name(ASTObjType type) {
     static const char *names[] = {
         [OBJ_VAR]       = "OBJ_VAR",
         [OBJ_FN]        = "OBJ_FN",

@@ -37,7 +37,7 @@ void parserSetDumpTokens(Parser *p, bool value) {
 }
 
 
-/** Parser helpers **/
+/* Parser helpers */
 
 static inline bool is_eof(Parser *p) {
     return p->current_token.type == TK_EOF;
@@ -180,7 +180,7 @@ _tmp;})
 #define TRY_CONSUME(parser, expected) TRY(bool, consume(parser, expected))
 
 
-/** Expression Parser **/
+/* Expression Parser */
 
 typedef enum precedence {
     PREC_LOWEST     = 0,  // lowest
@@ -206,6 +206,14 @@ typedef struct parse_rule {
     InfixParseFn infix;
     Precedence precedence;
 } ParseRule;
+
+
+/** Parse functions pre-declarations **/
+
+static ASTParsedExprNode *parse_identifier_expr(Parser *p);
+
+
+/** Parse rule table **/
 
 static ParseRule rules[] = {
     [TK_LPAREN]         = {NULL, NULL, PREC_LOWEST},
@@ -248,7 +256,7 @@ static ParseRule rules[] = {
     [TK_I32]            = {NULL, NULL, PREC_LOWEST},
     [TK_U32]            = {NULL, NULL, PREC_LOWEST},
     [TK_STR]            = {NULL, NULL, PREC_LOWEST},
-    [TK_IDENTIFIER]     = {NULL, NULL, PREC_LOWEST},
+    [TK_IDENTIFIER]     = {parse_identifier_expr, NULL, PREC_LOWEST},
     [TK_GARBAGE]        = {NULL, NULL, PREC_LOWEST},
     [TK_EOF]            = {NULL, NULL, PREC_LOWEST}
 };
@@ -257,13 +265,52 @@ static ParseRule *get_rule(TokenType type) {
     return &rules[type];
 }
 
+/** Parse functions **/
+
 static ASTInternedString parse_identifier(Parser *p) {
     TRY_CONSUME(p, TK_IDENTIFIER);
     return astParsedProgramAddString(p->program, tmp_buffer_copy(p, previous(p).lexeme, previous(p).length));
 }
 
+static ASTParsedExprNode *parse_identifier_expr(Parser *p) {
+    Token prev = previous(p);
+    ASTInternedString str = astParsedProgramAddString(p->program, stringNCopy(prev.lexeme, prev.length));
+    return astNewParsedIdentifierExpr(p->current.allocator, prev.location, AST_STRING(str, prev.location));
+}
 
-/** Type parser **/
+
+static ASTParsedExprNode *parse_precedence(Parser *p, Precedence min_prec) {
+    advance(p);
+    PrefixParseFn prefix = get_rule(previous(p).type)->prefix;
+    if(prefix == NULL) {
+        error(p, stringFormat("Expected an expression but got '%s'.", tokenTypeString(previous(p).type)));
+        return NULL;
+    }
+    ASTParsedExprNode *tree = prefix(p);
+    if(!tree) {
+        // Assume the error was already reported.
+        return NULL;
+    }
+    while(!is_eof(p) && min_prec < get_rule(current(p).type)->precedence) {
+        advance(p);
+        InfixParseFn infix = get_rule(previous(p).type)->infix;
+        tree = infix(p, tree);
+        if(!tree) {
+            // Assume the error was already reported.
+            return NULL;
+        }
+    }
+
+    return tree;
+}
+
+static inline ASTParsedExprNode *parse_expression(Parser *p) {
+    return parse_precedence(p, PREC_LOWEST);
+}
+
+
+/* Type parser */
+
 // FIXME: when adding parse_function_type, the function obj is needed which is bad as we don't always have it...)
 static ParsedType *parse_function_type(Parser *p) {
     UNUSED(p);
@@ -330,7 +377,7 @@ static ParsedType *parse_type(Parser *p) {
 }
 
 
-/** Statement & Declaration parser **/
+/* Statement & Declaration parser */
 
 // Notes: 1) The semicolon at the end isn't consumed.
 //        2) [var_loc] may be NULL.
@@ -373,6 +420,8 @@ static ASTParsedStmtNode *parse_variable_decl(Parser *p, bool allow_initializer,
     return astNewParsedVarDeclStmt(p->current.allocator, full_loc, var, initializer);
 }
 
+#undef TRY_CONSUME
+#undef TRY
 
 // synchronize to declaration boundaries.
 static void synchronize(Parser *p) {
