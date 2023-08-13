@@ -221,12 +221,13 @@ static ASTParsedExprNode *parse_grouping_expr(Parser *p);
 static ASTParsedExprNode *parse_unary_expr(Parser *p);
 static ASTParsedExprNode *parse_binary_expr(Parser *p, ASTParsedExprNode *lhs);
 static ASTParsedExprNode *parse_assignment(Parser *p, ASTParsedExprNode *lhs);
+static ASTParsedExprNode *parse_call_expr(Parser *p, ASTParsedExprNode *callee);
 
 
 /** Parse rule table **/
 
 static ParseRule rules[] = {
-    [TK_LPAREN]         = {parse_grouping_expr, NULL, PREC_LOWEST},
+    [TK_LPAREN]         = {parse_grouping_expr, parse_call_expr, PREC_CALL},
     [TK_RPAREN]         = {NULL, NULL, PREC_LOWEST},
     [TK_LBRACKET]       = {NULL, NULL, PREC_LOWEST},
     [TK_RBRACKET]       = {NULL, NULL, PREC_LOWEST},
@@ -375,6 +376,29 @@ static ASTParsedExprNode *parse_binary_expr(Parser *p, ASTParsedExprNode *lhs) {
 static ASTParsedExprNode *parse_assignment(Parser *p, ASTParsedExprNode *lhs) {
     ASTParsedExprNode *rhs = TRY(ASTParsedExprNode *, parse_expression(p));
     return astNewParsedBinaryExpr(p->current.allocator, PARSED_EXPR_ASSIGN, locationMerge(lhs->location, rhs->location), lhs, rhs);
+}
+
+static ASTParsedExprNode *parse_call_expr(Parser *p, ASTParsedExprNode *callee) {
+    //Location loc = current(p).location;
+    Array args;
+    arrayInit(&args);
+    if(current(p).type != TK_RPAREN) {
+        do {
+            ASTParsedExprNode *arg = parse_expression(p);
+            if(!arg) {
+                continue;
+            }
+            arrayPush(&args, (void *)arg);
+            //loc = locationMerge(loc, previous(p).location);
+        } while(match(p, TK_COMMA));
+    }
+    if(!consume(p, TK_RPAREN)) {
+        arrayFree(&args);
+        return NULL;
+    }
+    ASTParsedExprNode *call = astNewParsedCallExpr(p->current.allocator, locationMerge(callee->location, previous(p).location), callee, &args);
+    arrayFree(&args);
+    return call;
 }
 
 
