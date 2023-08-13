@@ -224,6 +224,7 @@ static ASTParsedExprNode *parse_number_literal_expr(Parser *p);
 static ASTParsedExprNode *parse_string_literal_expr(Parser *p);
 static ASTParsedExprNode *parse_grouping_expr(Parser *p);
 static ASTParsedExprNode *parse_unary_expr(Parser *p);
+static ASTParsedExprNode *parse_binary_expr(Parser *p, ASTParsedExprNode *lhs);
 
 
 /** Parse rule table **/
@@ -235,25 +236,25 @@ static ParseRule rules[] = {
     [TK_RBRACKET]       = {NULL, NULL, PREC_LOWEST},
     [TK_LBRACE]         = {NULL, NULL, PREC_LOWEST},
     [TK_RBRACE]         = {NULL, NULL, PREC_LOWEST},
-    [TK_PLUS]           = {parse_unary_expr, NULL, PREC_LOWEST},
-    [TK_STAR]           = {parse_unary_expr, NULL, PREC_LOWEST},
-    [TK_SLASH]          = {NULL, NULL, PREC_LOWEST},
+    [TK_PLUS]           = {parse_unary_expr, parse_binary_expr, PREC_TERM},
+    [TK_STAR]           = {parse_unary_expr, parse_binary_expr, PREC_FACTOR},
+    [TK_SLASH]          = {NULL, parse_binary_expr, PREC_FACTOR},
     [TK_SEMICOLON]      = {NULL, NULL, PREC_LOWEST},
     [TK_COLON]          = {NULL, NULL, PREC_LOWEST},
     [TK_COMMA]          = {NULL, NULL, PREC_LOWEST},
     [TK_DOT]            = {NULL, NULL, PREC_LOWEST},
     [TK_HASH]           = {NULL, NULL, PREC_LOWEST},
     [TK_AMPERSAND]      = {parse_unary_expr, NULL, PREC_LOWEST},
-    [TK_MINUS]          = {parse_unary_expr, NULL, PREC_LOWEST},
+    [TK_MINUS]          = {parse_unary_expr, parse_binary_expr, PREC_TERM},
     [TK_ARROW]          = {NULL, NULL, PREC_LOWEST},
     [TK_EQUAL]          = {NULL, NULL, PREC_LOWEST},
-    [TK_EQUAL_EQUAL]    = {NULL, NULL, PREC_LOWEST},
+    [TK_EQUAL_EQUAL]    = {NULL, parse_binary_expr, PREC_EQUALITY},
     [TK_BANG]           = {NULL, NULL, PREC_LOWEST},
-    [TK_BANG_EQUAL]     = {NULL, NULL, PREC_LOWEST},
-    [TK_LESS]           = {NULL, NULL, PREC_LOWEST},
-    [TK_LESS_EQUAL]     = {NULL, NULL, PREC_LOWEST},
-    [TK_GREATER]        = {NULL, NULL, PREC_LOWEST},
-    [TK_GREATER_EQUAL]  = {NULL, NULL, PREC_LOWEST},
+    [TK_BANG_EQUAL]     = {NULL, parse_binary_expr, PREC_EQUALITY},
+    [TK_LESS]           = {NULL, parse_binary_expr, PREC_COMPARISON},
+    [TK_LESS_EQUAL]     = {NULL, parse_binary_expr, PREC_COMPARISON},
+    [TK_GREATER]        = {NULL, parse_binary_expr, PREC_COMPARISON},
+    [TK_GREATER_EQUAL]  = {NULL, parse_binary_expr, PREC_COMPARISON},
     [TK_NUMBER_LITERAL] = {parse_number_literal_expr, NULL, PREC_LOWEST},
     [TK_STRING_LITERAL] = {parse_string_literal_expr, NULL, PREC_LOWEST},
     [TK_IF]             = {NULL, NULL, PREC_LOWEST},
@@ -351,6 +352,28 @@ static ASTParsedExprNode *parse_unary_expr(Parser *p) {
             return astNewParsedUnaryExpr(p->current.allocator, PARSED_EXPR_DEREF, locationMerge(operator.location, operand->location), operand);
         default: UNREACHABLE();
     }
+}
+
+static ASTParsedExprNode *parse_binary_expr(Parser *p, ASTParsedExprNode *lhs) {
+    TokenType op = previous(p).type;
+    ParseRule *rule = get_rule(op);
+    ASTParsedExprNode *rhs = TRY(ASTParsedExprNode *, parse_precedence(p, rule->precedence));
+
+    ASTParsedExprNodeType node_type;
+    switch(op) {
+        case TK_PLUS: node_type = PARSED_EXPR_ADD; break;
+        case TK_MINUS: node_type = PARSED_EXPR_SUBTRACT; break;
+        case TK_STAR: node_type = PARSED_EXPR_MULTIPLY; break;
+        case TK_SLASH: node_type = PARSED_EXPR_DIVIDE; break;
+        case TK_EQUAL_EQUAL: node_type = PARSED_EXPR_EQ; break;
+        case TK_BANG_EQUAL: node_type = PARSED_EXPR_NE; break;
+        case TK_LESS: node_type = PARSED_EXPR_LT; break;
+        case TK_LESS_EQUAL: node_type = PARSED_EXPR_LE; break;
+        case TK_GREATER: node_type = PARSED_EXPR_GT; break;
+        case TK_GREATER_EQUAL: node_type = PARSED_EXPR_GE; break;
+        default: UNREACHABLE();
+    }
+    return astNewParsedBinaryExpr(p->current.allocator, node_type, locationMerge(lhs->location, rhs->location), lhs, rhs);
 }
 
 
