@@ -96,36 +96,31 @@ static char *tmp_buffer_copy(Parser *p, char *s, uint32_t length) {
     return (char *)p->tmp_buffer;
 }
 
-// Note: ownership of [message] is taken.
-static void add_error(Parser *p, bool has_location, Location loc, ErrorType type, String message) {
+static void add_error(Parser *p, bool has_location, Location loc, ErrorType type, char *message) {
     Error *err;
     NEW0(err);
     errorInit(err, type, has_location, loc, message);
     compilerAddError(p->compiler, err);
-    stringFree(message);
     p->had_error = true;
     p->need_synchronize = true;
 }
 
-// Note: ownership of [message] is taken.
-static inline void error_at(Parser *p, Location loc, String message) {
+static inline void error_at(Parser *p, Location loc, char *message) {
     add_error(p, true, loc, ERR_ERROR, message);
 }
 
-// Note: ownership of [message] is taken.
 // The previous token's location is used.
-static inline void error(Parser *p, String message) {
+static inline void error(Parser *p, char *message) {
     error_at(p, previous(p).location, message);
 }
 
-// NOTES: If 'message' is a valid String, it will be freed.
-static inline void hint(Parser *p, Location loc, String message) {
+static inline void hint(Parser *p, Location loc, char *message) {
     add_error(p, true, loc, ERR_HINT, message);
 }
 
 static bool consume(Parser *p, TokenType expected) {
     if(current(p).type != expected) {
-        error_at(p, current(p).location, stringFormat("Expected '%s' but got '%s'.", tokenTypeString(expected), tokenTypeString(current(p).type)));
+        error_at(p, current(p).location, tmp_buffer_format(p, "Expected '%s' but got '%s'.", tokenTypeString(expected), tokenTypeString(current(p).type)));
         return false;
     }
     advance(p);
@@ -168,7 +163,7 @@ static inline void add_variable_to_current_scope(Parser *p, ASTParsedObj *var) {
     ParsedScope *scope = astParsedModuleGetScope(astParsedProgramGetModule(p->program, p->current.module), p->current.scope);
     ASTParsedObj *prev = (ASTParsedObj *)tableSet(&scope->variables, (void *)var->name.data, (void *)var);
     if(prev != NULL) {
-        error_at(p, var->name.location, stringFormat("Redefinition of variable '%s'.", var->name));
+        error_at(p, var->name.location, tmp_buffer_format(p, "Redefinition of variable '%s'.", var->name.data));
         hint(p, prev->name.location, "Previous definition was here.");
     }
 }
@@ -225,6 +220,7 @@ static ASTParsedExprNode *parse_string_literal_expr(Parser *p);
 static ASTParsedExprNode *parse_grouping_expr(Parser *p);
 static ASTParsedExprNode *parse_unary_expr(Parser *p);
 static ASTParsedExprNode *parse_binary_expr(Parser *p, ASTParsedExprNode *lhs);
+static ASTParsedExprNode *parse_assignment(Parser *p, ASTParsedExprNode *lhs);
 
 
 /** Parse rule table **/
@@ -315,7 +311,7 @@ static ASTParsedExprNode *parse_number_literal_expr(Parser *p) {
         case TK_VOID:
             // Consume the type anyway to suppress further errors because of it.
             advance(p);
-            error_at(p, locationMerge(loc, previous(p).location), stringFormat("Invalid type suffix '%s' (suffix must be a numeric type).", tokenTypeString(previous(p).type)));
+            error_at(p, locationMerge(loc, previous(p).location), tmp_buffer_format(p, "Invalid type suffix '%s' (suffix must be a numeric type).", tokenTypeString(previous(p).type)));
             return NULL;
         default:
             break;
@@ -593,7 +589,7 @@ bool parserParse(Parser *p, ASTParsedProgram *prog) {
                 arrayPush(&root_module->globals, (void *)var);
             }
         } else {
-            error_at(p, current(p).location, stringFormat("Expected one of ['fn', 'var'], but got '%s'.", tokenTypeString(current(p).type)));
+            error_at(p, current(p).location, tmp_buffer_format(p, "Expected one of ['fn', 'var'], but got '%s'.", tokenTypeString(current(p).type)));
         }
 
         if(p->need_synchronize) {
