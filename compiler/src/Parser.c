@@ -222,6 +222,7 @@ static ASTParsedExprNode *parse_unary_expr(Parser *p);
 static ASTParsedExprNode *parse_binary_expr(Parser *p, ASTParsedExprNode *lhs);
 static ASTParsedExprNode *parse_assignment(Parser *p, ASTParsedExprNode *lhs);
 static ASTParsedExprNode *parse_call_expr(Parser *p, ASTParsedExprNode *callee);
+static ASTParsedExprNode *parse_property_access_expr(Parser *p, ASTParsedExprNode *lhs);
 
 
 /** Parse rule table **/
@@ -239,7 +240,7 @@ static ParseRule rules[] = {
     [TK_SEMICOLON]      = {NULL, NULL, PREC_LOWEST},
     [TK_COLON]          = {NULL, NULL, PREC_LOWEST},
     [TK_COMMA]          = {NULL, NULL, PREC_LOWEST},
-    [TK_DOT]            = {NULL, NULL, PREC_LOWEST},
+    [TK_DOT]            = {NULL, parse_property_access_expr, PREC_CALL},
     [TK_HASH]           = {NULL, NULL, PREC_LOWEST},
     [TK_AMPERSAND]      = {parse_unary_expr, NULL, PREC_LOWEST},
     [TK_MINUS]          = {parse_unary_expr, parse_binary_expr, PREC_TERM},
@@ -399,6 +400,14 @@ static ASTParsedExprNode *parse_call_expr(Parser *p, ASTParsedExprNode *callee) 
     ASTParsedExprNode *call = astNewParsedCallExpr(p->current.allocator, locationMerge(callee->location, previous(p).location), callee, &args);
     arrayFree(&args);
     return call;
+}
+
+static ASTParsedExprNode *parse_property_access_expr(Parser *p, ASTParsedExprNode *lhs) {
+    ASTInternedString property_name_str = TRY(ASTInternedString, parse_identifier(p));
+    Location property_name_loc = previous(p).location;
+    ASTString property_name = AST_STRING(property_name_str, property_name_loc);
+
+    return astNewParsedBinaryExpr(p->current.allocator, PARSED_EXPR_PROPERTY_ACCESS, locationMerge(lhs->location, property_name_loc), lhs, astNewParsedIdentifierExpr(p->current.allocator, property_name_loc, property_name));
 }
 
 
