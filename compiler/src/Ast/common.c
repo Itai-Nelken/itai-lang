@@ -43,6 +43,7 @@ void astStringTableInit(ASTStringTable *st) {
 
 void astStringTableFree(ASTStringTable *st) {
     tableMap(&st->strings, free_string_callback, NULL);
+    tableFree(&st->strings);
 }
 
 ASTInternedString astStringTableAddString(ASTStringTable *st, char *str) {

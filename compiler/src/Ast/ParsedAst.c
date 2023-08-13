@@ -121,7 +121,6 @@ void parsedScopeFree(ParsedScope *scope_list) {
 }
 
 void parsedScopePrint(FILE *to, ParsedScope *scope) {
-    fputs("ParsedScope{", to);
     fprintf(to, "ParsedScope{\x1b[1mis_block_scope: \x1b[31m%s\x1b[0m", scope->is_block_scope ? "true" : "false");
     // scope.objects isn't printed because all the objects in it will
     // be printed in the scope.variables, scope.functions, & scope.structures tables.
