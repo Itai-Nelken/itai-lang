@@ -7,6 +7,7 @@
 #include "Ast/ParsedAst.h"
 #include "Ast/CheckedAst.h"
 #include "Compiler.h"
+#include "Parser.h"
 #include "Scanner.h"
 
 enum return_values {
@@ -64,14 +65,14 @@ bool parse_arguments(Options *opts, int argc, char **argv) {
 
 int main(int argc, char **argv) {
     int return_value = RET_SUCCESS;
-    //Compiler c;
-    //Scanner s;
-    //Parser p;
+    Compiler c;
+    Scanner s;
+    Parser p;
     //Validator v;
     ASTParsedProgram parsed_prog;
-    //compilerInit(&c);
-    //scannerInit(&s, &c);
-    //parserInit(&p, &s, &c);
+    compilerInit(&c);
+    scannerInit(&s, &c);
+    parserInit(&p, &c, &s);
     //validatorInit(&v, &c);
     astParsedProgramInit(&parsed_prog);
 
@@ -86,20 +87,20 @@ int main(int argc, char **argv) {
     }
 
     if(opts.dump_tokens) {
-    //    parserSetDumpTokens(&p, true);
+        parserSetDumpTokens(&p, true);
     }
 
-    //compilerAddFile(&c, opts.file_path);
+    compilerAddFile(&c, opts.file_path);
 
-    //if(!parserParse(&p, &prog)) {
-    //    if(compilerHadError(&c)) {
-    //        compilerPrintErrors(&c);
-    //    } else {
-    //        fputs("\x1b[1;31mError:\x1b[0m Parser failed with no errors!\n", stderr);
-    //    }
-    //    return_value = RET_PARSE_FAILURE;
-    //    goto end;
-    //}
+    if(!parserParse(&p, &parsed_prog)) {
+        if(compilerHadError(&c)) {
+            compilerPrintErrors(&c);
+        } else {
+            fputs("\x1b[1;31mError:\x1b[0m Parser failed with no errors!\n", stderr);
+        }
+        return_value = RET_PARSE_FAILURE;
+        goto end;
+    }
 
     //if(!validatorValidate(&v, &prog)) {
     //    if(compilerHadError(&c)) {
@@ -125,8 +126,8 @@ int main(int argc, char **argv) {
 end:
     astParsedProgramFree(&parsed_prog);
     //validatorFree(&v);
-    //parserFree(&p);
-    //scannerFree(&s);
-    //compilerFree(&c);
+    parserFree(&p);
+    scannerFree(&s);
+    compilerFree(&c);
     return return_value;
 }

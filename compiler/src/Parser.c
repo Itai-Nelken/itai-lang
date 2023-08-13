@@ -15,7 +15,7 @@
 // For use for block scope representation only.
 #define FUNCTION_SCOPE_DEPTH 1
 
-void parserInit(Parser *p, Compiler *c, Scanner *s) {
+static void parser_init_internal(Parser *p, Compiler *c, Scanner *s) {
     memset(p, 0, sizeof(*p));
     p->compiler = c;
     p->scanner = s;
@@ -25,11 +25,16 @@ void parserInit(Parser *p, Compiler *c, Scanner *s) {
     p->previous_token.location = EMPTY_LOCATION;
 }
 
+void parserInit(Parser *p, Compiler *c, Scanner *s) {
+    parser_init_internal(p, c, s);
+    p->tmp_buffer = stringNew(22); // Note: 22 is a random number that I think is large enough to hold most short strings.
+}
+
 void parserFree(Parser *p) {
     if(p->tmp_buffer != NULL) {
         stringFree(p->tmp_buffer);
     }
-    parserInit(p, NULL, NULL);
+    parser_init_internal(p, NULL, NULL);
 }
 
 void parserSetDumpTokens(Parser *p, bool value) {
@@ -135,7 +140,8 @@ static bool match(Parser *p, TokenType expected) {
     return true;
 }
 
-static inline ScopeID enter_scope(Parser *p) {
+#if 0
+static ScopeID enter_scope(Parser *p) {
     ASTParsedModule *module = astParsedProgramGetModule(p->program, p->current.module);
     ParsedScope *parent = astParsedModuleGetScope(module, p->current.scope);
     // FIXME: A child scope may be a block scope even if the parent isn't.
@@ -157,7 +163,7 @@ static void leave_scope(Parser *p) {
         p->current.block_scope_depth--;
     }
 }
-
+#endif // 0
 static inline void add_variable_to_current_scope(Parser *p, ASTParsedObj *var) {
     ParsedScope *scope = astParsedModuleGetScope(astParsedProgramGetModule(p->program, p->current.module), p->current.scope);
     ASTParsedObj *prev = (ASTParsedObj *)tableSet(&scope->variables, (void *)var->name.data, (void *)var);
@@ -211,6 +217,7 @@ typedef struct parse_rule {
 /** Parse functions pre-declarations **/
 
 static ASTParsedExprNode *parse_identifier_expr(Parser *p);
+static ASTParsedExprNode *parse_number_literal_expr(Parser *p);
 
 
 /** Parse rule table **/
@@ -241,7 +248,7 @@ static ParseRule rules[] = {
     [TK_LESS_EQUAL]     = {NULL, NULL, PREC_LOWEST},
     [TK_GREATER]        = {NULL, NULL, PREC_LOWEST},
     [TK_GREATER_EQUAL]  = {NULL, NULL, PREC_LOWEST},
-    [TK_NUMBER_LITERAL] = {NULL, NULL, PREC_LOWEST},
+    [TK_NUMBER_LITERAL] = {parse_number_literal_expr, NULL, PREC_LOWEST},
     [TK_STRING_LITERAL] = {NULL, NULL, PREC_LOWEST},
     [TK_IF]             = {NULL, NULL, PREC_LOWEST},
     [TK_ELSE]           = {NULL, NULL, PREC_LOWEST},
@@ -276,6 +283,37 @@ static ASTParsedExprNode *parse_identifier_expr(Parser *p) {
     Token prev = previous(p);
     ASTInternedString str = astParsedProgramAddString(p->program, stringNCopy(prev.lexeme, prev.length));
     return astNewParsedIdentifierExpr(p->current.allocator, prev.location, AST_STRING(str, prev.location));
+}
+
+static ASTParsedExprNode *parse_number_literal_expr(Parser *p) {
+    // TODO: Support hex, octal & binary.
+    Location loc = previous(p).location;
+    u64 value = strtoul(previous(p).lexeme, NULL, 10);
+    ParsedType *postfix_type = NULL;
+    // Note: It isn't possible to use parse_type() here as the type
+    //       is optional and there isn't any way to know when there is
+    //       one and when there isn't.
+    switch(current(p).type) {
+        case TK_I32:
+            postfix_type = p->program->primitives.int32;
+            loc = locationMerge(loc, current(p).location);
+            advance(p);
+            break;
+        case TK_U32:
+            postfix_type = p->program->primitives.uint32;
+            loc = locationMerge(loc, current(p).location);
+            advance(p);
+            break;
+        case TK_STR:
+        case TK_VOID:
+            // Consume the type anyway to suppress further errors because of it.
+            advance(p);
+            error_at(p, locationMerge(loc, previous(p).location), stringFormat("Invalid type suffix '%s' (suffix must be a numeric type).", tokenTypeString(previous(p).type)));
+            return NULL;
+        default:
+            break;
+    }
+    return astNewParsedConstantValueExpr(p->current.allocator, PARSED_EXPR_NUMBER_CONSTANT, loc, MAKE_VALUE(VAL_NUMBER, number, value), postfix_type);
 }
 
 
@@ -482,6 +520,7 @@ bool parserParse(Parser *p, ASTParsedProgram *prog) {
     // TODO: move this to parse_module_body() when module suppport is added.
     while(!is_eof(p)) {
         if(match(p, TK_FN)) {
+            LOG_ERR("Parsing function declarations is unimplemented!");
             UNREACHABLE();
         } else if(match(p, TK_VAR)) {
             Location var_loc = previous(p).location;

@@ -78,6 +78,11 @@ static const char *token_type_name(TokenType type) {
 }
 
 void locationPrint(FILE *to, Location loc, bool compact) {
+    Location empty = EMPTY_LOCATION;
+    if(loc.start == empty.start && loc.end == empty.end && loc.file == empty.file) {
+        fputs("Location{(empty)}", to);
+        return;
+    }
     if(compact) {
         fprintf(to, "Location{\x1b[34m%lu\x1b[0m..\x1b[34m%lu\x1b[0m @ \x1b[34m%zu\x1b[0m}", loc.start, loc.end, loc.file);
     } else {

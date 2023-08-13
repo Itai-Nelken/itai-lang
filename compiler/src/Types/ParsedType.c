@@ -113,7 +113,10 @@ unsigned parsedTypeHash(ParsedType *ty) {
 }
 
 void parsedTypePrint(FILE *to, ParsedType *ty, bool compact) {
-    VERIFY(ty);
+    if(ty == NULL) {
+        fputs("ParsedType{(null)}", to);
+        return;
+    }
     if(compact) {
         fprintf(to, "ParsedType{\x1b[1m%s\x1b[0m", type_type_name(ty->type));
         if(ty->type == TY_ID || ty->type == TY_STRUCT || ty->type == TY_FN) {
