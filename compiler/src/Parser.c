@@ -243,7 +243,7 @@ static ParseRule rules[] = {
     [TK_AMPERSAND]      = {parse_unary_expr, NULL, PREC_LOWEST},
     [TK_MINUS]          = {parse_unary_expr, parse_binary_expr, PREC_TERM},
     [TK_ARROW]          = {NULL, NULL, PREC_LOWEST},
-    [TK_EQUAL]          = {NULL, NULL, PREC_LOWEST},
+    [TK_EQUAL]          = {NULL, parse_assignment, PREC_ASSIGNMENT},
     [TK_EQUAL_EQUAL]    = {NULL, parse_binary_expr, PREC_EQUALITY},
     [TK_BANG]           = {NULL, NULL, PREC_LOWEST},
     [TK_BANG_EQUAL]     = {NULL, parse_binary_expr, PREC_EQUALITY},
@@ -370,6 +370,11 @@ static ASTParsedExprNode *parse_binary_expr(Parser *p, ASTParsedExprNode *lhs) {
         default: UNREACHABLE();
     }
     return astNewParsedBinaryExpr(p->current.allocator, node_type, locationMerge(lhs->location, rhs->location), lhs, rhs);
+}
+
+static ASTParsedExprNode *parse_assignment(Parser *p, ASTParsedExprNode *lhs) {
+    ASTParsedExprNode *rhs = TRY(ASTParsedExprNode *, parse_expression(p));
+    return astNewParsedBinaryExpr(p->current.allocator, PARSED_EXPR_ASSIGN, locationMerge(lhs->location, rhs->location), lhs, rhs);
 }
 
 
