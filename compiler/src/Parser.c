@@ -216,29 +216,35 @@ typedef struct parse_rule {
 
 /** Parse functions pre-declarations **/
 
+static ASTParsedExprNode *parse_precedence(Parser *p, Precedence min_prec);
+static inline ASTParsedExprNode *parse_expression(Parser *p);
+
 static ASTParsedExprNode *parse_identifier_expr(Parser *p);
 static ASTParsedExprNode *parse_number_literal_expr(Parser *p);
+static ASTParsedExprNode *parse_string_literal_expr(Parser *p);
+static ASTParsedExprNode *parse_grouping_expr(Parser *p);
+static ASTParsedExprNode *parse_unary_expr(Parser *p);
 
 
 /** Parse rule table **/
 
 static ParseRule rules[] = {
-    [TK_LPAREN]         = {NULL, NULL, PREC_LOWEST},
+    [TK_LPAREN]         = {parse_grouping_expr, NULL, PREC_LOWEST},
     [TK_RPAREN]         = {NULL, NULL, PREC_LOWEST},
     [TK_LBRACKET]       = {NULL, NULL, PREC_LOWEST},
     [TK_RBRACKET]       = {NULL, NULL, PREC_LOWEST},
     [TK_LBRACE]         = {NULL, NULL, PREC_LOWEST},
     [TK_RBRACE]         = {NULL, NULL, PREC_LOWEST},
-    [TK_PLUS]           = {NULL, NULL, PREC_LOWEST},
-    [TK_STAR]           = {NULL, NULL, PREC_LOWEST},
+    [TK_PLUS]           = {parse_unary_expr, NULL, PREC_LOWEST},
+    [TK_STAR]           = {parse_unary_expr, NULL, PREC_LOWEST},
     [TK_SLASH]          = {NULL, NULL, PREC_LOWEST},
     [TK_SEMICOLON]      = {NULL, NULL, PREC_LOWEST},
     [TK_COLON]          = {NULL, NULL, PREC_LOWEST},
     [TK_COMMA]          = {NULL, NULL, PREC_LOWEST},
     [TK_DOT]            = {NULL, NULL, PREC_LOWEST},
     [TK_HASH]           = {NULL, NULL, PREC_LOWEST},
-    [TK_AMPERSAND]      = {NULL, NULL, PREC_LOWEST},
-    [TK_MINUS]          = {NULL, NULL, PREC_LOWEST},
+    [TK_AMPERSAND]      = {parse_unary_expr, NULL, PREC_LOWEST},
+    [TK_MINUS]          = {parse_unary_expr, NULL, PREC_LOWEST},
     [TK_ARROW]          = {NULL, NULL, PREC_LOWEST},
     [TK_EQUAL]          = {NULL, NULL, PREC_LOWEST},
     [TK_EQUAL_EQUAL]    = {NULL, NULL, PREC_LOWEST},
@@ -249,7 +255,7 @@ static ParseRule rules[] = {
     [TK_GREATER]        = {NULL, NULL, PREC_LOWEST},
     [TK_GREATER_EQUAL]  = {NULL, NULL, PREC_LOWEST},
     [TK_NUMBER_LITERAL] = {parse_number_literal_expr, NULL, PREC_LOWEST},
-    [TK_STRING_LITERAL] = {NULL, NULL, PREC_LOWEST},
+    [TK_STRING_LITERAL] = {parse_string_literal_expr, NULL, PREC_LOWEST},
     [TK_IF]             = {NULL, NULL, PREC_LOWEST},
     [TK_ELSE]           = {NULL, NULL, PREC_LOWEST},
     [TK_WHILE]          = {NULL, NULL, PREC_LOWEST},
@@ -281,7 +287,7 @@ static ASTInternedString parse_identifier(Parser *p) {
 
 static ASTParsedExprNode *parse_identifier_expr(Parser *p) {
     Token prev = previous(p);
-    ASTInternedString str = astParsedProgramAddString(p->program, stringNCopy(prev.lexeme, prev.length));
+    ASTInternedString str = astParsedProgramAddString(p->program, tmp_buffer_copy(p, prev.lexeme, prev.length));
     return astNewParsedIdentifierExpr(p->current.allocator, prev.location, AST_STRING(str, prev.location));
 }
 
@@ -314,6 +320,37 @@ static ASTParsedExprNode *parse_number_literal_expr(Parser *p) {
             break;
     }
     return astNewParsedConstantValueExpr(p->current.allocator, PARSED_EXPR_NUMBER_CONSTANT, loc, MAKE_VALUE(VAL_NUMBER, number, value), postfix_type);
+}
+
+static ASTParsedExprNode *parse_string_literal_expr(Parser *p) {
+    Token tk = previous(p);
+    // lexeme + 1 to trim the opening '"', and length - 2 to trim both '"'.
+    ASTString str = AST_STRING(astParsedProgramAddString(p->program, tmp_buffer_copy(p, tk.lexeme + 1, tk.length - 2)), tk.location);
+    // TODO: proccess escapes (e.g. \x1b[..., \033[..., \e[..., \27[... etc.).
+    return astNewParsedConstantValueExpr(p->current.allocator, PARSED_EXPR_STRING_CONSTANT, tk.location, MAKE_VALUE(VAL_STRING, string, str), NULL);
+}
+
+static ASTParsedExprNode *parse_grouping_expr(Parser *p) {
+    ASTParsedExprNode *expr = TRY(ASTParsedExprNode *, parse_expression(p));
+    TRY_CONSUME(p, TK_RPAREN);
+    return expr;
+}
+
+static ASTParsedExprNode *parse_unary_expr(Parser *p) {
+    Token operator = previous(p);
+    ASTParsedExprNode *operand = TRY(ASTParsedExprNode *, parse_precedence(p, PREC_UNARY));
+
+    switch(operator.type) {
+        case TK_PLUS:
+            return operand;
+        case TK_MINUS:
+            return astNewParsedUnaryExpr(p->current.allocator, PARSED_EXPR_NEGATE, locationMerge(operator.location, operand->location), operand);
+        case TK_AMPERSAND:
+            return astNewParsedUnaryExpr(p->current.allocator, PARSED_EXPR_ADDROF, locationMerge(operator.location, operand->location), operand);
+        case TK_STAR:
+            return astNewParsedUnaryExpr(p->current.allocator, PARSED_EXPR_DEREF, locationMerge(operator.location, operand->location), operand);
+        default: UNREACHABLE();
+    }
 }
 
 
