@@ -41,6 +41,12 @@ void parserSetDumpTokens(Parser *p, bool value) {
     p->dump_tokens = value;
 }
 
+/* Callbacks */
+
+static void free_object_callback(void *object, void *cl) {
+    UNUSED(cl);
+    astFreeParsedObj((ASTParsedObj *)object);
+}
 
 /* Parser helpers */
 
@@ -109,7 +115,7 @@ static inline void error_at(Parser *p, Location loc, char *message) {
     add_error(p, true, loc, ERR_ERROR, message);
 }
 
-// The previous token's location is used.
+// The previous tokens location is used.
 static inline void error(Parser *p, char *message) {
     error_at(p, previous(p).location, message);
 }
@@ -135,17 +141,20 @@ static bool match(Parser *p, TokenType expected) {
     return true;
 }
 
+/** Scope Management **/
+
 static ScopeID enter_scope(Parser *p) {
     ASTParsedModule *module = astParsedProgramGetModule(p->program, p->current.module);
     ParsedScope *parent = astParsedModuleGetScope(module, p->current.scope);
-    // FIXME: A child scope may be a block scope even if the parent isn't.
-    ParsedScope *child = parsedScopeNew(p->current.scope, parent->is_block_scope);
+    // Child will be a block scope if parent is one, or if the current scope depth is deeper than function scope depth.
+    bool is_block_scope = parent->is_block_scope || p->current.block_scope_depth >= FUNCTION_SCOPE_DEPTH;
+    ParsedScope *child = parsedScopeNew(p->current.scope, is_block_scope);
     ScopeID child_id = astParsedModuleAddScope(module, child);
     parsedScopeAddChild(parent, child_id);
     p->current.scope = child_id;
     if(child->is_block_scope) {
         p->current.block_scope_depth++;
-        //TODO (note): is this needed? child->depth = p->current.block_scope_depth;
+        //TODO/Note: is this needed? child->depth = p->current.block_scope_depth;
     }
     return child_id;
 }
@@ -156,6 +165,20 @@ static void leave_scope(Parser *p) {
     if(p->current.block_scope_depth >= FUNCTION_SCOPE_DEPTH) {
         p->current.block_scope_depth--;
     }
+}
+
+static inline ScopeID enter_function(Parser *p, ASTParsedObj *fn) {
+    p->current.function = fn;
+    p->current.block_scope_depth = FUNCTION_SCOPE_DEPTH; // FIXME: this won't work with closures.
+    return enter_scope(p);
+}
+
+static inline void leave_function(Parser *p) {
+    // FIXME: find a better way to represent function_scope_depth + 1.
+    VERIFY(p->current.block_scope_depth == FUNCTION_SCOPE_DEPTH + 1); // FIXME: this won't work with closures.
+    leave_scope(p);
+    p->current.function = NULL;
+    p->current.block_scope_depth = 0;
 }
 
 static inline void add_variable_to_current_scope(Parser *p, ASTParsedObj *var) {
@@ -172,6 +195,15 @@ static inline void add_structure_to_current_scope(Parser *p, ASTParsedObj *struc
     ASTParsedObj *prev = (ASTParsedObj *)tableSet(&scope->structures, (void *)structure->name.data, (void *)structure);
     if(prev != NULL) {
         error_at(p, structure->name.location, tmp_buffer_format(p, "Redefinition of struct '%s'.", structure->name.data));
+        hint(p, prev->name.location, "Previous definition was here.");
+    }
+}
+
+static inline void add_function_to_current_scope(Parser *p, ASTParsedObj *fn) {
+    ParsedScope *scope = astParsedModuleGetScope(astParsedProgramGetModule(p->program, p->current.module), p->current.scope);
+    ASTParsedObj *prev = (ASTParsedObj *)tableSet(&scope->functions, (void *)fn->name.data, (void *)fn);
+    if(prev != NULL) {
+        error_at(p, fn->name.location, tmp_buffer_format(p, "Redefinition of function '%s'.", fn->name));
         hint(p, prev->name.location, "Previous definition was here.");
     }
 }
@@ -649,6 +681,32 @@ static ParsedType *new_struct_type(Parser *p, ASTString name, Array *fields) {
     return parsedScopeAddType(astParsedProgramGetModule(p->program, p->current.module)->module_scope, ty);
 }
 
+// parameters: Array<ASTObj *> (OBJ_VAR)
+static ParsedType *new_fn_type(Parser *p, ParsedType *return_type, Array parameters) {
+    ParsedType *ty;
+    NEW0(ty);
+    // Note: the name MUST be replaced later as "" isn't a valid ASTInternedString.
+    parsedTypeInit(ty, TY_FN, AST_STRING("", EMPTY_LOCATION), p->current.module);
+    ty->as.fn.return_type = return_type;
+
+    // TODO: Add tmp_buffer_append() and use it here.
+    String name = stringCopy("fn(");
+    for(usize i = 0; i < arrayLength(&parameters); ++i) {
+        ASTParsedObj *param = ARRAY_GET_AS(ASTParsedObj *, &parameters, i);
+        stringAppend(&name, "%s", param->data_type->name.data);
+        if(i + 1 < arrayLength(&parameters)) {
+            stringAppend(&name, ", ");
+        }
+        arrayPush(&ty->as.fn.parameter_types, param->data_type);
+    }
+    VERIFY(return_type);
+    stringAppend(&name, ") -> %s", return_type->name.data);
+    ty->name = AST_STRING(astParsedProgramAddString(p->program, name), EMPTY_LOCATION);
+    stringFree(name);
+
+    return parsedScopeAddType(astParsedProgramGetModule(p->program, p->current.module)->module_scope, ty);
+}
+
 // FIXME: when adding parse_function_type, the function obj is needed which is bad as we don't always have it...)
 static ParsedType *parse_function_type(Parser *p) {
     UNUSED(p);
@@ -830,6 +888,89 @@ static ASTParsedStmtNode *parse_function_body(Parser *p) {
     return result;
 }
 
+// parameter_list -> '(' (identifier ':' typename)+ (',' identifier ':' typename)* ')'
+// parameters: Array<ASTObj *>
+static bool parse_parameter_list(Parser *p, Array *parameters) {
+    // Assume '(' already consumed.
+    bool had_error = false;
+    if(match(p, TK_RPAREN)) {
+        return true;
+    }
+    do {
+        ASTParsedStmtNode *param_var = parse_variable_decl(p, false, false, parameters, NULL);
+        if(!param_var) {
+            had_error = true;
+        } else {
+            ASTParsedObj *param = ARRAY_GET_AS(ASTParsedObj *, parameters, arrayLength(parameters) - 1); // Get last parameter that was parsed.
+            if(param->data_type == NULL) {
+                error(p, tmp_buffer_format(p, "Parameter '%s' has no type!", param->name.data));
+                had_error = true;
+            }
+        }
+    } while(match(p, TK_COMMA));
+    if(!consume(p, TK_RPAREN)) {
+        return false;
+    }
+    return !had_error;
+}
+
+// Note: the body is not parsed if [parse_body] is set to false.
+// function_decl -> 'fn' identifier '(' parameter_list? ')' ('->' type)? block(fn_body)
+static ASTParsedObj *parse_function_decl(Parser *p, bool parse_body) {
+    // Assumes 'fn' was already consumed.
+    Location location = previous(p).location;
+
+    ASTInternedString name_str = TRY(ASTInternedString, parse_identifier(p));
+    ASTString name = AST_STRING(name_str, previous(p).location);
+
+    TRY_CONSUME(p, TK_LPAREN);
+    Array parameters; // Array<ASTObj *>
+    arrayInit(&parameters);
+    if(!parse_parameter_list(p, &parameters)) {
+        arrayMap(&parameters, free_object_callback, NULL);
+        arrayFree(&parameters);
+        return NULL;
+    }
+
+    ParsedType *return_type = p->program->primitives.void_; // The default return type for functions is void.
+    if(match(p, TK_ARROW)) {
+        return_type = parse_type(p);
+        if(!return_type) {
+            arrayMap(&parameters, free_object_callback, NULL);
+            arrayFree(&parameters);
+            return NULL;
+        }
+    }
+    location = locationMerge(location, previous(p).location);
+
+    ASTParsedObj *fn = astNewParsedObj(OBJ_FN, location, name, new_fn_type(p, return_type, parameters));
+    fn->as.fn.return_type = return_type;
+    arrayCopy(&fn->as.fn.parameters, &parameters);
+    arrayFree(&parameters); // No need to free the contents of the array as they are owned by the fn now.
+    add_function_to_current_scope(p, fn);
+
+    if(!parse_body) {
+        return fn;
+    }
+    if(!consume(p, TK_LBRACE)) {
+        astFreeParsedObj(fn);
+        return NULL;
+    }
+    ScopeID scope = enter_function(p, fn);
+    // Add all parameters as locals to the function scope.
+    for(usize i = 0; i < fn->as.fn.parameters.used; ++i) {
+        add_variable_to_current_scope(p, ARRAY_GET_AS(ASTParsedObj *, &fn->as.fn.parameters, i));
+    }
+    fn->as.fn.body = parse_block(p, scope, parse_function_body);
+    leave_function(p);
+    if(!fn->as.fn.body) {
+        astFreeParsedObj(fn);
+        return NULL;
+    }
+
+    return fn;
+}
+
 #undef TRY_CONSUME
 #undef TRY
 
@@ -892,8 +1033,10 @@ bool parserParse(Parser *p, ASTParsedProgram *prog) {
     // TODO: move this to parse_module_body() when module suppport is added.
     while(!is_eof(p)) {
         if(match(p, TK_FN)) {
-            LOG_ERR("Parsing function declarations is unimplemented!");
-            UNREACHABLE();
+            ASTParsedObj *fn = parse_function_decl(p, true);
+            if(fn != NULL) {
+                arrayPush(&root_module->module_scope->objects, (void *)fn);
+            }
         } else if(match(p, TK_VAR)) {
             Location var_loc = previous(p).location;
             ASTParsedStmtNode *var = parse_variable_decl(p, true, true, &root_module->module_scope->objects, &var_loc);
