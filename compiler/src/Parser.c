@@ -167,6 +167,15 @@ static inline void add_variable_to_current_scope(Parser *p, ASTParsedObj *var) {
     }
 }
 
+static inline void add_structure_to_current_scope(Parser *p, ASTParsedObj *structure) {
+    ParsedScope *scope = astParsedModuleGetScope(astParsedProgramGetModule(p->program, p->current.module), p->current.scope);
+    ASTParsedObj *prev = (ASTParsedObj *)tableSet(&scope->structures, (void *)structure->name.data, (void *)structure);
+    if(prev != NULL) {
+        error_at(p, structure->name.location, tmp_buffer_format(p, "Redefinition of struct '%s'.", structure->name.data));
+        hint(p, prev->name.location, "Previous definition was here.");
+    }
+}
+
 
 /* Helper macros */
 
@@ -625,6 +634,21 @@ static ASTParsedStmtNode *parse_statement(Parser *p) {
 
 /* Type parser */
 
+// fields: Array<ASTObj *> (OBJ_VAR)
+// Note: Ownership of the contents of [fields] is taken.
+static ParsedType *new_struct_type(Parser *p, ASTString name, Array *fields) {
+    ParsedType *ty;
+    NEW0(ty);
+    parsedTypeInit(ty, TY_STRUCT, name, p->current.module);
+    Array *field_types = &ty->as.structure.field_types;
+    for(usize i = 0; i < arrayLength(fields); ++i) {
+        ASTParsedObj *member = ARRAY_GET_AS(ASTParsedObj *, fields, i);
+        arrayPush(field_types, (void *)member->data_type);
+    }
+
+    return parsedScopeAddType(astParsedProgramGetModule(p->program, p->current.module)->module_scope, ty);
+}
+
 // FIXME: when adding parse_function_type, the function obj is needed which is bad as we don't always have it...)
 static ParsedType *parse_function_type(Parser *p) {
     UNUSED(p);
@@ -734,6 +758,59 @@ static ASTParsedStmtNode *parse_variable_decl(Parser *p, bool allow_initializer,
     return astNewParsedVarDeclStmt(p->current.allocator, full_loc, var, initializer);
 }
 
+// struct_decl -> 'struct' identifier '{' (identifier: type ';')* '}'
+static ASTParsedObj *parse_struct_decl(Parser *p) {
+    // Assumes 'struct' was already consumed.
+    Location loc = previous(p).location;
+
+    ASTInternedString name_str = TRY(ASTInternedString, parse_identifier(p));
+    ASTString name = AST_STRING(name_str, previous(p).location);
+
+    ASTParsedObj *structure = astNewParsedObj(OBJ_STRUCT, EMPTY_LOCATION, name, NULL);
+    structure->as.structure.scope = enter_scope(p);
+    ParsedScope *scope = astParsedModuleGetScope(astParsedProgramGetModule(p->program, p->current.module), structure->as.structure.scope);
+
+    if(!consume(p, TK_LBRACE)) {
+        leave_scope(p);
+        astFreeParsedObj(structure);
+        return NULL;
+    }
+    Array fields;
+    arrayInit(&fields);
+    while(current(p).type != TK_RBRACE) {
+        if(current(p).type == TK_IDENTIFIER) { // Note: can't consume because parse_variable_decl() does so.
+            if(parse_variable_decl(p, false, true, &fields, NULL) == NULL) {
+                continue;
+            }
+            // Note: We need a reference to all fields to generate the struct type later,
+            //       so we push all fields to a temporary array ('fields') and then push
+            //       them to the scope object array as well.
+            ASTParsedObj *field = ARRAY_GET_AS(ASTParsedObj *, &fields, arrayLength(&fields) - 1); // Get last field in the array.
+            arrayPush(&scope->objects, (void *)field);
+            consume(p, TK_SEMICOLON);
+        } else {
+            error_at(p, current(p).location, tmp_buffer_format(p, "Expected field declaration but got '%s'.", tokenTypeString(current(p).type)));
+            // Advance so we don't get stuck on the same token.
+            advance(p);
+            // If there is a semicolon, consume it as well to stop cascading errors for inputs such as '+;'
+            match(p, TK_SEMICOLON);
+        }
+    }
+    leave_scope(p);
+    if(!consume(p, TK_RBRACE)) {
+        arrayFree(&fields);
+        astFreeParsedObj(structure);
+        return NULL;
+    }
+
+    structure->data_type = new_struct_type(p, structure->name, &fields);
+    arrayFree(&fields);
+
+    structure->location = locationMerge(loc, previous(p).location);
+    add_structure_to_current_scope(p, structure);
+    return structure;
+}
+
 // function_body -> ('var' variable_decl ';' | statement)
 static ASTParsedStmtNode *parse_function_body(Parser *p) {
     VERIFY(p->current.function);
@@ -826,6 +903,11 @@ bool parserParse(Parser *p, ASTParsedProgram *prog) {
             if(var != NULL) {
                 // TODO: Add astModuleAddVariable(module, variable).
                 arrayPush(&root_module->globals, (void *)var);
+            }
+        } else if(match(p, TK_STRUCT)) {
+            ASTParsedObj *structure = parse_struct_decl(p);
+            if(structure != NULL) {
+                arrayPush(&root_module->module_scope->objects, (void *)structure);
             }
         } else {
             error_at(p, current(p).location, tmp_buffer_format(p, "Expected one of ['fn', 'var'], but got '%s'.", tokenTypeString(current(p).type)));
