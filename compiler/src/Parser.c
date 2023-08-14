@@ -141,6 +141,18 @@ static bool match(Parser *p, TokenType expected) {
     return true;
 }
 
+static void store_attribute(Parser *p, Attribute *attr) {
+    VERIFY(p->current.attribute == NULL);
+    p->current.attribute = attr;
+}
+
+static Attribute *take_attribute(Parser *p) {
+    VERIFY(p->current.attribute);
+    Attribute *attr = p->current.attribute;
+    p->current.attribute = NULL;
+    return attr;
+}
+
 /** Scope Management **/
 
 static ScopeID enter_scope(Parser *p) {
@@ -203,7 +215,7 @@ static inline void add_function_to_current_scope(Parser *p, ASTParsedObj *fn) {
     ParsedScope *scope = astParsedModuleGetScope(astParsedProgramGetModule(p->program, p->current.module), p->current.scope);
     ASTParsedObj *prev = (ASTParsedObj *)tableSet(&scope->functions, (void *)fn->name.data, (void *)fn);
     if(prev != NULL) {
-        error_at(p, fn->name.location, tmp_buffer_format(p, "Redefinition of function '%s'.", fn->name));
+        error_at(p, fn->name.location, tmp_buffer_format(p, "Redefinition of function '%s'.", fn->name.data));
         hint(p, prev->name.location, "Previous definition was here.");
     }
 }
@@ -974,6 +986,60 @@ static ASTParsedObj *parse_function_decl(Parser *p, bool parse_body) {
     return fn;
 }
 
+static ASTParsedObj *parse_extern_decl(Parser *p) {
+    // Assumes 'extern' was already consumed.
+    ASTParsedObj *result = NULL;
+    if(match(p, TK_FN)) {
+        result = parse_function_decl(p, false);
+        // Note: [result] was already added to the current scope by parse_function_decl().
+        if(!consume(p, TK_SEMICOLON)) {
+            astFreeParsedObj(result);
+            return NULL;
+        }
+        ASTParsedObj *extern_fn = astNewParsedObj(OBJ_EXTERN_FN, result->location, result->name, result->data_type);
+        arrayCopy(&extern_fn->as.extern_fn.parameters, &result->as.fn.parameters);
+        arrayClear(&result->as.fn.parameters); // Clear the array to transfer ownership of the parameters to [extern_fn].
+        extern_fn->as.extern_fn.return_type = result->as.fn.return_type;
+        if(p->current.attribute) {
+            extern_fn->as.extern_fn.source_attr = take_attribute(p);
+        }
+        astFreeParsedObj(result);
+        result = extern_fn;
+    } else {
+        error_at(p, current(p).location, "Invalid extern declaration (expected 'fn').");
+    }
+    return result;
+}
+
+static Attribute *parse_attribute(Parser *p) {
+    // Assumes '#' was already consumed.
+    Location start = previous(p).location;
+    TRY_CONSUME(p, TK_LBRACKET);
+
+    ASTInternedString name_str = TRY(ASTInternedString, parse_identifier(p));
+    ASTString name = AST_STRING(name_str, previous(p).location);
+    Attribute *attr = NULL;
+    if(stringEqual(name_str, "source")) {
+        TRY_CONSUME(p, TK_LPAREN);
+        TRY_CONSUME(p, TK_STRING_LITERAL);
+        ASTParsedExprNode *arg = TRY(ASTParsedExprNode *, parse_string_literal_expr(p));
+        TRY_CONSUME(p, TK_RPAREN);
+        // The Location is constructed later once the parsing of the attribute is done.
+        attr = attributeNew(ATTR_SOURCE, EMPTY_LOCATION);
+        attr->as.source = NODE_AS(ASTParsedConstantValueExpr, arg)->value.as.string;
+    } else {
+        error_at(p, name.location, tmp_buffer_format(p, "Invalid attribute '%s'.", name));
+        return NULL;
+    }
+
+    if(!consume(p, TK_RBRACKET)) {
+        attributeFree(attr);
+        return NULL;
+    }
+    attr->location = locationMerge(start, previous(p).location);
+    return attr;
+}
+
 #undef TRY_CONSUME
 #undef TRY
 
@@ -1054,6 +1120,22 @@ bool parserParse(Parser *p, ASTParsedProgram *prog) {
             ASTParsedObj *structure = parse_struct_decl(p);
             if(structure != NULL) {
                 arrayPush(&root_module->module_scope->objects, (void *)structure);
+            }
+        } else if(match(p, TK_EXTERN)) {
+            ASTParsedObj *extern_decl = parse_extern_decl(p);
+            if(extern_decl != NULL) {
+                arrayPush(&root_module->module_scope->objects, (void *)extern_decl);
+            }
+        } else if(match(p, TK_HASH)) {
+            Attribute *attr = parse_attribute(p);
+            if(attr) {
+                if(p->current.attribute) {
+                    error_at(p, attr->location, "Too many attributes.");
+                    hint(p, p->current.attribute->location, "Previous attribute defined here.");
+                    attributeFree(attr);
+                } else {
+                    store_attribute(p, attr);
+                }
             }
         } else {
             error_at(p, current(p).location, tmp_buffer_format(p, "Expected one of ['fn', 'var'], but got '%s'.", tokenTypeString(current(p).type)));

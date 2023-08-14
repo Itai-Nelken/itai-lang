@@ -421,7 +421,7 @@ void astParsedStmtNodePrint(FILE *to, ASTParsedStmtNode *n) {
         case PARSED_STMT_RETURN:
         case PARSED_STMT_DEFER:
         case PARSED_STMT_EXPR:
-            fputs(", \x1b[1mexpr:\x1b[0m", to);
+            fputs(", \x1b[1mexpr:\x1b[0m ", to);
             astParsedExprNodePrint(to, NODE_AS(ASTParsedExprStmt, n)->expr);
             break;
         default:

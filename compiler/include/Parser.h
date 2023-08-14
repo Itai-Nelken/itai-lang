@@ -24,7 +24,7 @@ typedef struct parser {
         ASTParsedObj *function; // TODO: Change to a stack when closures are added.
         ScopeID scope;
         u32 block_scope_depth;
-        //Attribute *attribute; // TODO: Should be an array once support for multiple attributes is needed.
+        Attribute *attribute; // TODO: Should be an array once support for multiple attributes is needed.
     } current;
 
     // data
