@@ -427,10 +427,14 @@ void astCheckedStmtNodePrint(FILE *to, ASTCheckedStmtNode *n) {
             break;
         // Expr nodes
         case CHECKED_STMT_RETURN:
-        case CHECKED_STMT_DEFER:
         case CHECKED_STMT_EXPR:
             fputs(", \x1b[1mexpr:\x1b[0m", to);
             astCheckedExprNodePrint(to, NODE_AS(ASTCheckedExprStmt, n)->expr);
+            break;
+        // Defer node
+        case CHECKED_STMT_DEFER:
+            fputs(", \x1b[1mbody:\x1n[0m ", to);
+            astCheckedStmtNodePrint(to, NODE_AS(ASTCheckedDeferStmt, n)->body);
             break;
         default:
             UNREACHABLE();

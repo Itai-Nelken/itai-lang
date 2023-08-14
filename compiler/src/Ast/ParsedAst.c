@@ -419,10 +419,14 @@ void astParsedStmtNodePrint(FILE *to, ASTParsedStmtNode *n) {
             break;
         // Expr nodes
         case PARSED_STMT_RETURN:
-        case PARSED_STMT_DEFER:
         case PARSED_STMT_EXPR:
             fputs(", \x1b[1mexpr:\x1b[0m ", to);
             astParsedExprNodePrint(to, NODE_AS(ASTParsedExprStmt, n)->expr);
+            break;
+        // Defer node
+        case PARSED_STMT_DEFER:
+            fputs(", \x1b[1mbody:\x1b[0m ", to);
+            astParsedStmtNodePrint(to, NODE_AS(ASTParsedDeferStmt, n)->body);
             break;
         default:
             UNREACHABLE();
