@@ -476,8 +476,10 @@ typedef enum ast_checked_stmt_node_type {
 
     // Expr nodes
     CHECKED_STMT_RETURN,
-    CHECKED_STMT_DEFER,
     CHECKED_STMT_EXPR,
+
+    // Defer node
+    CHECKED_STMT_DEFER,
 
     __CHECKED_STMT_TYPE_COUNT
 } ASTCheckedStmtNodeType;
@@ -519,6 +521,11 @@ typedef struct ast_checked_expr_stmt {
     ASTCheckedStmtNode header;
     ASTCheckedExprNode *expr;
 } ASTCheckedExprStmt;
+
+typedef struct ast_checked_defer_stmt {
+    ASTCheckedStmtNode header;
+    ASTCheckedStmtNode *body;
+} ASTCheckedDeferStmt;
 
 /***
  * Print an ASTCheckedStmtNode tree.
@@ -589,5 +596,15 @@ ASTCheckedStmtNode *astNewCheckedLoopStmt(Allocator *a, ASTCheckedStmtNodeType t
  * @return The node as an ASTCheckedStmtNode.
  ***/
 ASTCheckedStmtNode *astNewCheckedExprStmt(Allocator *a, ASTCheckedStmtNodeType type, Location loc, ASTCheckedExprNode *expr);
+
+/***
+ * Create a new ASTCheckedDeferStmt node (node type: CHECKED_STMT_DEFER).
+ *
+ * @param a The Allocator to use to allocate the node.
+ * @param loc The Location of the node.
+ * @param body The body of the defer statement.
+ * @return The node as an ASTCheckedStmtNode.
+ ***/
+ASTCheckedStmtNode *astNewCheckedDeferStmt(Allocator *a, Location loc, ASTCheckedStmtNode *body);
 
 #endif // CHECKED_AST_H

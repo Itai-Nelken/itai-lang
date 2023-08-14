@@ -489,6 +489,13 @@ ASTCheckedStmtNode *astNewCheckedExprStmt(Allocator *a, ASTCheckedStmtNodeType t
     return NODE_AS(ASTCheckedStmtNode, n);
 }
 
+ASTCheckedStmtNode *astNewCheckedDeferStmt(Allocator *a, Location loc, ASTCheckedStmtNode *body) {
+    ASTCheckedDeferStmt *n = allocatorAllocate(a, sizeof(*n));
+    n->header = make_stmt_mode_header(CHECKED_STMT_DEFER, loc);
+    n->body = body;
+    return NODE_AS(ASTCheckedStmtNode, n);
+}
+
 
 /* ASTCheckedObj */
 

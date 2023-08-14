@@ -21,7 +21,7 @@ typedef struct parser {
     struct {
         ModuleID module; // TODO: Change to a stack when multiple modules support is added.
         Allocator *allocator; // TODO: Change with modules (also using a stack.)
-        //ASTObj *function; // TODO: Change to a stack when closures are added.
+        ASTParsedObj *function; // TODO: Change to a stack when closures are added.
         ScopeID scope;
         u32 block_scope_depth;
         //Attribute *attribute; // TODO: Should be an array once support for multiple attributes is needed.

@@ -467,8 +467,10 @@ typedef enum ast_parsed_stmt_node_type {
 
     // Expr nodes
     PARSED_STMT_RETURN,
-    PARSED_STMT_DEFER,
     PARSED_STMT_EXPR,
+
+    // Defer node
+    PARSED_STMT_DEFER,
 
     __PARSED_STMT_TYPE_COUNT
 } ASTParsedStmtNodeType;
@@ -511,6 +513,11 @@ typedef struct ast_parsed_expr_stmt {
     ASTParsedExprNode *expr;
 } ASTParsedExprStmt;
 
+typedef struct ast_parsed_defer_stmt {
+    ASTParsedStmtNode header;
+    ASTParsedStmtNode *body;
+} ASTParsedDeferStmt;
+
 /***
  * Print an ASTParsedStmtNode tree.
  *
@@ -548,13 +555,14 @@ ASTParsedStmtNode *astNewParsedBlockStmt(Allocator *a, Location loc, ScopeID sco
  * Create a new ASTParsedConditionalStmt node (node type: PARSED_STMT_IF).
  *
  * @param a The Allocator to use to allocate the node.
+ * @param type The stmt node type for the new node.
  * @param loc The Location of the node.
  * @param condition The condition expression.
  * @param then The body (to be executed if the condition evaluates to 'true').
  * @param else_ (optional) The else clause (to be executed if the condition evaluates to 'false').
  * @return The node as an ASTParsedStmtNode.
  ***/
-ASTParsedStmtNode *astNewParsedConditionalStmt(Allocator *a, Location loc, ASTParsedExprNode *condition, ASTParsedBlockStmt *then, ASTParsedStmtNode *else_);
+ASTParsedStmtNode *astNewParsedConditionalStmt(Allocator *a, ASTParsedStmtNodeType type, Location loc, ASTParsedExprNode *condition, ASTParsedBlockStmt *then, ASTParsedStmtNode *else_);
 
 /***
  * Create a new ASTParsedLoopStmt node.
@@ -580,5 +588,15 @@ ASTParsedStmtNode *astNewParsedLoopStmt(Allocator *a, ASTParsedStmtNodeType type
  * @return The node as an ASTParsedStmtNode.
  ***/
 ASTParsedStmtNode *astNewParsedExprStmt(Allocator *a, ASTParsedStmtNodeType type, Location loc, ASTParsedExprNode *expr);
+
+/***
+ * Create a new ASTParsedDeferStmt node (node type: PARSED_STMT_DEFER).
+ *
+ * @param a The Allocator to use to allocate the node.
+ * @param loc The Location of the node.
+ * @param body The body of the defer statement.
+ * @return The node as an ASTParsedStmtNode.
+ ***/
+ASTParsedStmtNode *astNewParsedDeferStmt(Allocator *a, Location loc, ASTParsedStmtNode *body);
 
 #endif // PARSED_AST_H

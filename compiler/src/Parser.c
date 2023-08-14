@@ -135,7 +135,6 @@ static bool match(Parser *p, TokenType expected) {
     return true;
 }
 
-#if 0
 static ScopeID enter_scope(Parser *p) {
     ASTParsedModule *module = astParsedProgramGetModule(p->program, p->current.module);
     ParsedScope *parent = astParsedModuleGetScope(module, p->current.scope);
@@ -158,7 +157,7 @@ static void leave_scope(Parser *p) {
         p->current.block_scope_depth--;
     }
 }
-#endif // 0
+
 static inline void add_variable_to_current_scope(Parser *p, ASTParsedObj *var) {
     ParsedScope *scope = astParsedModuleGetScope(astParsedProgramGetModule(p->program, p->current.module), p->current.scope);
     ASTParsedObj *prev = (ASTParsedObj *)tableSet(&scope->variables, (void *)var->name.data, (void *)var);
@@ -213,6 +212,7 @@ typedef struct parse_rule {
 
 static ASTParsedExprNode *parse_precedence(Parser *p, Precedence min_prec);
 static inline ASTParsedExprNode *parse_expression(Parser *p);
+static ASTParsedStmtNode *parse_function_body(Parser *p);
 
 static ASTParsedExprNode *parse_identifier_expr(Parser *p);
 static ASTParsedExprNode *parse_number_literal_expr(Parser *p);
@@ -440,6 +440,188 @@ static inline ASTParsedExprNode *parse_expression(Parser *p) {
     return parse_precedence(p, PREC_LOWEST);
 }
 
+/* Statement Parser */
+
+static ControlFlow statement_control_flow(ASTParsedStmtNode *stmt) {
+    switch(stmt->type) {
+        case PARSED_STMT_RETURN: return CF_ALWAYS_RETURNS;
+        case PARSED_STMT_IF: {
+            ControlFlow then_block = statement_control_flow(NODE_AS(ASTParsedStmtNode, NODE_AS(ASTParsedConditionalStmt, stmt)->then));
+            if(NODE_AS(ASTParsedConditionalStmt, stmt)->else_) {
+                ControlFlow else_stmt = statement_control_flow(NODE_AS(ASTParsedConditionalStmt, stmt)->else_);
+                if((then_block == CF_NEVER_RETURNS && else_stmt == CF_ALWAYS_RETURNS) ||
+                   (then_block == CF_ALWAYS_RETURNS && else_stmt == CF_NEVER_RETURNS)) {
+                    return CF_MAY_RETURN;
+                } else if(then_block == else_stmt) {
+                    return then_block;
+                }
+            }
+            return then_block;
+        }
+        // TODO: Add PARSED_STMT_FOR_LOOP
+        case PARSED_STMT_WHILE_LOOP: return statement_control_flow(NODE_AS(ASTParsedStmtNode, NODE_AS(ASTParsedLoopStmt, stmt)->body));
+        case PARSED_STMT_BLOCK: return NODE_AS(ASTParsedBlockStmt, stmt)->control_flow;
+        default:
+            break;
+    }
+    return CF_NEVER_RETURNS;
+}
+
+static void synchronize_in_block(Parser *p) {
+    // synchronize to statement boundaries
+    // (statements also include variable declarations in this context).
+    while(!is_eof(p) && current(p).type != TK_RBRACE) {
+        TokenType c = current(p).type;
+        if(c == TK_VAR || c == TK_RETURN || c == TK_IF) {
+            break;
+        } else {
+            advance(p);
+        }
+    }
+}
+
+// block(parse_callback) -> parse_callback* '}' /* Note: the opening brace is consumed by the caller. */
+static ASTParsedBlockStmt *parse_block(Parser *p, ScopeID scope, ASTParsedStmtNode *(*parse_callback)(Parser *p)) {
+    // Assume '{' was already consumed.
+    Location start = previous(p).location;
+    ControlFlow cf = CF_NEVER_RETURNS;
+    Array nodes;
+    arrayInit(&nodes);
+
+    bool unreachable = false;
+    while(!is_eof(p) && current(p).type != TK_RBRACE) {
+        ASTParsedStmtNode *node = parse_callback(p);
+        if(unreachable) {
+            error_at(p, node->location, "Unreachable code.");
+            synchronize_in_block(p);
+            arrayFree(&nodes);
+            return NULL;
+        }
+        if(node) {
+            arrayPush(&nodes, (void *)node);
+            // FIXME: find a better way to represent function_scope_depth + 1.
+            if(NODE_IS(node, PARSED_STMT_RETURN) && p->current.block_scope_depth == FUNCTION_SCOPE_DEPTH + 1) {
+                cf = CF_ALWAYS_RETURNS;
+                unreachable = true;
+            } else {
+                cf = controlFlowUpdate(cf, statement_control_flow(node));
+            }
+        } else {
+            synchronize_in_block(p);
+        }
+    }
+    if(!consume(p, TK_RBRACE)) {
+        arrayFree(&nodes);
+        return NULL;
+    }
+
+    ASTParsedStmtNode *n = astNewParsedBlockStmt(p->current.allocator, locationMerge(start, previous(p).location), scope, cf, &nodes);
+    arrayFree(&nodes);
+    return NODE_AS(ASTParsedBlockStmt, n);
+}
+
+// expression_stmt -> expression ';'
+static ASTParsedStmtNode *parse_expression_stmt(Parser *p) {
+    ASTParsedExprNode *expr = TRY(ASTParsedExprNode *, parse_expression(p));
+    TRY_CONSUME(p, TK_SEMICOLON);
+    return astNewParsedExprStmt(p->current.allocator, PARSED_STMT_EXPR, locationMerge(expr->location, previous(p).location), expr);
+}
+
+// return_stmt -> 'return' expression? ';'
+static ASTParsedStmtNode *parse_return_stmt(Parser *p) {
+    // Assume 'return' is already consumed.
+    Location start = previous(p).location;
+    ASTParsedExprNode *operand = NULL;
+    if(current(p).type != TK_SEMICOLON) {
+        operand = TRY(ASTParsedExprNode *, parse_expression(p));
+    }
+    TRY_CONSUME(p, TK_SEMICOLON);
+
+    return astNewParsedExprStmt(p->current.allocator, PARSED_STMT_RETURN, locationMerge(start, previous(p).location), operand);
+}
+
+// if_stmt -> 'if' expression '{' block(function_body) ('else' (if_stmt | '{' block(function_body)))?
+static ASTParsedStmtNode *parse_if_stmt(Parser *p) {
+    // Assume 'if' is already consumed.
+    Location start = previous(p).location;
+    ASTParsedExprNode *condition = TRY(ASTParsedExprNode *, parse_expression(p));
+    TRY_CONSUME(p, TK_LBRACE);
+    ScopeID scope = enter_scope(p);
+    ASTParsedBlockStmt *then = TRY(ASTParsedBlockStmt *, parse_block(p, scope, parse_function_body));
+    leave_scope(p);
+
+    ASTParsedStmtNode *else_ = NULL;
+    if(match(p, TK_ELSE)) {
+        if(match(p, TK_IF)) {
+            else_ = TRY(ASTParsedStmtNode *, parse_if_stmt(p));
+        } else {
+            TRY_CONSUME(p, TK_LBRACE);
+            scope = enter_scope(p);
+            else_ = NODE_AS(ASTParsedStmtNode, TRY(ASTParsedBlockStmt *, parse_block(p, scope, parse_function_body)));
+            leave_scope(p);
+        }
+    }
+
+    return astNewParsedConditionalStmt(p->current.allocator, PARSED_STMT_IF, locationMerge(start, previous(p).location), condition, then, else_);
+}
+
+static ASTParsedStmtNode *parse_while_loop_stmt(Parser *p) {
+    // Assume 'while' is already consumed.
+    Location start = previous(p).location;
+    ASTParsedExprNode *condition = TRY(ASTParsedExprNode *, parse_expression(p));
+    TRY_CONSUME(p, TK_LBRACE);
+    ScopeID scope = enter_scope(p);
+    ASTParsedBlockStmt *body = TRY(ASTParsedBlockStmt *, parse_block(p, scope, parse_function_body));
+    leave_scope(p);
+    return astNewParsedLoopStmt(p->current.allocator, PARSED_STMT_WHILE_LOOP, locationMerge(start, previous(p).location), NULL, condition, NULL, body);
+}
+
+// defer_operand -> '{' block(expression_stmt) | expression_stmt
+static ASTParsedStmtNode *parse_defer_operand(Parser *p) {
+    ASTParsedStmtNode *result = NULL;
+    if(match(p, TK_LBRACE)) {
+        // Note: Because variable declarations are not allowed in defer blocks,
+        //       a scope isn't needed. But it isn't possible to use the current scope
+        //       because then it would be exited twice which isn't possible.
+        //       Because of that, a new scope is entered altough it isn't needed.
+        ScopeID scope = enter_scope(p);
+        result = NODE_AS(ASTParsedStmtNode, parse_block(p, scope, parse_expression_stmt));
+        leave_scope(p);
+    } else {
+        result = parse_expression_stmt(p);
+    }
+    return result;
+}
+
+// defer_stmt -> 'defer' defer_body ';'
+static ASTParsedStmtNode *parse_defer_stmt(Parser *p) {
+    // Assume 'defer' is already consumed.
+    Location start = previous(p).location;
+    ASTParsedStmtNode *operand = TRY(ASTParsedStmtNode *, parse_defer_operand(p));
+    TRY_CONSUME(p, TK_SEMICOLON);
+    return astNewParsedDeferStmt(p->current.allocator, locationMerge(start, previous(p).location), operand);
+}
+
+// statement -> '{' block(function_body) | return_stmt | if_stmt | while_loop_stmt | defer_stmt | expression_stmt
+static ASTParsedStmtNode *parse_statement(Parser *p) {
+    ASTParsedStmtNode *result = NULL;
+    if(match(p, TK_LBRACE)) {
+        ScopeID scope = enter_scope(p);
+        result = NODE_AS(ASTParsedStmtNode, parse_block(p, scope, parse_function_body));
+        leave_scope(p);
+    } else if(match(p, TK_RETURN)) {
+        result = parse_return_stmt(p);
+    } else if(match(p, TK_IF)) {
+        result = parse_if_stmt(p);
+    } else if(match(p, TK_WHILE)) {
+        result = parse_while_loop_stmt(p);
+    } else if(match(p, TK_DEFER)) {
+        result = parse_defer_stmt(p);
+    } else {
+        result = parse_expression_stmt(p);
+    }
+    return result;
+}
 
 /* Type parser */
 
@@ -550,6 +732,25 @@ static ASTParsedStmtNode *parse_variable_decl(Parser *p, bool allow_initializer,
         full_loc = locationMerge(*var_loc, full_loc);
     }
     return astNewParsedVarDeclStmt(p->current.allocator, full_loc, var, initializer);
+}
+
+// function_body -> ('var' variable_decl ';' | statement)
+static ASTParsedStmtNode *parse_function_body(Parser *p) {
+    VERIFY(p->current.function);
+
+    ParsedScope *current_scope = astParsedModuleGetScope(astParsedProgramGetModule(p->program, p->current.module), p->current.scope);
+    ASTParsedStmtNode *result = NULL;
+    if(match(p, TK_VAR)) {
+        Location var_loc = previous(p).location;
+        // FIXME: Remove TRY() so semicolon is always consumed?
+        result = TRY(ASTParsedStmtNode *, parse_variable_decl(p, true, true, &current_scope->objects, &var_loc));
+        TRY_CONSUME(p, TK_SEMICOLON);
+    } else {
+        // no need for TRY() here as nothing is done with the result node
+        // other than to return it.
+        result = parse_statement(p);
+    }
+    return result;
 }
 
 #undef TRY_CONSUME

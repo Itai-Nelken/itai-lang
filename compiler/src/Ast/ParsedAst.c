@@ -455,9 +455,9 @@ ASTParsedStmtNode *astNewParsedBlockStmt(Allocator *a, Location loc, ScopeID sco
     return NODE_AS(ASTParsedStmtNode, n);
 }
 
-ASTParsedStmtNode *astNewParsedConditionalStmt(Allocator *a, Location loc, ASTParsedExprNode *condition, ASTParsedBlockStmt *then, ASTParsedStmtNode *else_) {
+ASTParsedStmtNode *astNewParsedConditionalStmt(Allocator *a, ASTParsedStmtNodeType type, Location loc, ASTParsedExprNode *condition, ASTParsedBlockStmt *then, ASTParsedStmtNode *else_) {
     ASTParsedConditionalStmt *n = allocatorAllocate(a, sizeof(*n));
-    n->header = make_stmt_mode_header(PARSED_STMT_IF, loc);
+    n->header = make_stmt_mode_header(type, loc);
     n->condition = condition;
     n->then = then;
     n->else_ = else_;
@@ -478,6 +478,13 @@ ASTParsedStmtNode *astNewParsedExprStmt(Allocator *a, ASTParsedStmtNodeType type
     ASTParsedExprStmt *n = allocatorAllocate(a, sizeof(*n));
     n->header = make_stmt_mode_header(type, loc);
     n->expr = expr;
+    return NODE_AS(ASTParsedStmtNode, n);
+}
+
+ASTParsedStmtNode *astNewParsedDeferStmt(Allocator *a, Location loc, ASTParsedStmtNode *body) {
+    ASTParsedDeferStmt *n = allocatorAllocate(a, sizeof(*n));
+    n->header = make_stmt_mode_header(PARSED_STMT_DEFER, loc);
+    n->body = body;
     return NODE_AS(ASTParsedStmtNode, n);
 }
 
