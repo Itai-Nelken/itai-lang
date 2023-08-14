@@ -583,7 +583,6 @@ void astPrintParsedObj(FILE *to, ASTParsedObj *obj) {
     fprintf(to, "ASTParsedObj{\x1b[1mtype: \x1b[36m%s\x1b[0m", obj_type_name(obj->type));
     fputs(", \x1b[1mlocation:\x1b[0m ", to);
     locationPrint(to, obj->location, true);
-    // Note: name loc is not printed to declutter the output.
 
     fputs(", \x1b[1mname:\x1b[0m ", to);
     astStringPrint(to, &obj->name);

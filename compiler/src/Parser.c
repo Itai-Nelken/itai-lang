@@ -629,7 +629,10 @@ static ASTParsedStmtNode *parse_defer_operand(Parser *p) {
         result = NODE_AS(ASTParsedStmtNode, parse_block(p, scope, parse_expression_stmt));
         leave_scope(p);
     } else {
-        result = parse_expression_stmt(p);
+        // Note: Can't use parse_expression_stmt() here because it expects a semicolon after the expression
+        //       but we also consume a semicolon in parse_defer_stmt().
+        ASTParsedExprNode *expr = TRY(ASTParsedExprNode *, parse_expression(p));
+        result = astNewParsedExprStmt(p->current.allocator, PARSED_STMT_EXPR, expr->location, expr);
     }
     return result;
 }
