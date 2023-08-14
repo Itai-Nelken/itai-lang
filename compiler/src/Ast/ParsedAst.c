@@ -173,7 +173,7 @@ static const char *expr_node_name(ASTParsedExprNodeType type) {
         case PARSED_EXPR_NEGATE:
         case PARSED_EXPR_ADDROF:
         case PARSED_EXPR_DEREF:
-            return "ASTUnaryNode";
+            return "ASTParsedUnaryExpr";
         case PARSED_EXPR_CALL:
             return "ASTParsedCallExpr";
         // identifier nodes
@@ -380,7 +380,7 @@ void astParsedStmtNodePrint(FILE *to, ASTParsedStmtNode *n) {
     fputs(", \x1b[1mlocation:\x1b[0m ", to);
     locationPrint(to, n->location, true);
     switch(n->type) {
-        // VarDeck node
+        // VarDecl node
         case PARSED_STMT_VAR_DECL:
             fputs(", \x1b[1mvariable:\x1b[0m ", to);
             astParsedObjPrintCompact(to, NODE_AS(ASTParsedVarDeclStmt, n)->variable);
