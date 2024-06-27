@@ -29,8 +29,9 @@ typedef struct checked_type {
  * @param type The type of the CheckedType.
  * @param name The type's name.
  * @param decl_module The ModuleID of the module containing the type.
+ * @param decl_location The declaration location of the type (if exists - used for custom types such as structs and functions).
  ***/
-void checkedTypeInit(CheckedType *ty, TypeType type, ASTString name, ModuleID decl_module);
+void checkedTypeInit(CheckedType *ty, TypeType type, ASTString name, ModuleID decl_module, Location decl_location);
 
 /***
  * Free a CheckedType.

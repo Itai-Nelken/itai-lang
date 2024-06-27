@@ -8,11 +8,11 @@
 #include "Types/types_common.h"
 #include "Types/CheckedType.h"
 
-void checkedTypeInit(CheckedType *ty, TypeType type, ASTString name, ModuleID decl_module) {
+void checkedTypeInit(CheckedType *ty, TypeType type, ASTString name, ModuleID decl_module, Location decl_location) {
     ty->type = type;
     ty->name = name;
     ty->decl_module = decl_module;
-    ty->decl_location = EMPTY_LOCATION;
+    ty->decl_location = decl_location;
     switch(type) {
         case TY_VOID:
         case TY_I32:

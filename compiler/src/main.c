@@ -8,6 +8,7 @@
 #include "Ast/CheckedAst.h"
 #include "Compiler.h"
 #include "Parser.h"
+#include "Validator.h"
 #include "Scanner.h"
 
 enum return_values {
@@ -20,29 +21,35 @@ enum return_values {
 
 typedef struct options {
     const char *file_path;
-    bool dump_ast;
+    bool dump_parsed_ast;
+    bool dump_checked_ast;
     bool dump_tokens;
 } Options;
 
 bool parse_arguments(Options *opts, int argc, char **argv) {
     struct option long_options[] = {
-        {"help",         no_argument, 0, 'h'},
-        {"dump-ast",     no_argument, 0, 'd'},
-        {"dump-tokens",  no_argument, 0, 't'},
-        {0,              0,           0,  0}
+        {"help",             no_argument, 0, 'h'},
+        {"dump-parsed-ast",  no_argument, 0, 'p'},
+        {"dump-checked-ast", no_argument, 0, 'd'},
+        {"dump-tokens",      no_argument, 0, 't'},
+        {0,                  0,           0,  0}
     };
     int c;
-    while((c = getopt_long(argc, argv, "hdt", long_options, NULL)) != -1) {
+    while((c = getopt_long(argc, argv, "hpdt", long_options, NULL)) != -1) {
         switch(c) {
             case 'h':
                 printf("Usage: %s [options] file\n", argv[0]);
                 printf("Options:\n");
-                printf("\t--help,        -h    Print this help.\n");
-                printf("\t--dump-ast,    -d    Dump the parsed and validated AST.\n");
-                printf("\t--dump-tokens, -t    Dump the scanned tokens.\n");
+                printf("\t--help,             -h    Print this help.\n");
+                printf("\t--dump-parsed-ast,  -p    Dump the parsed AST.\n");
+                printf("\t--dump-checked-ast, -d    Dump the parsed, validated & typechecked AST.\n");
+                printf("\t--dump-tokens,      -t    Dump the scanned tokens.\n");
                 return false;
+            case 'p':
+                opts->dump_parsed_ast = true;
+                break;
             case 'd':
-                opts->dump_ast = true;
+                opts->dump_checked_ast = true;
                 break;
             case 't':
                 opts->dump_tokens = true;
@@ -68,17 +75,20 @@ int main(int argc, char **argv) {
     Compiler c;
     Scanner s;
     Parser p;
-    //Validator v;
+    Validator v;
     ASTParsedProgram parsed_prog;
+    ASTCheckedProgram checked_prog;
     compilerInit(&c);
     scannerInit(&s, &c);
     parserInit(&p, &c, &s);
-    //validatorInit(&v, &c);
+    validatorInit(&v, &c);
     astParsedProgramInit(&parsed_prog);
+    astCheckedProgramInit(&checked_prog);
 
     Options opts = {
         .file_path = "./test.ilc",
-        .dump_ast = false,
+        .dump_parsed_ast = false,
+        .dump_checked_ast = false,
         .dump_tokens = false
     };
     if(!parse_arguments(&opts, argc, argv)) {
@@ -102,19 +112,26 @@ int main(int argc, char **argv) {
         goto end;
     }
 
-    //if(!validatorValidate(&v, &prog)) {
-    //    if(compilerHadError(&c)) {
-    //        compilerPrintErrors(&c);
-    //    } else {
-    //        fputs("\x1b[1;31mError:\x1b[0m Validator failed with no errors!\n", stderr);
-    //    }
-    //    return_value = RET_VALIDATE_ERROR;
-    //    goto end;
-    //}
-
-    if(opts.dump_ast) {
+    if(opts.dump_parsed_ast) {
+        printf("====== PARSED AST DUMP for '%s' ======\n", opts.file_path);
         astParsedProgramPrint(stdout, &parsed_prog);
-        fputc('\n', stdout);
+        puts("\n====== END ======"); // prints newline.
+    }
+
+    if(!validatorValidate(&v, &checked_prog, &parsed_prog)) {
+        if(compilerHadError(&c)) {
+            compilerPrintErrors(&c);
+        } else {
+            fputs("\x1b[1;31mError:\x1b[0m Validator failed with no errors!\n", stderr);
+        }
+        return_value = RET_VALIDATE_ERROR;
+        goto end;
+    }
+
+    if(opts.dump_checked_ast) {
+        printf("====== CHECKED AST DUMP for '%s' ======\n", opts.file_path);
+        astCheckedProgramPrint(stdout, &checked_prog);
+        puts("\n====== END ======"); // prints newline.
     }
 
     //if(!codegenGenerate(stdout, &prog)) {
@@ -124,8 +141,9 @@ int main(int argc, char **argv) {
     //}
 
 end:
+    astCheckedProgramFree(&checked_prog);
     astParsedProgramFree(&parsed_prog);
-    //validatorFree(&v);
+    validatorFree(&v);
     parserFree(&p);
     scannerFree(&s);
     compilerFree(&c);

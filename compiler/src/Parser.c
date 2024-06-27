@@ -1113,7 +1113,7 @@ bool parserParse(Parser *p, ASTParsedProgram *prog) {
                 continue;
             }
             if(var != NULL) {
-                // TODO: Add astModuleAddVariable(module, variable).
+                // TODO: Add astParsedModuleAddGlobalVariable(module, variable).
                 arrayPush(&root_module->globals, (void *)var);
             }
         } else if(match(p, TK_STRUCT)) {

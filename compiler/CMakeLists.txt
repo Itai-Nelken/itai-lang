@@ -22,6 +22,7 @@ set(sources
     src/Types/ParsedType.c
     src/Token.c
     src/utilities.c
+    src/Validator.c
     src/Strings.c
 )
 

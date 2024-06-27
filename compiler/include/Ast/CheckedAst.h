@@ -22,6 +22,7 @@ typedef struct ast_checked_block_stmt ASTCheckedBlockStmt;
 
 /* CheckedScope */
 
+// TODO: Are two exact declarations for scope (parsed & checked) really needed?
 typedef struct checked_scope {
     bool is_block_scope;
     Array objects; // Array<ASTCheckedObj *> - owns the objects stored in all the tables below.
@@ -172,7 +173,7 @@ typedef struct ast_checked_module {
     } ast_allocator;
     Array scopes; // Array<CheckedScope *>
     CheckedScope *module_scope; // Owned by the above array.
-    Array globals; // Array<ASTCheckedVarDeclStmt *> (ND_VAR_DECL) - To make accesing all variables in thr above scope easier.
+    Array globals; // Array<ASTCheckedVarDeclStmt *> (ND_VAR_DECL) - To make accesing all variables in the above scope easier.
 } ASTCheckedModule;
 
 /***
