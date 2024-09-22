@@ -173,7 +173,7 @@ typedef struct ast_checked_module {
     } ast_allocator;
     Array scopes; // Array<CheckedScope *>
     CheckedScope *module_scope; // Owned by the above array.
-    Array globals; // Array<ASTCheckedVarDeclStmt *> (ND_VAR_DECL) - To make accesing all variables in the above scope easier.
+    Array globals; // Array<ASTCheckedVarDeclStmt *> (ND_VAR_DECL) - Stores declarations for module scope variables.
 } ASTCheckedModule;
 
 /***

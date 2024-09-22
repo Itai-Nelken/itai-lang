@@ -77,6 +77,7 @@ static inline ASTCheckedModule *get_current_module(Validator *v) {
 }
 
 // TODO: Maybe return new scope id?
+//       * Maybe recieve scope to enter as parameter?
 static void enter_scope(Validator *v, bool is_block_scope) {
     ScopeID current_module_scope = astCheckedModuleGetModuleScopeID(get_current_module(v));
     if(scopeIDCompare(v->current.scope, current_module_scope)) {
@@ -221,7 +222,6 @@ static void validate_module_cb(void *module, size_t module_index, void *validato
 // TODO:
 // * Move StringTable to Compiler (since it doesn't change)
 // * Remove primitives from CheckedProgram since they are impossible to populate cleanly & I'm not sure they're useful.
-// * Remove Module.globals since they are stored in module_scope.variables
 // * Start typechecker in a new file.
 bool validatorValidate(Validator *v, ASTCheckedProgram *checked_prog, ASTParsedProgram *parsed_prog) {
     v->checked_prog = checked_prog;
