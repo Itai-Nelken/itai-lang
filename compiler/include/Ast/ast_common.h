@@ -142,6 +142,9 @@ typedef struct scope_id {
 
 void scopeIDPrint(FILE *to, ScopeID scope_id, bool compact);
 
+static inline bool scopeIDCompare(ScopeID a, ScopeID b) {
+    return (a.module == b.module) && (a.index == b.index);
+}
 
 /* ControlFlow */
 
