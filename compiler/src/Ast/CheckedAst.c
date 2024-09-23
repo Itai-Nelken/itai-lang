@@ -184,9 +184,6 @@ static const char *expr_node_name(ASTCheckedExprNodeType type) {
             return "ASCheckedNode";
         case CHECKED_EXPR_CALL:
             return "ASTCheckedCallExpr";
-        // identifier nodes
-        case CHECKED_EXPR_IDENTIFIER:
-            return "ASTCheckedIdentifierExpr";
         default:
             UNREACHABLE();
     }
@@ -214,7 +211,6 @@ static const char *expr_type_name(ASTCheckedExprNodeType type) {
         [CHECKED_EXPR_ADDROF]           = "CHECKED_EXPR_ADDROF",
         [CHECKED_EXPR_DEREF]            = "CHECKED_EXPR_DEREF",
         [CHECKED_EXPR_CALL]             = "CHECKED_EXPR_CALL",
-        [CHECKED_EXPR_IDENTIFIER]       = "CHECKED_EXPR_IDENTIFIER"
     };
     return names[type];
 }
@@ -275,11 +271,6 @@ void astCheckedExprNodePrint(FILE *to, ASTCheckedExprNode *n) {
             PRINT_ARRAY(ASTCheckedExprNode *, astCheckedExprNodePrint, to, NODE_AS(ASTCheckedCallExpr, n)->arguments);
             fputc(']', to);
             break;
-        // identifier nodes
-        case CHECKED_EXPR_IDENTIFIER:
-            fputs(", \x1b[1midentifier:\x1b[0m ", to);
-            astStringPrint(to, &NODE_AS(ASTCheckedIdentifierExpr, n)->id);
-            break;
         default:
             UNREACHABLE();
     }
@@ -329,13 +320,6 @@ ASTCheckedExprNode *astNewCheckedCallExpr(Allocator *a, Location loc, ASTChecked
     n->callee = callee;
     arrayInitAllocatorSized(&n->arguments, *a, arrayLength(arguments));
     arrayCopy(&n->arguments, arguments);
-    return NODE_AS(ASTCheckedExprNode, n);
-}
-
-ASTCheckedExprNode *astNewCheckedIdentifierExpr(Allocator *a, Location loc, ASTString id) {
-    ASTCheckedIdentifierExpr *n = allocatorAllocate(a, sizeof(*n));
-    n->header = make_expr_node_header(CHECKED_EXPR_IDENTIFIER, loc, NULL);
-    n->id = id;
     return NODE_AS(ASTCheckedExprNode, n);
 }
 

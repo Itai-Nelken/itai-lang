@@ -58,6 +58,7 @@ void checkedScopeAddChild(CheckedScope *parent, ScopeID child_id);
 
 /***
  * Intern a CheckedType saving it in scope's type table.
+ * If the type is already in the scope, the previous type is returned.
  * NOTE: 'ty' MUST be heap allocated! Ownership of it is taken!
  *
  * @param scope The scope to save the type in.
@@ -330,9 +331,6 @@ typedef enum ast_checked_expression_node_type {
     // Call node
     CHECKED_EXPR_CALL,
 
-    // Other nodes
-    CHECKED_EXPR_IDENTIFIER,
-
     __CHECKED_EXPR_TYPE_COUNT
 } ASTCheckedExprNodeType;
 
@@ -373,11 +371,6 @@ typedef struct ast_checked_call_expr {
     ASTCheckedExprNode *callee;
     Array arguments; // Array<ASTCheckedExprNode *>
 } ASTCheckedCallExpr;
-
-typedef struct ast_checked_identifier_expr {
-    ASTCheckedExprNode header;
-    ASTString id;
-} ASTCheckedIdentifierExpr;
 
 
 /***
@@ -447,17 +440,6 @@ ASTCheckedExprNode *astNewCheckedBinaryExpr(Allocator *a, ASTCheckedExprNodeType
  * @param arguments An Array<ASTCheckedExprNode *> containing the arguments.
  ***/
 ASTCheckedExprNode *astNewCheckedCallExpr(Allocator *a, Location loc, ASTCheckedExprNode *callee, Array *arguments);
-
-
-/***
- * Create a new ASTCheckedIdentifierExpr node (node type: CHECKED_EXPR_IDENTIFIER).
- *
- * @param a The allocator to use.
- * @param loc The Location of the node.
- * @param id An ASTString containing the identifier.
- * @return The node as an ASTCheckedExprNode.
- ***/
-ASTCheckedExprNode *astNewCheckedIdentifierExpr(Allocator *a, Location loc, ASTString id);
 
 
 /* AST node - ASTCheckedStmtNode */
