@@ -128,7 +128,7 @@ static CheckedType *make_checked_ptr_type(Validator *v, CheckedType *inner_type)
         .location = EMPTY_LOCATION
     };
     stringFree(formatted_name);
-    checkedTypeInit(ty, TY_PTR, name, v->current.module, EMPTY_LOCATION);
+    checkedTypeInit(ty, TY_PTR, name, v->current.module);
     return checkedScopeAddType(astCheckedModuleGetScope(get_current_module(v), v->current.scope), ty);
 }
 
@@ -205,22 +205,27 @@ static CheckedType *get_expr_data_type(Validator *v, ASTCheckedExprNode *node) {
  ***/
 static CheckedType *validate_data_type(Validator *v, ParsedType *parsed_type) {
     CheckedScope *sc = astCheckedModuleGetScope(get_current_module(v), v->current.scope);
-    // If type has already been validated, return the validated version.
-    TableItem *item;
-    if((item = tableGet(&sc->types, (void *)parsed_type->name.data)) != NULL) {
-        return (CheckedType *)item->key;
-    }
 
     // Otherwise validate it.
     CheckedType *ty = NULL;
+    bool is_primitive = false;
     switch(parsed_type->type) {
         // Primitives - simply create a CheckedType with the same data.
         case TY_VOID:
+            ty = v->checked_prog->primitives.void_;
+            is_primitive = true;
+            break;
         case TY_I32:
+            ty = v->checked_prog->primitives.int32;
+            is_primitive = true;
+            break;
         case TY_U32:
+            ty = v->checked_prog->primitives.uint32;
+            is_primitive = true;
+            break;
         case TY_STR:
-            NEW0(ty);
-            checkedTypeInit(ty, parsed_type->type, parsed_type->name, parsed_type->decl_module, parsed_type->decl_location);
+            ty = v->checked_prog->primitives.str;
+            is_primitive = true;
             break;
         case TY_PTR:
             ty = make_checked_ptr_type(v, validate_data_type(v, parsed_type->as.ptr.inner_type));
@@ -232,7 +237,10 @@ static CheckedType *validate_data_type(Validator *v, ParsedType *parsed_type) {
         default:
             UNREACHABLE();
     }
-    checkedScopeAddType(sc, ty);
+    if(!is_primitive) { // FIXME: I'm too tired to figure out why this if is needed.
+        // checkedScopeAddType() frees 'ty' and returns existing type if type already exists
+        ty = checkedScopeAddType(sc, ty);
+    }
     return ty;
 }
 
@@ -245,7 +253,8 @@ static ASTCheckedObj *validate_object(Validator *v, ASTParsedObj *parsed_obj) {
             if(parsed_obj->data_type != NULL) {
                 checked_obj->data_type = validate_data_type(v, parsed_obj->data_type);
             }
-            VERIFY(tableSet(&current_scope->variables, (void *)checked_obj->name.data, (void *)checked_obj) == NULL);
+            // FIXME: We don't check if item is redefined since global vars will already be in the table
+            tableSet(&current_scope->variables, (void *)checked_obj->name.data, (void *)checked_obj);
             break;
         case OBJ_FN:
             // validate_fn();
@@ -259,85 +268,120 @@ static ASTCheckedObj *validate_object(Validator *v, ASTParsedObj *parsed_obj) {
     return checked_obj;
 }
 
+static ASTCheckedExprNodeType parsed_expr_type_to_checked_type(ASTParsedExprNodeType parsed_type) {
+    ASTCheckedExprNodeType checked_type = __CHECKED_EXPR_TYPE_COUNT;
+    switch(parsed_type) {
+        case PARSED_EXPR_NUMBER_CONSTANT:
+            checked_type = CHECKED_EXPR_NUMBER_CONSTANT;
+            break;
+        case PARSED_EXPR_STRING_CONSTANT:
+            checked_type = CHECKED_EXPR_STRING_CONSTANT;
+            break;
+        case PARSED_EXPR_VARIABLE:
+            checked_type = CHECKED_EXPR_VARIABLE;
+            break;
+        case PARSED_EXPR_FUNCTION:
+            checked_type = CHECKED_EXPR_FUNCTION;
+            break;
+        case PARSED_EXPR_ASSIGN:
+            checked_type = CHECKED_EXPR_ASSIGN;
+            break;
+        case PARSED_EXPR_PROPERTY_ACCESS:
+            checked_type = CHECKED_EXPR_PROPERTY_ACCESS;
+            break;
+        case PARSED_EXPR_ADD:
+            checked_type = CHECKED_EXPR_ADD;
+            break;
+        case PARSED_EXPR_SUBTRACT:
+            checked_type = CHECKED_EXPR_SUBTRACT;
+            break;
+        case PARSED_EXPR_MULTIPLY:
+            checked_type = CHECKED_EXPR_MULTIPLY;
+            break;
+        case PARSED_EXPR_DIVIDE:
+            checked_type = CHECKED_EXPR_DIVIDE;
+            break;
+        case PARSED_EXPR_EQ:
+            checked_type = CHECKED_EXPR_EQ;
+            break;
+        case PARSED_EXPR_NE:
+            checked_type = CHECKED_EXPR_NE;
+            break;
+        case PARSED_EXPR_LT:
+            checked_type = CHECKED_EXPR_LT;
+            break;
+        case PARSED_EXPR_LE:
+            checked_type = CHECKED_EXPR_LE;
+            break;
+        case PARSED_EXPR_GT:
+            checked_type = CHECKED_EXPR_GT;
+            break;
+        case PARSED_EXPR_GE:
+            checked_type = CHECKED_EXPR_GE;
+            break;
+        case PARSED_EXPR_NEGATE:
+            checked_type = CHECKED_EXPR_NEGATE;
+            break;
+        case PARSED_EXPR_ADDROF:
+            checked_type = CHECKED_EXPR_ADDROF;
+            break;
+        case PARSED_EXPR_DEREF:
+            checked_type = CHECKED_EXPR_DEREF;
+            break;
+        case PARSED_EXPR_CALL:
+            checked_type = CHECKED_EXPR_CALL;
+            break;
+        case PARSED_EXPR_IDENTIFIER:
+        default:
+            UNREACHABLE();
+    }
+    return checked_type;
+}
+
 // TODO: Give all expressions a data type
 static ASTCheckedExprNode *validate_expression(Validator *v, ASTParsedExprNode *parsed_expr) {
     ASTCheckedExprNode *node = NULL;
-    ASTCheckedExprNodeType node_type; // Used for node types that are handled the same
     switch(parsed_expr->type) {
         // Constant value nodes
         case PARSED_EXPR_NUMBER_CONSTANT:
-            node_type = CHECKED_EXPR_NUMBER_CONSTANT;
-            // fallthrough
-        case PARSED_EXPR_STRING_CONSTANT:
-            node_type = CHECKED_EXPR_STRING_CONSTANT;
-            node = astNewCheckedConstantValueExpr(v->current.allocator, node_type, parsed_expr->location, NODE_AS(ASTParsedConstantValueExpr, node)->value, NULL);
+        case PARSED_EXPR_STRING_CONSTANT: {
+            node = astNewCheckedConstantValueExpr(v->current.allocator, parsed_expr_type_to_checked_type(parsed_expr->type), parsed_expr->location, NODE_AS(ASTParsedConstantValueExpr, parsed_expr)->value, NULL);
             break;
+        }
         // Obj nodes
         case PARSED_EXPR_VARIABLE:
-            node_type = CHECKED_EXPR_VARIABLE;
-            // fallthrough
         case PARSED_EXPR_FUNCTION: {
-            node_type = CHECKED_EXPR_FUNCTION;
-
             ASTCheckedObj *checked_obj = validate_object(v, NODE_AS(ASTParsedObjExpr, parsed_expr)->obj);
-            node = astNewCheckedObjExpr(v->current.allocator, node_type, parsed_expr->location, checked_obj);
+            node = astNewCheckedObjExpr(v->current.allocator, parsed_expr_type_to_checked_type(parsed_expr->type), parsed_expr->location, checked_obj);
             break;
         }
         // Binary nodes
         case PARSED_EXPR_ASSIGN:
-            node_type = CHECKED_EXPR_ASSIGN;
-            // fallthrough
         case PARSED_EXPR_PROPERTY_ACCESS:
-            node_type = CHECKED_EXPR_PROPERTY_ACCESS;
-            // fallthrough
         case PARSED_EXPR_ADD:
-            node_type = CHECKED_EXPR_ADD;
-            // fallthrough
         case PARSED_EXPR_SUBTRACT:
-            node_type = CHECKED_EXPR_SUBTRACT;
-            // fallthrough
         case PARSED_EXPR_MULTIPLY:
-            node_type = CHECKED_EXPR_MULTIPLY;
-            // fallthrough
         case PARSED_EXPR_DIVIDE:
-            node_type = CHECKED_EXPR_DIVIDE;
-            // fallthrough
         case PARSED_EXPR_EQ:
-            node_type = CHECKED_EXPR_EQ;
-            // fallthrough
         case PARSED_EXPR_NE:
-            node_type = CHECKED_EXPR_NE;
-            // fallthrough
         case PARSED_EXPR_LT:
-            node_type = CHECKED_EXPR_LT;
-            // fallthrough
         case PARSED_EXPR_LE:
-            node_type = CHECKED_EXPR_LE;
-            // fallthrough
         case PARSED_EXPR_GT:
-            node_type = CHECKED_EXPR_GT;
-            // fallthrough
         case PARSED_EXPR_GE: {
-            node_type = CHECKED_EXPR_GE;
             ASTCheckedExprNode *lhs = TRY(ASTCheckedExprNode *,
                                           validate_expression(v,NODE_AS(ASTParsedBinaryExpr, parsed_expr)->lhs));
             ASTCheckedExprNode *rhs = TRY(ASTCheckedExprNode *,
                                           validate_expression(v,NODE_AS(ASTParsedBinaryExpr, parsed_expr)->rhs));
-            node = astNewCheckedBinaryExpr(v->current.allocator, node_type, parsed_expr->location, lhs, rhs);
+            node = astNewCheckedBinaryExpr(v->current.allocator, parsed_expr_type_to_checked_type(parsed_expr->type), parsed_expr->location, lhs, rhs);
             break;
         }
         // Unary nodes
         case PARSED_EXPR_NEGATE:
-            node_type = CHECKED_EXPR_NEGATE;
-            // fallthrough
         case PARSED_EXPR_ADDROF:
-            node_type = CHECKED_EXPR_ADDROF;
-            // fallthrough
         case PARSED_EXPR_DEREF: {
-            node_type = CHECKED_EXPR_DEREF;
             ASTCheckedExprNode *operand = TRY(ASTCheckedExprNode *,
                                               validate_expression(v,NODE_AS(ASTParsedUnaryExpr, parsed_expr)->operand));
-            node = astNewCheckedUnaryExpr(v->current.allocator, node_type, parsed_expr->location, operand);
+            node = astNewCheckedUnaryExpr(v->current.allocator, parsed_expr_type_to_checked_type(parsed_expr->type), parsed_expr->location, operand);
             break;
         }
         case PARSED_EXPR_CALL:
@@ -407,16 +451,36 @@ static void validate_global_variable_cb(void *global, void *validator) {
     arrayPush(&get_current_module(v)->globals, (void *)checked_decl);
 }
 
+static void add_primitive_types(ASTCheckedProgram *prog, ASTCheckedModule *root_module) {
+#define DEF(typename, type, name) {CheckedType *ty; NEW0(ty); checkedTypeInit(ty, (type), AST_STRING(astCheckedProgramAddString(prog, (name)), EMPTY_LOCATION), root_module->id); prog->primitives.typename = checkedScopeAddType(root_module->module_scope, ty);}
+
+    // FIXME: do we need to add the typenames to the string table (because they are string literals)?
+    // NOTE: Update IS_PRIMITIVE() in Types.h when adding new primitives.
+    DEF(void_, TY_VOID, "void");
+    DEF(int32, TY_I32, "i32");
+    DEF(uint32, TY_U32, "u32");
+    DEF(str, TY_STR, "str");
+
+#undef DEF
+}
+
 static void validate_module_cb(void *module, size_t module_index, void *validator) {
     Validator *v = (Validator *)validator;
     ASTParsedModule *parsed_module = (ASTParsedModule *)module;
     ASTCheckedModule *checked_module = astNewCheckedModule(parsed_module->name);
     // TODO: what do I need to copy from parsed module to checked module
     v->current.module = astCheckedProgramAddModule(v->checked_prog, checked_module);
+    v->current.allocator = &checked_module->ast_allocator.alloc;
     VERIFY(v->current.module == module_index);
-
     // Set current scope (so enter_scope() knows if the current scope is the module scopeS).
     v->current.scope = astCheckedModuleGetModuleScopeID(checked_module);
+
+    if(module_index == 0) { // FIXME: Assuming root module is always 0, which is true, but not nice code
+        // Populate primitive types
+        // TODO: Update primitive types when more are added.
+        add_primitive_types(v->checked_prog, checked_module);
+    }
+
     // Validate all global (module scope) variable declarations
     arrayMap(&parsed_module->globals, validate_global_variable_cb, validator);
     arrayMap(&parsed_module->scopes, validate_scope_cb, validator);
@@ -435,7 +499,6 @@ bool validatorValidate(Validator *v, ASTCheckedProgram *checked_prog, ASTParsedP
         checked_prog->strings = st;
     }
 
-    // FIXME (BIG ONE): NEED TO CREATE CHECKED PRIMITIVE TYPES, BUT CAN'T BECAUSE I DON'T HAVE A CHECKED ROOT MODULE YET.
     // Validate the modules
     arrayMapIndex(&v->parsed_prog->modules, validate_module_cb, (void *)v);
     return !v->had_error;
