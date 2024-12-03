@@ -1,0 +1,25 @@
+// A comment
+var a = 0;
+
+fn main() {
+	var b = 1;
+	var c: u32 = 1;
+	if -1 {
+		1;
+	} else if +2 {
+		2;
+	} else {
+		3;
+	}
+
+	a = test();
+	defer a = 123;
+	while a {
+		a = a - 1;
+	}
+}
+
+fn test() -> i32 {
+	return 1 + 2 * 4 / 2 + (2 + 3);
+}
+

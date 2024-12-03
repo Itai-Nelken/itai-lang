@@ -235,7 +235,7 @@ ScopeID astCheckedModuleGetModuleScopeID(ASTCheckedModule *module);
 typedef struct ast_checked_program {
     struct {
         // Primitive types (are owned by the root module).
-        // Note: ASTCheckedProgram & astCheckedProgramInit() have to be updated when adding new primitives.
+        // Note: ASTParsedProgram & astCheckedProgramInit() have to be updated when adding new primitives.
         CheckedType *void_;
         CheckedType *int32;
         CheckedType *uint32;

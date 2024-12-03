@@ -1,0 +1,29 @@
+TODO:
+
+* Validator
+* Codegen
+
+* ASTModule: is "globals" array neccesary? since they are all in module scope.
+
+* TODO: CheckedPropertyAccessNode { nodes: Array<CheckedExprNode *> }
+* Add compact pretty-printing to ASTString: ASTString{'%s'}
+* Implement the following naming scheme:
+    <module><type><action>
+    action = New, Free, Print etc.
+    example: AstParsedObjNew (Ast = module, ParsedObj = type, New = action)
+* Set literal data types in parser?
+* Validator: if a function returns a value, check that it returns in all possible execution paths.
+
+* When pointers, type aliases, traits, & bound functions are added: Replace 'str' with '&const char'
+  and 'str' can then be implemented in the prelude (parts of the standard library
+  that are included implicitly).
+  Example implementation:
+  public type str: &const char implements Hashable, Equality {
+      fn hash(&const this) -> u32 {
+          // ...
+      }
+
+      fn equal(&const this, other: &const This) -> bool {
+          // ...
+      }
+  }

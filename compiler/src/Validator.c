@@ -396,6 +396,7 @@ static ASTCheckedExprNode *validate_expression(Validator *v, ASTParsedExprNode *
     return node;
 }
 
+// Returns NULL on failure
 static ASTCheckedStmtNode *validate_statement(Validator *v, ASTParsedStmtNode *parsed_stmt) {
     ASTCheckedStmtNode *n = NULL;
     switch(parsed_stmt->type) {
@@ -407,7 +408,25 @@ static ASTCheckedStmtNode *validate_statement(Validator *v, ASTParsedStmtNode *p
             n = astNewCheckedVarDeclStmt(v->current.allocator, parsed_stmt->location, obj, initializer);
             break;
         }
-        case CHECKED_STMT_BLOCK:
+        case CHECKED_STMT_BLOCK: {
+            ASTParsedBlockStmt *block = NODE_AS(ASTParsedBlockStmt, parsed_stmt);
+            bool had_error = false;
+            Array nodes; // Array<ASTCheckedStmtNode>
+            arrayInit(&nodes);
+            enter_scope(v, true); // FIXME: NEED TO ENTER SCOPE IN [block]??? (yes, but?)
+            FOR(i, block->nodes) {
+                ASTCheckedStmtNode *checked = validate_statement(v, ARRAY_GET_AS(ASTParsedStmtNode *, &block->nodes, i));
+                if(checked == NULL) {
+                    had_error = true;
+                } else {
+                    arrayPush(&nodes, (void *)checked);
+                }
+            }
+            leave_scope(v);
+            n = astNewCheckedBlockStmt(v->current.allocator, parsed_stmt->location, block->scope, block->control_flow, &nodes);
+            arrayFree(&nodes);
+            return had_error ? NULL : n;
+        }
         case CHECKED_STMT_IF:
         case CHECKED_STMT_WHILE_LOOP:
         case CHECKED_STMT_RETURN:
