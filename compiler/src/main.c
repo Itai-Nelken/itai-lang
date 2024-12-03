@@ -4,11 +4,7 @@
 #include "common.h"
 #include "memory.h"
 #include "Token.h"
-#include "Ast/ParsedAst.h"
-#include "Ast/CheckedAst.h"
 #include "Compiler.h"
-#include "Parser.h"
-#include "Validator.h"
 #include "Scanner.h"
 
 enum return_values {
@@ -74,16 +70,8 @@ int main(int argc, char **argv) {
     int return_value = RET_SUCCESS;
     Compiler c;
     Scanner s;
-    Parser p;
-    Validator v;
-    ASTParsedProgram parsed_prog;
-    ASTCheckedProgram checked_prog;
     compilerInit(&c);
     scannerInit(&s, &c);
-    parserInit(&p, &c, &s);
-    validatorInit(&v, &c);
-    astParsedProgramInit(&parsed_prog);
-    astCheckedProgramInit(&checked_prog);
 
     Options opts = {
         .file_path = "./test.ilc",
@@ -96,43 +84,43 @@ int main(int argc, char **argv) {
         goto end;
     }
 
-    if(opts.dump_tokens) {
-        parserSetDumpTokens(&p, true);
-    }
+    //if(opts.dump_tokens) {
+    //    parserSetDumpTokens(&p, true);
+    //}
 
     compilerAddFile(&c, opts.file_path);
 
-    if(!parserParse(&p, &parsed_prog)) {
-        if(compilerHadError(&c)) {
-            compilerPrintErrors(&c);
-        } else {
-            fputs("\x1b[1;31mError:\x1b[0m Parser failed with no errors!\n", stderr);
-        }
-        return_value = RET_PARSE_FAILURE;
-        goto end;
-    }
+    //if(!parserParse(&p, &parsed_prog)) {
+    //    if(compilerHadError(&c)) {
+    //        compilerPrintErrors(&c);
+    //    } else {
+    //        fputs("\x1b[1;31mError:\x1b[0m Parser failed with no errors!\n", stderr);
+    //    }
+    //    return_value = RET_PARSE_FAILURE;
+    //    goto end;
+    //}
 
-    if(opts.dump_parsed_ast) {
-        printf("====== PARSED AST DUMP for '%s' ======\n", opts.file_path);
-        astParsedProgramPrint(stdout, &parsed_prog);
-        puts("\n====== END ======"); // prints newline.
-    }
+    //if(opts.dump_parsed_ast) {
+    //    printf("====== PARSED AST DUMP for '%s' ======\n", opts.file_path);
+    //    astParsedProgramPrint(stdout, &parsed_prog);
+    //    puts("\n====== END ======"); // prints newline.
+    //}
 
-    if(!validatorValidate(&v, &checked_prog, &parsed_prog)) {
-        if(compilerHadError(&c)) {
-            compilerPrintErrors(&c);
-        } else {
-            fputs("\x1b[1;31mError:\x1b[0m Validator failed with no errors!\n", stderr);
-        }
-        return_value = RET_VALIDATE_ERROR;
-        goto end;
-    }
+    //if(!validatorValidate(&v, &checked_prog, &parsed_prog)) {
+    //    if(compilerHadError(&c)) {
+    //        compilerPrintErrors(&c);
+    //    } else {
+    //        fputs("\x1b[1;31mError:\x1b[0m Validator failed with no errors!\n", stderr);
+    //    }
+    //    return_value = RET_VALIDATE_ERROR;
+    //    goto end;
+    //}
 
-    if(opts.dump_checked_ast) {
-        printf("====== CHECKED AST DUMP for '%s' ======\n", opts.file_path);
-        astCheckedProgramPrint(stdout, &checked_prog);
-        puts("\n====== END ======"); // prints newline.
-    }
+    //if(opts.dump_checked_ast) {
+    //    printf("====== CHECKED AST DUMP for '%s' ======\n", opts.file_path);
+    //    astCheckedProgramPrint(stdout, &checked_prog);
+    //    puts("\n====== END ======"); // prints newline.
+    //}
 
     //if(!codegenGenerate(stdout, &prog)) {
     //    fputs("\x1b[1;31mError: Codegenerator failed!\x1b[0m\n", stderr);
@@ -141,10 +129,6 @@ int main(int argc, char **argv) {
     //}
 
 end:
-    astCheckedProgramFree(&checked_prog);
-    astParsedProgramFree(&parsed_prog);
-    validatorFree(&v);
-    parserFree(&p);
     scannerFree(&s);
     compilerFree(&c);
     return return_value;
