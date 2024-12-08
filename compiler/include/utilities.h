@@ -19,7 +19,7 @@ typedef struct string_slice {
  * @param len The length of the string.
  * @return A new StringSlice.
  ***/
-#define STRING_SLICE(str, len)n ((StringSlice){.data = (str), .length = (len)})
+#define STRING_SLICE(str, len) ((StringSlice){.data = (str), .length = (len)})
 
 /***
  * Create a new StringSlice from a String.
