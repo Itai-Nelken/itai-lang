@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include "Array.h"
 #include "Table.h"
+#include "Object.h"
 
 /**
  * A Scope instance represents a namespace and possibly also a block scope.
@@ -12,7 +13,8 @@
  * All objects in a scope are owned by the scope and stored in an Array,
  * however they are sorted by type to Tables for easier and more efficient access.
  * 
- * Each scope has an array of all its children. An example of a possible scope tree is as following:
+ * Each scope has an array of all its children, and a pointer to its parent scope.
+ * An example of a possible scope tree is as following:
  * Example code:
  * =================================
  * fn main() {
@@ -36,12 +38,55 @@
  **/
 typedef struct scope {
     Array objects; // Array<ASTObj *> (owns all objects)
-    Table variables; // Table<char *, ASTObj *> (OBJ_VAR)
+    Table variables; // Table<char *, ASTObj *> (OBJ_VAR) (key is obj.name)
     //Table functions; // Table<char *, ASTObj *> (OBJ_FN)
     //Table structures; // Table<char *, ASTObj *> (OBJ_STRUCT)
     
-    bool is_block_scope;
+    bool isBlockScope;
     Array children; // Array<Scope *>
+    struct scope *parent;
 } Scope;
+
+
+/**
+ * Create (allocate) a new scope.
+ *
+ * @param parent The parent scope.
+ * @return A new initialized scope (heap allocated).
+ **/
+Scope *scopeNew(Scope *parent);
+
+/**
+ * Free a scope and all it's children (WARNING: Use only on the root scope!).
+ *
+ * @param scope The root of the scope tree to free.
+ **/
+void scopeFree(Scope *scope);
+
+/**
+ * Add a child scope to a scope.
+ *
+ * @param parent The parent scope.
+ * @param child The child scope (C.R.E for child.parent != parent, parent == child).
+ **/
+void scopeAddChild(Scope *parent, Scope *child);
+
+/**
+ * Check if a scope contains an object.
+ *
+ * @param scope The scope to check in.
+ * @param obj The object to check (C.R.E for obj == NULL).
+ * @return true if [obj] exists in [scope] or false otherwise.
+ **/
+bool scopeHasObject(Scope *scope, ASTObj* obj);
+
+/**
+ * Add an ASTObj to a scope.
+ * NOTE: Ownership of [obj] is taken!
+ *
+ * @param scope The scope to add the object to.
+ * @param obj The ASTObj to add (C.R.E for [obj] to already exist in scope).
+ **/
+void scopeAddObject(Scope *scope, ASTObj *obj);
 
 #endif // AST_SCOPE_H

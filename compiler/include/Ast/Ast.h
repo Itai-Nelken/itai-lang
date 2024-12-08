@@ -12,6 +12,7 @@
 #include "Module.h"
 #include "Program.h"
 #include "Type.h"
+#include "StringTable.h"
 
 // TODO: Think through and draw a diagram of how I want my AST to look.
 //       Things to keep in mind:

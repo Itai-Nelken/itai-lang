@@ -18,4 +18,9 @@ typedef struct ast_module {
     Scope *module_scope; // owned by this struct.
 } ASTModule;
 
+
+ASTModule *astModuleNew(void);
+
+void astModuleFree(ASTModule *module);
+
 #endif // AST_MODULE_H

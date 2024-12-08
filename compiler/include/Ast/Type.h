@@ -9,5 +9,6 @@
  *  - The string representation of the type (e.g. "i32", "fn(i32, i32)->i32").
  *  - Any information required for the type (e.g. parameter and return types for function types).
  **/
+typedef struct type {} Type;
 
 #endif // AST_TYPE_H
