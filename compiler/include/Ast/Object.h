@@ -19,7 +19,7 @@ typedef enum ast_object_types {
 typedef struct ast_object {
     ASTObjType type;
     ASTString name;
-    Type dataType;
+    Type *dataType;
     //union {
     //    struct {} var;
     //} as;
@@ -34,7 +34,7 @@ typedef struct ast_object {
  * @param dataType The data type for the new object.
  * @return The new object // TODO: or NULL on failure (to allocate)?
  **/
-ASTObj *astObjectNew(ASTObjType type, ASTString name, Type dataType);
+ASTObj *astObjectNew(ASTObjType type, ASTString name, Type *dataType);
 
 /**
  * Free an ASTObj.

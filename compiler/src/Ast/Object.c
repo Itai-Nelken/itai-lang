@@ -3,7 +3,7 @@
 #include "Ast/Type.h"
 #include "Ast/Object.h"
 
-ASTObj *astObjectNew(ASTObjType type, ASTString name, Type dataType) {
+ASTObj *astObjectNew(ASTObjType type, ASTString name, Type *dataType) {
     ASTObj *obj;
     NEW0(obj);
     obj->type = type;
