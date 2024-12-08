@@ -1,6 +1,7 @@
 #ifndef AST_TYPE_H
 #define AST_TYPE_H
 
+#include <stdbool.h>
 #include "Array.h"
 #include "StringTable.h"
 #include "Token.h"
@@ -15,7 +16,7 @@
  **/
 
 typedef enum type_type {
-    TY_PRIMITIVE,
+    TY_VOID, TY_I32, // TY_U32, TY_STR,
     TY_POINTER,
     TY_FUNCTION,
     TY_STRUCT,
@@ -27,7 +28,7 @@ typedef struct type {
     TypeType type;
     ASTString name;
     Location declLocation;
-    // TODO: Do I need to store the module in which the type was declared?
+    ASTModule *declModule;
     //union {
     //    struct {
     //        struct type *innerType;
@@ -43,5 +44,39 @@ typedef struct type {
 } Type;
 
 
+/**
+ * Create a new Type.
+ *
+ * @param type The type of the Type (e.g. TY_VOID)
+ * @param name The name of the type.
+ * @param declLocation The location in which the type was declared.
+ * @param declModule The module that owns the type.
+ * @return A new Type initialized with all the above info.
+ **/
+Type *typeNew(TypeType type, ASTString name, Location declLocation, ASTModule *declModule);
+
+/**
+ * Free a Type.
+ *
+ * @param ty The type to free.
+ **/
+void typeFree(Type *ty);
+
+/**
+ * Check if two Types are equal.
+ *
+ * @param a The first type.
+ * @param b The second type.
+ * @return true if a and b are equal, false if they are not.
+ **/
+bool typeEqual(Type *a, Type *b);
+
+/**
+ * Check if a Type represents a primitive type.
+ *
+ * @param ty The type to check.
+ * @return true if [ty] is a primitive, false if not.
+ **/
+bool typeIsPrimitive(Type *ty);
 
 #endif // AST_TYPE_H
