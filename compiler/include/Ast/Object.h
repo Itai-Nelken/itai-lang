@@ -20,9 +20,27 @@ typedef struct ast_object {
     ASTObjType type;
     ASTString name;
     Type dataType;
-    union {
-        struct {} var;
-    } as;
+    //union {
+    //    struct {} var;
+    //} as;
 } ASTObj;
+
+
+/**
+ * Create a new ASTObj.
+ *
+ * @param type The ASTObjType for the new object.
+ * @param name The name for the new object.
+ * @param dataType The data type for the new object.
+ * @return The new object // TODO: or NULL on failure (to allocate)?
+ **/
+ASTObj *astObjectNew(ASTObjType type, ASTString name, Type dataType);
+
+/**
+ * Free an ASTObj.
+ *
+ * @param obj The object to free.
+ **/
+void astObjectFree(ASTObj *obj);
 
 #endif // AST_OBJ_H

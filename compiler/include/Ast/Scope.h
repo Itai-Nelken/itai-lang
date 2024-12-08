@@ -37,6 +37,7 @@
  *         (if stmt block scope)            (else stmt block scope)
  **/
 typedef struct scope {
+    // TODO: What about scope depth (for block scopes)?
     Array objects; // Array<ASTObj *> (owns all objects)
     Table variables; // Table<char *, ASTObj *> (OBJ_VAR) (key is obj.name)
     //Table functions; // Table<char *, ASTObj *> (OBJ_FN)

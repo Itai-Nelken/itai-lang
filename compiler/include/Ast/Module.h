@@ -15,12 +15,22 @@ typedef struct ast_module {
         Arena storage;
         Allocator alloc;
     } ast_allocator;
-    Scope *module_scope; // owned by this struct.
+    Scope *moduleScope; // owned by this struct.
 } ASTModule;
 
 
+/**
+ * Create a new ASTModule.
+ *
+ * @return A new ASTModule.
+ **/
 ASTModule *astModuleNew(void);
 
+/**
+ * Free an ASTModule.
+ *
+ * @param module The ASTModule to free.
+ **/
 void astModuleFree(ASTModule *module);
 
 #endif // AST_MODULE_H

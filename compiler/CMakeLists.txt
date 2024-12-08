@@ -9,6 +9,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(sources
     src/Arena.c
     src/Array.c
+    src/Ast/Module.c
+    src/Ast/Object.c
+    src/Ast/Program.c
+    src/Ast/Scope.c
+    src/Ast/StringTable.c
     src/Compiler.c
     src/Error.c
     src/memory.c
