@@ -22,6 +22,10 @@ typedef struct ast_object {
     Type *dataType;
     //union {
     //    struct {} var;
+    //    struct {} fn;
+    //    struct {
+    //        Scope *scope;
+    //    } structure;
     //} as;
 } ASTObj;
 
