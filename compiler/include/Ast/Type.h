@@ -6,6 +6,9 @@
 #include "StringTable.h"
 #include "Token.h"
 
+// We can't include Module.h since it includes us.
+typedef struct ast_module ASTModule; // Ast/Module.h
+
 /**
  * Type represents a data type (such as i32, u32, char, str etc.) including pointer, function, and struct types.
  * A Type stores:

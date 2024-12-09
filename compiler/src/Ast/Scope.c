@@ -14,7 +14,7 @@ static void free_scope_callback(void *scope, void *cl) {
 
 static void free_object_callback(void *object, void *cl) {
     UNUSED(cl);
-    astObjFree((ASTObj *)object);
+    astObjectFree((ASTObj *)object);
 }
 
 

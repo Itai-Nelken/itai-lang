@@ -6,9 +6,10 @@
 
 /* Helper functions */
 
-static void free_string_callback(void *string, void *cl) {
+static void free_string_callback(TableItem *item, bool is_last, void *cl) {
+    UNUSED(is_last);
     UNUSED(cl);
-    stringFree((String)string);
+    stringFree((String)item->key);
 }
 
 // Note: takes ownership of [str].

@@ -44,6 +44,5 @@ bool astModuleHasType(ASTModule *module, Type *ty) {
 
 void astModuleAddType(ASTModule *module, Type *ty) {
     VERIFY(!astModuleHasType(module, ty));
-    TableItem *item = NULL;
     tableSet(&module->types, (void *)ty->name, (void *)ty);
 }
