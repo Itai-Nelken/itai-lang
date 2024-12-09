@@ -42,7 +42,7 @@ void stringTableFree(StringTable *st);
  * @param str The string to add (must be nul terminated).
  * @return The interned string.
  **/
-ASTString stringTableString(StringTable *st, const char *str);
+ASTString stringTableString(StringTable *st, char *str);
 
 /**
  * Add a formatted string to a StringTable.

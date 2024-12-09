@@ -34,9 +34,9 @@ void stringTableFree(StringTable *st) {
     tableFree(&st->strings);
 }
 
-ASTString stringTableString(StringTable *st, const char *str) {
-    String str = stringDuplicate(str);
-    return add_string(&st->strings, str);
+ASTString stringTableString(StringTable *st, char *str) {
+    String s = stringDuplicate(str);
+    return add_string(&st->strings, s);
 }
 
 ASTString stringTableFormat(StringTable *st, const char *format, ...) {

@@ -7,21 +7,24 @@
 
 /* Helper functions */
 
-static void free_type_callback(void *type, void *cl) {
+static void free_type_callback(TableItem *item, bool is_last, void *cl) {
+    UNUSED(is_last);
     UNUSED(cl);
-    typeFree((Type *)type);
+    typeFree((Type *)item->value);
 }
 
 
 /* Module functions */
 
-ASTModule *astModuleNew(void) {
+ASTModule *astModuleNew(ASTString name) {
     ASTModule *m;
     NEW0(m);
     arenaInit(&m->ast_allocator.storage);
     m->ast_allocator.alloc = arenaMakeAllocator(&m->ast_allocator.storage);
+    m->name = name;
     m->moduleScope = scopeNew(NULL);
     tableInit(&m->types, NULL, NULL);
+    return m;
 }
 
 void astModuleFree(ASTModule *module) {

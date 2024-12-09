@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include "memory.h"
+#include "StringTable.h"
 #include "Arena.h"
 #include "Table.h"
 #include "Scope.h"
@@ -17,6 +18,7 @@ typedef struct ast_module {
         Arena storage;
         Allocator alloc;
     } ast_allocator;
+    ASTString name;
     Table types; // Table<char *, Type *>
     Scope *moduleScope; // owned by this struct.
 } ASTModule;
@@ -25,9 +27,10 @@ typedef struct ast_module {
 /**
  * Create a new ASTModule.
  *
+ * @param name The name of the module.
  * @return A new ASTModule.
  **/
-ASTModule *astModuleNew(void);
+ASTModule *astModuleNew(ASTString name);
 
 /**
  * Free an ASTModule.
