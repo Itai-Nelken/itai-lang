@@ -42,7 +42,7 @@ typedef struct scope {
     Table variables; // Table<char *, ASTObj *> (OBJ_VAR) (key is obj.name)
     //Table functions; // Table<char *, ASTObj *> (OBJ_FN)
     //Table structures; // Table<char *, ASTObj *> (OBJ_STRUCT)
-    
+
     bool isBlockScope;
     Array children; // Array<Scope *>
     struct scope *parent;
