@@ -173,6 +173,9 @@ static TokenType scan_keyword_or_identifier_type(Scanner *s) {
                     break;
             }
             break;
+        case 'm':
+            result = CHECK("module", 6, TK_MODULE);
+            break;
         case 'r':
             result = CHECK("return", 6, TK_RETURN);
             break;
