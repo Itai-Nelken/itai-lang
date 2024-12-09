@@ -55,7 +55,7 @@ typedef struct ast_conditional_statement {
     ASTStmtNode header;
     ASTExprNode *condition;
     ASTStmtNode *then;
-    ASTExprNode *else_; // optional
+    ASTStmtNode *else_; // optional
 } ASTConditionalStmt;
 
 typedef struct ast_loop_statement {
