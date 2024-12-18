@@ -1,6 +1,7 @@
 #ifndef AST_SCOPE_H
 #define AST_SCOPE_H
 
+#include <stdio.h>
 #include <stdbool.h>
 #include "Array.h"
 #include "Table.h"
@@ -48,6 +49,17 @@ typedef struct scope {
     struct scope *parent;
 } Scope;
 
+
+/**
+ * Pretty print a Scope.
+ * WARNING: If the scope is recursive (which should never happen) and [recursive] is true, this function will cause a crash.
+ *          For example, if sc.parent == sc, this function will recursively print [sc] until the stack overflows and the program crashes.
+ *
+ * @param to The stream to print to.
+ * @param sc The scope to print.
+ * @param recursive print all child scopes and their contents as well?
+ **/
+void scopePrint(FILE *to, Scope *sc, bool recursive);
 
 /**
  * Create (allocate) a new scope.
