@@ -1,6 +1,8 @@
 #ifndef AST_OBJ_H
 #define AST_OBJ_H
 
+#include <stdio.h> // FILE
+#include <stdbool.h>
 #include "StringTable.h"
 #include "Type.h"
 
@@ -29,6 +31,15 @@ typedef struct ast_object {
     //} as;
 } ASTObj;
 
+
+/**
+ * Pretty print an ASTObj.
+ *
+ * @param to The stream to print to.
+ * @param obj The object to print.
+ * @param compact print in a compact form?
+ **/
+void astObjectPrint(FILE *to, ASTObj *obj, bool compact);
 
 /**
  * Create a new ASTObj.
