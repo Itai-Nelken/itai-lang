@@ -61,7 +61,7 @@ typedef struct ast_conditional_statement {
 
 typedef struct ast_loop_statement {
     ASTStmtNode header;
-    ASTExprNode *initializer; // optional
+    ASTStmtNode *initializer; // optional
     ASTExprNode *condition;
     ASTExprNode *increment; // optional
     ASTBlockStmt *body;
@@ -130,7 +130,7 @@ ASTConditionalStmt *astConditionalStmtNew(Allocator *a, Location loc, ASTExprNod
  * @param body The body of the loop.
  * @return A new node initialized with the above data.
  */
-ASTLoopStmt *astLoopStmtNew(Allocator *a, Location loc, ASTExprNode *init, ASTExprNode *cond, ASTExprNode *inc, ASTBlockStmt *body);
+ASTLoopStmt *astLoopStmtNew(Allocator *a, Location loc, ASTStmtNode *init, ASTExprNode *cond, ASTExprNode *inc, ASTBlockStmt *body);
 
 /**
  * Create a new ASTExprStmt node.

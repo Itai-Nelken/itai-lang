@@ -111,7 +111,7 @@ ASTConditionalStmt *astConditionalStmtNew(Allocator *a, Location loc, ASTExprNod
     return n;
 }
 
-ASTLoopStmt *astLoopStmtNew(Allocator *a, Location loc, ASTExprNode *init, ASTExprNode *cond, ASTExprNode *inc, ASTBlockStmt *body) {
+ASTLoopStmt *astLoopStmtNew(Allocator *a, Location loc, ASTStmtNode *init, ASTExprNode *cond, ASTExprNode *inc, ASTBlockStmt *body) {
     ASTLoopStmt *n = allocatorAllocate(a, sizeof(*n));
     n->header = make_header(STMT_LOOP, loc);
     n->initializer = init;
