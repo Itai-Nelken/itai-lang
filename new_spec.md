@@ -3,19 +3,26 @@
 ## Destructors
 A destructor is a bound function that is automatically called
 by the compiler when an object goes out of scope.<br>
+Destructors are implemented using the `Destrucatble` trait, which is defined as following:
+```rust
+trait Destrucatble {
+	fn destruct(&this);
+}
+```
 **Example:**
 ```rust
 import "std/memory";
+import "std/traits";
 
-struct Ptr<T> {
+struct Ptr<T> implements traits::Destructable {
 	p: &T
 
 	fn new(t: T) -> This {
 		return This{p: std::memory::new<T>(t)};
 	}
 
-	#[destructor]
-	fn free(&this) {
+	// This is the destructor
+	fn destruct(&this) {
 		std::memory::free(this.p);
 	}
 }
