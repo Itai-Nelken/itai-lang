@@ -1,6 +1,7 @@
 #ifndef AST_EXPRNODE_H
 #define AST_EXPRNODE_H
 
+#include <stdio.h> // FILE
 #include "common.h"
 #include "memory.h"
 #include "Array.h"
@@ -91,6 +92,14 @@ typedef struct ast_identifier_expression {
     ASTString id;
 } ASTIdentifierExpr;
 
+
+/**
+ * Pretty print an ASTExprNode.
+ *
+ * @param to The stream to print to.
+ * @param n The node to print.
+ **/
+void astExprPrint(FILE *to, ASTExprNode *n);
 
 /**
  * Create a new ASTConstanValueExpr.
