@@ -2,10 +2,12 @@
 #define AST_MODULE_H
 
 #include <stdbool.h>
+#include <stdio.h>
 #include "memory.h"
 #include "StringTable.h"
 #include "Arena.h"
 #include "Table.h"
+#include "StmtNode.h"
 #include "Scope.h"
 
 /**
@@ -21,8 +23,19 @@ typedef struct ast_module {
     ASTString name;
     Table types; // Table<char *, Type *>
     Scope *moduleScope; // owned by this struct.
+    // Holds any "global" variable declarations.
+    Array variableDecls; // Array<ASTVarDeclStmt *>
 } ASTModule;
 
+
+/**
+ * Pretty print an ASTModule.
+ *
+ * @param to The stream to print to.
+ * @param m The module to print.
+ * @param compact print compact (only module name)?
+ **/
+void astModulePrint(FILE *to, ASTModule *m, bool compact);
 
 /**
  * Create a new ASTModule.
@@ -55,5 +68,13 @@ bool astModuleHasType(ASTModule *module, Type *ty);
  * @param ty The type to add (C.R.E for [ty] to already exist in the module).
  **/
 void astModuleAddType(ASTModule *module, Type *ty);
+
+/**
+ * Add a variable declaration to an ASTModule.
+ *
+ * @param module The module to add the declaration to.
+ * @param decl The declaration to add (C.R.E for decl == NULL).
+ **/
+void astModuleAddVarDecl(ASTModule *module, ASTVarDeclStmt *decl);
 
 #endif // AST_MODULE_H
