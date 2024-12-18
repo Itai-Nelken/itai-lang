@@ -1,6 +1,7 @@
 #ifndef AST_TYPE_H
 #define AST_TYPE_H
 
+#include <stdio.h> // FILE
 #include <stdbool.h>
 #include "Array.h"
 #include "StringTable.h"
@@ -46,6 +47,15 @@ typedef struct type {
     //} as;
 } Type;
 
+
+/**
+ * Pretty print a Type.
+ *
+ * @param to The stream to print to.
+ * @param obj The type to print.
+ * @param compact print in a compact form?
+ **/
+void typePrint(FILE *to, Type *ty, bool compact);
 
 /**
  * Create a new Type.
