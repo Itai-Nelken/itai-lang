@@ -1,6 +1,7 @@
 #ifndef AST_STMTNODE_H
 #define AST_STMTNODE_H
 
+#include <stdio.h>
 #include "memory.h"
 #include "Array.h"
 #include "Token.h"
@@ -76,6 +77,14 @@ typedef struct ast_defer_statement {
     ASTStmtNode *body;
 } ASTDeferStmt;
 
+
+/**
+ * Pretty print an ASTStmtNode.
+ *
+ * @param to The stream to print to.
+ * @param stmt The node to print.
+ **/
+void astStmtPrint(FILE *to, ASTStmtNode *stmt);
 
 /**
  * Create a new ASTVarDeclStmt node.
