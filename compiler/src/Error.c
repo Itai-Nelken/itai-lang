@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <stdbool.h>
 #include "common.h"
 #include "memory.h"
 #include "Compiler.h"

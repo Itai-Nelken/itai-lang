@@ -1,7 +1,6 @@
 #ifndef COMPILER_H
 #define COMPILER_H
 
-#include <stdbool.h>
 #include "common.h"
 #include "Array.h"
 #include "Strings.h"

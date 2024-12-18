@@ -2,7 +2,6 @@
 #include <string.h> // memcpy(), memset()
 #include <stddef.h> // offsetof
 #include <stdarg.h>
-#include <stdbool.h>
 #include "common.h"
 #include "memory.h"
 #include "Strings.h"

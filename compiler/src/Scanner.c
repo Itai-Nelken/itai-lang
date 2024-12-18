@@ -1,5 +1,4 @@
 #include <string.h> // memcmp
-#include <stdbool.h>
 #include "common.h"
 #include "memory.h"
 #include "Compiler.h"

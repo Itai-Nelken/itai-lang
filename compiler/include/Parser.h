@@ -1,7 +1,7 @@
 #ifndef PARSER_H
 #define PARSER_H
 
-#include <stdbool.h>
+#include "common.h"
 #include "Strings.h"
 #include "Compiler.h"
 #include "Scanner.h"

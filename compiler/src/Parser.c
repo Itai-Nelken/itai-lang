@@ -1,5 +1,5 @@
 #include <stddef.h> // NULL
-#include <stdbool.h>
+#include "common.h"
 #include "Compiler.h"
 #include "Scanner.h"
 #include "Error.h"
