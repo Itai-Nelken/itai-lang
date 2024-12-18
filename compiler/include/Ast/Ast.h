@@ -2,7 +2,8 @@
 #define AST_H
 
 /**
- * This is a utility header that simply includes all the different AST related headers.
+ * This is a utility header that includes all the different AST related headers.
+ * It also declares a few utility macros.
  **/
 
 #include "ExprNode.h"
@@ -13,6 +14,12 @@
 #include "Program.h"
 #include "Type.h"
 #include "StringTable.h"
+
+
+/* Utility macros */
+
+#define NODE_AS(type, node) ((type *)node)
+#define NODE_IS(node, check_type) ((node)->type == (check_type))
 
 // TODO: Think through and draw a diagram of how I want my AST to look.
 //       Things to keep in mind:
