@@ -48,6 +48,8 @@ static const char *node_name_to_string(ASTExprType t) {
             return "ASTCallExpr";
         case EXPR_IDENTIFIER:
             return "ASTIdentifierExpr";
+        default:
+            break;
     }
     UNREACHABLE();
 }
@@ -146,6 +148,8 @@ void astExprPrint(FILE *to, ASTExprNode *n) {
         case EXPR_IDENTIFIER:
             fprintf(to, ", \x1b[1mid:\x1b[0m '%s'", NODE_AS(ASTIdentifierExpr, n)->id);
             break;
+        default:
+            UNREACHABLE();
     }
     fputs("}\n", to);
 }

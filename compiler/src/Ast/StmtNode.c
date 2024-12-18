@@ -17,6 +17,46 @@ static inline ASTStmtNode make_header(ASTStmtType type, Location loc) {
     };
 }
 
+static const char *stmt_type_name(ASTStmtType type) {
+    switch(type) {
+        // VarDecl nodes
+        case STMT_VAR_DECL:
+            return "ASTVarDeclStmt";
+        // Block nodes
+        case STMT_BLOCK:
+            return "ASTBlockStmt";
+        // Conditional nodes
+        case STMT_IF:
+            return "ASTConditionalStmt";
+        // Loop nodes
+        case STMT_LOOP:
+            return "ASTLoopStmt";
+        // Expr nodes
+        case STMT_RETURN:
+        case STMT_EXPR:
+            return "ASTExprStmt";
+        // Defer nodes
+        case STMT_DEFER:
+            return "ASTDeferStmt";
+        default:
+            UNREACHABLE();
+    }
+}
+
+static const char *stmt_type_to_string(ASTStmtType type) {
+    VERIFY(type < STMT_TYPE_COUNT);
+    static const char *names[] = {
+        [STMT_VAR_DECL] = "STMT_VAR_DECL",
+        [STMT_BLOCK] = "STMT_BLOCK",
+        [STMT_IF] = "STMT_IF",
+        [STMT_LOOP] = "STMT_LOOP",
+        [STMT_RETURN] = "STMT_RETURN",
+        [STMT_EXPR] = "STMT_EXPR",
+        [STMT_DEFER] = "STMT_DEFER"
+    };
+    return names[(int)type];
+}
+
 
 /* StmtNode functions */
 
@@ -67,7 +107,7 @@ void astStmtPrint(FILE *to, ASTStmtNode *stmt) {
             fputs("\x1b[1mincrement:\x1b[0m ", to);
             astExprPrint(to, NODE_AS(ASTLoopStmt, stmt)->increment);
             fputs("\x1b[1mbody:\x1b[0m ", to);
-            astStmtPrint(to, NODE_AS(ASTLoopStmt, stmt)->body);
+            astStmtPrint(to, (ASTStmtNode *)NODE_AS(ASTLoopStmt, stmt)->body);
             break;
         // Expr nodes
         case STMT_RETURN:

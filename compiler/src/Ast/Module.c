@@ -36,10 +36,10 @@ void astModulePrint(FILE *to, ASTModule *m, bool compact) {
         return;
     }
 
-    fprintf(to, "ASTModule{\x1b[1mname:\x1b[0m '%s', \x1b[1mtypes:\x1b[0m [");
+    fprintf(to, "ASTModule{\x1b[1mname:\x1b[0m '%s', \x1b[1mtypes:\x1b[0m [", m->name);
     tableMap(&m->types, print_type_table_callback, (void *)to);
     fputs("], \x1b[1mmoduleScope:\x1b[0m ", to);
-    scopePrint(to, &m->moduleScope, false);
+    scopePrint(to, m->moduleScope, false);
     fputs(", \x1b[1mvariableDecls:\x1b[0m [", to);
     ARRAY_FOR(i, m->variableDecls) {
         astStmtPrint(to, ARRAY_GET_AS(ASTStmtNode *, &m->variableDecls, i));

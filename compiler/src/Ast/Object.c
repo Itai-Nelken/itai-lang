@@ -19,7 +19,7 @@ void astObjectPrint(FILE *to, ASTObj *obj, bool compact) {
         return;
     }
     if(compact) {
-        fprintf(to, "ASTObj{\x1b[1;33m%s\x1b[0m, '%s', ", obj_type_to_string(obj->type));
+        fprintf(to, "ASTObj{\x1b[1;33m%s\x1b[0m, '%s', ", obj_type_to_string(obj->type), obj->name);
         typePrint(to, obj->dataType, true);
         fputc('}', to);
         return;

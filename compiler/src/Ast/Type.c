@@ -45,9 +45,11 @@ void typePrint(FILE *to, Type *ty, bool compact) {
     locationPrint(to, ty->declLocation, true);
     fprintf(to, ", \x1b[1mdeclModule:\x1b[0m ");
     astModulePrint(to, ty->declModule, true);
-    switch(ty->type) {
-        // TODO: handle ptr, fn, struct types
-    }
+    //switch(ty->type) {
+    //    // TODO: handle ptr, fn, struct types
+    //    default:
+    //        UNREACHABLE();
+    //}
     fputc('}', to);
 }
 
