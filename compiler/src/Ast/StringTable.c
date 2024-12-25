@@ -56,7 +56,7 @@ void stringTableFree(StringTable *st) {
 }
 
 ASTString stringTableString(StringTable *st, char *str) {
-    String s = stringDuplicate(str);
+    String s = stringNCopy(str, strlen(str));
     return add_string(&st->strings, s);
 }
 
