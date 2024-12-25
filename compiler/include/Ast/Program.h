@@ -1,6 +1,7 @@
 #ifndef AST_PROGRAM_H
 #define AST_PROGRAM_H
 
+#include <stdio.h>
 #include "Array.h"
 #include "Ast/StringTable.h"
 #include "Ast/Module.h"
@@ -15,6 +16,14 @@ typedef struct ast_program {
     Array modules; // Array<ASTModule *>;
 } ASTProgram;
 
+
+/**
+ * Pretty print an ASTProgram.
+ *
+ * @param to The stream to print to.
+ * @param prog The ASTProgram to print.
+ **/
+void astProgramPrint(FILE *to, ASTProgram *prog);
 
 /**
  * Initializes an ASTProgram.

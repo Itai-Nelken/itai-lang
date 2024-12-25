@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "common.h"
 #include "Array.h"
 #include "Ast/StringTable.h"
@@ -13,6 +14,25 @@ static void free_module_callback(void *module, void *cl) {
 
 
 /* ASTProgram functions */
+
+void astProgramPrint(FILE *to, ASTProgram *prog) {
+    if(!prog) {
+        fputs("(null)", to);
+        return;
+    }
+
+    // Print string table
+    fputs("ASTProgram{\x1b[1mstrings:\x1b[0m ", to);
+    stringTablePrint(to, &prog->strings);
+    fputs(", \x1b[1mmodules:\x1b[0m [", to);
+    ARRAY_FOR(i, prog->modules) {
+        astModulePrint(to, ARRAY_GET_AS(ASTModule *, &prog->modules, i), false);
+        if(i + 1 < arrayLength(&prog->modules)) {
+            fputs(", ", to);
+        }
+    }
+    fputs("]}", to);
+}
 
 void astProgramInit(ASTProgram *prog) {
     arrayInit(&prog->modules);
