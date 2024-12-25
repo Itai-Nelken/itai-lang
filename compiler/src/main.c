@@ -3,8 +3,10 @@
 #include "common.h"
 #include "memory.h"
 #include "Token.h"
+#include "Ast/Program.h"
 #include "Compiler.h"
 #include "Scanner.h"
+#include "Parser.h"
 
 enum return_values {
     RET_SUCCESS = 0,
@@ -67,10 +69,14 @@ bool parse_arguments(Options *opts, int argc, char **argv) {
 
 int main(int argc, char **argv) {
     int return_value = RET_SUCCESS;
+    ASTProgram program;
     Compiler c;
     Scanner s;
+    Parser p;
+    astProgramInit(&program);
     compilerInit(&c);
     scannerInit(&s, &c);
+    parserInit(&p, &c, &s);
 
     Options opts = {
         .file_path = "./test.ilc",
@@ -89,21 +95,21 @@ int main(int argc, char **argv) {
 
     compilerAddFile(&c, opts.file_path);
 
-    //if(!parserParse(&p, &parsed_prog)) {
-    //    if(compilerHadError(&c)) {
-    //        compilerPrintErrors(&c);
-    //    } else {
-    //        fputs("\x1b[1;31mError:\x1b[0m Parser failed with no errors!\n", stderr);
-    //    }
-    //    return_value = RET_PARSE_FAILURE;
-    //    goto end;
-    //}
+    if(!parserParse(&p, &program)) {
+        if(compilerHadError(&c)) {
+            compilerPrintErrors(&c);
+        } else {
+            fputs("\x1b[1;31mError:\x1b[0m Parser failed with no errors!\n", stderr);
+        }
+        return_value = RET_PARSE_FAILURE;
+        goto end;
+    }
 
-    //if(opts.dump_parsed_ast) {
-    //    printf("====== PARSED AST DUMP for '%s' ======\n", opts.file_path);
-    //    astParsedProgramPrint(stdout, &parsed_prog);
-    //    puts("\n====== END ======"); // prints newline.
-    //}
+    if(opts.dump_parsed_ast) {
+        printf("====== PARSED AST DUMP for '%s' ======\n", opts.file_path);
+        astProgramPrint(stdout, &program);
+        puts("\n====== END ======"); // prints newline.
+    }
 
     //if(!validatorValidate(&v, &checked_prog, &parsed_prog)) {
     //    if(compilerHadError(&c)) {
@@ -128,7 +134,9 @@ int main(int argc, char **argv) {
     //}
 
 end:
+    parserFree(&p);
     scannerFree(&s);
     compilerFree(&c);
+    astProgramFree(&program);
     return return_value;
 }
