@@ -1,4 +1,5 @@
 #include <stdarg.h>
+#include <string.h>
 #include "common.h"
 #include "Table.h"
 #include "Strings.h"
@@ -10,6 +11,14 @@ static void free_string_callback(TableItem *item, bool is_last, void *cl) {
     UNUSED(is_last);
     UNUSED(cl);
     stringFree((String)item->key);
+}
+
+static void print_string_callback(TableItem *item, bool is_last, void *stream) {
+    FILE *to = (FILE *)stream;
+    fprintf(to, "\"%s\"", (char *)item->key);
+    if(!is_last) {
+        fputs(", ", to);
+    }
 }
 
 // Note: takes ownership of [str].
@@ -25,6 +34,17 @@ static ASTString add_string(Table *strings, String str) {
 
 
 /* StringTable functions */
+
+void stringTablePrint(FILE *to, StringTable *st) {
+    if(!st) {
+        fputs("(null)", to);
+        return;
+    }
+
+    fputs("StringTable{\x1b[1mstrings:\x1b[0m [", to);
+    tableMap(&st->strings, print_string_callback, (void *)to);
+    fputs("]}", to);
+}
 
 void stringTableInit(StringTable *st) {
     tableInit(&st->strings, NULL, NULL);

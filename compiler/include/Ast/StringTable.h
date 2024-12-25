@@ -1,6 +1,7 @@
 #ifndef STRING_TABLE_H
 #define STRING_TABLE_H
 
+#include <stdio.h>
 #include "Strings.h"
 #include "Table.h"
 
@@ -20,6 +21,14 @@ typedef struct string_table {
     Table strings; // Table<ASTString, void>
 } StringTable;
 
+
+/**
+ * Pretty print a string table.
+ *
+ * @param to The stream to print to.
+ * @param st The StringTable to print.
+ **/
+void stringTablePrint(FILE *to, StringTable *st);
 
 /**
  * Initialize a StringTable.
