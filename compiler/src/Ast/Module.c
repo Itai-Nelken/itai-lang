@@ -43,7 +43,7 @@ void astModulePrint(FILE *to, ASTModule *m, bool compact) {
     fputs(", \x1b[1mvariableDecls:\x1b[0m [", to);
     ARRAY_FOR(i, m->variableDecls) {
         astStmtPrint(to, ARRAY_GET_AS(ASTStmtNode *, &m->variableDecls, i));
-        if(i < arrayLength(&m->variableDecls)) { // TODO: Check this works and doesn't need to be i + 1
+        if(i + 1 < arrayLength(&m->variableDecls)) {
             fputs(", ", to);
         }
     }

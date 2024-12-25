@@ -26,18 +26,18 @@ void scopePrint(FILE *to, Scope *sc, bool recursive) {
         return;
     }
 
-    fputs("\x1b[1mobjects:\x1b[0m [", to);
+    fputs("Scope{\x1b[1mobjects:\x1b[0m [", to);
     ARRAY_FOR(i, sc->objects) {
         astObjectPrint(to, ARRAY_GET_AS(ASTObj *, &sc->objects, i), true);
-        if(i < arrayLength(&sc->objects)) { // TODO: make sure it's not i + 1
+        if(i + 1 < arrayLength(&sc->objects)) {
             fputs(", ", to);
         }
     }
-    fprintf(to, "], \x1b[1misBlockScope: \x1b[31m%s\x1b[0m, \x1b[1mchidlren:\x1b[0m [", sc->isBlockScope ? "true" : "false");
+    fprintf(to, "], \x1b[1misBlockScope: \x1b[31m%s\x1b[0m, \x1b[1mchildren:\x1b[0m [", sc->isBlockScope ? "true" : "false");
     if(recursive) {
         ARRAY_FOR(i, sc->children) {
             scopePrint(to, ARRAY_GET_AS(Scope *, &sc->children, i), true);
-            if(i < arrayLength(&sc->children)) { // TODO: make sure it's not i + 1
+            if(i + 1 < arrayLength(&sc->children)) {
                 fputs(", ", to);
             }
         }

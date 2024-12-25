@@ -71,18 +71,18 @@ void astStmtPrint(FILE *to, ASTStmtNode *stmt) {
     switch(stmt->type) {
         // VarDecl nodes
         case STMT_VAR_DECL:
-            fputs("\x1b[1mvariable:\x1b[0m ", to);
+            fputs(", \x1b[1mvariable:\x1b[0m ", to);
             astObjectPrint(to, NODE_AS(ASTVarDeclStmt, stmt)->variable, true);
-            fputs("\x1b[1minitializer:\x1b[0m ", to);
+            fputs(", \x1b[1minitializer:\x1b[0m ", to);
             astExprPrint(to, NODE_AS(ASTVarDeclStmt, stmt)->initializer);
             break;
         // Block nodes
         case STMT_BLOCK: {
-            fputs("\x1b[1mnodes:\x1b[0m [", to);
+            fputs(", \x1b[1mnodes:\x1b[0m [", to);
             Array *nodes = &NODE_AS(ASTBlockStmt, stmt)->nodes;
             ARRAY_FOR(i, *nodes) {
                 astStmtPrint(to, ARRAY_GET_AS(ASTStmtNode *, nodes, i));
-                if(i < arrayLength(nodes)) { // TODO: check that its not i + 1
+                if(i + 1 < arrayLength(nodes)) {
                     fputs(", ", to);
                 }
             }
@@ -91,33 +91,33 @@ void astStmtPrint(FILE *to, ASTStmtNode *stmt) {
         }
         // Conditional nodes
         case STMT_IF:
-            fputs("\x1b[1mcondition:\x1b[0m ", to);
+            fputs(", \x1b[1mcondition:\x1b[0m ", to);
             astExprPrint(to, NODE_AS(ASTConditionalStmt, stmt)->condition);
-            fputs("\x1b[1mthen:\x1b[0m ", to);
+            fputs(", \x1b[1mthen:\x1b[0m ", to);
             astStmtPrint(to, NODE_AS(ASTConditionalStmt, stmt)->then);
-            fputs("\x1b[1melse:\x1b[0m ", to);
+            fputs(", \x1b[1melse:\x1b[0m ", to);
             astStmtPrint(to, NODE_AS(ASTConditionalStmt, stmt)->else_);
             break;
         // Loop nodes
         case STMT_LOOP:
-            fputs("\x1b[1minitializer:\x1b[0m ", to);
+            fputs(", \x1b[1minitializer:\x1b[0m ", to);
             astStmtPrint(to, NODE_AS(ASTLoopStmt, stmt)->initializer);
-            fputs("\x1b[1mcondition:\x1b[0m ", to);
+            fputs(", \x1b[1mcondition:\x1b[0m ", to);
             astExprPrint(to, NODE_AS(ASTLoopStmt, stmt)->condition);
-            fputs("\x1b[1mincrement:\x1b[0m ", to);
+            fputs(", \x1b[1mincrement:\x1b[0m ", to);
             astExprPrint(to, NODE_AS(ASTLoopStmt, stmt)->increment);
-            fputs("\x1b[1mbody:\x1b[0m ", to);
+            fputs(", \x1b[1mbody:\x1b[0m ", to);
             astStmtPrint(to, (ASTStmtNode *)NODE_AS(ASTLoopStmt, stmt)->body);
             break;
         // Expr nodes
         case STMT_RETURN:
         case STMT_EXPR:
-            fputs("\x1b[1mexpression:\x1b[0m ", to);
+            fputs(", \x1b[1mexpression:\x1b[0m ", to);
             astExprPrint(to, NODE_AS(ASTExprStmt, stmt)->expression);
             break;
         // Defer nodes
         case STMT_DEFER:
-            fputs("\x1b[1mbody:\x1b[0m ", to);
+            fputs(", \x1b[1mbody:\x1b[0m ", to);
             astStmtPrint(to, NODE_AS(ASTDeferStmt, stmt)->body);
             break;
         default:
