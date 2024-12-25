@@ -96,6 +96,7 @@ bool scopeHasObject(Scope *scope, ASTObj* obj) {
 
 void scopeAddObject(Scope *scope, ASTObj *obj) {
     VERIFY(!scopeHasObject(scope, obj));
+    arrayPush(&scope->objects, (void *)obj);
     switch(obj->type) {
         case OBJ_VAR:
             tableSet(&scope->variables, (void *)obj->name, (void *)obj);
