@@ -3,8 +3,12 @@
 
 #include <stdio.h> // FILE
 #include <stdbool.h>
+#include "Token.h"
 #include "StringTable.h"
 #include "Type.h"
+
+// Ast/StmtNode.h includes this file, so we can't include it.
+typedef struct ast_block_statement ASTBlockStmt;
 
 /**
  * An ASTObj represents an object - i.e a variable, function, struct etc. (see ASTObjType).
@@ -12,7 +16,7 @@
  **/
 typedef enum ast_object_types {
     OBJ_VAR,
-    //OBJ_FN,
+    OBJ_FN,
     //OBJ_STRUCT,
     //OBJ_ENUM?
     OBJ_TYPE_COUNT
@@ -20,15 +24,20 @@ typedef enum ast_object_types {
 
 typedef struct ast_object {
     ASTObjType type;
+    Location loc;
     ASTString name;
     Type *dataType;
-    //union {
-    //    struct {} var;
-    //    struct {} fn;
-    //    struct {
-    //        Scope *scope;
-    //    } structure;
-    //} as;
+    union {
+        //struct {} var;
+        struct {
+            Array parameters; // Array<ASTObj *> (OBJ_VAR)
+            Type *returnType;
+            ASTBlockStmt *body;
+        } fn;
+        //struct {
+        //    Scope *scope;
+        //} structure;
+    } as;
 } ASTObj;
 
 
@@ -45,11 +54,12 @@ void astObjectPrint(FILE *to, ASTObj *obj, bool compact);
  * Create a new ASTObj.
  *
  * @param type The ASTObjType for the new object.
+ * @param loc The location of the object
  * @param name The name for the new object.
  * @param dataType The data type for the new object.
  * @return The new object // TODO: or NULL on failure (to allocate)?
  **/
-ASTObj *astObjectNew(ASTObjType type, ASTString name, Type *dataType);
+ASTObj *astObjectNew(ASTObjType type, Location loc, ASTString name, Type *dataType);
 
 /**
  * Free an ASTObj.

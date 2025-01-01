@@ -6,6 +6,7 @@
 #include "Array.h"
 #include "Token.h"
 #include "Object.h"
+#include "Scope.h"
 #include "ExprNode.h"
 
 /**
@@ -48,7 +49,8 @@ typedef struct ast_var_decl_statement {
 
 typedef struct ast_block_statement {
     ASTStmtNode header;
-    // TODO: scope? control flow.
+    // TODO: control flow.
+    Scope *scope;
     Array nodes; // Array<ASTStmtNode *>
 } ASTBlockStmt;
 
@@ -102,10 +104,11 @@ ASTVarDeclStmt *astVarDeclStmtNew(Allocator *a, Location loc, ASTObj *var, ASTEx
  *
  * @param a The allocator to use to allocate the node.
  * @param loc The location of the node.
+ * @param scope The scope which corresponds with the block.
  * @param nodes A pointer to an Array<ASTStmtNode *> containing the body of the block.
  * @return A new node initialized with the above data.
  */
-ASTBlockStmt *astBlockStmtNew(Allocator *a, Location loc, Array *nodes);
+ASTBlockStmt *astBlockStmtNew(Allocator *a, Location loc, Scope *scope, Array *nodes);
 
 /**
  * Create a new ASTConditionalStmt node.

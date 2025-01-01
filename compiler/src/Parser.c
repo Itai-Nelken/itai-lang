@@ -136,6 +136,26 @@ static inline Allocator *getCurrentAllocator(Parser *p) {
     return &p->current.module->ast_allocator.alloc;
 }
 
+static Scope *getCurrentScope(Parser *p) {
+    return p->current.scope;
+}
+
+static Scope *enterScope(Parser *p) {
+    Scope *parent = getCurrentScope(p);
+    bool isBlockScope = parent->isBlockScope; // FIXME: also if current depth is >= FUNCTION_SCOPE_DEPTH
+    Scope *child = scopeNew(parent);
+    child->isBlockScope = isBlockScope;
+    scopeAddChild(parent, child);
+    p->current.scope = child;
+    // TODO: if isBlockScope increase current scope depth.
+    return child;
+}
+
+static void leaveScope(Parser *p) {
+    p->current.scope = p->current.scope->parent;
+    // TODO: if current scope depth >= FUNCTION_SCOPE_DEPTH, decrement it.
+}
+
 /** Expression Parser **/
 
 typedef enum precedence {
@@ -253,6 +273,81 @@ static inline ASTExprNode *parseExpression(Parser *p) {
 }
 
 /** Statement and declaration parser **/
+static ASTVarDeclStmt *parseVarDecl(Parser *p, bool allowInitializer);
+static ASTStmtNode *parseStatement(Parser *p);
+
+static void synchronizeInBlock(Parser *p) {
+    // synchronize to statement boundaries
+    // (statements also include variable declarations in this context).
+    while(!isEof(p) && current(p).type != TK_RBRACE) {
+        TokenType c = current(p).type;
+        if(c == TK_VAR || c == TK_RETURN || c == TK_IF || c == TK_WHILE || c == TK_DEFER) {
+            break;
+        } else {
+            advance(p);
+        }
+    }
+}
+
+// block(parseCallback) -> '{' parseCallback* '}'
+static ASTBlockStmt *parseBlockStmt(Parser *p, Scope *scope, ASTStmtNode *(*parseCallback)(Parser *p)) {
+    // Assumes '{' wasla lready consumed
+    Location loc = previous(p).location;
+    Array nodes; // Array<ASTStmtNode *>
+    arrayInit(&nodes);
+    while(!isEof(p) && current(p).type != TK_RBRACE) {
+        ASTStmtNode *stmt = parseCallback(p);
+        if(stmt) {
+            arrayPush(&nodes, (void *)stmt);
+        } else {
+            synchronizeInBlock(p);
+        }
+    }
+    if(!consume(p, TK_RBRACE)) {
+        arrayFree(&nodes);
+        return NULL;
+    }
+
+    loc = locationMerge(loc, previous(p).location);
+    ASTBlockStmt *n = astBlockStmtNew(getCurrentAllocator(p), loc, scope, &nodes);
+    arrayFree(&nodes);
+    return n;
+}
+
+// function_body -> variable_decl | statement
+static ASTStmtNode *parseFunctionBodyStatements(Parser *p) {
+    ASTStmtNode *n = NULL;
+    Scope *sc = getCurrentScope(p);
+    if(match(p, TK_VAR)) {
+        ASTVarDeclStmt *vdecl = parseVarDecl(p, true);
+        if(vdecl) {
+            scopeAddObject(sc, vdecl->variable);
+        }
+        n = NODE_AS(ASTStmtNode, vdecl);
+    } else {
+        n = parseStatement(p);
+    }
+    return n;
+}
+
+static ASTStmtNode *parseExpressionStmt(Parser *p) {
+    ASTExprNode *expr = TRY(ASTExprNode *, parseExpression(p));
+    TRY_CONSUME(p, TK_SEMICOLON);
+    return NODE_AS(ASTStmtNode, astExprStmtNew(getCurrentAllocator(p), STMT_EXPR, locationMerge(expr->location, previous(p).location), expr));
+}
+
+// statement -> block | return_stmt | if_stmt | while_loop_stmt | defer_stmt | expression_stmt
+static ASTStmtNode *parseStatement(Parser *p) {
+    ASTStmtNode *result = NULL;
+    if(match(p, TK_LBRACE)) {
+        Scope *sc = enterScope(p);
+        result = NODE_AS(ASTStmtNode, parseBlockStmt(p, sc, parseStatement));
+    } else {
+        result = parseExpressionStmt(p);
+    }
+    return result;
+}
+
 
 static ASTString parseIdentifier(Parser *p) {
     TRY_CONSUME(p, TK_IDENTIFIER);
@@ -263,12 +358,14 @@ static ASTString parseIdentifier(Parser *p) {
 // typed_var = identifier (':' type)+
 static ASTObj *parseTypedVariable(Parser *p) {
     ASTString name = TRY(ASTString, parseIdentifier(p));
+    Location loc = previous(p).location;
     Type *ty = NULL;
     if(match(p, TK_COLON)) {
         LOG_ERR("Cannot parse types yet!");
         UNREACHABLE();
     }
-    return astObjectNew(OBJ_VAR, name, ty);
+    loc = locationMerge(loc, previous(p).location);
+    return astObjectNew(OBJ_VAR, loc, name, ty);
 }
 
 // var_decl -> 'var' typed_var ('=' expression)+ ';'
@@ -298,13 +395,39 @@ static ASTVarDeclStmt *parseVarDecl(Parser *p, bool allowInitializer) {
     return astVarDeclStmtNew(getCurrentAllocator(p), loc, obj, initializer);
 }
 
+// function_decl -> 'fn' identifier '(' typed_var+ (typed_var ',')* ')' ('->' type)+ block
+static ASTObj *parseFunctionDecl(Parser *p) {
+    // Assumes 'fn' was already consumed.
+    Location loc = previous(p).location;
+    ASTString name = TRY(ASTString, parseIdentifier(p));
+    TRY_CONSUME(p, TK_LPAREN);
+    // TODO: parse parameters.
+    TRY_CONSUME(p, TK_RPAREN);
+
+    if(match(p, TK_ARROW)) {
+        error(p, "Function return types not supported yet.");
+        return NULL;
+    }
+    loc = locationMerge(loc, previous(p).location);
+
+    TRY_CONSUME(p, TK_LBRACE);
+    Scope *scope = enterScope(p); // TODO: scope depth (add support for block scopes)
+    ASTBlockStmt *body = TRY(ASTBlockStmt *, parseBlockStmt(p, scope, parseFunctionBodyStatements));
+    leaveScope(p);
+    //Type *fnType = makeFunctionType();
+    ASTObj *fnObj = astObjectNew(OBJ_FN, loc, name, NULL/*fnType*/);
+    fnObj->as.fn.body = body;
+    // TODO: parameters, return type
+    return fnObj;
+}
+
 // declaration -> var_decl | fn_decl | struct_decl | extern_decl
 static ASTObj *parseDeclaration(Parser *p) {
     // Notes: * Add nothing to scope. we only parse!
     //        * No need to TRY() since if 'result' is NULL, we will return NULL.
     ASTObj *result = NULL;
     if(match(p, TK_FN)) {
-        UNREACHABLE();
+        result = parseFunctionDecl(p);
 //
 //    } else if(match(p, TK_STRUCT)) {
 

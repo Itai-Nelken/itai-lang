@@ -40,8 +40,9 @@
 typedef struct scope {
     // TODO: What about scope depth (for block scopes)?
     Array objects; // Array<ASTObj *> (owns all objects)
-    Table variables; // Table<char *, ASTObj *> (OBJ_VAR) (key is obj.name)
-    //Table functions; // Table<char *, ASTObj *> (OBJ_FN)
+    // Note: Key is obj.name for all tables.
+    Table variables; // Table<char *, ASTObj *> (OBJ_VAR)
+    Table functions; // Table<char *, ASTObj *> (OBJ_FN)
     //Table structures; // Table<char *, ASTObj *> (OBJ_STRUCT)
 
     bool isBlockScope;

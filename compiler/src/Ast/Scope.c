@@ -41,11 +41,12 @@ void scopePrint(FILE *to, Scope *sc, bool recursive) {
                 fputs(", ", to);
             }
         }
-        fputs("], \x1b[1mparent:\x1b[0m ", to);
-        scopePrint(to, sc->parent, true);
+        fputc(']', to);
+        // Note: no need to print the parent of [sc], since its the scope we are printing in the first place.
     } else {
-        fprintf(to, "...@%lu], \x1b[1mparent:\x1b[0m %s", arrayLength(&sc->children), sc->parent ? "Scope{...}" : "(null)");
+        fprintf(to, "...@%lu]", arrayLength(&sc->children));
     }
+    fprintf(to, ", \x1b[1mparent:\x1b[0m %s", sc->parent ? "Scope{...}" : "(null)");
     fputc('}', to);
 }
 
@@ -56,6 +57,7 @@ Scope *scopeNew(Scope *parent) {
     arrayInit(&sc->children);
     arrayInit(&sc->objects);
     tableInit(&sc->variables, NULL, NULL);
+    tableInit(&sc->functions, NULL, NULL);
 
     return sc;
 }
@@ -68,7 +70,10 @@ void scopeFree(Scope *scope) {
     // Then, free all objects and also the tables.
     arrayMap(&scope->objects, free_object_callback, NULL);
     arrayFree(&scope->objects);
-    tableFree(&scope->variables); // objects are freed above.
+    // Note: the objects themselves are owned by the array
+    //       and are freed above.
+    tableFree(&scope->variables);
+    tableFree(&scope->functions);
 
     // Finally, free the scope itself.
     FREE(scope);
@@ -83,25 +88,33 @@ void scopeAddChild(Scope *parent, Scope *child) {
 bool scopeHasObject(Scope *scope, ASTObj* obj) {
     VERIFY(obj != NULL);
     // Use a result variable for ease of debugging and to make it clear all return paths are handled.
-    bool result = false;
+    Table *tbl;
     switch(obj->type) {
         case OBJ_VAR:
-            result = tableGet(&scope->variables, (void *)obj->name) != NULL;
+            tbl = &scope->variables;
+            break;
+        case OBJ_FN:
+            tbl = &scope->functions;
             break;
         default:
             UNREACHABLE();
     }
-    return result;
+    return tableGet(tbl, (void *)obj->name) != NULL;
 }
 
 void scopeAddObject(Scope *scope, ASTObj *obj) {
     VERIFY(!scopeHasObject(scope, obj));
     arrayPush(&scope->objects, (void *)obj);
+    Table *tbl;
     switch(obj->type) {
         case OBJ_VAR:
-            tableSet(&scope->variables, (void *)obj->name, (void *)obj);
+            tbl = &scope->variables;
+            break;
+        case OBJ_FN:
+            tbl = &scope->functions;
             break;
         default:
             UNREACHABLE();
     }
+    tableSet(tbl, (void *)obj->name, (void *)obj);
 }

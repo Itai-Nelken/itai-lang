@@ -3,10 +3,7 @@
 #include "memory.h"
 #include "Array.h"
 #include "Token.h"
-#include "Ast/Ast.h" // NODE_AS, NODE_IS (which I don't think we'll use here)
-#include "Ast/Object.h"
-#include "Ast/ExprNode.h"
-#include "Ast/StmtNode.h"
+#include "Ast/Ast.h"
 
 /* Helper functions */
 
@@ -134,10 +131,11 @@ ASTVarDeclStmt *astVarDeclStmtNew(Allocator *a, Location loc, ASTObj *var, ASTEx
     return n;
 }
 
-ASTBlockStmt *astBlockStmtNew(Allocator *a, Location loc, Array *nodes) {
+ASTBlockStmt *astBlockStmtNew(Allocator *a, Location loc, Scope *scope, Array *nodes) {
     ASTBlockStmt *n = allocatorAllocate(a, sizeof(*n));
     n->header = make_header(STMT_BLOCK, loc);
-    arrayInitSized(&n->nodes, arrayLength(nodes));
+    arrayInitAllocatorSized(&n->nodes, *a, arrayLength(nodes));
+    n->scope = scope;
     arrayCopy(&n->nodes, nodes);
     return n;
 }
