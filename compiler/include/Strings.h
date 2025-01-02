@@ -110,7 +110,7 @@ String stringVFormat(const char *format, va_list ap);
 String stringFormat(const char *format, ...);
 
 /***
- * Append [format] to [dest] (printf-like formatting supported using arfguments in [ap]).
+ * Append [format] to [dest] (printf-like formatting supported using arguments in [ap]).
  *
  * @param dest the destination string.
  * @param format the string to append (printf-like format specifiers supported).

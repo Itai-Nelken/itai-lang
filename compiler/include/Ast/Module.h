@@ -56,10 +56,10 @@ void astModuleFree(ASTModule *module);
  * Check if a type exists in a module.
  *
  * @param module The module to check in.
- * @param ty The type to check.
- * @return true if [ty] exists in [module], false otherwise.
+ * @param name The typename of the type to get.
+ * @return The type or NULL if it doesn't exist
  **/
-bool astModuleHasType(ASTModule *module, Type *ty);
+Type *astModuleGetType(ASTModule *module, const char *name);
 
 /**
  * Add a type to a module.

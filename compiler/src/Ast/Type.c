@@ -61,10 +61,26 @@ Type *typeNew(TypeType type, ASTString name, Location declLocation, ASTModule *d
     ty->declLocation = declLocation;
     ty->declModule = declModule;
 
+    switch(type) {
+        case TY_FUNCTION:
+            arrayInit(&ty->as.fn.parameterTypes);
+            break;
+        default:
+            break;
+    }
+
     return ty;
 }
 
 void typeFree(Type *ty) {
+    switch(ty->type) {
+        case TY_FUNCTION:
+            // Note: types are owned by modules, and so should be freed by them as well.
+            arrayFree(&ty->as.fn.parameterTypes);
+            break;
+        default:
+            break;
+    }
     FREE(ty);
 }
 

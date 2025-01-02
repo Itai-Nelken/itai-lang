@@ -17,6 +17,8 @@ static void parser_init_internal(Parser *p, Compiler *c, Scanner *s) {
     p->state.previous_token.type = TK_GARBAGE;
     p->state.had_error = false;
     p->state.need_sync = false;
+    p->primitives.void_ = NULL;
+    p->primitives.int32 = NULL;
 }
 void parserInit(Parser *p, Compiler *c, Scanner *s) {
     parser_init_internal(p, c, s);
@@ -64,6 +66,7 @@ static Token advance(Parser *p) {
     // has already reported errors for them anyway.
     Token tk;
     while((tk = scannerNextToken(p->scanner)).type == TK_GARBAGE) {
+        // TODO: dump tokens support
         //if(p->dump_tokens) { tokenPrint(stdout, &tk); putchar('\n'); }
         p->state.had_error = true;
     }
@@ -90,6 +93,14 @@ static char *tmp_buffer_copy(Parser *p, char *s, u32 length) {
         stringClear(p->tmp_buffer);
     }
     stringAppend(&p->tmp_buffer, "%.*s", length, s);
+    return (char *)p->tmp_buffer; // See note above return in tmp_buffer_format().
+}
+
+static char *tmp_buffer_append(Parser *p, const char *format, ...) {
+    va_list ap;
+    va_start(ap, format);
+    stringVAppend(&p->tmp_buffer, format, ap);
+    va_end(ap);
     return (char *)p->tmp_buffer; // See note above return in tmp_buffer_format().
 }
 
@@ -273,6 +284,7 @@ static inline ASTExprNode *parseExpression(Parser *p) {
 }
 
 /** Statement and declaration parser **/
+static Type *parseType(Parser *p);
 static ASTVarDeclStmt *parseVarDecl(Parser *p, bool allowInitializer);
 static ASTStmtNode *parseStatement(Parser *p);
 
@@ -348,11 +360,122 @@ static ASTStmtNode *parseStatement(Parser *p) {
     return result;
 }
 
-
+// identifier -> TK_IDENTIFIER
 static ASTString parseIdentifier(Parser *p) {
     TRY_CONSUME(p, TK_IDENTIFIER);
     Token idTk = previous(p);
     return stringTableFormat(&p->program->strings, "%.*s", idTk.length, idTk.lexeme);
+}
+
+// identifier_type -> identifier
+static Type *parseIdentifierType(Parser *p) {
+    LOG_ERR("identifier types noy supported yet.");
+    // An identifier type is an unkown type that could be a struct or a type alias.
+//    ASTString ident = TRY(ASTString, parseIdentifier(p));
+//    Location loc = previous(p).location;
+//    Type *ty = typeNew(TY_IDENTIFIER, ident, loc, p->current.module);
+//    astModuleAddType(p->current.module, ty);
+//    return ty;
+    UNUSED(p);
+    UNREACHABLE();
+    // FIXME: <thoughts>
+    //        This function should only parse, not add to the module maybe?
+    //        Think about TY_IDENTIFIER. Should it be TY_UNKNOWN maybe? might be clearer.
+    //          * Then there would be TY_STRUCT and TY_ALIAS for the two possible options an id type can be.
+}
+
+// parameters: Array<ASTObj *> (OBJ_VAR)
+// C.R.E for returnType to be NULL.
+static Type *makeFunctionType(Parser *p, Array parameters, Type *returnType) {
+    VERIFY(returnType);
+    Type *ty = typeNew(TY_FUNCTION, "", EMPTY_LOCATION, p->current.module);
+    ty->as.fn.returnType = returnType;
+    tmp_buffer_format(p, "fn(");
+    ARRAY_FOR(i, parameters) {
+        ASTObj *param = ARRAY_GET_AS(ASTObj *, &parameters, i);
+        VERIFY(param->dataType); // FIXME: this should always be true/false should we check?
+        tmp_buffer_append(p, "%s", param->dataType->name);
+        if(i + 1 < arrayLength(&parameters)) {
+            tmp_buffer_append(p, ", ");
+        }
+        arrayPush(&ty->as.fn.parameterTypes, param->dataType);
+    }
+    char *name = tmp_buffer_append(p, ")->%s", returnType->name);
+    ASTString typename = stringTableString(&p->program->strings, name);
+    ty->name = typename;
+    Type *existingType = astModuleGetType(p->current.module, typename);
+    if(existingType) {
+        typeFree(ty);
+        return existingType;
+    }
+    astModuleAddType(p->current.module, ty);
+    return ty;
+}
+
+// fn_type -> 'fn' '(' type* ')' ('->' type)?
+static Type *parseFunctionType(Parser *p) {
+    // Assumes 'fn' was already consumed.
+    TRY_CONSUME(p, TK_LPAREN);
+    // TODO: parameter types
+    TRY_CONSUME(p, TK_RPAREN);
+
+    Type *returnType = NULL;
+    if(match(p, TK_ARROW)) {
+        returnType = TRY(Type *, parseType(p));
+    }
+
+    Array parameters; arrayInit(&parameters);
+    Type *ty = makeFunctionType(p, parameters, returnType);
+    arrayFree(&parameters);
+    return ty;
+}
+
+// complex_type -> fn_type | identifier_type
+static Type *parseComplexType(Parser *p) {
+    if(match(p, TK_FN)) {
+        return parseFunctionType(p);
+    } else if(current(p).type == TK_IDENTIFIER) {
+        return parseIdentifierType(p);
+    }
+    errorAt(p, current(p).location, "Expected typename.");
+    return NULL;
+}
+
+// primitive_type -> void | i32 | str etc.
+static Type *parsePrimitiveType(Parser *p) {
+    Type *ty = NULL;
+    switch(current(p).type) {
+        case TK_VOID:
+            ty = p->primitives.void_;
+            break;
+        case TK_I32:
+            ty = p->primitives.int32;
+            break;
+        default:
+            break;
+    }
+    if(ty) { // Note: to use a switch statement, we can't use match().
+        advance(p);
+    }
+    return ty;
+}
+
+// type -> '&'? (primitive_type | complex_type)
+static Type *parseType(Parser *p) {
+    bool isPointer = false;
+    if(match(p, TK_AMPERSAND)) {
+        isPointer = true;
+    }
+    Type *ty = parsePrimitiveType(p);
+    if(!ty) {
+        ty = TRY(Type *, parseComplexType(p));
+    }
+    if(isPointer) {
+        // TODO: create the pointer type.
+        LOG_ERR("Pointer types not supported yet!");
+        UNREACHABLE();
+    }
+    return ty;
 }
 
 // typed_var = identifier (':' type)+
@@ -361,8 +484,7 @@ static ASTObj *parseTypedVariable(Parser *p) {
     Location loc = previous(p).location;
     Type *ty = NULL;
     if(match(p, TK_COLON)) {
-        LOG_ERR("Cannot parse types yet!");
-        UNREACHABLE();
+        ty = TRY(Type *, parseType(p));
     }
     loc = locationMerge(loc, previous(p).location);
     return astObjectNew(OBJ_VAR, loc, name, ty);
@@ -404,9 +526,9 @@ static ASTObj *parseFunctionDecl(Parser *p) {
     // TODO: parse parameters.
     TRY_CONSUME(p, TK_RPAREN);
 
+    Type *returnType = NULL;
     if(match(p, TK_ARROW)) {
-        error(p, "Function return types not supported yet.");
-        return NULL;
+        returnType = TRY(Type *, parseType(p));
     }
     loc = locationMerge(loc, previous(p).location);
 
@@ -414,10 +536,13 @@ static ASTObj *parseFunctionDecl(Parser *p) {
     Scope *scope = enterScope(p); // TODO: scope depth (add support for block scopes)
     ASTBlockStmt *body = TRY(ASTBlockStmt *, parseBlockStmt(p, scope, parseFunctionBodyStatements));
     leaveScope(p);
-    //Type *fnType = makeFunctionType();
-    ASTObj *fnObj = astObjectNew(OBJ_FN, loc, name, NULL/*fnType*/);
+    Array parameters; arrayInit(&parameters);
+    Type *fnType = makeFunctionType(p, parameters, returnType);
+    arrayFree(&parameters);
+    ASTObj *fnObj = astObjectNew(OBJ_FN, loc, name, fnType);
     fnObj->as.fn.body = body;
-    // TODO: parameters, return type
+    fnObj->as.fn.returnType = returnType;
+    // TODO: set parameters
     return fnObj;
 }
 
@@ -456,14 +581,15 @@ static void synchronizeToDecl(Parser *p) {
     }
 }
 
-static void import_primitive_types(ASTProgram *prog, ASTModule *module) {
+static void import_primitive_types(Parser *p, ASTModule *module) {
+    ASTProgram *prog = p->program;
     // We "import" the primitive types into each module.
     // In reality, we create new types each time, but since
     // primitives are equal by their TypeType, this doesn't matter.
-#define DEF(type, name) {Type *ty = typeNew((type), stringTableString(&prog->strings, (name)), EMPTY_LOCATION, module); astModuleAddType(module, ty);}
+#define DEF(type, typenameInParser, name) {Type *ty = typeNew((type), stringTableString(&prog->strings, (name)), EMPTY_LOCATION, module); astModuleAddType(module, ty); p->primitives.typenameInParser = ty;}
 
-    DEF(TY_VOID, "void");
-    DEF(TY_I32, "i32");
+    DEF(TY_VOID, void_, "void");
+    DEF(TY_I32, int32, "i32");
 
 #undef DEF
 }
@@ -478,7 +604,7 @@ static bool parseModuleBody(Parser *p, ASTString name) {
     p->current.module = module;
     p->current.scope = module->moduleScope;
     // Import all the primitive (builtin) types into the module.
-    import_primitive_types(p->program, module);
+    import_primitive_types(p, module);
 
     while(!isEof(p)) {
         if(match(p, TK_VAR)) {

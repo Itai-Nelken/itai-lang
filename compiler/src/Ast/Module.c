@@ -74,12 +74,13 @@ void astModuleFree(ASTModule *module) {
     FREE(module);
 }
 
-bool astModuleHasType(ASTModule *module, Type *ty) {
-    return tableGet(&module->types, (void *)ty->name) != NULL;
+Type *astModuleGetType(ASTModule *module, const char *name) {
+    TableItem *item = tableGet(&module->types, (void *)name);
+    return item ? (Type *)item->value : NULL;
 }
 
 void astModuleAddType(ASTModule *module, Type *ty) {
-    VERIFY(!astModuleHasType(module, ty));
+    VERIFY(astModuleGetType(module, ty->name) == NULL);
     tableSet(&module->types, (void *)ty->name, (void *)ty);
 }
 

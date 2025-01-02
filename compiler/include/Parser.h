@@ -26,6 +26,12 @@ typedef struct parser {
         bool had_error;
         bool need_sync;
     } state;
+
+    // Pointers to the primitive types in the current module
+    struct {
+        Type *void_;
+        Type *int32;
+    } primitives;
 } Parser;
 
 /**

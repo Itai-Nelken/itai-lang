@@ -33,18 +33,18 @@ typedef struct type {
     ASTString name;
     Location declLocation;
     ASTModule *declModule;
-    //union {
-    //    struct {
-    //        struct type *innerType;
-    //    } ptr;
-    //    struct {
-    //        struct type *returnType;
-    //        Array parameterTypes; // Array<Type *>
-    //    } fn;
-    //    struct {
-    //        Array fieldTypes; // Array<Type *>
-    //    } structure;
-    //} as;
+    union {
+        //struct {
+        //    struct type *innerType;
+        //} ptr;
+        struct {
+            struct type *returnType;
+            Array parameterTypes; // Array<Type *>
+        } fn;
+        //struct {
+        //    Array fieldTypes; // Array<Type *>
+        //} structure;
+    } as;
 } Type;
 
 
