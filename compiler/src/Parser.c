@@ -209,7 +209,9 @@ typedef struct parse_rule {
 } ParseRule;
 
 /* Expression parse functions pre-declarations (for parse table) */
+static ASTExprNode *parsePrecedence(Parser *p, Precedence minPrec);
 static ASTExprNode *parse_number_literal_expr(Parser *p);
+static ASTExprNode *parse_binary_expr(Parser *p, ASTExprNode *lhs);
 
 /* Precedence/parse rule table */
 
@@ -220,25 +222,25 @@ static ParseRule rules[] = {
     [TK_RBRACKET]       = {NULL, NULL, PREC_LOWEST},
     [TK_LBRACE]         = {NULL, NULL, PREC_LOWEST},
     [TK_RBRACE]         = {NULL, NULL, PREC_LOWEST},
-    [TK_PLUS]           = {NULL, NULL, PREC_LOWEST},
-    [TK_STAR]           = {NULL, NULL, PREC_LOWEST},
-    [TK_SLASH]          = {NULL, NULL, PREC_LOWEST},
+    [TK_PLUS]           = {NULL, parse_binary_expr, PREC_TERM},
+    [TK_STAR]           = {NULL, parse_binary_expr, PREC_FACTOR},
+    [TK_SLASH]          = {NULL, parse_binary_expr, PREC_FACTOR},
     [TK_SEMICOLON]      = {NULL, NULL, PREC_LOWEST},
     [TK_COLON]          = {NULL, NULL, PREC_LOWEST},
     [TK_COMMA]          = {NULL, NULL, PREC_LOWEST},
     [TK_DOT]            = {NULL, NULL, PREC_LOWEST},
     [TK_HASH]           = {NULL, NULL, PREC_LOWEST},
     [TK_AMPERSAND]      = {NULL, NULL, PREC_LOWEST},
-    [TK_MINUS]          = {NULL, NULL, PREC_LOWEST},
+    [TK_MINUS]          = {NULL, parse_binary_expr, PREC_TERM},
     [TK_ARROW]          = {NULL, NULL, PREC_LOWEST},
     [TK_EQUAL]          = {NULL, NULL, PREC_LOWEST},
-    [TK_EQUAL_EQUAL]    = {NULL, NULL, PREC_LOWEST},
+    [TK_EQUAL_EQUAL]    = {NULL, parse_binary_expr, PREC_EQUALITY},
     [TK_BANG]           = {NULL, NULL, PREC_LOWEST},
-    [TK_BANG_EQUAL]     = {NULL, NULL, PREC_LOWEST},
-    [TK_LESS]           = {NULL, NULL, PREC_LOWEST},
-    [TK_LESS_EQUAL]     = {NULL, NULL, PREC_LOWEST},
-    [TK_GREATER]        = {NULL, NULL, PREC_LOWEST},
-    [TK_GREATER_EQUAL]  = {NULL, NULL, PREC_LOWEST},
+    [TK_BANG_EQUAL]     = {NULL, parse_binary_expr, PREC_EQUALITY},
+    [TK_LESS]           = {NULL, parse_binary_expr, PREC_COMPARISON},
+    [TK_LESS_EQUAL]     = {NULL, parse_binary_expr, PREC_COMPARISON},
+    [TK_GREATER]        = {NULL, parse_binary_expr, PREC_COMPARISON},
+    [TK_GREATER_EQUAL]  = {NULL, parse_binary_expr, PREC_COMPARISON},
     [TK_NUMBER_LITERAL] = {parse_number_literal_expr, NULL, PREC_LOWEST},
     [TK_STRING_LITERAL] = {NULL, NULL, PREC_LOWEST},
     [TK_IF]             = {NULL, NULL, PREC_LOWEST},
@@ -276,6 +278,29 @@ static ASTExprNode *parse_number_literal_expr(Parser *p) {
     return NODE_AS(ASTExprNode, n);
 }
 
+static ASTExprNode *parse_binary_expr(Parser *p, ASTExprNode *lhs) {
+    TokenType operator = previous(p).type;
+    ParseRule *rule = getRule(operator);
+    ASTExprNode *rhs = TRY(ASTExprNode *, parsePrecedence(p, rule->precedence));
+
+    ASTExprType nodeType;
+    switch(operator) {
+        case TK_PLUS: nodeType = EXPR_ADD; break;
+        case TK_MINUS: nodeType = EXPR_SUBTRACT; break;
+        case TK_STAR: nodeType = EXPR_MULTIPLY; break;
+        case TK_SLASH: nodeType = EXPR_DIVIDE; break;
+        case TK_EQUAL_EQUAL: nodeType = EXPR_EQ; break;
+        case TK_BANG_EQUAL: nodeType = EXPR_NE; break;
+        case TK_LESS: nodeType = EXPR_LT; break;
+        case TK_LESS_EQUAL: nodeType = EXPR_LE; break;
+        case TK_GREATER: nodeType = EXPR_GT; break;
+        case TK_GREATER_EQUAL: nodeType = EXPR_GE; break;
+        default: UNREACHABLE();
+    }
+    Type *exprTy = NULL; // TODO: type of [lhs]
+    return NODE_AS(ASTExprNode, astBinaryExprNew(getCurrentAllocator(p), nodeType, locationMerge(lhs->location, rhs->location), exprTy, lhs, rhs));
+}
+
 static ASTExprNode *parsePrecedence(Parser *p, Precedence minPrec) {
     advance(p);
     PrefixParseFn prefix = getRule(previous(p).type)->prefix;
@@ -286,8 +311,8 @@ static ASTExprNode *parsePrecedence(Parser *p, Precedence minPrec) {
 
     ASTExprNode *tree = TRY(ASTExprNode *, prefix(p)); // We assume the error was already reported.
     while(!isEof(p) && minPrec < getRule(current(p).type)->precedence) {
-        Token tk = advance(p);
-        InfixParseFn infix = getRule(tk.type)->infix;
+        advance(p);
+        InfixParseFn infix = getRule(previous(p).type)->infix;
         tree = TRY(ASTExprNode *, infix(p, tree)); // Again, we assume the error was already reported.
     }
     return tree;
