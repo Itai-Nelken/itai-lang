@@ -33,7 +33,17 @@ void scopePrint(FILE *to, Scope *sc, bool recursive) {
             fputs(", ", to);
         }
     }
-    fprintf(to, "], \x1b[1misBlockScope: \x1b[31m%s\x1b[0m, \x1b[1mchildren:\x1b[0m [", sc->isBlockScope ? "true" : "false");
+    String depthStr = stringNew(33); // 33 is the length of SCOPE_DEPTH_MODULE_NAMESPACE
+    switch(sc->depth) {
+        case SCOPE_DEPTH_MODULE_NAMESPACE: stringAppend(&depthStr, "\x1b[1;33mSCOPE_DEPTH_MODULE_NAMESPACE\x1b[0m"); break;
+        case SCOPE_DEPTH_STRUCT: stringAppend(&depthStr, "\x1b[1;33mSCOPE_DEPTH_STRUCT\x1b[0m"); break;
+        case SCOPE_DEPTH_BLOCK: stringAppend(&depthStr, "\x1b[1;33mSCOPE_DEPTH_BLOCK\x1b[0m"); break;
+        default:
+            stringAppend(&depthStr, "\x1b[1;33mSCOPE_DEPTH_MODULE\x1b[0;31m+%u\x1b[0m", sc->depth - SCOPE_DEPTH_BLOCK);
+            break;
+    }
+    fprintf(to, "], \x1b[1mdepth: \x1b[31m%s\x1b[0m, \x1b[1mchildren:\x1b[0m [", depthStr);
+    stringFree(depthStr);
     if(recursive) {
         ARRAY_FOR(i, sc->children) {
             scopePrint(to, ARRAY_GET_AS(Scope *, &sc->children, i), true);
@@ -50,10 +60,11 @@ void scopePrint(FILE *to, Scope *sc, bool recursive) {
     fputc('}', to);
 }
 
-Scope *scopeNew(Scope *parent) {
+Scope *scopeNew(Scope *parent, ScopeDepth depth) {
     Scope *sc;
-    NEW0(sc); // isBlockScope is set to false (0) here.
+    NEW0(sc);
     sc->parent = parent;
+    sc->depth = depth;
     arrayInit(&sc->children);
     arrayInit(&sc->objects);
     tableInit(&sc->variables, NULL, NULL);

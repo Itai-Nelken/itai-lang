@@ -31,12 +31,23 @@
  * }
  * =================================
  * Scope tree for example code:
- *                                               (root module scope)
- *                                                /               \
- *                            (fn main block scope)                (fn add block scope)
- *                             /            \
- *         (if stmt block scope)            (else stmt block scope)
+ *                                               (root module scope|SCOPE_DEPTH_NAMESPACE)
+ *                                                /                                 \
+ *                          (fn main block scope|SCOPE_DEPTH_BLOCK)      (fn add block scope|SCOPE_DEPTH_BLOCK)
+ *                           /                                \
+ *       (if stmt block scope|SCOPE_DEPTH_BLOCK+1)            (else stmt block scope|SCOPE_DEPTH_BLOCK+1)
  **/
+
+// Note: block scopes after the function/method scope are represented by SCOPE_DEPTH_BLOCK + N
+//       N being the depth. For example, in the scope tree example in the scope explanation
+//       the depth of (if stmt block scope) would be SCOPE_DEPTH_BLOCK + 1
+enum scope_depth {
+    SCOPE_DEPTH_MODULE_NAMESPACE = -1, // represents the module scope
+    SCOPE_DEPTH_STRUCT           =  0, // represents the struct scope
+    SCOPE_DEPTH_BLOCK            =  1, // represents function and method scope
+};
+typedef i16 ScopeDepth;
+
 typedef struct scope {
     // TODO: What about scope depth (for block scopes)?
     Array objects; // Array<ASTObj *> (owns all objects)
@@ -45,7 +56,7 @@ typedef struct scope {
     Table functions; // Table<char *, ASTObj *> (OBJ_FN)
     //Table structures; // Table<char *, ASTObj *> (OBJ_STRUCT)
 
-    bool isBlockScope;
+    ScopeDepth depth;
     Array children; // Array<Scope *>
     struct scope *parent;
 } Scope;
@@ -68,7 +79,7 @@ void scopePrint(FILE *to, Scope *sc, bool recursive);
  * @param parent The parent scope.
  * @return A new initialized scope (heap allocated).
  **/
-Scope *scopeNew(Scope *parent);
+Scope *scopeNew(Scope *parent, ScopeDepth depth);
 
 /**
  * Free a scope and all it's children (WARNING: Use only on the root scope!).

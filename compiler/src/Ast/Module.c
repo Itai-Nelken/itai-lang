@@ -56,7 +56,7 @@ ASTModule *astModuleNew(ASTString name) {
     arenaInit(&m->ast_allocator.storage);
     m->ast_allocator.alloc = arenaMakeAllocator(&m->ast_allocator.storage);
     m->name = name;
-    m->moduleScope = scopeNew(NULL);
+    m->moduleScope = scopeNew(NULL, SCOPE_DEPTH_MODULE_NAMESPACE);
     tableInit(&m->types, NULL, NULL);
     arrayInit(&m->variableDecls);
     return m;

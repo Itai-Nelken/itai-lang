@@ -151,20 +151,34 @@ static Scope *getCurrentScope(Parser *p) {
     return p->current.scope;
 }
 
-static Scope *enterScope(Parser *p) {
+// depthType only for SCOPE_DEPTH_BLOCK and SCOPE_DEPTH_STRUCT
+static Scope *enterScope(Parser *p, ScopeDepth depthType) {
     Scope *parent = getCurrentScope(p);
-    bool isBlockScope = parent->isBlockScope; // FIXME: also if current depth is >= FUNCTION_SCOPE_DEPTH
-    Scope *child = scopeNew(parent);
-    child->isBlockScope = isBlockScope;
+    ScopeDepth depth = depthType;
+    switch(parent->depth) {
+        case SCOPE_DEPTH_MODULE_NAMESPACE:
+            // modules withing modules are not allowed, at least right now.
+            VERIFY(depthType != SCOPE_DEPTH_MODULE_NAMESPACE);
+            break;
+        case SCOPE_DEPTH_STRUCT:
+            // The only scope allowed as a child of a struct scope
+            // is a block scope for a method,
+            VERIFY(depthType >= SCOPE_DEPTH_BLOCK);
+            depth = SCOPE_DEPTH_BLOCK;
+            break;
+        case SCOPE_DEPTH_BLOCK:
+        default:
+            VERIFY(depthType == SCOPE_DEPTH_BLOCK);
+            depth = parent->depth + 1;
+    }
+    Scope *child = scopeNew(parent, depth);
     scopeAddChild(parent, child);
     p->current.scope = child;
-    // TODO: if isBlockScope increase current scope depth.
     return child;
 }
 
 static void leaveScope(Parser *p) {
     p->current.scope = p->current.scope->parent;
-    // TODO: if current scope depth >= FUNCTION_SCOPE_DEPTH, decrement it.
 }
 
 /** Expression Parser **/
@@ -352,8 +366,9 @@ static ASTStmtNode *parseExpressionStmt(Parser *p) {
 static ASTStmtNode *parseStatement(Parser *p) {
     ASTStmtNode *result = NULL;
     if(match(p, TK_LBRACE)) {
-        Scope *sc = enterScope(p);
+        Scope *sc = enterScope(p, SCOPE_DEPTH_BLOCK);
         result = NODE_AS(ASTStmtNode, parseBlockStmt(p, sc, parseStatement));
+        leaveScope(p);
     } else {
         result = parseExpressionStmt(p);
     }
@@ -533,7 +548,7 @@ static ASTObj *parseFunctionDecl(Parser *p) {
     loc = locationMerge(loc, previous(p).location);
 
     TRY_CONSUME(p, TK_LBRACE);
-    Scope *scope = enterScope(p); // TODO: scope depth (add support for block scopes)
+    Scope *scope = enterScope(p, SCOPE_DEPTH_BLOCK);
     ASTBlockStmt *body = TRY(ASTBlockStmt *, parseBlockStmt(p, scope, parseFunctionBodyStatements));
     leaveScope(p);
     Array parameters; arrayInit(&parameters);
