@@ -28,7 +28,7 @@ void scopePrint(FILE *to, Scope *sc, bool recursive) {
 
     fputs("Scope{\x1b[1mobjects:\x1b[0m [", to);
     ARRAY_FOR(i, sc->objects) {
-        astObjectPrint(to, ARRAY_GET_AS(ASTObj *, &sc->objects, i), true);
+        astObjectPrint(to, ARRAY_GET_AS(ASTObj *, &sc->objects, i), false);
         if(i + 1 < arrayLength(&sc->objects)) {
             fputs(", ", to);
         }

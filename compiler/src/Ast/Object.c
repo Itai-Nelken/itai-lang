@@ -24,11 +24,11 @@ void astObjectPrint(FILE *to, ASTObj *obj, bool compact) {
         return;
     }
 
-    fprintf(to, "ASTObj{\x1b[1mtype: \x1b[33m%s\x1b[0;1m, name:\x1b[0m '%s', \x1b[1mdataType:\x1b[0m", obj_type_to_string(obj->type), obj->name);
+    fprintf(to, "ASTObj{\x1b[1mtype: \x1b[33m%s\x1b[0;1m, name:\x1b[0m '%s', \x1b[1mdataType:\x1b[0m ", obj_type_to_string(obj->type), obj->name);
     typePrint(to, obj->dataType, false);
     switch(obj->type) {
         case OBJ_FN:
-            fputs(", \x1b[1mparameters:\x1b[0m :", to);
+            fputs(", \x1b[1mparameters:\x1b[0m [", to);
             ARRAY_FOR(i, obj->as.fn.parameters) {
                 ASTObj *param = ARRAY_GET_AS(ASTObj *, &obj->as.fn.parameters, i);
                 astObjectPrint(to, param, true);
