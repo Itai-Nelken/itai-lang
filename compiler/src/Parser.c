@@ -209,15 +209,17 @@ typedef struct parse_rule {
 } ParseRule;
 
 /* Expression parse functions pre-declarations (for parse table) */
+static ASTExprNode *parseExpression(Parser *p);
 static ASTExprNode *parsePrecedence(Parser *p, Precedence minPrec);
 static ASTExprNode *parse_number_literal_expr(Parser *p);
 static ASTExprNode *parse_binary_expr(Parser *p, ASTExprNode *lhs);
 static ASTExprNode *parse_unary_expr(Parser *p);
+static ASTExprNode *parse_grouping_expr(Parser *p);
 
 /* Precedence/parse rule table */
 
 static ParseRule rules[] = {
-    [TK_LPAREN]         = {NULL, NULL, PREC_LOWEST},
+    [TK_LPAREN]         = {parse_grouping_expr, NULL, PREC_LOWEST},
     [TK_RPAREN]         = {NULL, NULL, PREC_LOWEST},
     [TK_LBRACKET]       = {NULL, NULL, PREC_LOWEST},
     [TK_RBRACKET]       = {NULL, NULL, PREC_LOWEST},
@@ -315,6 +317,12 @@ static ASTExprNode *parse_unary_expr(Parser *p) {
         default: UNREACHABLE();
     }
     return NODE_AS(ASTExprNode, astUnaryExprNew(getCurrentAllocator(p), nodeType, locationMerge(operator.location, operand->location), operand->dataType, operand));
+}
+
+static ASTExprNode *parse_grouping_expr(Parser *p) {
+    ASTExprNode *expr = TRY(ASTExprNode *, parseExpression(p));
+    TRY_CONSUME(p, TK_RPAREN);
+    return expr;
 }
 
 static ASTExprNode *parsePrecedence(Parser *p, Precedence minPrec) {
