@@ -151,7 +151,7 @@ void astExprPrint(FILE *to, ASTExprNode *n) {
         default:
             UNREACHABLE();
     }
-    fputs("}\n", to);
+    fputs("}", to);
 }
 #undef PRINT_ARRAY
 
