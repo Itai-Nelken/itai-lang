@@ -500,8 +500,7 @@ static bool parseModuleBody(Parser *p, ASTString name) {
         }
     }
 
-    // FIXME: return false if any errors occured.
-    return true;
+    return !p->state.had_error;
 }
 
 bool parserParse(Parser *p, ASTProgram *prog) {
