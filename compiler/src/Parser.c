@@ -212,6 +212,7 @@ typedef struct parse_rule {
 static ASTExprNode *parsePrecedence(Parser *p, Precedence minPrec);
 static ASTExprNode *parse_number_literal_expr(Parser *p);
 static ASTExprNode *parse_binary_expr(Parser *p, ASTExprNode *lhs);
+static ASTExprNode *parse_unary_expr(Parser *p);
 
 /* Precedence/parse rule table */
 
@@ -222,16 +223,16 @@ static ParseRule rules[] = {
     [TK_RBRACKET]       = {NULL, NULL, PREC_LOWEST},
     [TK_LBRACE]         = {NULL, NULL, PREC_LOWEST},
     [TK_RBRACE]         = {NULL, NULL, PREC_LOWEST},
-    [TK_PLUS]           = {NULL, parse_binary_expr, PREC_TERM},
-    [TK_STAR]           = {NULL, parse_binary_expr, PREC_FACTOR},
+    [TK_PLUS]           = {parse_unary_expr, parse_binary_expr, PREC_TERM},
+    [TK_STAR]           = {parse_unary_expr, parse_binary_expr, PREC_FACTOR},
     [TK_SLASH]          = {NULL, parse_binary_expr, PREC_FACTOR},
     [TK_SEMICOLON]      = {NULL, NULL, PREC_LOWEST},
     [TK_COLON]          = {NULL, NULL, PREC_LOWEST},
     [TK_COMMA]          = {NULL, NULL, PREC_LOWEST},
     [TK_DOT]            = {NULL, NULL, PREC_LOWEST},
     [TK_HASH]           = {NULL, NULL, PREC_LOWEST},
-    [TK_AMPERSAND]      = {NULL, NULL, PREC_LOWEST},
-    [TK_MINUS]          = {NULL, parse_binary_expr, PREC_TERM},
+    [TK_AMPERSAND]      = {parse_unary_expr, NULL, PREC_LOWEST},
+    [TK_MINUS]          = {parse_unary_expr, parse_binary_expr, PREC_TERM},
     [TK_ARROW]          = {NULL, NULL, PREC_LOWEST},
     [TK_EQUAL]          = {NULL, NULL, PREC_LOWEST},
     [TK_EQUAL_EQUAL]    = {NULL, parse_binary_expr, PREC_EQUALITY},
@@ -297,8 +298,23 @@ static ASTExprNode *parse_binary_expr(Parser *p, ASTExprNode *lhs) {
         case TK_GREATER_EQUAL: nodeType = EXPR_GE; break;
         default: UNREACHABLE();
     }
-    Type *exprTy = NULL; // TODO: type of [lhs]
-    return NODE_AS(ASTExprNode, astBinaryExprNew(getCurrentAllocator(p), nodeType, locationMerge(lhs->location, rhs->location), exprTy, lhs, rhs));
+    return NODE_AS(ASTExprNode, astBinaryExprNew(getCurrentAllocator(p), nodeType, locationMerge(lhs->location, rhs->location), lhs->dataType, lhs, rhs));
+}
+
+static ASTExprNode *parse_unary_expr(Parser *p) {
+    Token operator = previous(p);
+    ASTExprNode *operand = TRY(ASTExprNode *, parsePrecedence(p, PREC_UNARY));
+
+    ASTExprType nodeType;
+    // TODO: not boolean operator (!<expr>)
+    switch(operator.type) {
+        case TK_PLUS: return operand; // +<expr> is the same as <expr>
+        case TK_MINUS: nodeType = EXPR_NEGATE; break;
+        case TK_AMPERSAND: nodeType = EXPR_ADDROF; break;
+        case TK_STAR: nodeType = EXPR_DEREF; break;
+        default: UNREACHABLE();
+    }
+    return NODE_AS(ASTExprNode, astUnaryExprNew(getCurrentAllocator(p), nodeType, locationMerge(operator.location, operand->location), operand->dataType, operand));
 }
 
 static ASTExprNode *parsePrecedence(Parser *p, Precedence minPrec) {
