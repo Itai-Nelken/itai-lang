@@ -7,6 +7,15 @@
 #include "Ast/Ast.h"
 #include "Parser.h"
 
+/***
+ * Parser rules:
+ * =============
+ * - Allocate objects using ONLY astModuleNewObj().
+ * - Allocate AST nodes using ONLY the allocator returned by getCurrentAllocator().
+ * - Use the TRY() and TRY_CONSUME() macros as much as possible.
+ * - Use the tmp_buffer functions for formatting temporary strings (such as for an error).
+ ***/
+
 static void parser_init_internal(Parser *p, Compiler *c, Scanner *s) {
     p->compiler = c;
     p->scanner = s;
@@ -143,7 +152,8 @@ static Scope *getCurrentScope(Parser *p) {
     return p->current.scope;
 }
 
-// depthType only for SCOPE_DEPTH_BLOCK and SCOPE_DEPTH_STRUCT
+// Note: depthType only for SCOPE_DEPTH_BLOCK and SCOPE_DEPTH_STRUCT
+//       it represents the TYPE of the new scope, not the depth (so is it a block scope or a struct "scope"/namespace).
 static Scope *enterScope(Parser *p, ScopeDepth depthType) {
     Scope *parent = getCurrentScope(p);
     ScopeDepth depth = depthType;
