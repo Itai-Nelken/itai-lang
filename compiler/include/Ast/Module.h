@@ -20,6 +20,7 @@ typedef struct ast_module {
         Arena storage;
         Allocator alloc;
     } ast_allocator;
+    Array objectOwner; // Array<ASTObj *> - owns all objects in this module.
     ASTString name;
     Table types; // Table<char *, Type *>
     Scope *moduleScope; // owned by this struct.
@@ -76,5 +77,25 @@ void astModuleAddType(ASTModule *module, Type *ty);
  * @param decl The declaration to add (C.R.E for decl == NULL).
  **/
 void astModuleAddVarDecl(ASTModule *module, ASTVarDeclStmt *decl);
+
+/**
+ * Allocate an ASTObj using the module's object allocator.
+ *
+ * @param module The module to allocate the object in.
+ * @param objType The type of the ASTObj.
+ * @param objLoc The location of the object.
+ * @param objName The name of the object.
+ * @param objDataType The data type of the object.
+ * @return A new ASTObj.
+ **/
+ASTObj *astModuleNewObj(ASTModule *module, ASTObjType objType, Location objLoc, ASTString objName, Type *objDataType);
+
+/***
+ * How are objects allocated?
+ * ==========================
+ * The idea: objects are owned by the module, in an array containing pointers to all allocated objects.
+ * New objects should only be created with astModuleNewObj().
+ * astModuleFree() also frees all the objects.
+ ***/
 
 #endif // AST_MODULE_H

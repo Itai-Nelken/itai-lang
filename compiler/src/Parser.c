@@ -491,7 +491,7 @@ static ASTString parseIdentifier(Parser *p) {
 
 // identifier_type -> identifier
 static Type *parseIdentifierType(Parser *p) {
-    LOG_ERR("identifier types noy supported yet.");
+    LOG_ERR("identifier types not supported yet.");
     // An identifier type is an unkown type that could be a struct or a type alias.
 //    ASTString ident = TRY(ASTString, parseIdentifier(p));
 //    Location loc = previous(p).location;
