@@ -215,11 +215,12 @@ static ASTExprNode *parse_number_literal_expr(Parser *p);
 static ASTExprNode *parse_binary_expr(Parser *p, ASTExprNode *lhs);
 static ASTExprNode *parse_unary_expr(Parser *p);
 static ASTExprNode *parse_grouping_expr(Parser *p);
+static ASTExprNode *parse_call_expr(Parser *p, ASTExprNode *callee);
 
 /* Precedence/parse rule table */
 
 static ParseRule rules[] = {
-    [TK_LPAREN]         = {parse_grouping_expr, NULL, PREC_LOWEST},
+    [TK_LPAREN]         = {parse_grouping_expr, parse_call_expr, PREC_CALL},
     [TK_RPAREN]         = {NULL, NULL, PREC_LOWEST},
     [TK_LBRACKET]       = {NULL, NULL, PREC_LOWEST},
     [TK_RBRACKET]       = {NULL, NULL, PREC_LOWEST},
@@ -325,6 +326,27 @@ static ASTExprNode *parse_grouping_expr(Parser *p) {
     return expr;
 }
 
+static ASTExprNode *parse_call_expr(Parser *p, ASTExprNode *callee) {
+    Array arguments;
+    arrayInit(&arguments);
+    if(current(p).type != TK_RPAREN) {
+        do {
+            ASTExprNode *arg = parseExpression(p);
+            if(!arg) {
+                continue;
+            }
+            arrayPush(&arguments, arg);
+        } while(match(p, TK_COMMA));
+    }
+    if(!consume(p, TK_RPAREN)) {
+        arrayFree(&arguments);
+        return NULL;
+    }
+    ASTExprNode *callExpr = NODE_AS(ASTExprNode, astCallExprNew(getCurrentAllocator(p), locationMerge(callee->location, previous(p).location), NULL, callee, &arguments));
+    arrayFree(&arguments);
+    return callExpr;
+}
+
 static ASTExprNode *parsePrecedence(Parser *p, Precedence minPrec) {
     advance(p);
     PrefixParseFn prefix = getRule(previous(p).type)->prefix;
@@ -396,9 +418,15 @@ static ASTStmtNode *parseFunctionBodyStatements(Parser *p) {
     if(match(p, TK_VAR)) {
         ASTVarDeclStmt *vdecl = parseVarDecl(p, true);
         if(vdecl) {
-            scopeAddObject(sc, vdecl->variable);
+            if(scopeHasObject(sc, vdecl->variable)) {
+                ASTObj *prevDecl = scopeGetObject(sc, OBJ_VAR, vdecl->variable->name);
+                errorAt(p, vdecl->variable->location, tmp_buffer_format(p, "Redeclaration of variable '%s'.", vdecl->variable->name));
+                hint(p, prevDecl->location, "Previous declaration was here.");
+            } else {
+                scopeAddObject(sc, vdecl->variable);
+            }
+            n = NODE_AS(ASTStmtNode, vdecl);
         }
-        n = NODE_AS(ASTStmtNode, vdecl);
     } else {
         n = parseStatement(p);
     }
@@ -448,21 +476,20 @@ static Type *parseIdentifierType(Parser *p) {
     //          * Then there would be TY_STRUCT and TY_ALIAS for the two possible options an id type can be.
 }
 
-// parameters: Array<ASTObj *> (OBJ_VAR)
+// parameters: Array<Type *>
 // C.R.E for returnType to be NULL.
-static Type *makeFunctionType(Parser *p, Array parameters, Type *returnType) {
+static Type *makeFunctionTypeWithParameterTypes(Parser *p, Array parameterTypes, Type *returnType) {
     VERIFY(returnType);
     Type *ty = typeNew(TY_FUNCTION, "", EMPTY_LOCATION, p->current.module);
     ty->as.fn.returnType = returnType;
     tmp_buffer_format(p, "fn(");
-    ARRAY_FOR(i, parameters) {
-        ASTObj *param = ARRAY_GET_AS(ASTObj *, &parameters, i);
-        VERIFY(param->dataType); // FIXME: this should always be true/false should we check?
-        tmp_buffer_append(p, "%s", param->dataType->name);
-        if(i + 1 < arrayLength(&parameters)) {
+    ARRAY_FOR(i, parameterTypes) {
+        Type *paramType = ARRAY_GET_AS(Type *, &parameterTypes, i);
+        tmp_buffer_append(p, "%s", paramType->name);
+        if(i + 1 < arrayLength(&parameterTypes)) {
             tmp_buffer_append(p, ", ");
         }
-        arrayPush(&ty->as.fn.parameterTypes, param->dataType);
+        arrayPush(&ty->as.fn.parameterTypes, paramType);
     }
     char *name = tmp_buffer_append(p, ")->%s", returnType->name);
     ASTString typename = stringTableString(&p->program->strings, name);
@@ -476,21 +503,52 @@ static Type *makeFunctionType(Parser *p, Array parameters, Type *returnType) {
     return ty;
 }
 
+// parameters: Array<ASTObj *> (OBJ_VAR)
+// C.R.E for returnType to be NULL.
+static Type *makeFunctionType(Parser *p, Array parameters, Type *returnType) {
+    Array parameterTypes;
+    arrayInitSized(&parameterTypes, arrayLength(&parameters));
+    ARRAY_FOR(i, parameters) {
+        ASTObj *param = ARRAY_GET_AS(ASTObj *, &parameters, i);
+        VERIFY(param->dataType);
+        arrayPush(&parameterTypes, (void *)param->dataType);
+    }
+    Type *ty = makeFunctionTypeWithParameterTypes(p, parameterTypes, returnType);
+    arrayFree(&parameterTypes);
+    return ty;
+}
+
 // fn_type -> 'fn' '(' type* ')' ('->' type)?
 static Type *parseFunctionType(Parser *p) {
     // Assumes 'fn' was already consumed.
     TRY_CONSUME(p, TK_LPAREN);
-    // TODO: parameter types
-    TRY_CONSUME(p, TK_RPAREN);
+    Array parameterTypes; // Array<Type *>
+    arrayInit(&parameterTypes);
+    bool hadError = false;
+    do {
+        Type *ty = parseType(p);
+        if(ty) {
+            arrayPush(&parameterTypes, (void *)ty);
+        } else {
+            hadError = true;
+        }
+    } while(match(p, TK_COMMA));
+    if(hadError || !consume(p, TK_RPAREN)) {
+        // Note: the parsed types were already added to the type table, so we don't have to free them.
+        arrayFree(&parameterTypes);
+        return NULL;
+    }
 
     Type *returnType = NULL;
     if(match(p, TK_ARROW)) {
-        returnType = TRY(Type *, parseType(p));
+        returnType = parseType(p);
+        if(!returnType) {
+            arrayFree(&parameterTypes);
+            return NULL;
+        }
     }
 
-    Array parameters; arrayInit(&parameters);
-    Type *ty = makeFunctionType(p, parameters, returnType);
-    arrayFree(&parameters);
+    Type *ty = makeFunctionTypeWithParameterTypes(p, parameterTypes, returnType);
     return ty;
 }
 
@@ -542,7 +600,7 @@ static Type *parseType(Parser *p) {
     return ty;
 }
 
-// typed_var = identifier (':' type)+
+// typed_var = identifier (':' type)?
 static ASTObj *parseTypedVariable(Parser *p) {
     ASTString name = TRY(ASTString, parseIdentifier(p));
     Location loc = previous(p).location;
@@ -581,32 +639,75 @@ static ASTVarDeclStmt *parseVarDecl(Parser *p, bool allowInitializer) {
     return astVarDeclStmtNew(getCurrentAllocator(p), loc, obj, initializer);
 }
 
-// function_decl -> 'fn' identifier '(' typed_var+ (typed_var ',')* ')' ('->' type)+ block
+// parameter_list -> typed_var+ (',' typed_var)*
+static bool parseParameterList(Parser *p, Array *parameters) {
+    bool hadError = false;
+    do {
+        ASTObj *paramVar = parseTypedVariable(p);
+        if(!paramVar) {
+            hadError = true;
+            continue;
+        }
+        if(paramVar->dataType == NULL) {
+            error(p, tmp_buffer_format(p, "Parameter '%s' is missing a type.", paramVar->name));
+            hadError = true;
+        }
+    } while(match(p, TK_COMMA));
+    if(hadError) {
+        ARRAY_FOR(i, *parameters) {
+            astObjectFree(ARRAY_GET_AS(ASTObj *, parameters, i));
+        }
+    }
+    return !hadError;
+}
+
+// function_decl -> 'fn' identifier '(' parameter_list ')' ('->' type)+ block
 static ASTObj *parseFunctionDecl(Parser *p) {
     // Assumes 'fn' was already consumed.
     Location loc = previous(p).location;
     ASTString name = TRY(ASTString, parseIdentifier(p));
     TRY_CONSUME(p, TK_LPAREN);
-    // TODO: parse parameters.
-    TRY_CONSUME(p, TK_RPAREN);
+    Array parameters; // Array<ASTObj *>
+    arrayInit(&parameters);
+    // Note: if current is ')', then there are no parameters.
+    if(current(p).type != TK_RPAREN && !parseParameterList(p, &parameters)) {
+        arrayFree(&parameters);
+        return NULL;
+    }
+#define FREE_PARAMS_ARRAY() ARRAY_FOR(i, parameters) {astObjectFree(ARRAY_GET_AS(ASTObj *, &parameters, i));} arrayFree(&parameters)
+    if(!consume(p, TK_RPAREN)) {
+        FREE_PARAMS_ARRAY();
+        return NULL;
+    }
 
     Type *returnType = NULL;
     if(match(p, TK_ARROW)) {
-        returnType = TRY(Type *, parseType(p));
+        returnType = parseType(p);
+        if(!returnType) {
+            FREE_PARAMS_ARRAY();
+            return NULL;
+        }
     }
     loc = locationMerge(loc, previous(p).location);
 
-    TRY_CONSUME(p, TK_LBRACE);
+    if(!consume(p, TK_LBRACE)) {
+        FREE_PARAMS_ARRAY();
+        return NULL;
+    }
     Scope *scope = enterScope(p, SCOPE_DEPTH_BLOCK);
-    ASTBlockStmt *body = TRY(ASTBlockStmt *, parseBlockStmt(p, scope, parseFunctionBodyStatements));
+    ASTBlockStmt *body = parseBlockStmt(p, scope, parseFunctionBodyStatements);
     leaveScope(p);
-    Array parameters; arrayInit(&parameters);
+    if(!body) {
+        FREE_PARAMS_ARRAY();
+        return NULL;
+    }
+#undef FREE_PARAMS_ARRAY
     Type *fnType = makeFunctionType(p, parameters, returnType);
-    arrayFree(&parameters);
     ASTObj *fnObj = astObjectNew(OBJ_FN, loc, name, fnType);
     fnObj->as.fn.body = body;
     fnObj->as.fn.returnType = returnType;
-    // TODO: set parameters
+    arrayCopy(&fnObj->as.fn.parameters, &parameters);
+    arrayFree(&parameters);
     return fnObj;
 }
 
@@ -645,6 +746,20 @@ static void synchronizeToDecl(Parser *p) {
     }
 }
 
+static void synchronizeToFnStructDecl(Parser *p) {
+    while(!isEof(p)) {
+        switch(current(p).type) {
+            case TK_FN:
+            case TK_STRUCT:
+            case TK_EXTERN:
+                return;
+            default:
+                break;
+        }
+        advance(p);
+    }
+}
+
 static void import_primitive_types(Parser *p, ASTModule *module) {
     ASTProgram *prog = p->program;
     // We "import" the primitive types into each module.
@@ -670,23 +785,37 @@ static bool parseModuleBody(Parser *p, ASTString name) {
     // Import all the primitive (builtin) types into the module.
     import_primitive_types(p, module);
 
+    bool failedInFunctionDecl = false;
     while(!isEof(p)) {
         if(match(p, TK_VAR)) {
             ASTVarDeclStmt *varDecl = parseVarDecl(p, true);
             if(varDecl) {
-                scopeAddObject(p->current.scope, varDecl->variable);
-                arrayPush(&p->current.module->variableDecls, (void *)varDecl);
+                if(scopeHasObject(getCurrentScope(p), varDecl->variable)) {
+                    ASTObj *prevDecl = scopeGetObject(getCurrentScope(p), OBJ_VAR, varDecl->variable->name);
+                    errorAt(p, varDecl->variable->location, tmp_buffer_format(p, "Redeclaration of variable '%s'.", varDecl->variable->name));
+                    hint(p, prevDecl->location, "Previous declaration was here.");
+                    astObjectFree(varDecl->variable); // FIXME: Objects should really be managed in an arena or at least somwhere that I don't need to keep track of their memory in the micro level.
+                } else {
+                    scopeAddObject(getCurrentScope(p), varDecl->variable);
+                    arrayPush(&p->current.module->variableDecls, (void *)varDecl);
+                }
             }
         } else {
             ASTObj *obj = parseDeclaration(p);
             if(obj) {
                 scopeAddObject(p->current.scope, obj);
+            } else {
+                failedInFunctionDecl = true;
             }
         }
 
         if(p->state.need_sync) {
             p->state.need_sync = false;
-            synchronizeToDecl(p);
+            if(failedInFunctionDecl) {
+                synchronizeToFnStructDecl(p);
+            } else {
+                synchronizeToDecl(p);
+            }
         }
     }
 
