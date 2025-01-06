@@ -188,7 +188,7 @@ ASTCallExpr *astCallExprNew(Allocator *a, Location loc, Type *exprTy, ASTExprNod
     ASTCallExpr *n = allocatorAllocate(a, sizeof(*n));
     n->header = make_header(EXPR_CALL, loc, exprTy);
     n->callee = callee;
-    arrayInitSized(&n->arguments, arrayLength(arguments));
+    arrayInitAllocatorSized(&n->arguments, *a, arrayLength(arguments));
     arrayCopy(&n->arguments, arguments);
     return n;
 }
