@@ -209,6 +209,7 @@ static ASTExprNode *parse_unary_expr(Parser *p);
 static ASTExprNode *parse_grouping_expr(Parser *p);
 static ASTExprNode *parse_call_expr(Parser *p, ASTExprNode *callee);
 static ASTExprNode *parse_identifier_expr(Parser *p);
+static ASTExprNode *parse_assignment_expr(Parser *p, ASTExprNode *lhs);
 
 /* Precedence/parse rule table */
 
@@ -230,7 +231,7 @@ static ParseRule rules[] = {
     [TK_AMPERSAND]      = {parse_unary_expr, NULL, PREC_LOWEST},
     [TK_MINUS]          = {parse_unary_expr, parse_binary_expr, PREC_TERM},
     [TK_ARROW]          = {NULL, NULL, PREC_LOWEST},
-    [TK_EQUAL]          = {NULL, NULL, PREC_LOWEST},
+    [TK_EQUAL]          = {NULL, parse_assignment_expr, PREC_ASSIGNMENT},
     [TK_EQUAL_EQUAL]    = {NULL, parse_binary_expr, PREC_EQUALITY},
     [TK_BANG]           = {NULL, NULL, PREC_LOWEST},
     [TK_BANG_EQUAL]     = {NULL, parse_binary_expr, PREC_EQUALITY},
@@ -363,6 +364,11 @@ static ASTExprNode *parsePrecedence(Parser *p, Precedence minPrec) {
     return tree;
 }
 
+static ASTExprNode *parse_assignment_expr(Parser *p, ASTExprNode *lhs) {
+    ASTExprNode *rhs = TRY(ASTExprNode *, parseExpression(p));
+    return NODE_AS(ASTExprNode, astBinaryExprNew(getCurrentAllocator(p), EXPR_ASSIGN, locationMerge(lhs->location, rhs->location), NULL, lhs, rhs));
+}
+
 static inline ASTExprNode *parseExpression(Parser *p) {
     return parsePrecedence(p, PREC_LOWEST);
 }
@@ -387,7 +393,7 @@ static void synchronizeInBlock(Parser *p) {
 
 // block(parseCallback) -> '{' parseCallback* '}'
 static ASTBlockStmt *parseBlockStmt(Parser *p, Scope *scope, ASTStmtNode *(*parseCallback)(Parser *p)) {
-    // Assumes '{' wasla lready consumed
+    // Assumes '{' wasl already consumed
     Location loc = previous(p).location;
     Array nodes; // Array<ASTStmtNode *>
     arrayInit(&nodes);
@@ -438,10 +444,35 @@ static ASTStmtNode *parseExpressionStmt(Parser *p) {
     return NODE_AS(ASTStmtNode, astExprStmtNew(getCurrentAllocator(p), STMT_EXPR, locationMerge(expr->location, previous(p).location), expr));
 }
 
+// if_stmt -> 'if' expression block(function_body) ('else' if_stmt | block(function_body))?
+static ASTStmtNode *parseIfStmt(Parser *p) {
+    Location loc = previous(p).location;
+    ASTExprNode *condition = TRY(ASTExprNode *, parseExpression(p));
+    Scope *thenScope = enterScope(p, SCOPE_DEPTH_BLOCK);
+    TRY_CONSUME(p, TK_LBRACE);
+    ASTStmtNode *then = TRY(ASTStmtNode *, (ASTStmtNode *)parseBlockStmt(p, thenScope, parseFunctionBodyStatements));
+    leaveScope(p);
+    ASTStmtNode *else_ = NULL;
+    if(match(p, TK_ELSE)) {
+        if(match(p, TK_IF)) {
+            else_ = TRY(ASTStmtNode *, parseIfStmt(p));
+        } else {
+            TRY_CONSUME(p, TK_LBRACE);
+            Scope *elseScope = enterScope(p, SCOPE_DEPTH_BLOCK);
+            else_ = TRY(ASTStmtNode *, (ASTStmtNode *)parseBlockStmt(p, elseScope, parseFunctionBodyStatements));
+            leaveScope(p);
+        }
+    }
+    loc = locationMerge(loc, previous(p).location);
+    return NODE_AS(ASTStmtNode, astConditionalStmtNew(getCurrentAllocator(p), loc, condition, then, else_));
+}
+
 // statement -> block | return_stmt | if_stmt | while_loop_stmt | defer_stmt | expression_stmt
 static ASTStmtNode *parseStatement(Parser *p) {
     ASTStmtNode *result = NULL;
-    if(match(p, TK_LBRACE)) {
+    if(match(p, TK_IF)) {
+        result = parseIfStmt(p);
+    } else if(match(p, TK_LBRACE)) {
         Scope *sc = enterScope(p, SCOPE_DEPTH_BLOCK);
         result = NODE_AS(ASTStmtNode, parseBlockStmt(p, sc, parseStatement));
         leaveScope(p);
@@ -729,6 +760,8 @@ static ASTObj *parseDeclaration(Parser *p) {
     return result;
 }
 
+
+// TODO: unwind scope tree to module scope.
 // Sync to declaration boundaries
 static void synchronizeToDecl(Parser *p) {
     while(!isEof(p)) {
