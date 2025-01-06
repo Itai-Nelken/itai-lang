@@ -49,8 +49,7 @@ enum scope_depth {
 typedef i16 ScopeDepth;
 
 typedef struct scope {
-    // TODO: What about scope depth (for block scopes)?
-    Array objects; // Array<ASTObj *> (owns all objects)
+    // Note: objects are owned by the module.
     // Note: Key is obj.name for all tables.
     Table variables; // Table<char *, ASTObj *> (OBJ_VAR)
     Table functions; // Table<char *, ASTObj *> (OBJ_FN)
@@ -117,11 +116,10 @@ ASTObj *scopeGetObject(Scope *scope, ASTObjType objType, ASTString name);
 
 /**
  * Add an ASTObj to a scope.
- * NOTE: Ownership of [obj] is taken!
  *
  * @param scope The scope to add the object to.
  * @param obj The ASTObj to add.
- * @return true if the object was added, false if it already exists (the obj. is freed in such a case).
+ * @return true if the object was added, false if it already exists.
  **/
 bool scopeAddObject(Scope *scope, ASTObj *obj);
 

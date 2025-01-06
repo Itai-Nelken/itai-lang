@@ -12,11 +12,17 @@ static void free_scope_callback(void *scope, void *cl) {
     scopeFree((Scope *)scope);
 }
 
-static void free_object_callback(void *object, void *cl) {
-    UNUSED(cl);
-    astObjectFree((ASTObj *)object);
+struct object_print_data {
+    FILE *to;
+    bool skip_last_comma;
+};
+static void print_object_callback(TableItem *item, bool is_last, void *cl) {
+    struct object_print_data *data = (struct object_print_data *)cl;
+    astObjectPrint(data->to, (ASTObj *)item->value, false);
+    if(is_last && !data->skip_last_comma) {
+        fputs(", ", data->to);
+    }
 }
-
 
 /* Scope functions */
 
@@ -27,12 +33,14 @@ void scopePrint(FILE *to, Scope *sc, bool recursive) {
     }
 
     fputs("Scope{\x1b[1mobjects:\x1b[0m [", to);
-    ARRAY_FOR(i, sc->objects) {
-        astObjectPrint(to, ARRAY_GET_AS(ASTObj *, &sc->objects, i), false);
-        if(i + 1 < arrayLength(&sc->objects)) {
-            fputs(", ", to);
-        }
-    }
+    struct object_print_data objPrintData = {
+        .to = to,
+        .skip_last_comma = false
+    };
+    tableMap(&sc->variables, print_object_callback, (void *)&objPrintData);
+    objPrintData.skip_last_comma = true;
+    tableMap(&sc->variables, print_object_callback, (void *)&objPrintData);
+
     String depthStr = stringNew(33); // 33 is the length of SCOPE_DEPTH_MODULE_NAMESPACE
     switch(sc->depth) {
         case SCOPE_DEPTH_MODULE_NAMESPACE: stringAppend(&depthStr, "\x1b[1;33mSCOPE_DEPTH_MODULE_NAMESPACE\x1b[0m"); break;
@@ -66,7 +74,6 @@ Scope *scopeNew(Scope *parent, ScopeDepth depth) {
     sc->parent = parent;
     sc->depth = depth;
     arrayInit(&sc->children);
-    arrayInit(&sc->objects);
     tableInit(&sc->variables, NULL, NULL);
     tableInit(&sc->functions, NULL, NULL);
 
@@ -78,9 +85,6 @@ void scopeFree(Scope *scope) {
     arrayMap(&scope->children, free_scope_callback, NULL);
     arrayFree(&scope->children);
 
-    // Then, free all objects and also the tables.
-    arrayMap(&scope->objects, free_object_callback, NULL);
-    arrayFree(&scope->objects);
     // Note: the objects themselves are owned by the array
     //       and are freed above.
     tableFree(&scope->variables);
@@ -120,10 +124,8 @@ ASTObj *scopeGetObject(Scope *scope, ASTObjType objType, ASTString name) {
 
 bool scopeAddObject(Scope *scope, ASTObj *obj) {
     if(scopeHasObject(scope, obj)) {
-        astObjectFree(obj);
         return false;
     }
-    arrayPush(&scope->objects, (void *)obj);
     Table *tbl;
     switch(obj->type) {
         case OBJ_VAR:

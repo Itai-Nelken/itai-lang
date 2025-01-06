@@ -639,7 +639,7 @@ static ASTObj *parseTypedVariable(Parser *p) {
         ty = TRY(Type *, parseType(p));
     }
     loc = locationMerge(loc, previous(p).location);
-    return astObjectNew(OBJ_VAR, loc, name, ty);
+    return astModuleNewObj(p->current.module, OBJ_VAR, loc, name, ty);
 }
 
 // var_decl -> 'var' typed_var ('=' expression)+ ';'
@@ -652,24 +652,19 @@ static ASTVarDeclStmt *parseVarDecl(Parser *p, bool allowInitializer) {
     ASTExprNode *initializer = NULL;
     if(match(p, TK_EQUAL)) {
         if(!allowInitializer) {
-            astObjectFree(obj);
             error(p, "Variable initializer not allowed in this context.");
             return NULL; // no need to free ASTStrings, owned by program instance.
         }
         initializer = parseExpression(p);
     }
-    if(!consume(p, TK_SEMICOLON)) {
-        // Note: can't use TRY_CONSUME() because we have to free the object on failure.
-        // TODO: Maybe we should store all objects in an arena?
-        astObjectFree(obj);
-        return NULL;
-    }
+    TRY_CONSUME(p, TK_SEMICOLON);
 
     Location loc = locationMerge(start, previous(p).location);
     return astVarDeclStmtNew(getCurrentAllocator(p), loc, obj, initializer);
 }
 
 // parameter_list -> typed_var+ (',' typed_var)*
+// parameters: Array<ASTObj *>
 static bool parseParameterList(Parser *p, Array *parameters) {
     bool hadError = false;
     do {
@@ -678,16 +673,13 @@ static bool parseParameterList(Parser *p, Array *parameters) {
             hadError = true;
             continue;
         }
+        arrayPush(parameters, (void *)paramVar);
         if(paramVar->dataType == NULL) {
             error(p, tmp_buffer_format(p, "Parameter '%s' is missing a type.", paramVar->name));
             hadError = true;
         }
     } while(match(p, TK_COMMA));
-    if(hadError) {
-        ARRAY_FOR(i, *parameters) {
-            astObjectFree(ARRAY_GET_AS(ASTObj *, parameters, i));
-        }
-    }
+
     return !hadError;
 }
 
@@ -704,9 +696,8 @@ static ASTObj *parseFunctionDecl(Parser *p) {
         arrayFree(&parameters);
         return NULL;
     }
-#define FREE_PARAMS_ARRAY() ARRAY_FOR(i, parameters) {astObjectFree(ARRAY_GET_AS(ASTObj *, &parameters, i));} arrayFree(&parameters)
     if(!consume(p, TK_RPAREN)) {
-        FREE_PARAMS_ARRAY();
+        arrayFree(&parameters);
         return NULL;
     }
 
@@ -714,26 +705,25 @@ static ASTObj *parseFunctionDecl(Parser *p) {
     if(match(p, TK_ARROW)) {
         returnType = parseType(p);
         if(!returnType) {
-            FREE_PARAMS_ARRAY();
+            arrayFree(&parameters);
             return NULL;
         }
     }
     loc = locationMerge(loc, previous(p).location);
 
     if(!consume(p, TK_LBRACE)) {
-        FREE_PARAMS_ARRAY();
+        arrayFree(&parameters);
         return NULL;
     }
     Scope *scope = enterScope(p, SCOPE_DEPTH_BLOCK);
     ASTBlockStmt *body = parseBlockStmt(p, scope, parseFunctionBodyStatements);
     leaveScope(p);
     if(!body) {
-        FREE_PARAMS_ARRAY();
+        arrayFree(&parameters);
         return NULL;
     }
-#undef FREE_PARAMS_ARRAY
     Type *fnType = makeFunctionType(p, parameters, returnType);
-    ASTObj *fnObj = astObjectNew(OBJ_FN, loc, name, fnType);
+    ASTObj *fnObj = astModuleNewObj(p->current.module, OBJ_FN, loc, name, fnType);
     fnObj->as.fn.body = body;
     fnObj->as.fn.returnType = returnType;
     arrayCopy(&fnObj->as.fn.parameters, &parameters);
@@ -826,7 +816,6 @@ static bool parseModuleBody(Parser *p, ASTString name) {
                     ASTObj *prevDecl = scopeGetObject(getCurrentScope(p), OBJ_VAR, varDecl->variable->name);
                     errorAt(p, varDecl->variable->location, tmp_buffer_format(p, "Redeclaration of variable '%s'.", varDecl->variable->name));
                     hint(p, prevDecl->location, "Previous declaration was here.");
-                    astObjectFree(varDecl->variable); // FIXME: Objects should really be managed in an arena or at least somwhere that I don't need to keep track of their memory in the micro level.
                 } else {
                     scopeAddObject(getCurrentScope(p), varDecl->variable);
                     arrayPush(&p->current.module->variableDecls, (void *)varDecl);
