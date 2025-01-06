@@ -24,7 +24,7 @@ typedef enum ast_object_types {
 
 typedef struct ast_object {
     ASTObjType type;
-    Location loc;
+    Location location;
     ASTString name;
     Type *dataType;
     union {

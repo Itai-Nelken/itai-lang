@@ -98,9 +98,13 @@ void scopeAddChild(Scope *parent, Scope *child) {
 
 bool scopeHasObject(Scope *scope, ASTObj* obj) {
     VERIFY(obj != NULL);
+    return scopeGetObject(scope, obj->type, obj->name) != NULL;
+}
+
+ASTObj *scopeGetObject(Scope *scope, ASTObjType objType, ASTString name) {
     // Use a result variable for ease of debugging and to make it clear all return paths are handled.
     Table *tbl;
-    switch(obj->type) {
+    switch(objType) {
         case OBJ_VAR:
             tbl = &scope->variables;
             break;
@@ -110,11 +114,15 @@ bool scopeHasObject(Scope *scope, ASTObj* obj) {
         default:
             UNREACHABLE();
     }
-    return tableGet(tbl, (void *)obj->name) != NULL;
+    TableItem *item = tableGet(tbl, (void *)name);
+    return item ? (ASTObj *)item->key : NULL;
 }
 
-void scopeAddObject(Scope *scope, ASTObj *obj) {
-    VERIFY(!scopeHasObject(scope, obj));
+bool scopeAddObject(Scope *scope, ASTObj *obj) {
+    if(scopeHasObject(scope, obj)) {
+        astObjectFree(obj);
+        return false;
+    }
     arrayPush(&scope->objects, (void *)obj);
     Table *tbl;
     switch(obj->type) {
@@ -128,4 +136,5 @@ void scopeAddObject(Scope *scope, ASTObj *obj) {
             UNREACHABLE();
     }
     tableSet(tbl, (void *)obj->name, (void *)obj);
+    return true;
 }

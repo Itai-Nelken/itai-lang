@@ -50,7 +50,7 @@ ASTObj *astObjectNew(ASTObjType type, Location loc, ASTString name, Type *dataTy
     ASTObj *obj;
     NEW0(obj);
     obj->type = type;
-    obj->loc = loc;
+    obj->location = loc;
     obj->name = name;
     obj->dataType = dataType;
 

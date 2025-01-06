@@ -106,12 +106,23 @@ void scopeAddChild(Scope *parent, Scope *child);
 bool scopeHasObject(Scope *scope, ASTObj* obj);
 
 /**
+ * Get an object by name and type (e.g. an OBJ_VAR with name "myVar").
+ *
+ * @param scope The scope to get the object from.
+ * @param objType The type of the object to get.
+ * @param name The name of the object to get.
+ * @return The object or NULL if it doesn't exist.
+ **/
+ASTObj *scopeGetObject(Scope *scope, ASTObjType objType, ASTString name);
+
+/**
  * Add an ASTObj to a scope.
  * NOTE: Ownership of [obj] is taken!
  *
  * @param scope The scope to add the object to.
- * @param obj The ASTObj to add (C.R.E for [obj] to already exist in scope).
+ * @param obj The ASTObj to add.
+ * @return true if the object was added, false if it already exists (the obj. is freed in such a case).
  **/
-void scopeAddObject(Scope *scope, ASTObj *obj);
+bool scopeAddObject(Scope *scope, ASTObj *obj);
 
 #endif // AST_SCOPE_H
