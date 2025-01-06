@@ -208,6 +208,7 @@ static ASTExprNode *parse_binary_expr(Parser *p, ASTExprNode *lhs);
 static ASTExprNode *parse_unary_expr(Parser *p);
 static ASTExprNode *parse_grouping_expr(Parser *p);
 static ASTExprNode *parse_call_expr(Parser *p, ASTExprNode *callee);
+static ASTExprNode *parse_identifier_expr(Parser *p);
 
 /* Precedence/parse rule table */
 
@@ -253,7 +254,7 @@ static ParseRule rules[] = {
     [TK_I32]            = {NULL, NULL, PREC_LOWEST},
     [TK_U32]            = {NULL, NULL, PREC_LOWEST},
     [TK_STR]            = {NULL, NULL, PREC_LOWEST},
-    [TK_IDENTIFIER]     = {NULL, NULL, PREC_LOWEST},
+    [TK_IDENTIFIER]     = {parse_identifier_expr, NULL, PREC_LOWEST},
     [TK_GARBAGE]        = {NULL, NULL, PREC_LOWEST},
     [TK_EOF]            = {NULL, NULL, PREC_LOWEST}
 };
@@ -337,6 +338,12 @@ static ASTExprNode *parse_call_expr(Parser *p, ASTExprNode *callee) {
     ASTExprNode *callExpr = NODE_AS(ASTExprNode, astCallExprNew(getCurrentAllocator(p), locationMerge(callee->location, previous(p).location), NULL, callee, &arguments));
     arrayFree(&arguments);
     return callExpr;
+}
+
+static ASTExprNode *parse_identifier_expr(Parser *p) {
+    Token prev = previous(p);
+    ASTString id = stringTableFormat(&p->program->strings, "%.*s", prev.length, prev.lexeme);
+    return NODE_AS(ASTExprNode, astIdentifierExprNew(getCurrentAllocator(p), prev.location, id));
 }
 
 static ASTExprNode *parsePrecedence(Parser *p, Precedence minPrec) {
