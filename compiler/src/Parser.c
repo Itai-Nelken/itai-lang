@@ -88,14 +88,6 @@ static char *tmp_buffer_format(Parser *p, const char *format, ...) {
     return (char *)p->tmp_buffer;
 }
 
-static char *tmp_buffer_copy(Parser *p, char *s, u32 length) {
-    if(stringLength(p->tmp_buffer) > 0) {
-        stringClear(p->tmp_buffer);
-    }
-    stringAppend(&p->tmp_buffer, "%.*s", length, s);
-    return (char *)p->tmp_buffer; // See note above return in tmp_buffer_format().
-}
-
 static char *tmp_buffer_append(Parser *p, const char *format, ...) {
     va_list ap;
     va_start(ap, format);
@@ -823,7 +815,6 @@ static bool parseModuleBody(Parser *p, ASTString name) {
 }
 
 bool parserParse(Parser *p, ASTProgram *prog) {
-    UNUSED(tmp_buffer_copy);
     p->program = prog;
 
     // Get the first token.
