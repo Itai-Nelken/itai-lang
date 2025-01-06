@@ -778,7 +778,7 @@ static bool parseModuleBody(Parser *p, ASTString name) {
     ASTModule *module = astProgramNewModule(p->program, name);
     // If we are parsing a module body, there shouldn't be an existing current module.
     VERIFY(p->current.module == NULL);
-    VERIFY(p->current.scope == NULL);
+    VERIFY(getCurrentScope(p) == NULL);
     p->current.module = module;
     p->current.scope = module->moduleScope;
     // Import all the primitive (builtin) types into the module.
@@ -802,7 +802,7 @@ static bool parseModuleBody(Parser *p, ASTString name) {
         } else {
             ASTObj *obj = parseDeclaration(p);
             if(obj) {
-                scopeAddObject(p->current.scope, obj);
+                scopeAddObject(getCurrentScope(p), obj);
             } else {
                 failedInFunctionDecl = true;
             }
