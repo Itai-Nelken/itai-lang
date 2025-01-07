@@ -16,6 +16,11 @@ typedef struct ast_program {
     Array modules; // Array<ASTModule *>;
 } ASTProgram;
 
+// A ModuleID is an index into the modules array.
+// It is used since it can represent an equivalent module in two different programs
+// (such as a parsed program and a checked program).
+typedef usize ModuleID;
+
 
 /**
  * Pretty print an ASTProgram.
@@ -44,8 +49,17 @@ void astProgramFree(ASTProgram *prog);
  *
  * @param prog The ASTProgram to add a module in.
  * @param name The name of the module to create.
- * @return A pointer to the newly created module. // TODO: or null on failure??
+ * @return The ModuleID for the newly created module.
  **/
-ASTModule *astProgramNewModule(ASTProgram *prog, ASTString name);
+ModuleID astProgramNewModule(ASTProgram *prog, ASTString name);
+
+/**
+ * Get an ASTModule using its ModuleID.
+ *
+ * @param prog The ASTProgram to get the module from.
+ * @param id The ModuleID of the module to get (C.R.E for id to be invalid).
+ * @return The ASTModule the id refers to (guaranteed to not be NULL).
+ **/
+ASTModule *astProgramGetModule(ASTProgram *prog, ModuleID id);
 
 #endif // AST_PROGRAM_H

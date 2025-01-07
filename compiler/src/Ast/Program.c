@@ -45,9 +45,15 @@ void astProgramFree(ASTProgram *prog) {
     stringTableFree(&prog->strings);
 }
 
-ASTModule *astProgramNewModule(ASTProgram *prog, ASTString name) {
+ModuleID astProgramNewModule(ASTProgram *prog, ASTString name) {
     ASTModule *m = astModuleNew(name);
-    arrayPush(&prog->modules, (void *)m);
-    return m;
+    // Note: cast is uneccesary, but is included to make code more readable and understandable.
+    return (ModuleID)arrayPush(&prog->modules, (void *)m);
 }
 
+ASTModule *astProgramGetModule(ASTProgram *prog, ModuleID id) {
+    VERIFY(id < arrayLength(&prog->modules));
+    ASTModule *m = ARRAY_GET_AS(ASTModule *, &prog->modules, id);
+    VERIFY(m);
+    return m;
+}

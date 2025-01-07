@@ -20,7 +20,7 @@ static void parser_init_internal(Parser *p, Compiler *c, Scanner *s) {
     p->compiler = c;
     p->scanner = s;
     p->program = NULL;
-    p->current.module = NULL;
+    p->current.module = 0;
     p->current.scope = NULL;
     p->state.current_token.type = TK_GARBAGE;
     p->state.previous_token.type = TK_GARBAGE;
@@ -144,11 +144,15 @@ static bool match(Parser *p, TokenType expected) {
     return true;
 }
 
-static inline Allocator *getCurrentAllocator(Parser *p) {
-    return &p->current.module->ast_allocator.alloc;
+static inline ASTModule *getCurrentModule(Parser *p) {
+    return astProgramGetModule(p->program, p->current.module);
 }
 
-static Scope *getCurrentScope(Parser *p) {
+static inline Allocator *getCurrentAllocator(Parser *p) {
+    return &getCurrentModule(p)->ast_allocator.alloc;
+}
+
+static inline Scope *getCurrentScope(Parser *p) {
     return p->current.scope;
 }
 
@@ -506,7 +510,7 @@ static Type *parseIdentifierType(Parser *p) {
 //    ASTString ident = TRY(ASTString, parseIdentifier(p));
 //    Location loc = previous(p).location;
 //    Type *ty = typeNew(TY_IDENTIFIER, ident, loc, p->current.module);
-//    astModuleAddType(p->current.module, ty);
+//    astModuleAddType(getCurrentModule(p), ty);
 //    return ty;
     UNUSED(p);
     UNREACHABLE();
@@ -534,12 +538,12 @@ static Type *makeFunctionTypeWithParameterTypes(Parser *p, Array parameterTypes,
     char *name = tmp_buffer_append(p, ")->%s", returnType->name);
     ASTString typename = stringTableString(&p->program->strings, name);
     ty->name = typename;
-    Type *existingType = astModuleGetType(p->current.module, typename);
+    Type *existingType = astModuleGetType(getCurrentModule(p), typename);
     if(existingType) {
         typeFree(ty);
         return existingType;
     }
-    astModuleAddType(p->current.module, ty);
+    astModuleAddType(getCurrentModule(p), ty);
     return ty;
 }
 
@@ -649,7 +653,7 @@ static ASTObj *parseTypedVariable(Parser *p) {
         ty = TRY(Type *, parseType(p));
     }
     loc = locationMerge(loc, previous(p).location);
-    return astModuleNewObj(p->current.module, OBJ_VAR, loc, name, ty);
+    return astModuleNewObj(getCurrentModule(p), OBJ_VAR, loc, name, ty);
 }
 
 // var_decl -> 'var' typed_var ('=' expression)+ ';'
@@ -733,7 +737,7 @@ static ASTObj *parseFunctionDecl(Parser *p) {
         return NULL;
     }
     Type *fnType = makeFunctionType(p, parameters, returnType);
-    ASTObj *fnObj = astModuleNewObj(p->current.module, OBJ_FN, loc, name, fnType);
+    ASTObj *fnObj = astModuleNewObj(getCurrentModule(p), OBJ_FN, loc, name, fnType);
     fnObj->as.fn.body = body;
     fnObj->as.fn.returnType = returnType;
     arrayCopy(&fnObj->as.fn.parameters, &parameters);
@@ -792,12 +796,13 @@ static void synchronizeToFnStructDecl(Parser *p) {
     }
 }
 
-static void import_primitive_types(Parser *p, ASTModule *module) {
+static void import_primitive_types(Parser *p, ModuleID mID) {
     ASTProgram *prog = p->program;
+    ASTModule *module = astProgramGetModule(prog, mID);
     // We "import" the primitive types into each module.
     // In reality, we create new types each time, but since
     // primitives are equal by their TypeType, this doesn't matter.
-#define DEF(type, typenameInParser, name) {Type *ty = typeNew((type), stringTableString(&prog->strings, (name)), EMPTY_LOCATION, module); astModuleAddType(module, ty); p->primitives.typenameInParser = ty;}
+#define DEF(type, typenameInParser, name) {Type *ty = typeNew((type), stringTableString(&prog->strings, (name)), EMPTY_LOCATION, mID); astModuleAddType(module, ty); p->primitives.typenameInParser = ty;}
 
     DEF(TY_VOID, void_, "void");
     DEF(TY_I32, int32, "i32");
@@ -808,14 +813,15 @@ static void import_primitive_types(Parser *p, ASTModule *module) {
 // Returns true on successful parse, or false on failure.
 // module_body -> declaration*
 static bool parseModuleBody(Parser *p, ASTString name) {
-    ASTModule *module = astProgramNewModule(p->program, name);
+    ModuleID mID = astProgramNewModule(p->program, name);
+    ASTModule *module = astProgramGetModule(p->program, mID);
     // If we are parsing a module body, there shouldn't be an existing current module.
-    VERIFY(p->current.module == NULL);
+    VERIFY(p->current.module == 0);
     VERIFY(getCurrentScope(p) == NULL);
-    p->current.module = module;
+    p->current.module = mID;
     p->current.scope = module->moduleScope;
     // Import all the primitive (builtin) types into the module.
-    import_primitive_types(p, module);
+    import_primitive_types(p, mID);
 
     bool failedInFunctionDecl = false;
     while(!isEof(p)) {
@@ -828,7 +834,7 @@ static bool parseModuleBody(Parser *p, ASTString name) {
                     hint(p, prevDecl->location, "Previous declaration was here.");
                 } else {
                     scopeAddObject(getCurrentScope(p), varDecl->variable);
-                    arrayPush(&p->current.module->variableDecls, (void *)varDecl);
+                    arrayPush(&getCurrentModule(p)->variableDecls, (void *)varDecl);
                 }
             }
         } else {
@@ -885,3 +891,5 @@ bool parserParse(Parser *p, ASTProgram *prog) {
 
     return true;
 }
+
+#undef TRY

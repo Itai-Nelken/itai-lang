@@ -7,8 +7,9 @@
 #include "StringTable.h"
 #include "Token.h"
 
-// We can't include Module.h since it includes us.
+// We can't include Module.h,Program.h since they includes us.
 typedef struct ast_module ASTModule; // Ast/Module.h
+typedef usize ModuleID; // Ast/Program.h
 
 /**
  * Type represents a data type (such as i32, u32, char, str etc.) including pointer, function, and struct types.
@@ -32,7 +33,7 @@ typedef struct type {
     TypeType type;
     ASTString name;
     Location declLocation;
-    ASTModule *declModule;
+    ModuleID declModule;
     union {
         //struct {
         //    struct type *innerType;
@@ -63,10 +64,10 @@ void typePrint(FILE *to, Type *ty, bool compact);
  * @param type The type of the Type (e.g. TY_VOID)
  * @param name The name of the type.
  * @param declLocation The location in which the type was declared.
- * @param declModule The module that owns the type.
+ * @param declModule The ModuleID of the module that owns the type.
  * @return A new Type initialized with all the above info.
  **/
-Type *typeNew(TypeType type, ASTString name, Location declLocation, ASTModule *declModule);
+Type *typeNew(TypeType type, ASTString name, Location declLocation, ModuleID declModule);
 
 /**
  * Free a Type.

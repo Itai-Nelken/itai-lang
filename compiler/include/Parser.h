@@ -14,7 +14,7 @@ typedef struct parser {
     ASTProgram *program;
 
     struct {
-        ASTModule *module;
+        ModuleID module;
         Scope *scope;
     } current;
 

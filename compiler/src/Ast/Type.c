@@ -43,8 +43,7 @@ void typePrint(FILE *to, Type *ty, bool compact) {
     fprintf(to, "Type{\x1b[1mtype:\x1b[33m %s\x1b[0m", type_type_to_string(ty->type));
     fprintf(to, ", \x1b[1mname:\x1b[0m '%s', \x1b[1mdeclLocation:\x1b[0m ", ty->name);
     locationPrint(to, ty->declLocation, true);
-    fprintf(to, ", \x1b[1mdeclModule:\x1b[0m ");
-    astModulePrint(to, ty->declModule, true);
+    fprintf(to, ", \x1b[1mdeclModule:\x1b[0;34m %zu\x1b[0m", ty->declModule);
     //switch(ty->type) {
     //    // TODO: handle ptr, fn, struct types
     //    default:
@@ -53,7 +52,7 @@ void typePrint(FILE *to, Type *ty, bool compact) {
     fputc('}', to);
 }
 
-Type *typeNew(TypeType type, ASTString name, Location declLocation, ASTModule *declModule) {
+Type *typeNew(TypeType type, ASTString name, Location declLocation, ModuleID declModule) {
     Type *ty;
     NEW0(ty);
     ty->type = type;
