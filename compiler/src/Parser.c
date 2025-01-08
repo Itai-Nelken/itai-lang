@@ -876,8 +876,8 @@ bool parserParse(Parser *p, ASTProgram *prog) {
     if(match(p, TK_MODULE)) {
         Location loc = previous(p).location;
         TRY_CONSUME(p, TK_IDENTIFIER);
-        TRY_CONSUME(p, TK_AMPERSAND);
-        errorAt(p, loc, "Module declarations are not yet unsupported.");
+        TRY_CONSUME(p, TK_SEMICOLON);
+        errorAt(p, loc, "Module declarations are not supported yet.");
         p->program = NULL;
         return false;
     }
