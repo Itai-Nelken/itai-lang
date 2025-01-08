@@ -583,13 +583,14 @@ static Type *parseFunctionType(Parser *p) {
         return NULL;
     }
 
-    Type *returnType = NULL;
+    Type *returnType = astModuleGetType(getCurrentModule(p), "void"); // default return type is void.
     if(match(p, TK_ARROW)) {
-        returnType = parseType(p);
-        if(!returnType) {
+        Type *parsedReturnType = parseType(p);
+        if(!parsedReturnType) {
             arrayFree(&parameterTypes);
             return NULL;
         }
+        returnType = parsedReturnType;
     }
 
     Type *ty = makeFunctionTypeWithParameterTypes(p, parameterTypes, returnType);
@@ -715,13 +716,14 @@ static ASTObj *parseFunctionDecl(Parser *p) {
         return NULL;
     }
 
-    Type *returnType = NULL;
+    Type *returnType = astModuleGetType(getCurrentModule(p), "void");
     if(match(p, TK_ARROW)) {
-        returnType = parseType(p);
-        if(!returnType) {
+        Type *parsedReturnType = parseType(p);
+        if(!parsedReturnType) {
             arrayFree(&parameters);
             return NULL;
         }
+        returnType = parsedReturnType;
     }
     loc = locationMerge(loc, previous(p).location);
 
