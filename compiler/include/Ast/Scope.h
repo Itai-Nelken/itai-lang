@@ -123,4 +123,12 @@ ASTObj *scopeGetObject(Scope *scope, ASTObjType objType, ASTString name);
  **/
 bool scopeAddObject(Scope *scope, ASTObj *obj);
 
+/**
+ * Collect all objects in this scope and push them to [objects].
+ *
+ * @param scope The scope to collect all objects from.
+ * @param objects an Array<ASTObj> to put all the objects in. C.R.E for arrayLength(objects) > 0.
+ **/
+void scopeGetAllObjects(Scope *scope, Array *objects);
+
 #endif // AST_SCOPE_H

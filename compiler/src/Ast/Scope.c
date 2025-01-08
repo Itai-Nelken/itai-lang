@@ -24,6 +24,12 @@ static void print_object_callback(TableItem *item, bool is_last, void *cl) {
     }
 }
 
+static void collect_objects_callback(TableItem *item, bool is_last, void *cl) {
+    UNUSED(is_last);
+    Array *a = (Array *)cl;
+    arrayPush(a, item->value);
+}
+
 /* Scope functions */
 
 void scopePrint(FILE *to, Scope *sc, bool recursive) {
@@ -139,4 +145,12 @@ bool scopeAddObject(Scope *scope, ASTObj *obj) {
     }
     tableSet(tbl, (void *)obj->name, (void *)obj);
     return true;
+}
+
+void scopeGetAllObjects(Scope *scope, Array *objects) {
+    VERIFY(arrayLength(objects) == 0);
+    tableMap(&scope->variables, collect_objects_callback, (void *)objects);
+    tableMap(&scope->functions, collect_objects_callback, (void *)objects);
+    //tableMap(&scope->structures, collect_objects_callback, (void *)objects);
+    //tableMap(&scope->enums, collect_objects_callback, (void *)objects);
 }
