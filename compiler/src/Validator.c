@@ -20,6 +20,20 @@ void validatorFree(Validator *v) {
     memset(v, 0, sizeof(*v));
 }
 
+static void enterScope(Validator *v, Scope *parsedScope) {
+    Scope *sc = scopeNew(v->current.checkedScope, parsedScope->depth);
+    scopeAddChild(v->current.checkedScope, sc);
+    v->current.parsedScope = parsedScope;
+    v->current.checkedScope = sc;
+}
+
+static void leaveScope(Validator *v) {
+    VERIFY(v->current.parsedScope->parent != NULL);
+    VERIFY(v->current.checkedScope->parent != NULL);
+    v->current.parsedScope = v->current.parsedScope->parent;
+    v->current.checkedScope = v->current.checkedScope->parent;
+}
+
 static inline Scope *getCurrentParsedScope(Validator *v) {
     return v->current.parsedScope;
 }
@@ -38,6 +52,13 @@ static inline ASTModule *getCurrentCheckedModule(Validator *v) {
 
 static inline Allocator *getCurrentAllocator(Validator *v) {
     return &getCurrentCheckedModule(v)->ast_allocator.alloc;
+}
+
+// Note: returned type is guaranteed to exist (not be NULL).
+static Type *getType(Validator *v, const char *name) {
+    Type *ty = astModuleGetType(getCurrentCheckedModule(v), name);
+    VERIFY(ty);
+    return ty;
 }
 
 // if !expr, returns NULL. otherwise expands to said result.
@@ -82,11 +103,11 @@ static Type *exprDataType(Validator *v, ASTExprNode *expr) {
     }
     switch(expr->type) {
         case EXPR_NUMBER_CONSTANT:
-            // FIXME: should be i64.
-            return astModuleGetType(getCurrentCheckedModule(v), "i32");
+            // FIXME: should be i64 (??)
+            return getType(v, "i32");
         case EXPR_STRING_CONSTANT:
-            return astModuleGetType(getCurrentCheckedModule(v), "str");
-        case  EXPR_VARIABLE:
+            return getType(v, "str");
+        case EXPR_VARIABLE:
         case EXPR_FUNCTION:
             return NODE_AS(ASTObjExpr, expr)->obj->dataType;
         case EXPR_ASSIGN:
@@ -110,6 +131,7 @@ static Type *exprDataType(Validator *v, ASTExprNode *expr) {
             return exprDataType(v, NODE_AS(ASTUnaryExpr, expr)->operand);
         case EXPR_CALL:
             // Type of call expression is the return type of the callee.
+            // FIXME: this will return the FUNCTION type, not the return type.
             return exprDataType(v, NODE_AS(ASTCallExpr, expr)->callee);
         default:
             UNREACHABLE();
@@ -144,10 +166,11 @@ static Type *validateType(Validator *v, Type *parsedTy) {
         default:
             UNREACHABLE();
     }
+    // Note: can't use getType() since it fails if the type doesn't exist.
     if(astModuleGetType(getCurrentCheckedModule(v), checkedTy->name) == NULL) {
         astModuleAddType(getCurrentCheckedModule(v), checkedTy);
     } else {
-        Type *ty = astModuleGetType(getCurrentCheckedModule(v), checkedTy->name);
+        Type *ty = getType(v, checkedTy->name);
         typeFree(checkedTy);
         checkedTy = ty;
     }
@@ -201,7 +224,29 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *expr) {
             break;
         }
         // Call node
-        case EXPR_CALL:
+        case EXPR_CALL: {
+            ASTCallExpr *call = NODE_AS(ASTCallExpr, expr);
+            ASTExprNode *callee = validateExpr(v, call->callee);
+            Array checkedArguments;
+            arrayInitSized(&checkedArguments, arrayLength(&call->arguments));
+            bool hadError = false;
+            ARRAY_FOR(i, call->arguments) {
+                ASTExprNode *arg = ARRAY_GET_AS(ASTExprNode *, &call->arguments, i);
+                arg = validateExpr(v, arg);
+                if(arg) {
+                    arrayPush(&checkedArguments, (void *)arg);
+                } else {
+                    hadError = true;
+                }
+            }
+            if(hadError || !callee) {
+                arrayFree(&checkedArguments);
+                break;
+            }
+            checkedExpr = (ASTExprNode *)astCallExprNew(getCurrentAllocator(v), expr->location, exprDataType(v, callee), callee, &checkedArguments);
+            arrayFree(&checkedArguments);
+        }
+        break;
         // Other nodes.
         case EXPR_IDENTIFIER:
             // TODO: EXPR_IDENT, EXPR_CALL
@@ -221,7 +266,31 @@ static ASTStmtNode *validateStmt(Validator *v, ASTStmtNode *stmt) {
             checkedStmt = validateVariableDecl(v, NODE_AS(ASTVarDeclStmt, stmt));
             break;
         // Block nodes
-        case STMT_BLOCK:
+        case STMT_BLOCK: {
+            bool hadError = false;
+            ASTBlockStmt *block = NODE_AS(ASTBlockStmt, stmt);
+            Array checkedNodes;
+            arrayInitSized(&checkedNodes, arrayLength(&block->nodes));
+            enterScope(v, block->scope);
+            ARRAY_FOR(i, block->nodes) {
+                ASTStmtNode *n = ARRAY_GET_AS(ASTStmtNode *, &block->nodes, i);
+                n = validateStmt(v, n);
+                if(n) {
+                    arrayPush(&checkedNodes, (void *)n);
+                } else {
+                    hadError = true;
+                }
+            }
+            Scope *scope = getCurrentCheckedScope(v);
+            leaveScope(v);
+            if(hadError) {
+                arrayFree(&checkedNodes);
+                break;
+            }
+            checkedStmt = (ASTStmtNode *)astBlockStmtNew(getCurrentAllocator(v), stmt->location, scope, &checkedNodes);
+            arrayFree(&checkedNodes);
+        }
+        break;
         // Conditional nodes
         case STMT_IF:
         // Loop nodes
@@ -263,8 +332,28 @@ static ASTStmtNode *validateVariableDecl(Validator *v, ASTVarDeclStmt *varDecl) 
 
 static void validateFunction(Validator *v, ASTObj *fn) {
     VERIFY(fn->type == OBJ_FN);
-    // TODO: error handling
-    ASTStmtNode *body = TRY(ASTStmtNode *, validateStmt(v, NODE_AS(ASTStmtNode, fn->as.fn.body)));
+
+    bool hasBadParameter = false;
+    ARRAY_FOR(i, fn->as.fn.parameters) {
+        ASTObj *param = ARRAY_GET_AS(ASTObj *, &fn->as.fn.parameters, i);
+        if(param->dataType == NULL) {
+            error(v, param->location, "Parameters '%s' has no type.", param->name);
+            hasBadParameter = true;
+        } else {
+            param->dataType = getType(v, param->dataType->name);
+        }
+    }
+    if(hasBadParameter) {
+        return;
+    }
+    fn->as.fn.returnType = getType(v, fn->as.fn.returnType->name);
+
+    ASTStmtNode *body = validateStmt(v, NODE_AS(ASTStmtNode, fn->as.fn.body));
+    if(!body) {
+        // Note: can't use TRY() since function doesn't return anything.
+        return;
+    }
+    fn->as.fn.body = NODE_AS(ASTBlockStmt, body);
 }
 
 static void validateScope(Validator *v, Scope *scope) {
