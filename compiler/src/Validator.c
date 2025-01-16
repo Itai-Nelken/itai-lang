@@ -97,13 +97,26 @@ static void hint(Validator *v, Location loc, const char *format, ...) {
     stringFree(msg);
 }
 
+// Find an ASTObj that is visible in the current scope (i.e. is in it or a parent scope.)
+static ASTObj *findObjVisibleInCurrentScope(Validator *v, ASTString name) {
+    Scope *sc = getCurrentCheckedScope(v); // FIXME: should be parsed scope since it already has all objects?
+    while(sc != NULL) {
+        ASTObj *obj = scopeGetAnyObject(sc, name);
+        if(obj) {
+            return obj;
+        }
+        sc = sc->parent;
+    }
+    return NULL;
+}
+
 // A callee may be a property access expression (a.b()) or a dereference.
 // This function extracts the actual function being caleld and returns its return type.
-static Type *getFunctionReturnTypeFromExpr(Validator *v, ASTExprNode *callExpr) {
+static Type *getFunctionReturnTypeFromExpr(Validator *v, ASTExprNode *callee) {
     UNUSED(v);
-    switch(callExpr->type) {
+    switch(callee->type) {
         case EXPR_FUNCTION:
-            return NODE_AS(ASTObjExpr, callExpr)->obj->as.fn.returnType;
+            return NODE_AS(ASTObjExpr, callee)->obj->as.fn.returnType;
         default:
             UNREACHABLE();
     }
@@ -143,7 +156,7 @@ static Type *exprDataType(Validator *v, ASTExprNode *expr) {
             return exprDataType(v, NODE_AS(ASTUnaryExpr, expr)->operand);
         case EXPR_CALL:
             // Type of call expression is the return type of the callee.
-            return getFunctionReturnTypeFromExpr(v, expr);
+            return getFunctionReturnTypeFromExpr(v, NODE_AS(ASTCallExpr, expr)->callee);
         default:
             UNREACHABLE();
     }
@@ -201,6 +214,16 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *expr) {
         case EXPR_NUMBER_CONSTANT:
         case EXPR_STRING_CONSTANT:
             checkedExpr = (ASTExprNode *)astConstantValueExprNew(getCurrentAllocator(v), expr->type, expr->location, exprDataType(v, expr));
+            switch(expr->type) {
+                case EXPR_NUMBER_CONSTANT:
+                    NODE_AS(ASTConstantValueExpr, checkedExpr)->as.number = NODE_AS(ASTConstantValueExpr, expr)->as.number;
+                    break;
+                case EXPR_STRING_CONSTANT:
+                    NODE_AS(ASTConstantValueExpr, checkedExpr)->as.string = stringTableString(&v->checkedProgram->strings, NODE_AS(ASTConstantValueExpr, expr)->as.string);
+                    break;
+                default:
+                    UNREACHABLE();
+            }
             break;
         // Obj nodes
         case EXPR_VARIABLE:
@@ -256,11 +279,23 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *expr) {
             }
             checkedExpr = (ASTExprNode *)astCallExprNew(getCurrentAllocator(v), expr->location, exprDataType(v, callee), callee, &checkedArguments);
             arrayFree(&checkedArguments);
+            break;
         }
-        break;
         // Other nodes.
-        case EXPR_IDENTIFIER:
-            // TODO: EXPR_IDENT, EXPR_CALL
+        case EXPR_IDENTIFIER: {
+            // Find object with same name that is visible in current scope and replace IDENT node with it.
+            ASTString name = NODE_AS(ASTIdentifierExpr, expr)->id;
+            ASTObj *obj = findObjVisibleInCurrentScope(v, name);
+            if(!obj) {
+                obj = scopeGetObject(getCurrentCheckedScope(v), OBJ_FN, name);
+            }
+            if(!obj) {
+                error(v, expr->location, "Identifier '%s' doesn't exist.", name);
+                break;
+            }
+            checkedExpr = (ASTExprNode *)astObjExprNew(getCurrentAllocator(v), obj->type == OBJ_VAR ? EXPR_VARIABLE : EXPR_FUNCTION, expr->location, obj);
+            break;
+        }
         default:
             UNREACHABLE();
     }
