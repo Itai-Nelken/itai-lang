@@ -125,7 +125,7 @@ ASTObj *scopeGetObject(Scope *scope, ASTObjType objType, ASTString name) {
             UNREACHABLE();
     }
     TableItem *item = tableGet(tbl, (void *)name);
-    return item ? (ASTObj *)item->key : NULL;
+    return item ? (ASTObj *)item->value : NULL;
 }
 
 bool scopeAddObject(Scope *scope, ASTObj *obj) {

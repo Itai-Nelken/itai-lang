@@ -205,7 +205,7 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *expr) {
         // Obj nodes
         case EXPR_VARIABLE:
         case EXPR_FUNCTION:
-            UNREACHABLE();
+            UNREACHABLE(); // TODO
         // Binary nodes
         case EXPR_ASSIGN:
         case EXPR_PROPERTY_ACCESS:
