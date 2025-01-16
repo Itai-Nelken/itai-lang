@@ -128,6 +128,17 @@ ASTObj *scopeGetObject(Scope *scope, ASTObjType objType, ASTString name) {
     return item ? (ASTObj *)item->value : NULL;
 }
 
+ASTObj *scopeGetAnyObject(Scope *scope, ASTString name) {
+    VERIFY(OBJ_VAR == 0); // TODO: make a compile time assert.
+    for(ASTObjType type = OBJ_VAR; type < OBJ_TYPE_COUNT; ++type) {
+        ASTObj *obj = scopeGetObject(scope, type, name);
+        if(obj) {
+            return obj;
+        }
+    }
+    return NULL;
+}
+
 bool scopeAddObject(Scope *scope, ASTObj *obj) {
     if(scopeHasObject(scope, obj)) {
         return false;

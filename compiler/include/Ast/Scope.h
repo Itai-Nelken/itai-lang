@@ -115,6 +115,15 @@ bool scopeHasObject(Scope *scope, ASTObj* obj);
 ASTObj *scopeGetObject(Scope *scope, ASTObjType objType, ASTString name);
 
 /**
+ * Get an object by name only (meaning it can be of any type (variable, function etc.))
+ *
+ * @param scope The scope to get the object from.
+ * @param name The name of the object to get.
+ * @return The object or NULL if it doesn't exist.
+ **/
+ASTObj *scopeGetAnyObject(Scope *scope, ASTString name);
+
+/**
  * Add an ASTObj to a scope.
  *
  * @param scope The scope to add the object to.
