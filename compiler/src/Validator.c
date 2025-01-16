@@ -97,6 +97,18 @@ static void hint(Validator *v, Location loc, const char *format, ...) {
     stringFree(msg);
 }
 
+// A callee may be a property access expression (a.b()) or a dereference.
+// This function extracts the actual function being caleld and returns its return type.
+static Type *getFunctionReturnTypeFromExpr(Validator *v, ASTExprNode *callExpr) {
+    UNUSED(v);
+    switch(callExpr->type) {
+        case EXPR_FUNCTION:
+            return NODE_AS(ASTObjExpr, callExpr)->obj->as.fn.returnType;
+        default:
+            UNREACHABLE();
+    }
+}
+
 static Type *exprDataType(Validator *v, ASTExprNode *expr) {
     if(!expr) {
         return NULL;
@@ -131,8 +143,7 @@ static Type *exprDataType(Validator *v, ASTExprNode *expr) {
             return exprDataType(v, NODE_AS(ASTUnaryExpr, expr)->operand);
         case EXPR_CALL:
             // Type of call expression is the return type of the callee.
-            // FIXME: this will return the FUNCTION type, not the return type.
-            return exprDataType(v, NODE_AS(ASTCallExpr, expr)->callee);
+            return getFunctionReturnTypeFromExpr(v, expr);
         default:
             UNREACHABLE();
     }
