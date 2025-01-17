@@ -460,6 +460,7 @@ static ASTStmtNode *parseExpressionStmt(Parser *p) {
 
 // if_stmt -> 'if' expression block(function_body) ('else' if_stmt | block(function_body))?
 static ASTStmtNode *parseIfStmt(Parser *p) {
+    // Assumes 'if' was already consumed.
     Location loc = previous(p).location;
     ASTExprNode *condition = TRY(ASTExprNode *, parseExpression(p));
     Scope *thenScope = enterScope(p, SCOPE_DEPTH_BLOCK);
@@ -481,11 +482,25 @@ static ASTStmtNode *parseIfStmt(Parser *p) {
     return NODE_AS(ASTStmtNode, astConditionalStmtNew(getCurrentAllocator(p), loc, condition, then, else_));
 }
 
+// return_stmt -> 'return' expression ';'
+static ASTStmtNode *parseReturnStmt(Parser *p) {
+    // Assumes 'return' was already consumed.
+    Location loc = previous(p).location;
+    ASTExprNode *operand = NULL;
+    if(current(p).type != TK_SEMICOLON) {
+        operand = TRY(ASTExprNode *, parseExpression(p));
+    }
+    TRY_CONSUME(p, TK_SEMICOLON);
+    return (ASTStmtNode *)astExprStmtNew(getCurrentAllocator(p), STMT_RETURN, locationMerge(loc, previous(p).location), operand);
+}
+
 // statement -> block | return_stmt | if_stmt | while_loop_stmt | defer_stmt | expression_stmt
 static ASTStmtNode *parseStatement(Parser *p) {
     ASTStmtNode *result = NULL;
     if(match(p, TK_IF)) {
         result = parseIfStmt(p);
+    } else if(match(p, TK_RETURN)) {
+        result = parseReturnStmt(p);
     } else if(match(p, TK_LBRACE)) {
         Scope *sc = enterScope(p, SCOPE_DEPTH_BLOCK);
         result = NODE_AS(ASTStmtNode, parseBlockStmt(p, sc, parseStatement));
