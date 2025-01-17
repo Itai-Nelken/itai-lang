@@ -110,18 +110,6 @@ static ASTObj *findObjVisibleInCurrentScope(Validator *v, ASTString name) {
     return NULL;
 }
 
-// A callee may be a property access expression (a.b()) or a dereference.
-// This function extracts the actual function being caleld and returns its return type.
-static Type *getFunctionReturnTypeFromExpr(Validator *v, ASTExprNode *callee) {
-    UNUSED(v);
-    switch(callee->type) {
-        case EXPR_FUNCTION:
-            return NODE_AS(ASTObjExpr, callee)->obj->as.fn.returnType;
-        default:
-            UNREACHABLE();
-    }
-}
-
 static Type *exprDataType(Validator *v, ASTExprNode *expr) {
     if(!expr) {
         return NULL;
@@ -133,8 +121,9 @@ static Type *exprDataType(Validator *v, ASTExprNode *expr) {
         case EXPR_STRING_CONSTANT:
             return getType(v, "str");
         case EXPR_VARIABLE:
-        case EXPR_FUNCTION:
             return NODE_AS(ASTObjExpr, expr)->obj->dataType;
+        case EXPR_FUNCTION:
+            return NODE_AS(ASTObjExpr, expr)->obj->as.fn.returnType;
         case EXPR_ASSIGN:
         case EXPR_PROPERTY_ACCESS:
         case EXPR_ADD:
@@ -156,7 +145,7 @@ static Type *exprDataType(Validator *v, ASTExprNode *expr) {
             return exprDataType(v, NODE_AS(ASTUnaryExpr, expr)->operand);
         case EXPR_CALL:
             // Type of call expression is the return type of the callee.
-            return getFunctionReturnTypeFromExpr(v, NODE_AS(ASTCallExpr, expr)->callee);
+            return exprDataType(v, NODE_AS(ASTCallExpr, expr)->callee);
         default:
             UNREACHABLE();
     }
@@ -387,7 +376,7 @@ static void validateFunction(Validator *v, ASTObj *fn) {
     ARRAY_FOR(i, fn->as.fn.parameters) {
         ASTObj *param = ARRAY_GET_AS(ASTObj *, &fn->as.fn.parameters, i);
         if(param->dataType == NULL) {
-            error(v, param->location, "Parameters '%s' has no type.", param->name);
+            error(v, param->location, "Parameter '%s' has no type.", param->name);
             hasBadParameter = true;
         } else {
             param->dataType = getType(v, param->dataType->name);
