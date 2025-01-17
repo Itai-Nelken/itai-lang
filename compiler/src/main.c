@@ -70,13 +70,15 @@ bool parse_arguments(Options *opts, int argc, char **argv) {
 
 int main(int argc, char **argv) {
     int return_value = RET_SUCCESS;
+    StringTable stringTable;
     ASTProgram parsedProgram, checkedProgram;
     Compiler c;
     Scanner s;
     Parser p;
     Validator v;
-    astProgramInit(&parsedProgram);
-    astProgramInit(&checkedProgram);
+    stringTableInit(&stringTable);
+    astProgramInit(&parsedProgram, &stringTable);
+    astProgramInit(&checkedProgram, &stringTable);
     compilerInit(&c);
     scannerInit(&s, &c);
     parserInit(&p, &c, &s);
@@ -144,5 +146,6 @@ end:
     compilerFree(&c);
     astProgramFree(&checkedProgram);
     astProgramFree(&parsedProgram);
+    stringTableFree(&stringTable);
     return return_value;
 }

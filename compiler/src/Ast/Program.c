@@ -23,7 +23,7 @@ void astProgramPrint(FILE *to, ASTProgram *prog) {
 
     // Print string table
     fputs("ASTProgram{\x1b[1mstrings:\x1b[0m ", to);
-    stringTablePrint(to, &prog->strings);
+    stringTablePrint(to, prog->strings);
     fputs(", \x1b[1mmodules:\x1b[0m [", to);
     ARRAY_FOR(i, prog->modules) {
         astModulePrint(to, ARRAY_GET_AS(ASTModule *, &prog->modules, i), false);
@@ -34,15 +34,14 @@ void astProgramPrint(FILE *to, ASTProgram *prog) {
     fputs("]}", to);
 }
 
-void astProgramInit(ASTProgram *prog) {
+void astProgramInit(ASTProgram *prog, StringTable *st) {
     arrayInit(&prog->modules);
-    stringTableInit(&prog->strings);
+    prog->strings = st;
 }
 
 void astProgramFree(ASTProgram *prog) {
     arrayMap(&prog->modules, free_module_callback, NULL);
     arrayFree(&prog->modules);
-    stringTableFree(&prog->strings);
 }
 
 ModuleID astProgramNewModule(ASTProgram *prog, ASTString name) {

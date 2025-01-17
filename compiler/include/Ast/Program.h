@@ -12,7 +12,7 @@
  * It also owns the StringTable for the entire program.
  **/
 typedef struct ast_program {
-    StringTable strings;
+    StringTable *strings;
     Array modules; // Array<ASTModule *>;
 } ASTProgram;
 
@@ -34,8 +34,9 @@ void astProgramPrint(FILE *to, ASTProgram *prog);
  * Initializes an ASTProgram.
  *
  * @param prog The ASTProgram to initialize.
+ * @param st The string table to use in this program.
  **/
-void astProgramInit(ASTProgram *prog);
+void astProgramInit(ASTProgram *prog, StringTable *st);
 
 /**
  * Frees all resources stored in an ASTProgram.

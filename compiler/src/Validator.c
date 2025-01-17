@@ -219,7 +219,7 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *expr) {
                     NODE_AS(ASTConstantValueExpr, checkedExpr)->as.number = NODE_AS(ASTConstantValueExpr, expr)->as.number;
                     break;
                 case EXPR_STRING_CONSTANT:
-                    NODE_AS(ASTConstantValueExpr, checkedExpr)->as.string = stringTableString(&v->checkedProgram->strings, NODE_AS(ASTConstantValueExpr, expr)->as.string);
+                    NODE_AS(ASTConstantValueExpr, checkedExpr)->as.string = stringTableString(v->checkedProgram->strings, NODE_AS(ASTConstantValueExpr, expr)->as.string);
                     break;
                 default:
                     UNREACHABLE();
@@ -308,7 +308,7 @@ static ASTStmtNode *validateStmt(Validator *v, ASTStmtNode *stmt) {
     switch(stmt->type) {
         // VarDecl nodes
         case STMT_VAR_DECL:
-            // Note: no need for TRY() since if validate...() returns NULL, we simply also return NULL.
+            // Note: no need for TRY() since we return whatever validateVariableDecl() returns, even if it is NULL.
             checkedStmt = validateVariableDecl(v, NODE_AS(ASTVarDeclStmt, stmt));
             break;
         // Block nodes
@@ -335,15 +335,19 @@ static ASTStmtNode *validateStmt(Validator *v, ASTStmtNode *stmt) {
             }
             checkedStmt = (ASTStmtNode *)astBlockStmtNew(getCurrentAllocator(v), stmt->location, scope, &checkedNodes);
             arrayFree(&checkedNodes);
+            break;
         }
-        break;
         // Conditional nodes
         case STMT_IF:
         // Loop nodes
         case STMT_LOOP:
         // Expr nodes
         case STMT_RETURN:
-        case STMT_EXPR:
+        case STMT_EXPR: {
+            ASTExprNode *checkedExpr = TRY(ASTExprNode *, validateExpr(v, NODE_AS(ASTExprStmt, stmt)->expression));
+            checkedStmt = (ASTStmtNode *)astExprStmtNew(getCurrentAllocator(v), stmt->type, stmt->location, checkedExpr);
+            break;
+        }
         // Defer nodes
         case STMT_DEFER:
         default:
@@ -396,7 +400,7 @@ static void validateFunction(Validator *v, ASTObj *fn) {
 
     ASTStmtNode *body = validateStmt(v, NODE_AS(ASTStmtNode, fn->as.fn.body));
     if(!body) {
-        // Note: can't use TRY() since function doesn't return anything.
+        // Note: can't use TRY() since this function doesn't return anything.
         return;
     }
     fn->as.fn.body = NODE_AS(ASTBlockStmt, body);

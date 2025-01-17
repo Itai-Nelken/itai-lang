@@ -357,7 +357,7 @@ static ASTExprNode *parse_call_expr(Parser *p, ASTExprNode *callee) {
 
 static ASTExprNode *parse_identifier_expr(Parser *p) {
     Token prev = previous(p);
-    ASTString id = stringTableFormat(&p->program->strings, "%.*s", prev.length, prev.lexeme);
+    ASTString id = stringTableFormat(p->program->strings, "%.*s", prev.length, prev.lexeme);
     return NODE_AS(ASTExprNode, astIdentifierExprNew(getCurrentAllocator(p), prev.location, id));
 }
 
@@ -500,7 +500,7 @@ static ASTStmtNode *parseStatement(Parser *p) {
 static ASTString parseIdentifier(Parser *p) {
     TRY_CONSUME(p, TK_IDENTIFIER);
     Token idTk = previous(p);
-    return stringTableFormat(&p->program->strings, "%.*s", idTk.length, idTk.lexeme);
+    return stringTableFormat(p->program->strings, "%.*s", idTk.length, idTk.lexeme);
 }
 
 // identifier_type -> identifier
@@ -536,7 +536,7 @@ static Type *makeFunctionTypeWithParameterTypes(Parser *p, Array parameterTypes,
         arrayPush(&ty->as.fn.parameterTypes, paramType);
     }
     char *name = tmp_buffer_append(p, ")->%s", returnType->name);
-    ASTString typename = stringTableString(&p->program->strings, name);
+    ASTString typename = stringTableString(p->program->strings, name);
     ty->name = typename;
     Type *existingType = astModuleGetType(getCurrentModule(p), typename);
     if(existingType) {
@@ -804,7 +804,7 @@ static void import_primitive_types(Parser *p, ModuleID mID) {
     // We "import" the primitive types into each module.
     // In reality, we create new types each time, but since
     // primitives are equal by their TypeType, this doesn't matter.
-#define DEF(type, typenameInParser, name) {Type *ty = typeNew((type), stringTableString(&prog->strings, (name)), EMPTY_LOCATION, mID); astModuleAddType(module, ty); p->primitives.typenameInParser = ty;}
+#define DEF(type, typenameInParser, name) {Type *ty = typeNew((type), stringTableString(prog->strings, (name)), EMPTY_LOCATION, mID); astModuleAddType(module, ty); p->primitives.typenameInParser = ty;}
 
     DEF(TY_VOID, void_, "void");
     DEF(TY_I32, int32, "i32");
@@ -885,7 +885,7 @@ bool parserParse(Parser *p, ASTProgram *prog) {
     }
 
     // The root module represents the top level (file) scope).
-    if(!parseModuleBody(p, stringTableString(&prog->strings, "___root_module___"))) {
+    if(!parseModuleBody(p, stringTableString(prog->strings, "___root_module___"))) {
         // Errors have already been reported
         p->program = NULL;
         return false;
