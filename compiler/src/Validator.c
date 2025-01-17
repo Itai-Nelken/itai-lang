@@ -299,6 +299,9 @@ static ASTStmtNode *validateStmt(Validator *v, ASTStmtNode *stmt) {
         case STMT_VAR_DECL:
             // Note: no need for TRY() since we return whatever validateVariableDecl() returns, even if it is NULL.
             checkedStmt = validateVariableDecl(v, NODE_AS(ASTVarDeclStmt, stmt));
+            if(checkedStmt) {
+                scopeAddObject(getCurrentCheckedScope(v), NODE_AS(ASTVarDeclStmt, checkedStmt)->variable);
+            }
             break;
         // Block nodes
         case STMT_BLOCK: {
