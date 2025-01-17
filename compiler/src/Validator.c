@@ -330,9 +330,20 @@ static ASTStmtNode *validateStmt(Validator *v, ASTStmtNode *stmt) {
             break;
         }
         // Conditional nodes
-        case STMT_IF:
+        case STMT_IF: {
+            ASTConditionalStmt *condNode = NODE_AS(ASTConditionalStmt, stmt);
+            ASTExprNode *condition = TRY(ASTExprNode *, validateExpr(v, condNode->condition));
+            ASTStmtNode *then = TRY(ASTStmtNode *, validateStmt(v, condNode->then));
+            ASTStmtNode *else_ = NULL;
+            if(condNode->else_) {
+                else_ = TRY(ASTStmtNode *, validateStmt(v, condNode->else_));
+            }
+            checkedStmt = (ASTStmtNode *)astConditionalStmtNew(getCurrentAllocator(v), stmt->location, condition, then, else_);
+            break;
+        }
         // Loop nodes
         case STMT_LOOP:
+            UNREACHABLE();
         // Expr nodes
         case STMT_RETURN:
         case STMT_EXPR: {
