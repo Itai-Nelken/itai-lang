@@ -112,7 +112,7 @@ void astExprPrint(FILE *to, ASTExprNode *n) {
             break;
         case EXPR_VARIABLE:
         case EXPR_FUNCTION:
-            fputs(", \x1b[1mobj:\x1b[0m", to);
+            fputs(", \x1b[1mobj:\x1b[0m ", to);
             astObjectPrint(to, NODE_AS(ASTObjExpr, n)->obj, true);
             break;
         case EXPR_ASSIGN:

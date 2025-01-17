@@ -19,7 +19,7 @@ struct object_print_data {
 static void print_object_callback(TableItem *item, bool is_last, void *cl) {
     struct object_print_data *data = (struct object_print_data *)cl;
     astObjectPrint(data->to, (ASTObj *)item->value, false);
-    if(is_last && !data->skip_last_comma) {
+    if(!is_last || !data->skip_last_comma) {
         fputs(", ", data->to);
     }
 }
@@ -41,11 +41,12 @@ void scopePrint(FILE *to, Scope *sc, bool recursive) {
     fputs("Scope{\x1b[1mobjects:\x1b[0m [", to);
     struct object_print_data objPrintData = {
         .to = to,
-        .skip_last_comma = false
+        // Note: change table to last table printed when adding more tables.
+        .skip_last_comma = tableSize(&sc->functions) == 0 // if true, skip last comma.
     };
     tableMap(&sc->variables, print_object_callback, (void *)&objPrintData);
     objPrintData.skip_last_comma = true;
-    tableMap(&sc->variables, print_object_callback, (void *)&objPrintData);
+    tableMap(&sc->functions, print_object_callback, (void *)&objPrintData);
 
     String depthStr = stringNew(33); // 33 is the length of SCOPE_DEPTH_MODULE_NAMESPACE
     switch(sc->depth) {
