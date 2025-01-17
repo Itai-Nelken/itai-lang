@@ -41,6 +41,14 @@ void tableInit(Table *t, tableHashFn hashFn, tableCmpFn cmpFn);
  ***/
 void tableFree(Table *t);
 
+/**
+ * Get the size of a table (i.e. how many items stored in said table.)
+ *
+ * @param t The table to get the size of.
+ * @return The size of the table.
+ **/
+size_t tableSize(Table *t);
+
 /***
  * Insert a value to a table. If the key already exists in the table, its value is changed.
  * NOTE: the values are owned by the caller.

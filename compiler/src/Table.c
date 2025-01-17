@@ -39,6 +39,10 @@ void tableFree(Table *t) {
     }
 }
 
+size_t tableSize(Table *t) {
+    return t->used;
+}
+
 // TODO: as the capacity will be powers of 2, we can use bitwise AND instead of modulo
 static Item *findItem(tableCmpFn cmp, Item *items, size_t capacity, void *key, unsigned hash) {
     unsigned index = hash % capacity;
