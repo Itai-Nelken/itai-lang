@@ -817,7 +817,7 @@ static void synchronizeToFnStructDecl(Parser *p) {
     //        TK_EXTERN and TK_STRUCT. The infinite loop happened because
     //        the parser doesn't know how to handle those tokens yet, but
     //        the synchronizer does.
-    //        See notes in commit d0348d0: Parser: don't get stuck in sync->fail->sync->... infinite loops
+    //        See notes in commit 5473080de67a0e1d38cf80c80189169492a9b003: Parser: don't get stuck in sync->fail->sync->... infinite loops
     if(current(p).type == p->state.prevSyncTo) {
         advance(p); // So we don't get stuck in a sync->fail->sync->... infinite loop.
     }

@@ -1,4 +1,4 @@
-/// expect error: Error: Undeclared variable 'a'.
+/// expect error: Error: Identifier 'a' doesn't exist.
 
 fn main() {
 	a;
