@@ -99,7 +99,9 @@ static void hint(Validator *v, Location loc, const char *format, ...) {
 
 // Find an ASTObj that is visible in the current scope (i.e. is in it or a parent scope.)
 static ASTObj *findObjVisibleInCurrentScope(Validator *v, ASTString name) {
-    Scope *sc = getCurrentCheckedScope(v); // FIXME: should be parsed scope since it already has all objects?
+    // FIXME: checked scope won't have all objects here,
+    //        so this function will return NULL for already declared objects...
+    Scope *sc = getCurrentCheckedScope(v);
     while(sc != NULL) {
         ASTObj *obj = scopeGetAnyObject(sc, name);
         if(obj) {
@@ -276,9 +278,6 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *expr) {
             ASTString name = NODE_AS(ASTIdentifierExpr, expr)->id;
             ASTObj *obj = findObjVisibleInCurrentScope(v, name);
             if(!obj) {
-                obj = scopeGetObject(getCurrentCheckedScope(v), OBJ_FN, name);
-            }
-            if(!obj) {
                 error(v, expr->location, "Identifier '%s' doesn't exist.", name);
                 break;
             }
@@ -345,10 +344,18 @@ static ASTStmtNode *validateStmt(Validator *v, ASTStmtNode *stmt) {
         case STMT_LOOP:
             UNREACHABLE();
         // Expr nodes
-        case STMT_RETURN:
+        case STMT_RETURN: {
+            // Can't use same code as STMT_EXPR due to return statements not requiring an operand.
+            ASTExprNode *checkedOperand = NULL;
+            if(NODE_AS(ASTExprStmt, stmt)->expression) {
+                checkedOperand = TRY(ASTExprNode *, validateExpr(v, NODE_AS(ASTExprStmt, stmt)->expression));
+            }
+            checkedStmt = (ASTStmtNode *)astExprStmtNew(getCurrentAllocator(v), STMT_RETURN, stmt->location, checkedOperand);
+            break;
+        }
         case STMT_EXPR: {
             ASTExprNode *checkedExpr = TRY(ASTExprNode *, validateExpr(v, NODE_AS(ASTExprStmt, stmt)->expression));
-            checkedStmt = (ASTStmtNode *)astExprStmtNew(getCurrentAllocator(v), stmt->type, stmt->location, checkedExpr);
+            checkedStmt = (ASTStmtNode *)astExprStmtNew(getCurrentAllocator(v), STMT_EXPR, stmt->location, checkedExpr);
             break;
         }
         // Defer nodes
