@@ -92,8 +92,6 @@ void scopeFree(Scope *scope) {
     arrayMap(&scope->children, free_scope_callback, NULL);
     arrayFree(&scope->children);
 
-    // Note: the objects themselves are owned by the array
-    //       and are freed above.
     tableFree(&scope->variables);
     tableFree(&scope->functions);
 

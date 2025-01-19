@@ -99,9 +99,9 @@ static void hint(Validator *v, Location loc, const char *format, ...) {
 
 // Find an ASTObj that is visible in the current scope (i.e. is in it or a parent scope.)
 static ASTObj *findObjVisibleInCurrentScope(Validator *v, ASTString name) {
-    // FIXME: checked scope won't have all objects here,
-    //        so this function will return NULL for already declared objects...
-    Scope *sc = getCurrentCheckedScope(v);
+    // Note: since objects are validated in place (i.e. a checked object's address is the same as the parsed object's address (if both refer to the same object)),
+    //       we can check the parsed scope (where all obejcts already exist).
+    Scope *sc = getCurrentParsedScope(v);
     while(sc != NULL) {
         ASTObj *obj = scopeGetAnyObject(sc, name);
         if(obj) {
