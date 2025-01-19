@@ -75,6 +75,7 @@ void typeFree(Type *ty) {
     switch(ty->type) {
         case TY_FUNCTION:
             // Note: types are owned by modules, and so should be freed by them as well.
+            //       (refering to the parameter types here.)
             arrayFree(&ty->as.fn.parameterTypes);
             break;
         default:

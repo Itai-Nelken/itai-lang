@@ -35,9 +35,9 @@ typedef struct type {
     Location declLocation;
     ModuleID declModule;
     union {
-        //struct {
-        //    struct type *innerType;
-        //} ptr;
+        struct {
+            struct type *innerType;
+        } ptr;
         struct {
             struct type *returnType;
             Array parameterTypes; // Array<Type *>

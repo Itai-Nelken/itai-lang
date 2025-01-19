@@ -162,9 +162,12 @@ static Type *validateType(Validator *v, Type *parsedTy) {
             // Primitive types. Nothing to do. Simply make a new checked type and copy over the same data.
             checkedTy = typeNew(parsedTy->type, parsedTy->name, parsedTy->declLocation, parsedTy->declModule);
             break;
-        case TY_POINTER:
-            LOG_ERR("[Validator]: pointer types not supported yet.");
-            UNREACHABLE();
+        case TY_POINTER: {
+            Type *pointee = validateType(v, parsedTy->as.ptr.innerType);
+            checkedTy = typeNew(TY_POINTER, parsedTy->name, parsedTy->declLocation, parsedTy->declModule);
+            checkedTy->as.ptr.innerType = pointee;
+            break;
+        }
         case TY_FUNCTION:
             checkedTy = typeNew(TY_FUNCTION, parsedTy->name, parsedTy->declLocation, parsedTy->declModule);
             ARRAY_FOR(i, parsedTy->as.fn.parameterTypes) {

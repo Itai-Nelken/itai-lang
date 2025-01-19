@@ -654,9 +654,11 @@ static Type *parseType(Parser *p) {
         ty = TRY(Type *, parseComplexType(p));
     }
     if(isPointer) {
-        // TODO: create the pointer type.
-        LOG_ERR("Pointer types not supported yet!");
-        UNREACHABLE();
+        // Note: using p.current.module because we need the ModuleID, not the module itself.
+        Type *pointee = ty;
+        ty = typeNew(TY_POINTER, tmp_buffer_format(p, "&%s", ty->name), EMPTY_LOCATION, p->current.module);
+        ty->as.ptr.innerType = pointee;
+        astModuleAddType(getCurrentModule(p), ty);
     }
     return ty;
 }
@@ -694,7 +696,7 @@ static ASTVarDeclStmt *parseVarDecl(Parser *p, bool allowInitializer) {
     return astVarDeclStmtNew(getCurrentAllocator(p), loc, obj, initializer);
 }
 
-// parameter_list -> typed_var+ (',' typed_var)*
+// parameter_list -> typed_var+ (',' typed_var)* [requires typed_var to have a type]
 // parameters: Array<ASTObj *>
 static bool parseParameterList(Parser *p, Array *parameters) {
     bool hadError = false;
@@ -733,6 +735,7 @@ static ASTObj *parseFunctionDecl(Parser *p) {
     }
 
     Type *returnType = astModuleGetType(getCurrentModule(p), "void");
+    VERIFY(returnType != NULL); // If this fails, there is a bug with the type management system.
     if(match(p, TK_ARROW)) {
         Type *parsedReturnType = parseType(p);
         if(!parsedReturnType) {
