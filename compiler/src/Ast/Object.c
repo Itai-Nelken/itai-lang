@@ -68,10 +68,10 @@ ASTObj *astObjectNew(ASTObjType type, Location loc, ASTString name, Type *dataTy
     return obj;
 }
 
-static void free_object_callback(void *object, void *cl) {
-    UNUSED(cl);
-    astObjectFree((ASTObj *)object);
-}
+//static void free_object_callback(void *object, void *cl) {
+//    UNUSED(cl);
+//    astObjectFree((ASTObj *)object);
+//}
 
 void astObjectFree(ASTObj *obj) {
     switch(obj->type) {
@@ -79,8 +79,9 @@ void astObjectFree(ASTObj *obj) {
             // nothing
             break;
         case OBJ_FN:
-            // TODO: objects should REALLY be stored in an arena. That would save so much pain.
-            arrayMap(&obj->as.fn.parameters, free_object_callback, NULL);
+            // Note: objects are owned and freed by ASTModules, so if we free all
+            //      objects here we will double free OBJ_VARs refering to parameters.
+            //arrayMap(&obj->as.fn.parameters, free_object_callback, NULL);
             arrayFree(&obj->as.fn.parameters);
             break;
         default:
