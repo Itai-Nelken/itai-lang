@@ -26,17 +26,7 @@ void typePrint(FILE *to, Type *ty, bool compact) {
         return;
     }
     if(compact) {
-        fprintf(to, "Type{\x1b[1;33m%s\x1b[0m", type_type_to_string(ty->type));
-        if(ty->type == TY_POINTER) {
-            //fprintf(to, ", \x1b[1minner:\x1b[0m ");
-            //typePrint(to, ty->as.ptr.innerType, true);
-            LOG_ERR("Pointer pretty-printing not implemented yet.");
-            UNREACHABLE();
-        } else {
-            // FIXME: always print name?
-            fprintf(to, ", '%s'", ty->name);
-        }
-        fputc('}', to);
+        fprintf(to, "Type{%s}", ty->name);
         return;
     }
     // verbose output
