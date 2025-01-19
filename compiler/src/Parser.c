@@ -751,6 +751,10 @@ static ASTObj *parseFunctionDecl(Parser *p) {
         return NULL;
     }
     Scope *scope = enterScope(p, SCOPE_DEPTH_BLOCK);
+    ARRAY_FOR(i, parameters) {
+        ASTObj *param = ARRAY_GET_AS(ASTObj *, &parameters, i);
+        scopeAddObject(scope, param);
+    }
     ASTBlockStmt *body = parseBlockStmt(p, scope, parseFunctionBodyStatements);
     leaveScope(p);
     if(!body) {
