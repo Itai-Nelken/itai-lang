@@ -34,11 +34,33 @@ void typePrint(FILE *to, Type *ty, bool compact) {
     fprintf(to, ", \x1b[1mname:\x1b[0m '%s', \x1b[1mdeclLocation:\x1b[0m ", ty->name);
     locationPrint(to, ty->declLocation, true);
     fprintf(to, ", \x1b[1mdeclModule:\x1b[0;34m %zu\x1b[0m", ty->declModule);
-    //switch(ty->type) {
-    //    // TODO: handle ptr, fn, struct types
-    //    default:
-    //        UNREACHABLE();
-    //}
+    switch(ty->type) {
+        case TY_VOID:
+        case TY_I32:
+        //case TY_U32:
+        //case TY_STR:
+            break;
+        case TY_POINTER:
+            fputs(", \x1b[1minnerType:\x1b[0m ", to);
+            typePrint(to, ty->as.ptr.innerType, true);
+            break;
+        case TY_FUNCTION:
+            fputs(", \x1b[returnType:\x1b[0m ", to);
+            typePrint(to, ty->as.ptr.innerType, true);
+            fputs("\x1b[1mparameterTypes:\x1b[0m [", to);
+            ARRAY_FOR(i, ty->as.fn.parameterTypes) {
+                typePrint(to, ARRAY_GET_AS(Type *, &ty->as.fn.parameterTypes, i), true);
+                if(i + 1 < arrayLength(&ty->as.fn.parameterTypes)) {
+                    fputs(", ", to);
+                }
+            }
+            break;
+        case TY_STRUCT:
+            LOG_ERR("Struct type pretty-printing not supported yet.");
+            // fallthrough
+        default:
+            UNREACHABLE();
+    }
     fputc('}', to);
 }
 
