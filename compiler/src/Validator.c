@@ -415,7 +415,7 @@ static ASTStmtNode *validateVariableDecl(Validator *v, ASTVarDeclStmt *varDecl) 
     Type *varTy = varDecl->variable->dataType ? varDecl->variable->dataType : exprDataType(v, checkedInit);
     if(varTy == NULL) {
         error(v, varDecl->variable->location, "Cannot infer type of variable '%s'.", varDecl->variable->name);
-        hint(v, varDecl->header.location, "Consider adding an explicit type%s.", checkedInit ? "" : " or initializer");
+        hint(v, varDecl->header.location, "Consider adding an explicit type%s.", checkedInit ? "" : " or an initializer");
         return NULL;
     }
     if(varTy->type == TY_VOID) {

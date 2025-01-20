@@ -610,6 +610,7 @@ static Type *parseFunctionType(Parser *p) {
     }
 
     Type *ty = makeFunctionTypeWithParameterTypes(p, parameterTypes, returnType);
+    arrayFree(&parameterTypes);
     return ty;
 }
 
