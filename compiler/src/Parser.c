@@ -683,7 +683,7 @@ static ASTVarDeclStmt *parseVarDecl(Parser *p, bool allowInitializer) {
     // Note: do NOT add to scope. we only parse!
     // Assumes 'var' has already been consumed.
     Location start = previous(p).location;
-    ASTObj *obj = parseTypedVariable(p);
+    ASTObj *obj = TRY(ASTObj *, parseTypedVariable(p));
 
     ASTExprNode *initializer = NULL;
     if(match(p, TK_EQUAL)) {

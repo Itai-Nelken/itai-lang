@@ -270,7 +270,14 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *expr) {
         // Call node
         case EXPR_CALL: {
             ASTCallExpr *call = NODE_AS(ASTCallExpr, expr);
-            ASTExprNode *callee = validateExpr(v, call->callee);
+            ASTExprNode *callee = TRY(ASTExprNode *, validateExpr(v, call->callee));
+            // a callable object is either a function or a variable that refers to a function.
+            #define IS_CALLABLE(expr) (NODE_IS(expr, EXPR_FUNCTION) || (NODE_IS(expr, EXPR_VARIABLE) && NODE_AS(ASTObjExpr, expr)->obj->dataType->type == TY_FUNCTION))
+            if(!IS_CALLABLE(callee)) {
+                VERIFY(callee->dataType); // FIXME: if fails, make sure exprDataType() is called.
+                error(v, callee->location, "Type '%s' isn't callable.", callee->dataType->name);
+            }
+            #undef IS_CALLABLE
             Array checkedArguments;
             arrayInitSized(&checkedArguments, arrayLength(&call->arguments));
             bool hadError = false;
