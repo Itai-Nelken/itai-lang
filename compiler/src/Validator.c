@@ -397,7 +397,7 @@ static ASTStmtNode *validateStmt(Validator *v, ASTStmtNode *stmt) {
 
 static ASTStmtNode *validateVariableDecl(Validator *v, ASTVarDeclStmt *varDecl) {
     if(scopeHasObject(getCurrentCheckedScope(v), varDecl->variable)) {
-        error(v, varDecl->variable->location, "Redeclaration of module variable '%s'", varDecl->variable->name);
+        error(v, varDecl->variable->location, "Redeclaration of variable '%s'", varDecl->variable->name);
         ASTObj *prevDecl = scopeGetObject(getCurrentParsedScope(v), OBJ_VAR, varDecl->variable->name);
         hint(v, prevDecl->location, "Previous declaration was here.");
         return NULL;
@@ -450,10 +450,20 @@ static void validateFunction(Validator *v, ASTObj *fn) {
 
 static void validateScope(Validator *v, Scope *scope) {
     Array objects;
+    Table declaredSymbols; // Table<ASTString, ASTObj *>
     arrayInit(&objects);
+    tableInit(&declaredSymbols, NULL, NULL);
     scopeGetAllObjects(scope, &objects);
     ARRAY_FOR(i, objects) {
         ASTObj *obj = ARRAY_GET_AS(ASTObj *, &objects, i);
+        TableItem *item = NULL;
+        if((item = tableGet(&declaredSymbols, (void *)obj->name)) != NULL) {
+            error(v, obj->location, "Symbol '%s' already exists in this scope.", obj->name);
+            ASTObj *prev = (ASTObj *)item->value;
+            hint(v, prev->location, "Previous declaration was here.");
+            continue;
+        }
+        tableSet(&declaredSymbols, (void *)obj->name, (void *)obj);
         switch(obj->type) {
             case OBJ_VAR:
                 break;
@@ -465,6 +475,7 @@ static void validateScope(Validator *v, Scope *scope) {
         }
         scopeAddObject(getCurrentCheckedScope(v), obj);
     }
+    tableFree(&declaredSymbols);
     arrayFree(&objects);
 }
 
