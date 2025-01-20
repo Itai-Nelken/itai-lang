@@ -585,14 +585,16 @@ static Type *parseFunctionType(Parser *p) {
     Array parameterTypes; // Array<Type *>
     arrayInit(&parameterTypes);
     bool hadError = false;
-    do {
-        Type *ty = parseType(p);
-        if(ty) {
-            arrayPush(&parameterTypes, (void *)ty);
-        } else {
-            hadError = true;
-        }
-    } while(match(p, TK_COMMA));
+    if(current(p).type != TK_RPAREN) { // if there are any parameter types, parse them.
+        do {
+            Type *ty = parseType(p);
+            if(ty) {
+                arrayPush(&parameterTypes, (void *)ty);
+            } else {
+                hadError = true;
+            }
+        } while(match(p, TK_COMMA));
+    }
     if(hadError || !consume(p, TK_RPAREN)) {
         // Note: the parsed types were already added to the type table, so we don't have to free them.
         arrayFree(&parameterTypes);
