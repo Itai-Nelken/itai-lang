@@ -637,7 +637,7 @@ static Type *parsePrimitiveType(Parser *p) {
         default:
             break;
     }
-    if(ty) { // Note: to use a switch statement, we can't use match().
+    if(ty) { // Note: to be able to use a switch statement, we can't use match().
         advance(p);
     }
     return ty;

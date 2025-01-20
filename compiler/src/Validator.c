@@ -13,9 +13,11 @@ void validatorInit(Validator *v, Compiler *c) {
     v->hadError = false;
     v->current.checkedScope = v->current.parsedScope = NULL;
     v->current.module = 0;
+    tableInit(&v->current.localVarsAlreadyDeclaredInCurrentFunction, NULL, NULL);
 }
 
 void validatorFree(Validator *v) {
+    tableFree(&v->current.localVarsAlreadyDeclaredInCurrentFunction);
     // Set everything to 0 (NULL/false)
     memset(v, 0, sizeof(*v));
 }
@@ -98,13 +100,17 @@ static void hint(Validator *v, Location loc, const char *format, ...) {
 }
 
 // Find an ASTObj that is visible in the current scope (i.e. is in it or a parent scope.)
-static ASTObj *findObjVisibleInCurrentScope(Validator *v, ASTString name) {
+// depth: if not NULL, the variable pointed to will be set to the scope depth of the return object.
+static ASTObj *findObjVisibleInCurrentScope(Validator *v, ASTString name, ScopeDepth *depth) {
     // Note: since objects are validated in place (i.e. a checked object's address is the same as the parsed object's address (if both refer to the same object)),
     //       we can check the parsed scope (where all obejcts already exist).
     Scope *sc = getCurrentParsedScope(v);
     while(sc != NULL) {
         ASTObj *obj = scopeGetAnyObject(sc, name);
         if(obj) {
+            if(depth) {
+                *depth = sc->depth;
+            }
             return obj;
         }
         sc = sc->parent;
@@ -285,9 +291,16 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *expr) {
         case EXPR_IDENTIFIER: {
             // Find object with same name that is visible in current scope and replace IDENT node with it.
             ASTString name = NODE_AS(ASTIdentifierExpr, expr)->id;
-            ASTObj *obj = findObjVisibleInCurrentScope(v, name);
+            ScopeDepth scopeLocation; // Note: if [obj] is not NULL, scopeLocation will be set.
+            ASTObj *obj = findObjVisibleInCurrentScope(v, name, &scopeLocation);
             if(!obj) {
                 error(v, expr->location, "Identifier '%s' doesn't exist.", name);
+                break;
+            }
+            // If the object is not in the module namespace ("global"), check if it has already been declared.
+            // Note: declaration order doesn't matter in the module namespace.
+            if(scopeLocation != SCOPE_DEPTH_MODULE_NAMESPACE && tableGet(&v->current.localVarsAlreadyDeclaredInCurrentFunction, (void *)name) == NULL) {
+                error(v, expr->location, "Variable '%s' is not yet declared.", name);
                 break;
             }
             checkedExpr = (ASTExprNode *)astObjExprNew(getCurrentAllocator(v), obj->type == OBJ_VAR ? EXPR_VARIABLE : EXPR_FUNCTION, expr->location, obj);
@@ -309,6 +322,13 @@ static ASTStmtNode *validateStmt(Validator *v, ASTStmtNode *stmt) {
             checkedStmt = validateVariableDecl(v, NODE_AS(ASTVarDeclStmt, stmt));
             if(checkedStmt) {
                 scopeAddObject(getCurrentCheckedScope(v), NODE_AS(ASTVarDeclStmt, checkedStmt)->variable);
+                // Note: this check is only here to make sure I don't call this function when
+                //       not validating a function. So far, I don't think there will be any reason to do so,
+                //       but if there is one day and I forget to change the code here, this assert will
+                //       remind me.
+                VERIFY(getCurrentCheckedScope(v)->depth >= SCOPE_DEPTH_BLOCK);
+                // Set the variable as already declared in the current function (i.e. accessible).
+                tableSet(&v->current.localVarsAlreadyDeclaredInCurrentFunction, (void *)NODE_AS(ASTVarDeclStmt, checkedStmt)->variable->name, NULL);
             }
             break;
         // Block nodes
@@ -411,6 +431,8 @@ static void validateFunction(Validator *v, ASTObj *fn) {
         } else {
             param->dataType = getType(v, param->dataType->name);
         }
+        // Set the parameter as already declared (i.e. accessible).
+        tableSet(&v->current.localVarsAlreadyDeclaredInCurrentFunction, (void *)param->name, NULL);
     }
     if(hasBadParameter) {
         return;
@@ -423,6 +445,7 @@ static void validateFunction(Validator *v, ASTObj *fn) {
         return;
     }
     fn->as.fn.body = NODE_AS(ASTBlockStmt, body);
+    tableClear(&v->current.localVarsAlreadyDeclaredInCurrentFunction, NULL, NULL);
 }
 
 static void validateScope(Validator *v, Scope *scope) {
