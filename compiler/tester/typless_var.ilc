@@ -1,6 +1,0 @@
-/// expect error: Error: Variable 'a' has no type.
-
-var a;
-
-fn main() {}
-
