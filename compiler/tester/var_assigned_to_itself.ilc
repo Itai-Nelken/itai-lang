@@ -1,4 +1,4 @@
-/// expect error: Error: Variable 'a' assigned to itself in declaration.
+/// expect error: Error: Variable 'a' is not declared yet.
 
 fn main() {
 	var a = a;
