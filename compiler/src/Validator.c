@@ -243,12 +243,12 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *expr) {
         case EXPR_GT:
         case EXPR_GE: {
             #define IS_ASSIGNMENT_TARGET(expr) ((expr)->type == EXPR_VARIABLE || (expr)->type == EXPR_DEREF || (expr)->type == EXPR_PROPERTY_ACCESS)
-            ASTExprNode *lhs = validateExpr(v, NODE_AS(ASTBinaryExpr, expr)->lhs);
+            ASTExprNode *lhs = TRY(ASTExprNode *, validateExpr(v, NODE_AS(ASTBinaryExpr, expr)->lhs));
             if(NODE_IS(expr, EXPR_ASSIGN) && !IS_ASSIGNMENT_TARGET(lhs)) {
                 error(v, lhs->location, "Invalid assignment target (only variables can be assigned).");
                 break;
             }
-            ASTExprNode *rhs = validateExpr(v, NODE_AS(ASTBinaryExpr, expr)->rhs);
+            ASTExprNode *rhs = TRY(ASTExprNode *, validateExpr(v, NODE_AS(ASTBinaryExpr, expr)->rhs));
             checkedExpr = (ASTExprNode *)astBinaryExprNew(getCurrentAllocator(v), expr->type, expr->location, NULL, lhs, rhs);
             checkedExpr->dataType = exprDataType(v, checkedExpr);
             break;
