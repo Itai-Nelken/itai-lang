@@ -261,6 +261,10 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *expr) {
             ASTExprNode *operand = validateExpr(v, NODE_AS(ASTUnaryExpr, expr)->operand);
             checkedExpr = (ASTExprNode *)astUnaryExprNew(getCurrentAllocator(v), expr->type, expr->location, NULL, operand);
             checkedExpr->dataType = exprDataType(v, checkedExpr);
+            if(expr->type == EXPR_DEREF && checkedExpr->dataType->type != TY_POINTER) {
+                error(v, expr->location, "Cannot dereference a non-pointer type.");
+                checkedExpr = NULL;
+            }
             break;
         }
         // Call node
