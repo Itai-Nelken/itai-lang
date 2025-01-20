@@ -273,8 +273,8 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *expr) {
             ASTExprNode *callee = TRY(ASTExprNode *, validateExpr(v, call->callee));
             // a callable object is either a function or a variable that refers to a function.
             #define IS_CALLABLE(expr) (NODE_IS(expr, EXPR_FUNCTION) || (NODE_IS(expr, EXPR_VARIABLE) && NODE_AS(ASTObjExpr, expr)->obj->dataType->type == TY_FUNCTION))
+            VERIFY(callee->dataType); // FIXME: if fails, make sure exprDataType() is called.
             if(!IS_CALLABLE(callee)) {
-                VERIFY(callee->dataType); // FIXME: if fails, make sure exprDataType() is called.
                 error(v, callee->location, "Type '%s' isn't callable.", callee->dataType->name);
             }
             #undef IS_CALLABLE
@@ -291,6 +291,14 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *expr) {
                 }
             }
             if(hadError || !callee) {
+                arrayFree(&checkedArguments);
+                break;
+            }
+            if(arrayLength(&callee->dataType->as.fn.parameterTypes) != arrayLength(&checkedArguments)) {
+                usize expected = arrayLength(&callee->dataType->as.fn.parameterTypes);
+                usize actual = arrayLength(&checkedArguments);
+                error(v, callee->location, "Expected %lu argument%s but got %lu.", expected, expected != 1 ? "s" : "", actual);
+                // TODO: hint to where fn is declared. Can't do simply right now since callee may be a variable refering to a function.
                 arrayFree(&checkedArguments);
                 break;
             }
