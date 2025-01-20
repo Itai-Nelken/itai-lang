@@ -258,10 +258,10 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *expr) {
         case EXPR_NEGATE:
         case EXPR_ADDROF:
         case EXPR_DEREF: {
-            ASTExprNode *operand = validateExpr(v, NODE_AS(ASTUnaryExpr, expr)->operand);
+            ASTExprNode *operand = TRY(ASTExprNode *, validateExpr(v, NODE_AS(ASTUnaryExpr, expr)->operand));
             checkedExpr = (ASTExprNode *)astUnaryExprNew(getCurrentAllocator(v), expr->type, expr->location, NULL, operand);
             checkedExpr->dataType = exprDataType(v, checkedExpr);
-            if(expr->type == EXPR_DEREF && checkedExpr->dataType->type != TY_POINTER) {
+            if(NODE_IS(expr, EXPR_DEREF) && checkedExpr->dataType->type != TY_POINTER) {
                 error(v, expr->location, "Cannot dereference a non-pointer type.");
                 checkedExpr = NULL;
             }
@@ -304,7 +304,7 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *expr) {
             // If the object is not in the module namespace ("global"), check if it has already been declared.
             // Note: declaration order doesn't matter in the module namespace.
             if(scopeLocation != SCOPE_DEPTH_MODULE_NAMESPACE && tableGet(&v->current.localVarsAlreadyDeclaredInCurrentFunction, (void *)name) == NULL) {
-                error(v, expr->location, "Variable '%s' is not yet declared.", name);
+                error(v, expr->location, "Variable '%s' is not declared yet.", name);
                 break;
             }
             checkedExpr = (ASTExprNode *)astObjExprNew(getCurrentAllocator(v), obj->type == OBJ_VAR ? EXPR_VARIABLE : EXPR_FUNCTION, expr->location, obj);
@@ -416,6 +416,10 @@ static ASTStmtNode *validateVariableDecl(Validator *v, ASTVarDeclStmt *varDecl) 
     if(varTy == NULL) {
         error(v, varDecl->variable->location, "Cannot infer type of variable '%s'.", varDecl->variable->name);
         hint(v, varDecl->header.location, "Consider adding an explicit type%s.", checkedInit ? "" : " or initializer");
+        return NULL;
+    }
+    if(varTy->type == TY_VOID) {
+        error(v, varDecl->variable->location, "A variable cannot have the type 'void'.");
         return NULL;
     }
     ASTObj *checkedObj = astModuleNewObj(getCurrentCheckedModule(v), OBJ_VAR, varDecl->variable->location, varDecl->variable->name, varTy);
