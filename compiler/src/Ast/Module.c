@@ -100,7 +100,7 @@ void astModuleAddVarDecl(ASTModule *module, ASTVarDeclStmt *decl) {
 
 ASTObj *astModuleNewObj(ASTModule *module, ASTObjType objType, Location objLoc, ASTString objName, Type *objDataType) {
     ASTObj *obj = astObjectNew(objType, objLoc, objName, objDataType);
-    VERIFY(obj);
+    VERIFY(obj); // FIXME: this is not the right way to use an assertion.
     arrayPush(&module->objectOwner, (void *)obj);
     return obj;
 }

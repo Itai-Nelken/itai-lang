@@ -15,7 +15,6 @@ typedef struct validator {
     struct {
         Scope *parsedScope, *checkedScope;
         ModuleID module;
-        Table localVarsAlreadyDeclaredInCurrentFunction; // Table<ASTString, void>
     } current;
 } Validator;
 

@@ -25,6 +25,7 @@ typedef size_t usize;
 typedef float f32;
 typedef double f64;
 
+// TODO: remove in release builds (after checking that not used anywhere with side effects.)
 #define VERIFY(x) ((x) ? ((void)0) : assertFail(#x, __FILE__, __LINE__, __func__))
 
 #define UNREACHABLE() do { \

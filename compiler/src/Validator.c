@@ -2,6 +2,8 @@
 #include <string.h>
 #include "common.h"
 #include "memory.h"
+#include "Array.h"
+#include "Table.h"
 #include "Error.h"
 #include "Strings.h"
 #include "Ast/Ast.h"
@@ -13,11 +15,9 @@ void validatorInit(Validator *v, Compiler *c) {
     v->hadError = false;
     v->current.checkedScope = v->current.parsedScope = NULL;
     v->current.module = 0;
-    tableInit(&v->current.localVarsAlreadyDeclaredInCurrentFunction, NULL, NULL);
 }
 
 void validatorFree(Validator *v) {
-    tableFree(&v->current.localVarsAlreadyDeclaredInCurrentFunction);
     // Set everything to 0 (NULL/false)
     memset(v, 0, sizeof(*v));
 }
@@ -56,14 +56,15 @@ static inline Allocator *getCurrentAllocator(Validator *v) {
     return &getCurrentCheckedModule(v)->ast_allocator.alloc;
 }
 
-// Note: returned type is guaranteed to exist (not be NULL).
+// Notes: * Typename MUST be valid (C.R.E).
+//        * Returned type is guaranteed to exist (not be NULL, C.R.E).
 static Type *getType(Validator *v, const char *name) {
     Type *ty = astModuleGetType(getCurrentCheckedModule(v), name);
     VERIFY(ty);
     return ty;
 }
 
-// if !expr, returns NULL. otherwise expands to said result.
+// if !expr, returns NULL. otherwise expands to of expr.
 #define TRY(type, expr) ({ \
         type _tmp = (expr); \
         if(!_tmp) { \
@@ -159,371 +160,165 @@ static Type *exprDataType(Validator *v, ASTExprNode *expr) {
     }
 }
 
-static Type *validateType(Validator *v, Type *parsedTy) {
-    Type *checkedTy = NULL;
-    // TODO: identifier types.
-    switch(parsedTy->type) {
+// Notes:
+//   * C.R.E for [parsedType] to be NULL.
+//   * If the [parsedType] was already validated, the previously validated type will be returned.
+static Type *validateType(Validator *v, Type *parsedType) {
+    VERIFY(parsedType);
+    // * pointer types -> validate pointee
+    // * fn types -> validate param types + return type
+    // * struct types -> TODO
+    // * id types -> the struct type they refer to.
+
+    Type *checkedType = NULL;
+    if((checkedType = astModuleGetType(getCurrentCheckedModule(v), parsedType->name)) != NULL) {
+        return checkedType;
+    }
+
+    switch(parsedType->type) {
         case TY_VOID:
         case TY_I32:
-            // Primitive types. Nothing to do. Simply make a new checked type and copy over the same data.
-            checkedTy = typeNew(parsedTy->type, parsedTy->name, parsedTy->declLocation, parsedTy->declModule);
+        //case TY_U32:
+        //case TY_STR:
+            // Primitive types. Nothing to validate.
+            checkedType = typeNew(parsedType->type, parsedType->name, parsedType->declLocation, v->current.module);
             break;
         case TY_POINTER: {
-            Type *pointee = validateType(v, parsedTy->as.ptr.innerType);
-            checkedTy = typeNew(TY_POINTER, parsedTy->name, parsedTy->declLocation, parsedTy->declModule);
-            checkedTy->as.ptr.innerType = pointee;
+            Type *checkedPointee = TRY(Type *, validateType(v, parsedType->as.ptr.innerType));
+            checkedType = typeNew(TY_POINTER, parsedType->name, parsedType->declLocation, v->current.module);
+            checkedType->as.ptr.innerType = checkedPointee;
             break;
         }
-        case TY_FUNCTION:
-            checkedTy = typeNew(TY_FUNCTION, parsedTy->name, parsedTy->declLocation, parsedTy->declModule);
-            ARRAY_FOR(i, parsedTy->as.fn.parameterTypes) {
-                Type *paramType = validateType(v, ARRAY_GET_AS(Type *, &parsedTy->as.fn.parameterTypes, i));
-                if(paramType) {
-                    arrayPush(&checkedTy->as.fn.parameterTypes, (void *)paramType);
+        case TY_FUNCTION: {
+            bool hadBadParameter = false;
+            Array validatedParameterTypes;
+            arrayInitSized(&validatedParameterTypes, arrayLength(&parsedType->as.fn.parameterTypes));
+            ARRAY_FOR(i, parsedType->as.fn.parameterTypes) {
+                Type *parsedParamType = ARRAY_GET_AS(Type *, &parsedType->as.fn.parameterTypes, i);
+                Type *checkedParamType = validateType(v, parsedParamType);
+                if(checkedParamType) {
+                    arrayPush(&validatedParameterTypes, (void *)checkedParamType);
+                } else {
+                    hadBadParameter = true;
                 }
             }
-            checkedTy->as.fn.returnType = validateType(v, parsedTy->as.fn.returnType);
+
+            Type *checkedReturnType = validateType(v, parsedType->as.fn.returnType);
+            if(!checkedReturnType || hadBadParameter) {
+                // Clean up (prevent memory leaks.)
+                ARRAY_FOR(i, validatedParameterTypes) {
+                    typeFree(ARRAY_GET_AS(Type *, &validatedParameterTypes, i));
+                }
+                arrayFree(&validatedParameterTypes);
+                break; // checkedType will be NULL, and so NULL will be returned.
+            }
+
+            checkedType = typeNew(TY_FUNCTION, parsedType->name, parsedType->declLocation, v->current.module);
+            arrayCopy(&checkedType->as.fn.parameterTypes, &validatedParameterTypes);
+            checkedType->as.fn.returnType = checkedReturnType;
+            arrayFree(&validatedParameterTypes);
             break;
+        }
         case TY_STRUCT:
-            LOG_ERR("[Validator]: struct types not supported yet.");
+            LOG_ERR("Validator: Struct types are not supported yet.");
             // fallthrough
         default:
             UNREACHABLE();
     }
-    // Note: can't use getType() since it fails if the type doesn't exist.
-    if(astModuleGetType(getCurrentCheckedModule(v), checkedTy->name) == NULL) {
-        astModuleAddType(getCurrentCheckedModule(v), checkedTy);
-    } else {
-        Type *ty = getType(v, checkedTy->name);
-        typeFree(checkedTy);
-        checkedTy = ty;
-    }
-    return checkedTy;
+
+    VERIFY(checkedType != NULL);
+    return checkedType;
 }
 
-static void validate_type_callback(TableItem *item, bool is_last, void *cl) {
+// Note: C.R.E for [parsedExpr] to be NULL.
+static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {}
+
+// Note: C.R.E for [parsedStmt] to be NULL.
+static ASTStmtNode *validateStmt(Validator *v, ASTStmtNode *parsedStmt) {}
+
+// Note: C.R.E for [fn] to be NULL.
+static ASTObj *validateFunctionDecl(Validator *v, ASTObj *fn) {}
+
+// Note: C.R.E for [parsedVarDecl] to be NULL.
+static ASTVarDeclStmt *validateVariableDecl(Validator *v, ASTVarDeclStmt *parsedVarDecl) {
+    VERIFY(parsedVarDecl);
+    // validate initializer (if it exists.)
+    // infer type (if necessary.)
+    // make sure there is a type (that is not void.)
+    // Make sure not assigned to itself (above two checks should catch this error.)
+
+    ASTExprNode *checkedInitializer = NULL;
+    if(parsedVarDecl->initializer) {
+        checkedInitializer = TRY(ASTExprNode *, validateExpr(v, parsedVarDecl->initializer));
+    }
+
+    // Note: typechecking is NOT done here.
+    Type *dataType = parsedVarDecl->variable->dataType;
+    dataType = dataType ? dataType : checkedInitializer->dataType;
+    if(dataType == NULL) {
+        error(v, parsedVarDecl->variable->location, "Cannot infer type of variable '%s'.", parsedVarDecl->variable->name);
+        hint(v, parsedVarDecl->header.location, "Consider adding an explicit type%s.", checkedInitializer ? "" : " or an initializer");
+        return NULL;
+    }
+    if(dataType->type == TY_VOID) {
+        error(v, parsedVarDecl->variable->location, "A variable cannot have the type 'void'.");
+        return NULL;
+    }
+
+    // TODO:
+    // * Thoughts: Do I need to do something with the object? set its data type?
+    //             Objects are replaced when validated, so I think I need to validate it?
+    // * Check that variable is not assigned to itself.
+    //   - I think that before we attempt to infer the type so this error is emited instead of possibly "failed to infer type".
+}
+
+// Note: checked scope is not returned since it is added to the scope tree.
+static bool validateScope(Validator *v, Scope *parsedScope) {}
+
+static void validate_type_callback(TableItem *item, bool is_last, void *validator) {
     UNUSED(is_last);
-    Validator *v = (Validator *)cl;
-    Type *ty = (Type *)item->value;
-    validateType(v, ty); // Note: validateType() adds the type to the checked module.
+    Validator *v = (Validator *)validator;
+    Type *parsedType = (Type *)item->value;
+    Type *checkedType = validateType(v, parsedType);
+    if(checkedType) {
+        astModuleAddType(getCurrentCheckedModule(v), parsedType);
+    }
 }
-
-static ASTExprNode *validateExpr(Validator *v, ASTExprNode *expr) {
-    ASTExprNode *checkedExpr = NULL;
-    switch(expr->type) {
-        case EXPR_NUMBER_CONSTANT:
-        case EXPR_STRING_CONSTANT:
-            checkedExpr = (ASTExprNode *)astConstantValueExprNew(getCurrentAllocator(v), expr->type, expr->location, exprDataType(v, expr));
-            switch(expr->type) {
-                case EXPR_NUMBER_CONSTANT:
-                    NODE_AS(ASTConstantValueExpr, checkedExpr)->as.number = NODE_AS(ASTConstantValueExpr, expr)->as.number;
-                    break;
-                case EXPR_STRING_CONSTANT:
-                    NODE_AS(ASTConstantValueExpr, checkedExpr)->as.string = stringTableString(v->checkedProgram->strings, NODE_AS(ASTConstantValueExpr, expr)->as.string);
-                    break;
-                default:
-                    UNREACHABLE();
-            }
-            break;
-        // Obj nodes
-        case EXPR_VARIABLE:
-        case EXPR_FUNCTION:
-            UNREACHABLE(); // TODO
-        // Binary nodes
-        case EXPR_ASSIGN:
-        case EXPR_PROPERTY_ACCESS:
-        case EXPR_ADD:
-        case EXPR_SUBTRACT:
-        case EXPR_MULTIPLY:
-        case EXPR_DIVIDE:
-        case EXPR_EQ:
-        case EXPR_NE:
-        case EXPR_LT:
-        case EXPR_LE:
-        case EXPR_GT:
-        case EXPR_GE: {
-            #define IS_ASSIGNMENT_TARGET(expr) ((expr)->type == EXPR_VARIABLE || (expr)->type == EXPR_DEREF || (expr)->type == EXPR_PROPERTY_ACCESS)
-            ASTExprNode *lhs = TRY(ASTExprNode *, validateExpr(v, NODE_AS(ASTBinaryExpr, expr)->lhs));
-            if(NODE_IS(expr, EXPR_ASSIGN) && !IS_ASSIGNMENT_TARGET(lhs)) {
-                error(v, lhs->location, "Invalid assignment target (only variables can be assigned).");
-                break;
-            }
-            ASTExprNode *rhs = TRY(ASTExprNode *, validateExpr(v, NODE_AS(ASTBinaryExpr, expr)->rhs));
-            checkedExpr = (ASTExprNode *)astBinaryExprNew(getCurrentAllocator(v), expr->type, expr->location, NULL, lhs, rhs);
-            checkedExpr->dataType = exprDataType(v, checkedExpr);
-            break;
-            #undef IS_ASSIGNMENT_TARGET
-        }
-        // Unary nodes
-        case EXPR_NEGATE:
-        case EXPR_ADDROF:
-        case EXPR_DEREF: {
-            ASTExprNode *operand = TRY(ASTExprNode *, validateExpr(v, NODE_AS(ASTUnaryExpr, expr)->operand));
-            checkedExpr = (ASTExprNode *)astUnaryExprNew(getCurrentAllocator(v), expr->type, expr->location, NULL, operand);
-            checkedExpr->dataType = exprDataType(v, checkedExpr);
-            if(NODE_IS(expr, EXPR_DEREF) && checkedExpr->dataType->type != TY_POINTER) {
-                error(v, expr->location, "Cannot dereference a non-pointer type.");
-                checkedExpr = NULL;
-            }
-            break;
-        }
-        // Call node
-        case EXPR_CALL: {
-            ASTCallExpr *call = NODE_AS(ASTCallExpr, expr);
-            ASTExprNode *callee = TRY(ASTExprNode *, validateExpr(v, call->callee));
-            // a callable object is either a function or a variable that refers to a function.
-            #define IS_CALLABLE(expr) (NODE_IS(expr, EXPR_FUNCTION) || (NODE_IS(expr, EXPR_VARIABLE) && NODE_AS(ASTObjExpr, expr)->obj->dataType->type == TY_FUNCTION))
-            VERIFY(callee->dataType); // FIXME: if fails, make sure exprDataType() is called.
-            if(!IS_CALLABLE(callee)) {
-                error(v, callee->location, "Type '%s' isn't callable.", callee->dataType->name);
-            }
-            #undef IS_CALLABLE
-            Array checkedArguments;
-            arrayInitSized(&checkedArguments, arrayLength(&call->arguments));
-            bool hadError = false;
-            ARRAY_FOR(i, call->arguments) {
-                ASTExprNode *arg = ARRAY_GET_AS(ASTExprNode *, &call->arguments, i);
-                arg = validateExpr(v, arg);
-                if(arg) {
-                    arrayPush(&checkedArguments, (void *)arg);
-                } else {
-                    hadError = true;
-                }
-            }
-            if(hadError || !callee) {
-                arrayFree(&checkedArguments);
-                break;
-            }
-            if(arrayLength(&callee->dataType->as.fn.parameterTypes) != arrayLength(&checkedArguments)) {
-                usize expected = arrayLength(&callee->dataType->as.fn.parameterTypes);
-                usize actual = arrayLength(&checkedArguments);
-                error(v, callee->location, "Expected %lu argument%s but got %lu.", expected, expected != 1 ? "s" : "", actual);
-                // TODO: hint to where fn is declared. Can't do simply right now since callee may be a variable refering to a function.
-                arrayFree(&checkedArguments);
-                break;
-            }
-            checkedExpr = (ASTExprNode *)astCallExprNew(getCurrentAllocator(v), expr->location, exprDataType(v, callee), callee, &checkedArguments);
-            arrayFree(&checkedArguments);
-            break;
-        }
-        // Other nodes.
-        case EXPR_IDENTIFIER: {
-            // Find object with same name that is visible in current scope and replace IDENT node with it.
-            ASTString name = NODE_AS(ASTIdentifierExpr, expr)->id;
-            ScopeDepth scopeLocation; // Note: if [obj] is not NULL, scopeLocation will be set.
-            ASTObj *obj = findObjVisibleInCurrentScope(v, name, &scopeLocation);
-            if(!obj) {
-                error(v, expr->location, "Identifier '%s' doesn't exist.", name);
-                break;
-            }
-            // If the object is not in the module namespace ("global"), check if it has already been declared.
-            // Note: declaration order doesn't matter in the module namespace.
-            if(scopeLocation != SCOPE_DEPTH_MODULE_NAMESPACE && tableGet(&v->current.localVarsAlreadyDeclaredInCurrentFunction, (void *)name) == NULL) {
-                error(v, expr->location, "Variable '%s' is not declared yet.", name);
-                break;
-            }
-            checkedExpr = (ASTExprNode *)astObjExprNew(getCurrentAllocator(v), obj->type == OBJ_VAR ? EXPR_VARIABLE : EXPR_FUNCTION, expr->location, obj);
-            break;
-        }
-        default:
-            UNREACHABLE();
-    }
-    return checkedExpr;
-}
-
-static ASTStmtNode *validateVariableDecl(Validator *v, ASTVarDeclStmt *varDecl);
-static ASTStmtNode *validateStmt(Validator *v, ASTStmtNode *stmt) {
-    ASTStmtNode *checkedStmt = NULL;
-    switch(stmt->type) {
-        // VarDecl nodes
-        case STMT_VAR_DECL:
-            // Note: no need for TRY() since we return whatever validateVariableDecl() returns, even if it is NULL.
-            checkedStmt = validateVariableDecl(v, NODE_AS(ASTVarDeclStmt, stmt));
-            if(checkedStmt) {
-                scopeAddObject(getCurrentCheckedScope(v), NODE_AS(ASTVarDeclStmt, checkedStmt)->variable);
-                // Note: this check is only here to make sure I don't call this function when
-                //       not validating a function. So far, I don't think there will be any reason to do so,
-                //       but if there is one day and I forget to change the code here, this assert will
-                //       remind me.
-                VERIFY(getCurrentCheckedScope(v)->depth >= SCOPE_DEPTH_BLOCK);
-                // Set the variable as already declared in the current function (i.e. accessible).
-                tableSet(&v->current.localVarsAlreadyDeclaredInCurrentFunction, (void *)NODE_AS(ASTVarDeclStmt, checkedStmt)->variable->name, NULL);
-            }
-            break;
-        // Block nodes
-        case STMT_BLOCK: {
-            bool hadError = false;
-            ASTBlockStmt *block = NODE_AS(ASTBlockStmt, stmt);
-            Array checkedNodes;
-            arrayInitSized(&checkedNodes, arrayLength(&block->nodes));
-            enterScope(v, block->scope);
-            ARRAY_FOR(i, block->nodes) {
-                ASTStmtNode *n = ARRAY_GET_AS(ASTStmtNode *, &block->nodes, i);
-                n = validateStmt(v, n);
-                if(n) {
-                    arrayPush(&checkedNodes, (void *)n);
-                } else {
-                    hadError = true;
-                }
-            }
-            Scope *scope = getCurrentCheckedScope(v);
-            leaveScope(v);
-            if(hadError) {
-                arrayFree(&checkedNodes);
-                break;
-            }
-            checkedStmt = (ASTStmtNode *)astBlockStmtNew(getCurrentAllocator(v), stmt->location, scope, &checkedNodes);
-            arrayFree(&checkedNodes);
-            break;
-        }
-        // Conditional nodes
-        case STMT_IF: {
-            ASTConditionalStmt *condNode = NODE_AS(ASTConditionalStmt, stmt);
-            ASTExprNode *condition = TRY(ASTExprNode *, validateExpr(v, condNode->condition));
-            ASTStmtNode *then = TRY(ASTStmtNode *, validateStmt(v, condNode->then));
-            ASTStmtNode *else_ = NULL;
-            if(condNode->else_) {
-                else_ = TRY(ASTStmtNode *, validateStmt(v, condNode->else_));
-            }
-            checkedStmt = (ASTStmtNode *)astConditionalStmtNew(getCurrentAllocator(v), stmt->location, condition, then, else_);
-            break;
-        }
-        // Loop nodes
-        case STMT_LOOP:
-            UNREACHABLE();
-        // Expr nodes
-        case STMT_RETURN: {
-            // Can't use same code as STMT_EXPR due to return statements not requiring an operand.
-            ASTExprNode *checkedOperand = NULL;
-            if(NODE_AS(ASTExprStmt, stmt)->expression) {
-                checkedOperand = TRY(ASTExprNode *, validateExpr(v, NODE_AS(ASTExprStmt, stmt)->expression));
-            }
-            checkedStmt = (ASTStmtNode *)astExprStmtNew(getCurrentAllocator(v), STMT_RETURN, stmt->location, checkedOperand);
-            break;
-        }
-        case STMT_EXPR: {
-            ASTExprNode *checkedExpr = TRY(ASTExprNode *, validateExpr(v, NODE_AS(ASTExprStmt, stmt)->expression));
-            checkedStmt = (ASTStmtNode *)astExprStmtNew(getCurrentAllocator(v), STMT_EXPR, stmt->location, checkedExpr);
-            break;
-        }
-        // Defer nodes
-        case STMT_DEFER:
-        default:
-            UNREACHABLE();
-    }
-    return checkedStmt;
-}
-
-static ASTStmtNode *validateVariableDecl(Validator *v, ASTVarDeclStmt *varDecl) {
-    if(scopeHasObject(getCurrentCheckedScope(v), varDecl->variable)) {
-        error(v, varDecl->variable->location, "Redeclaration of variable '%s'", varDecl->variable->name);
-        ASTObj *prevDecl = scopeGetObject(getCurrentParsedScope(v), OBJ_VAR, varDecl->variable->name);
-        hint(v, prevDecl->location, "Previous declaration was here.");
-        return NULL;
-    }
-    // If decl has an initializer expr, validate it.
-    ASTExprNode *checkedInit = varDecl->initializer ? TRY(ASTExprNode *, validateExpr(v, varDecl->initializer)) : NULL;
-    ASTVarDeclStmt *checkedDecl = astVarDeclStmtNew(getCurrentAllocator(v), varDecl->header.location, NULL, checkedInit);
-
-    // If variable has a type, use it. Else attempt to infer the type from the initializer.
-    // Note: if the initializer doesn't exist (is NULL), exprDataType() will return NULL.
-    Type *varTy = varDecl->variable->dataType ? varDecl->variable->dataType : exprDataType(v, checkedInit);
-    if(varTy == NULL) {
-        error(v, varDecl->variable->location, "Cannot infer type of variable '%s'.", varDecl->variable->name);
-        hint(v, varDecl->header.location, "Consider adding an explicit type%s.", checkedInit ? "" : " or an initializer");
-        return NULL;
-    }
-    if(varTy->type == TY_VOID) {
-        error(v, varDecl->variable->location, "A variable cannot have the type 'void'.");
-        return NULL;
-    }
-    ASTObj *checkedObj = astModuleNewObj(getCurrentCheckedModule(v), OBJ_VAR, varDecl->variable->location, varDecl->variable->name, varTy);
-    checkedDecl->variable = checkedObj;
-    return NODE_AS(ASTStmtNode, checkedDecl);
-}
-
-static void validateFunction(Validator *v, ASTObj *fn) {
-    VERIFY(fn->type == OBJ_FN);
-
-    bool hasBadParameter = false;
-    ARRAY_FOR(i, fn->as.fn.parameters) {
-        ASTObj *param = ARRAY_GET_AS(ASTObj *, &fn->as.fn.parameters, i);
-        if(param->dataType == NULL) {
-            error(v, param->location, "Parameter '%s' has no type.", param->name);
-            hasBadParameter = true;
-        } else {
-            param->dataType = getType(v, param->dataType->name);
-        }
-        // Set the parameter as already declared (i.e. accessible).
-        tableSet(&v->current.localVarsAlreadyDeclaredInCurrentFunction, (void *)param->name, NULL);
-    }
-    if(hasBadParameter) {
-        return;
-    }
-    fn->as.fn.returnType = getType(v, fn->as.fn.returnType->name);
-
-    ASTStmtNode *body = validateStmt(v, NODE_AS(ASTStmtNode, fn->as.fn.body));
-    if(!body) {
-        // Note: can't use TRY() since this function doesn't return anything.
-        return;
-    }
-    fn->as.fn.body = NODE_AS(ASTBlockStmt, body);
-    tableClear(&v->current.localVarsAlreadyDeclaredInCurrentFunction, NULL, NULL);
-}
-
-static void validateScope(Validator *v, Scope *scope) {
-    Array objects;
-    Table declaredSymbols; // Table<ASTString, ASTObj *>
-    arrayInit(&objects);
-    tableInit(&declaredSymbols, NULL, NULL);
-    scopeGetAllObjects(scope, &objects);
-    ARRAY_FOR(i, objects) {
-        ASTObj *obj = ARRAY_GET_AS(ASTObj *, &objects, i);
-        TableItem *item = NULL;
-        if((item = tableGet(&declaredSymbols, (void *)obj->name)) != NULL) {
-            error(v, obj->location, "Symbol '%s' already exists in this scope.", obj->name);
-            ASTObj *prev = (ASTObj *)item->value;
-            hint(v, prev->location, "Previous declaration was here.");
-            continue;
-        }
-        tableSet(&declaredSymbols, (void *)obj->name, (void *)obj);
-        switch(obj->type) {
-            case OBJ_VAR:
-                break;
-            case OBJ_FN:
-                validateFunction(v, obj);
-                break;
-            default:
-                UNREACHABLE();
-        }
-        scopeAddObject(getCurrentCheckedScope(v), obj);
-    }
-    tableFree(&declaredSymbols);
-    arrayFree(&objects);
-}
-
+// Notes:
+//   * The new module is created with astProgramNewModule(checked_prog), and so there is no need to return it.
+//   * C.R.E for moduleID > amount of modules in parsed module.
+//   * In case of any errors, v.hadError will be set. Use it to check for errors.
 static void validateModule(Validator *v, ModuleID moduleID) {
-    ModuleID checkedID = astProgramNewModule(v->checkedProgram, getCurrentParsedModule(v)->name);
-    VERIFY(checkedID == moduleID);
-    v->current.module = checkedID;
-    v->current.parsedScope = getCurrentParsedModule(v)->moduleScope;
-    v->current.checkedScope = getCurrentCheckedModule(v)->moduleScope;
-    // Validate all types.
-    tableMap(&getCurrentParsedModule(v)->types, validate_type_callback, (void *)v);
+    // Is the moduleID valid (withing the range of existing modules)?
+    VERIFY(moduleID < arrayLength(&v->parsedProgram->modules));
+    // validate:
+    //     types
+    //     variable declarations (module scoppe)
+    //     scopes
 
-    // Validate all variable declarations.
-    ARRAY_FOR(i, getCurrentParsedModule(v)->variableDecls) {
-        ASTStmtNode *validatedDecl = validateVariableDecl(v, ARRAY_GET_AS(ASTVarDeclStmt *, &getCurrentParsedModule(v)->variableDecls, i));
-        // TODO: error handling
-        if(validatedDecl) {
-            arrayPush(&getCurrentCheckedModule(v)->variableDecls, (void *)validatedDecl);
+    // Preliminary initialization, setting up of validator state.
+    ASTModule *parsedModule = astProgramGetModule(v->parsedProgram, moduleID);
+    ASTModule *checkedModule = astProgramNewModule(v->checkedProgram, parsedModule->name);
+    v->current.module = moduleID;
+    v->current.parsedScope = parsedModule->moduleScope;
+    v->current.checkedScope = checkedModule->moduleScope;
+
+    tableMap(&parsedModule->types, validate_type_callback, (void *)v);
+
+    ARRAY_FOR(i, parsedModule->variableDecls) {
+        ASTVarDeclStmt *parsedVarDecl = ARRAY_GET_AS(ASTVarDeclStmt *, &parsedModule->variableDecls, i);
+        ASTVarDeclStmt *checkedVarDecl = validateVariableDecl(v, parsedVarDecl);
+        if(checkedVarDecl) {
+            arrayPush(&checkedModule->variableDecls, (void *)checkedVarDecl);
         }
     }
+    // validateVariableDecl() will have emitted any errors which sets v.hadError, so we can use it to check.
+    if(v->hadError) {
+        return;
+    }
 
-    // Validate the module scope.
-    // TODO: error handling.
-    validateScope(v, getCurrentParsedModule(v)->moduleScope);
-    v->current.checkedScope = NULL;
+    validateScope(v, parsedModule->moduleScope);
+    // See notes above declaration of this function on how caller should check for errors.
 }
 
 bool validatorValidate(Validator *v, ASTProgram *parsedProg, ASTProgram *checkedProg) {
@@ -533,9 +328,9 @@ bool validatorValidate(Validator *v, ASTProgram *parsedProg, ASTProgram *checked
     v->checkedProgram = checkedProg;
     // Validate all modules.
     ARRAY_FOR(i, parsedProg->modules) {
-        // TODO: error handling
         validateModule(v, i);
     }
+    // If we had any error while parsing any of the modules, fail.
     return !v->hadError;
 }
 
