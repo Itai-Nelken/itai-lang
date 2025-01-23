@@ -227,6 +227,7 @@ static Type *validateType(Validator *v, Type *parsedType) {
     }
 
     VERIFY(checkedType != NULL);
+    astModuleAddType(getCurrentCheckedModule(v), checkedType);
     return checkedType;
 }
 
