@@ -232,7 +232,64 @@ static Type *validateType(Validator *v, Type *parsedType) {
 }
 
 // Note: C.R.E for [parsedExpr] to be NULL.
-static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {}
+static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
+    VERIFY(parsedExpr);
+    // 1. For each node, do (depending on type):
+    //      IDENTIFIER: replace with ASTObj the identifier refers to.
+    //      ASSIGN: make sure assignment target is valid (variable - including property access, dereference (I think).)
+    //      CALL: check that callee is callable, validate argument expressions + correct amount of them.
+    // 2. Also set the data type for each node.
+
+    ASTExprNode *checkedExpr = NULL;
+    switch(parsedExpr->type) {
+        // Constant value nodes.
+        case EXPR_NUMBER_CONSTANT:
+        case EXPR_STRING_CONSTANT:
+        // Obj nodes
+        case EXPR_VARIABLE:
+        case EXPR_FUNCTION:
+        // Binary nodes
+        case EXPR_ASSIGN:
+        case EXPR_PROPERTY_ACCESS:
+        case EXPR_ADD:
+        case EXPR_SUBTRACT:
+        case EXPR_MULTIPLY:
+        case EXPR_DIVIDE:
+        case EXPR_EQ:
+        case EXPR_NE:
+        case EXPR_LT:
+        case EXPR_LE:
+        case EXPR_GT:
+        case EXPR_GE:
+        // Unary nodes
+        case EXPR_NEGATE:
+        case EXPR_ADDROF:
+        case EXPR_DEREF:
+        // Call node
+        case EXPR_CALL:
+            UNREACHABLE();
+        // Other nodes.
+        case EXPR_IDENTIFIER: {
+            // FIXME: I think I can remove the last parameter from this function, since with the new
+            //        design of the validator the checked scopes track whether a local variable has
+            //        already been declared.
+            ASTString name = NODE_AS(ASTIdentifierExpr, parsedExpr)->id;
+            ASTObj *obj = findObjVisibleInCurrentScope(v, name, NULL);
+            if(!obj) {
+                error(v, parsedExpr->location, "Identifier '%s' doesn't exist.", name);
+                break;
+            }
+            // FIXME: if I add more obj node types, the logic for expr type below will break.
+            checkedExpr = (ASTExprNode *)astObjExprNew(getCurrentAllocator(v), obj->type == OBJ_VAR ? EXPR_VARIABLE : EXPR_FUNCTION, parsedExpr->location, obj);
+            checkedExpr->dataType = obj->dataType;
+            break;
+        }
+        default:
+            UNREACHABLE();
+    }
+
+    return checkedExpr;
+}
 
 // Note: C.R.E for [parsedStmt] to be NULL.
 static ASTStmtNode *validateStmt(Validator *v, ASTStmtNode *parsedStmt) {}
@@ -251,6 +308,12 @@ static ASTVarDeclStmt *validateVariableDecl(Validator *v, ASTVarDeclStmt *parsed
     ASTExprNode *checkedInitializer = NULL;
     if(parsedVarDecl->initializer) {
         checkedInitializer = TRY(ASTExprNode *, validateExpr(v, parsedVarDecl->initializer));
+    }
+
+    if(NODE_IS(checkedInitializer, EXPR_VARIABLE) &&
+       NODE_AS(ASTObjExpr, checkedInitializer)->obj->name == parsedVarDecl->variable->name) {
+        error(v, parsedVarDecl->header.location, "Variable assigned to itself in declaration.");
+        return NULL;
     }
 
     // Note: typechecking is NOT done here.
@@ -280,10 +343,7 @@ static void validate_type_callback(TableItem *item, bool is_last, void *validato
     UNUSED(is_last);
     Validator *v = (Validator *)validator;
     Type *parsedType = (Type *)item->value;
-    Type *checkedType = validateType(v, parsedType);
-    if(checkedType) {
-        astModuleAddType(getCurrentCheckedModule(v), parsedType);
-    }
+    validateType(v, parsedType); // validateType() adds the type to the current module.
 }
 // Notes:
 //   * The new module is created with astProgramNewModule(checked_prog), and so there is no need to return it.
@@ -299,7 +359,9 @@ static void validateModule(Validator *v, ModuleID moduleID) {
 
     // Preliminary initialization, setting up of validator state.
     ASTModule *parsedModule = astProgramGetModule(v->parsedProgram, moduleID);
-    ASTModule *checkedModule = astProgramNewModule(v->checkedProgram, parsedModule->name);
+    ModuleID checkedModuleID = astProgramNewModule(v->checkedProgram, parsedModule->name);
+    VERIFY(moduleID == checkedModuleID); // This should work the way this function is called. But its not nice code.
+    ASTModule *checkedModule = astProgramGetModule(v->checkedProgram, checkedModuleID);
     v->current.module = moduleID;
     v->current.parsedScope = parsedModule->moduleScope;
     v->current.checkedScope = checkedModule->moduleScope;
