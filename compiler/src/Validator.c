@@ -244,7 +244,17 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
     switch(parsedExpr->type) {
         // Constant value nodes.
         case EXPR_NUMBER_CONSTANT:
+            // FIXME: Can I call exprDataType() on an unvalidated expr? I think it will work in this specific case,
+            //        but is it something I should allow?
+            checkedExpr = (ASTExprNode *)astConstantValueExprNew(getCurrentAllocator(v), EXPR_NUMBER_CONSTANT, parsedExpr->location, exprDataType(v, parsedExpr));
+            NODE_AS(ASTConstantValueExpr, checkedExpr)->as.number = NODE_AS(ASTConstantValueExpr, parsedExpr)->as.number;
+            break;
         case EXPR_STRING_CONSTANT:
+            // FIXME: Can I call exprDataType() on an unvalidated expr? I think it will work in this specific case,
+            //        but is it something I should allow?
+            checkedExpr = (ASTExprNode *)astConstantValueExprNew(getCurrentAllocator(v), EXPR_STRING_CONSTANT, parsedExpr->location, exprDataType(v, parsedExpr));
+            NODE_AS(ASTConstantValueExpr, checkedExpr)->as.string = NODE_AS(ASTConstantValueExpr, parsedExpr)->as.string;
+            break;
         // Obj nodes
         case EXPR_VARIABLE:
         case EXPR_FUNCTION:
@@ -270,7 +280,7 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
             UNREACHABLE();
         // Other nodes.
         case EXPR_IDENTIFIER: {
-            // FIXME: I think I can remove the last parameter from this function, since with the new
+            // TODO: I think I can remove the last parameter from this function, since with the new
             //        design of the validator the checked scopes track whether a local variable has
             //        already been declared.
             ASTString name = NODE_AS(ASTIdentifierExpr, parsedExpr)->id;
@@ -330,8 +340,7 @@ static ASTVarDeclStmt *validateVariableDecl(Validator *v, ASTVarDeclStmt *parsed
     }
 
     // TODO:
-    // * Thoughts: Do I need to do something with the object? set its data type?
-    //             Objects are replaced when validated, so I think I need to validate it?
+    // * Objects NEED to be validated. otherwise they might not have their data types set (for example.)
     // * Check that variable is not assigned to itself.
     //   - I think that before we attempt to infer the type so this error is emited instead of possibly "failed to infer type".
 }
