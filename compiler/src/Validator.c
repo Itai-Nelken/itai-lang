@@ -459,17 +459,19 @@ static ASTVarDeclStmt *validateVariableDecl(Validator *v, ASTVarDeclStmt *parsed
     ASTExprNode *checkedInitializer = NULL;
     if(parsedVarDecl->initializer) {
         checkedInitializer = TRY(ASTExprNode *, validateExpr(v, parsedVarDecl->initializer));
+        if(NODE_IS(checkedInitializer, EXPR_VARIABLE) &&
+        NODE_AS(ASTObjExpr, checkedInitializer)->obj->name == parsedVarDecl->variable->name) {
+            error(v, parsedVarDecl->header.location, "Variable assigned to itself in declaration.");
+            return NULL;
+        }
     }
 
-    if(NODE_IS(checkedInitializer, EXPR_VARIABLE) &&
-       NODE_AS(ASTObjExpr, checkedInitializer)->obj->name == parsedVarDecl->variable->name) {
-        error(v, parsedVarDecl->header.location, "Variable assigned to itself in declaration.");
-        return NULL;
-    }
 
     // Note: typechecking is NOT done here.
     Type *dataType = parsedVarDecl->variable->dataType;
-    dataType = dataType ? dataType : checkedInitializer->dataType;
+    if(dataType == NULL && checkedInitializer) {
+        dataType = checkedInitializer->dataType;
+    }
     if(dataType == NULL) {
         error(v, parsedVarDecl->variable->location, "Cannot infer type of variable '%s'.", parsedVarDecl->variable->name);
         hint(v, parsedVarDecl->header.location, "Consider adding an explicit type%s.", checkedInitializer ? "" : " or an initializer");
