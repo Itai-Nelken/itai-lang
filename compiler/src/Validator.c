@@ -431,7 +431,15 @@ static ASTStmtNode *validateStmt(Validator *v, ASTStmtNode *parsedStmt) {
         case STMT_LOOP:
             UNREACHABLE();
         // Expr nodes
-        case STMT_RETURN:
+        case STMT_RETURN: {
+            // Can't use same code as STMT_EXPR due to return statements not requiring an operand.
+            ASTExprNode *checkedOperand = NULL;
+            if(NODE_AS(ASTExprStmt, parsedStmt)->expression) {
+                checkedOperand = TRY(ASTExprNode *, validateExpr(v, NODE_AS(ASTExprStmt, parsedStmt)->expression));
+            }
+            checkedStmt = (ASTStmtNode *)astExprStmtNew(getCurrentAllocator(v), STMT_RETURN, parsedStmt->location, checkedOperand);
+            break;
+        }
         case STMT_EXPR: {
             ASTExprNode *checkedExpr = TRY(ASTExprNode *, validateExpr(v, NODE_AS(ASTExprStmt, parsedStmt)->expression));
             checkedStmt = NODE_AS(ASTStmtNode, astExprStmtNew(getCurrentAllocator(v), parsedStmt->type, parsedStmt->location, checkedExpr));
