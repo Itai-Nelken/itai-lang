@@ -109,16 +109,17 @@ bool typeEqual(Type *a, Type *b) {
         return false;
     }
 
-    //switch(a->type) {
-    //    case TY_POINTER:
-    //        return typeEqual(a->as.ptr.innerType, b->as.ptr.innerType);
-    //    case TY_FUNCTION:
-    //        // check return type, parameter types
-    //    case TY_STRUCT:
-    //        // check field types.
-    //    default:
-    //        UNREACHABLE();
-    //}
+    switch(a->type) {
+        case TY_POINTER:
+            return typeEqual(a->as.ptr.innerType, b->as.ptr.innerType);
+        case TY_FUNCTION:
+            // check return type, parameter types
+        case TY_STRUCT:
+            // check field types.
+        default:
+            LOG_ERR("TODO: typeEqual(): TY_FUNCTION, TY_STRUCT");
+            UNREACHABLE();
+    }
 
     return true;
 }
