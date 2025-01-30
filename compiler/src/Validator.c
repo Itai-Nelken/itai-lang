@@ -103,9 +103,7 @@ static void hint(Validator *v, Location loc, const char *format, ...) {
 // Find an ASTObj that is visible in the current scope (i.e. is in it or a parent scope.)
 // depth: if not NULL, the variable pointed to will be set to the scope depth of the return object.
 static ASTObj *findObjVisibleInCurrentScope(Validator *v, ASTString name, ScopeDepth *depth) {
-    // Note: since objects are validated in place (i.e. a checked object's address is the same as the parsed object's address (if both refer to the same object)),
-    //       we can check the parsed scope (where all obejcts already exist).
-    Scope *sc = getCurrentParsedScope(v);
+    Scope *sc = getCurrentCheckedScope(v);
     while(sc != NULL) {
         ASTObj *obj = scopeGetAnyObject(sc, name);
         if(obj) {
@@ -301,13 +299,69 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
     return checkedExpr;
 }
 
+
+static ASTVarDeclStmt *validateVariableDecl(Validator *v, ASTVarDeclStmt *parsedVarDecl);
 // Note: C.R.E for [parsedStmt] to be NULL.
-static ASTStmtNode *validateStmt(Validator *v, ASTStmtNode *parsedStmt) {}
+static ASTStmtNode *validateStmt(Validator *v, ASTStmtNode *parsedStmt) {
+    VERIFY(parsedStmt);
+    ASTStmtNode *checkedStmt = NULL;
+    switch(parsedStmt->type) {
+        // VarDecl nodes
+        case STMT_VAR_DECL:
+            // Note: validateVariableDecl() also validates the object.
+            checkedStmt = NODE_AS(ASTStmtNode, validateVariableDecl(v, NODE_AS(ASTVarDeclStmt, parsedStmt)));
+            break;
+        // Block nodes
+        case STMT_BLOCK: {
+            Array checkedNodes;
+            arrayInitSized(&checkedNodes, arrayLength(&NODE_AS(ASTBlockStmt, parsedStmt)->nodes));
+            enterScope(v, NODE_AS(ASTBlockStmt, parsedStmt)->scope);
+            bool hadError = false;
+            // Note: if I support closures/lambdas, validateCurrentScope() shuld be called here.
+            ARRAY_FOR(i, NODE_AS(ASTBlockStmt, parsedStmt)->nodes) {
+                ASTStmtNode *parsedNode = ARRAY_GET_AS(ASTStmtNode *, &NODE_AS(ASTBlockStmt, parsedStmt)->nodes, i);
+                ASTStmtNode *checkedNode = validateStmt(v, parsedNode);
+                if(checkedNode) {
+                    arrayPush(&checkedNodes, (void *)checkedNode);
+                } else {
+                    hadError = true;
+                }
+            }
+            Scope *checkedScope = getCurrentCheckedScope(v);
+            leaveScope(v);
 
-// Note: C.R.E for [fn] to be NULL.
-static ASTObj *validateFunctionDecl(Validator *v, ASTObj *fn) {}
+            if(hadError) {
+                arrayFree(&checkedNodes);
+                break;
+            }
+            checkedStmt = NODE_AS(ASTStmtNode, astBlockStmtNew(getCurrentAllocator(v), parsedStmt->location, checkedScope, &checkedNodes));
+            arrayFree(&checkedNodes);
+            break;
+        }
+        // Conditional nodes
+        case STMT_IF:
+        // Loop nodes
+        case STMT_LOOP:
+            UNREACHABLE();
+        // Expr nodes
+        case STMT_RETURN:
+        case STMT_EXPR: {
+            ASTExprNode *checkedExpr = TRY(ASTExprNode *, validateExpr(v, NODE_AS(ASTExprStmt, parsedStmt)->expression));
+            checkedStmt = NODE_AS(ASTStmtNode, astExprStmtNew(getCurrentAllocator(v), parsedStmt->type, parsedStmt->location, checkedExpr));
+            break;
+        }
+        // Defer nodes
+        case STMT_DEFER:
+        default:
+            UNREACHABLE();
+    }
 
-// Note: C.R.E for [parsedVarDecl] to be NULL.
+    return checkedStmt;
+}
+
+// Notes:
+//  * C.R.E for [parsedVarDecl] to be NULL.
+//  * Adds the checked variable object to the current scope.
 static ASTVarDeclStmt *validateVariableDecl(Validator *v, ASTVarDeclStmt *parsedVarDecl) {
     VERIFY(parsedVarDecl);
     // validate initializer (if it exists.)
@@ -339,14 +393,93 @@ static ASTVarDeclStmt *validateVariableDecl(Validator *v, ASTVarDeclStmt *parsed
         return NULL;
     }
 
-    // TODO:
-    // * Objects NEED to be validated. otherwise they might not have their data types set (for example.)
-    // * Check that variable is not assigned to itself.
-    //   - I think that before we attempt to infer the type so this error is emited instead of possibly "failed to infer type".
+    ASTObj *checkedObj = astModuleNewObj(getCurrentCheckedModule(v), OBJ_VAR, parsedVarDecl->variable->location, parsedVarDecl->variable->name, dataType);
+    bool added = scopeAddObject(getCurrentCheckedScope(v), checkedObj);
+    VERIFY(added == true);
+    ASTVarDeclStmt *checkedVarDecl = astVarDeclStmtNew(getCurrentAllocator(v), parsedVarDecl->header.location, checkedObj, checkedInitializer);
+    return checkedVarDecl;
 }
 
-// Note: checked scope is not returned since it is added to the scope tree.
-static bool validateScope(Validator *v, Scope *parsedScope) {}
+// Note: C.R.E for [fn] to be NULL.
+static ASTObj *validateFunction(Validator *v, ASTObj *fn) {
+    // Note: (parsed) fn scope already contains params. They are added by the parser.
+    Type *checkedReturnType = TRY(Type *, validateType(v, fn->as.fn.returnType));
+    Type *checkedFnType = TRY(Type *, validateType(v, fn->dataType));
+    // Create the object now so we can put any data in it and then not free it (since the object is owned by the module.)
+    ASTObj *checkedFn = astModuleNewObj(getCurrentCheckedModule(v), OBJ_FN, fn->location, fn->name, checkedFnType);
+    checkedFn->as.fn.returnType = checkedReturnType;
+    bool hadError = false;
+    ARRAY_FOR(i, fn->as.fn.parameters) {
+        ASTObj *param = ARRAY_GET_AS(ASTObj *, &fn->as.fn.parameters, i);
+        Type *checkedParamType = validateType(v, param->dataType);
+        if(checkedParamType) {
+            ASTObj *checkedParam = astModuleNewObj(getCurrentCheckedModule(v), OBJ_VAR, param->location, param->name, checkedParamType);
+            arrayPush(&checkedFn->as.fn.parameters, (void *)checkedParam);
+        } else {
+            hadError = true;
+        }
+    }
+    if(hadError) {
+        return NULL;
+    }
+    ASTStmtNode *checkedBody = TRY(ASTStmtNode *, validateStmt(v, NODE_AS(ASTStmtNode, fn->as.fn.body)));
+    checkedFn->as.fn.body = NODE_AS(ASTBlockStmt, checkedBody);
+
+    return checkedFn;
+}
+
+// Note: C.R.E for parsedObj to be NULL.
+static ASTObj *validateObject(Validator *v, ASTObj *parsedObj) {
+    VERIFY(parsedObj);
+    ASTObj *checkedObj = NULL;
+    switch(parsedObj->type) {
+        case OBJ_VAR:
+            // OBJ_VAR's should be validated when the variable they refer to is declared.
+            // Hence they are NOT allowed here.
+            LOG_ERR("OBJ_VAR not allowed in validateObject()");
+            UNREACHABLE();
+        case OBJ_FN:
+            checkedObj = validateFunction(v, parsedObj);
+            break;
+        //case OBJ_STRUCT:
+        //case OBJ_ENUM?:
+        default:
+            UNREACHABLE();
+    }
+
+    return checkedObj;
+}
+
+// Note: scope here refers to a namespace type scope (i.e. SCOPE_DEPTH_MODULE_NAMESPACE or SCOPE_DEPTH_STRUCT)
+static bool validateCurrentScope(Validator *v) {
+    VERIFY(v->current.parsedScope);
+
+    Array objectsInScope;
+    // TODO: change size calculation as more tables are added to scope (for structs, enums? etc.)
+    usize numObjects = tableSize(&getCurrentParsedScope(v)->variables) + tableSize(&getCurrentParsedScope(v)->functions);
+    arrayInitSized(&objectsInScope, numObjects);
+    scopeGetAllObjects(getCurrentParsedScope(v), &objectsInScope);
+
+    bool hadError = false;
+    ARRAY_FOR(i, objectsInScope) {
+        ASTObj *parsedObj = ARRAY_GET_AS(ASTObj *, &objectsInScope, i);
+        // TODO: Note: OBJ_VARs will be validated as the variables are declared (in validateStmt() probably.)
+        if(parsedObj->type != OBJ_VAR) {
+            ASTObj *checkedObj = validateObject(v, parsedObj);
+            if(checkedObj) {
+                scopeAddObject(getCurrentCheckedScope(v), checkedObj);
+            } else {
+                hadError = true;
+            }
+        }
+    }
+    arrayFree(&objectsInScope);
+
+    // Note: no need to validate child scopes. They should be validated as necessary
+    //       when entered.
+
+    return !hadError;
+}
 
 static void validate_type_callback(TableItem *item, bool is_last, void *validator) {
     UNUSED(is_last);
@@ -354,6 +487,7 @@ static void validate_type_callback(TableItem *item, bool is_last, void *validato
     Type *parsedType = (Type *)item->value;
     validateType(v, parsedType); // validateType() adds the type to the current module.
 }
+
 // Notes:
 //   * The new module is created with astProgramNewModule(checked_prog), and so there is no need to return it.
 //   * C.R.E for moduleID > amount of modules in parsed module.
@@ -379,17 +513,30 @@ static void validateModule(Validator *v, ModuleID moduleID) {
 
     ARRAY_FOR(i, parsedModule->variableDecls) {
         ASTVarDeclStmt *parsedVarDecl = ARRAY_GET_AS(ASTVarDeclStmt *, &parsedModule->variableDecls, i);
+        // Note: validateVariableDecl() also validates the objects.
         ASTVarDeclStmt *checkedVarDecl = validateVariableDecl(v, parsedVarDecl);
         if(checkedVarDecl) {
             arrayPush(&checkedModule->variableDecls, (void *)checkedVarDecl);
         }
     }
-    // validateVariableDecl() will have emitted any errors which sets v.hadError, so we can use it to check.
-    if(v->hadError) {
+    // Notes to clear my confusion:
+    // * When validating a scope, we DON'T have enought info to validate OBJ_VARs.
+    //   - Hence we validate them as we encounter them, which doesn't cause any problem for locals
+    //     since we can't use them before they are declared.
+    //   - Since we validate OBJ_VARs as we encounter them, validateObject() just skips them and
+    //     that means we can validate "globals" before the scope (but after the types).
+    // * When is validateCurrentScope() called then?
+    //   - Right now, when validating a module only. In the future, they will be called on structs
+    //     and on enums (which have methods.)
+    //   - In any case, it should NOT be called in enterScope() since the "scope" it validates is actually a
+    //     namespace, and enterScope() is also used for block scopes which ONLY have variables.
+    //   - If I decide to allow lambdas/closures, then it will have to be called on functions as well.
+
+    // The module scope is already "entered" because we set the current scope to the module scope.
+    if(!validateCurrentScope(v)) {
         return;
     }
 
-    validateScope(v, parsedModule->moduleScope);
     // See notes above declaration of this function on how caller should check for errors.
 }
 
