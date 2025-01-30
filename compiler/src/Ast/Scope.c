@@ -54,7 +54,7 @@ void scopePrint(FILE *to, Scope *sc, bool recursive) {
         case SCOPE_DEPTH_STRUCT: stringAppend(&depthStr, "\x1b[1;33mSCOPE_DEPTH_STRUCT\x1b[0m"); break;
         case SCOPE_DEPTH_BLOCK: stringAppend(&depthStr, "\x1b[1;33mSCOPE_DEPTH_BLOCK\x1b[0m"); break;
         default:
-            stringAppend(&depthStr, "\x1b[1;33mSCOPE_DEPTH_MODULE\x1b[0;31m+%u\x1b[0m", sc->depth - SCOPE_DEPTH_BLOCK);
+            stringAppend(&depthStr, "\x1b[1;33mSCOPE_DEPTH_BLOCK\x1b[0;31m+%u\x1b[0m", sc->depth - SCOPE_DEPTH_BLOCK);
             break;
     }
     fprintf(to, "], \x1b[1mdepth: \x1b[31m%s\x1b[0m, \x1b[1mchildren:\x1b[0m [", depthStr);
