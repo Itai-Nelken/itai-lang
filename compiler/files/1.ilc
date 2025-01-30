@@ -1,0 +1,13 @@
+var a: i32 = 2;
+
+fn makeValue(b: i32) -> i32 {
+	return b * a;
+}
+
+fn main() {
+	var a = makeValue(5);
+	if a == 2 {
+		a = a * 2;
+	}
+}
+

@@ -1,0 +1,199 @@
+====== CHECKED AST DUMP for '1.ilc' ======
+ASTProgram{
+    strings: StringTable{strings: ["fn()->void", "makeValue", "i32", "b", "___root_module___", "main", "a", "fn(i32)->i32", "void"]},
+    modules: [
+        ASTModule{
+            name: '___root_module___',
+            types: [Type{fn()->void}, Type{i32}, Type{fn(i32)->i32}, Type{void}],
+            moduleScope: Scope{
+                objects: [
+                    ASTObj{
+                        type: OBJ_VAR,
+                        name: 'a',
+                        dataType: Type{type: TY_I32, name: 'i32', declLocation: Location{(empty)}, declModule: 0}
+                    },
+                    ASTObj{
+                        type: OBJ_FN,
+                        name: 'makeValue',
+                        dataType: Type{type: TY_FUNCTION, name: 'fn(i32)->i32', declLocation: Location{(empty)}, declModule: 0, returnType: Type{i32}, parameterTypes: [Type{i32}]},
+                        parameters: [ASTObj{OBJ_VAR, 'b', Type{i32}}],
+                        returnType: Type{i32},
+                        body: ASTBlockStmt{
+                            type: STMT_BLOCK,
+                            location: Location{45..63 @ 0},
+                            nodes: [
+                                ASTExprStmt{
+                                    type: STMT_RETURN,
+                                    location: Location{48..61 @ 0},
+                                    expression: ASTBinaryExpr{
+                                        type: EXPR_MULTIPLY,
+                                        location: Location{55..60 @ 0},
+                                        dataType: Type{i32},
+                                        lhs: ASTObjExpr{
+                                            type: EXPR_VARIABLE,
+                                            location: Location{55..56 @ 0},
+                                            dataType: Type{i32},
+                                            obj: ASTObj{OBJ_VAR, 'b', Type{i32}}
+                                        },
+                                        rhs: ASTObjExpr{
+                                            type: EXPR_VARIABLE,
+                                            location: Location{59..60 @ 0},
+                                            dataType: Type{i32},
+                                            obj: ASTObj{OBJ_VAR, 'a', Type{i32}}
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    ASTObj{
+                        type: OBJ_FN,
+                        name: 'main',
+                        dataType: Type{type: TY_FUNCTION, name: 'fn()->void', declLocation: Location{(empty)}, declModule: 0, returnType: Type{void}, parameterTypes: []},
+                        parameters: [],
+                        returnType: Type{void},
+                        body: ASTBlockStmt{
+                            type: STMT_BLOCK,
+                            location: Location{75..130 @ 0},
+                            nodes: [
+                                ASTVarDeclStmt{
+                                    type: STMT_VAR_DECL,
+                                    location: Location{78..99 @ 0},
+                                    variable: ASTObj{OBJ_VAR, 'a', Type{i32}},
+                                    initializer: ASTCallExpr{
+                                        type: EXPR_CALL,
+                                        location: Location{86..98 @ 0},
+                                        dataType: Type{i32},
+                                        callee: ASTObjExpr{
+                                            type: EXPR_FUNCTION,
+                                            location: Location{86..95 @ 0},
+                                            dataType: Type{fn(i32)->i32},
+                                            obj: ASTObj{OBJ_FN, 'makeValue', Type{fn(i32)->i32}}
+                                        },
+                                        arguments: [
+                                            ASTConstantValueExpr{
+                                                type: EXPR_NUMBER_CONSTANT,
+                                                location: Location{96..97 @ 0},
+                                                dataType: Type{i32},
+                                                value: 5
+                                            }
+                                        ]
+                                    }
+                                },
+                                ASTConditionalStmt{
+                                    type: STMT_IF,
+                                    location: Location{101..128 @ 0},
+                                    condition: ASTBinaryExpr{
+                                        type: EXPR_EQ,
+                                        location: Location{104..110 @ 0},
+                                        dataType: Type{i32},
+                                        lhs: ASTObjExpr{
+                                            type: EXPR_VARIABLE,
+                                            location: Location{104..105 @ 0},
+                                            dataType: Type{i32},
+                                            obj: ASTObj{OBJ_VAR, 'a', Type{i32}}
+                                        },
+                                        rhs: ASTConstantValueExpr{
+                                            type: EXPR_NUMBER_CONSTANT,
+                                            location: Location{109..110 @ 0},
+                                            dataType: Type{i32},
+                                            value: 2
+                                        }
+                                    },
+                                    then: ASTBlockStmt{
+                                        type: STMT_BLOCK,
+                                        location: Location{111..128 @ 0},
+                                        nodes: [
+                                            ASTExprStmt{
+                                                type: STMT_EXPR,
+                                                location: Location{115..125 @ 0},
+                                                expression: ASTBinaryExpr{
+                                                    type: EXPR_ASSIGN,
+                                                    location: Location{115..124 @ 0},
+                                                    dataType: Type{i32},
+                                                    lhs: ASTObjExpr{
+                                                        type: EXPR_VARIABLE,
+                                                        location: Location{115..116 @ 0},
+                                                        dataType: Type{i32},
+                                                        obj: ASTObj{OBJ_VAR, 'a', Type{i32}}
+                                                    },
+                                                    rhs: ASTBinaryExpr{
+                                                        type: EXPR_MULTIPLY,
+                                                        location: Location{119..124 @ 0},
+                                                        dataType: Type{i32},
+                                                        lhs: ASTObjExpr{
+                                                            type: EXPR_VARIABLE,
+                                                            location: Location{119..120 @ 0},
+                                                            dataType: Type{i32},
+                                                            obj: ASTObj{OBJ_VAR, 'a', Type{i32}}
+                                                        },
+                                                        rhs: ASTConstantValueExpr{
+                                                            type: EXPR_NUMBER_CONSTANT,
+                                                            location: Location{123..124 @ 0},
+                                                            dataType: Type{i32},
+                                                            value: 2
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    else: (null)
+                                }
+                            ]
+                        }
+                    }
+                ],
+                depth: SCOPE_DEPTH_MODULE_NAMESPACE,
+                children: [
+                    Scope{
+                        objects: [
+                            ASTObj{
+                                type: OBJ_VAR,
+                                name: 'b',
+                                dataType: Type{type: TY_I32, name: 'i32', declLocation: Location{(empty)}, declModule: 0}
+                            }
+                        ],
+                        depth: SCOPE_DEPTH_BLOCK,
+                        children: [],
+                        parent: Scope{...}
+                    },
+                    Scope{
+                        objects: [
+                            ASTObj{
+                                type: OBJ_VAR,
+                                name: 'a',
+                                dataType: Type{type: TY_I32, name: 'i32', declLocation: Location{(empty)}, declModule: 0}
+                            }
+                        ],
+                        depth: SCOPE_DEPTH_BLOCK,
+                        children: [
+                            Scope{
+                                objects: [],
+                                depth: SCOPE_DEPTH_BLOCK+1,
+                                children: [],
+                                parent: Scope{...}
+                            }
+                        ],
+                        parent: Scope{...}
+                    }
+                ],
+                parent: (null)
+            },
+            variableDecls: [
+                ASTVarDeclStmt{
+                    type: STMT_VAR_DECL,
+                    location: Location{0..15 @ 0},
+                    variable: ASTObj{OBJ_VAR, 'a', Type{i32}},
+                    initializer: ASTConstantValueExpr{
+                        type: EXPR_NUMBER_CONSTANT,
+                        location: Location{13..14 @ 0},
+                        dataType: Type{i32},
+                        value: 2
+                    }
+                }
+            ]
+        }
+    ]
+}
+====== END ======
