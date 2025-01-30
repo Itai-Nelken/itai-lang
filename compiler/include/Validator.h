@@ -14,6 +14,7 @@ typedef struct validator {
     bool hadError;
     struct {
         Scope *parsedScope, *checkedScope;
+        ASTObj *function;
         ModuleID module;
     } current;
 } Validator;

@@ -14,6 +14,7 @@ void validatorInit(Validator *v, Compiler *c) {
     v->compiler = c;
     v->hadError = false;
     v->current.checkedScope = v->current.parsedScope = NULL;
+    v->current.function = NULL;
     v->current.module = 0;
 }
 
@@ -383,6 +384,15 @@ static ASTStmtNode *validateStmt(Validator *v, ASTStmtNode *parsedStmt) {
             Array checkedNodes;
             arrayInitSized(&checkedNodes, arrayLength(&NODE_AS(ASTBlockStmt, parsedStmt)->nodes));
             enterScope(v, NODE_AS(ASTBlockStmt, parsedStmt)->scope);
+            // Add parameters to current scope as local variables (only for the first function scope.)
+            // FIXME: parser already does that. We should either do it here only, or there only.
+            VERIFY(v->current.function);
+            if(getCurrentCheckedScope(v)->depth == SCOPE_DEPTH_BLOCK) {
+                ARRAY_FOR(i, v->current.function->as.fn.parameters) {
+                    ASTObj *param = ARRAY_GET_AS(ASTObj *, &v->current.function->as.fn.parameters, i);
+                    scopeAddObject(getCurrentCheckedScope(v), param);
+                }
+            }
             bool hadError = false;
             // Note: if I support closures/lambdas, validateCurrentScope() shuld be called here.
             ARRAY_FOR(i, NODE_AS(ASTBlockStmt, parsedStmt)->nodes) {
@@ -499,7 +509,9 @@ static ASTObj *validateFunction(Validator *v, ASTObj *fn) {
     if(hadError) {
         return NULL;
     }
+    v->current.function = checkedFn;
     ASTStmtNode *checkedBody = TRY(ASTStmtNode *, validateStmt(v, NODE_AS(ASTStmtNode, fn->as.fn.body)));
+    v->current.function = NULL;
     checkedFn->as.fn.body = NODE_AS(ASTBlockStmt, checkedBody);
 
     return checkedFn;
