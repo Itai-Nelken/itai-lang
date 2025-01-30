@@ -268,14 +268,81 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
         case EXPR_LT:
         case EXPR_LE:
         case EXPR_GT:
-        case EXPR_GE:
+        case EXPR_GE: {
+            #define IS_ASSIGNMENT_TARGET(expr) ((expr)->type == EXPR_VARIABLE || (expr)->type == EXPR_DEREF || (expr)->type == EXPR_PROPERTY_ACCESS)
+            ASTExprNode *lhs = TRY(ASTExprNode *, validateExpr(v, NODE_AS(ASTBinaryExpr, parsedExpr)->lhs));
+            if(NODE_IS(parsedExpr, EXPR_ASSIGN) && !IS_ASSIGNMENT_TARGET(lhs)) {
+                error(v, lhs->location, "Invalid assignment target (only variables can be assigned).");
+                break;
+            }
+            ASTExprNode *rhs = TRY(ASTExprNode *, validateExpr(v, NODE_AS(ASTBinaryExpr, parsedExpr)->rhs));
+            checkedExpr = (ASTExprNode *)astBinaryExprNew(getCurrentAllocator(v), parsedExpr->type, parsedExpr->location, NULL, lhs, rhs);
+            checkedExpr->dataType = exprDataType(v, checkedExpr);
+            break;
+            #undef IS_ASSIGNMENT_TARGET
+        }
         // Unary nodes
         case EXPR_NEGATE:
         case EXPR_ADDROF:
-        case EXPR_DEREF:
+        case EXPR_DEREF: {
+            // TODO: move to Type.h/c (if made inline function)
+            #define IS_POINTER(ty) ((ty)->type == TY_POINTER)
+            ASTExprNode *checkedOperand = TRY(ASTExprNode *, validateExpr(v, NODE_AS(ASTUnaryExpr, parsedExpr)->operand));
+            Type *exprTy = exprDataType(v, checkedOperand);
+            checkedExpr = NODE_AS(ASTExprNode, astUnaryExprNew(getCurrentAllocator(v), parsedExpr->type, parsedExpr->location, exprTy, checkedOperand));
+            if(NODE_IS(checkedExpr, EXPR_DEREF) && !IS_POINTER(exprTy)) {
+                error(v, checkedExpr->location, "Cannot dereference a non-pointer type.");
+                checkedExpr = NULL;
+            }
+            break;
+            #undef IS_POINTER
+        }
         // Call node
-        case EXPR_CALL:
-            UNREACHABLE();
+        case EXPR_CALL: {
+            // a callable object is either a function or a variable that refers to a function.
+            #define IS_CALLABLE(expr) (NODE_IS(expr, EXPR_FUNCTION) || (NODE_IS(expr, EXPR_VARIABLE) && NODE_AS(ASTObjExpr, expr)->obj->dataType->type == TY_FUNCTION))
+            ASTCallExpr *parsedCall = NODE_AS(ASTCallExpr, parsedExpr);
+            // 1. validate callee, make sure its callable.
+            ASTExprNode *checkedCallee = TRY(ASTExprNode *, validateExpr(v, parsedCall->callee));
+            VERIFY(checkedCallee->dataType);
+            if(!IS_CALLABLE(checkedCallee)) {
+                error(v, checkedCallee->location, "Type '%s' isn't callable.", checkedCallee->dataType->name);
+                // Note: we can continue validating since we don't typecheck the arguments yet,
+                //       so we don't need to know what type they are supposed to be, info that's
+                //       only available if the type is callable (and eventually refers to a function.)
+            }
+            #undef IS_CALLABLE
+            // 2. validate arguments.
+            Array checkedArguments;
+            arrayInitSized(&checkedArguments, arrayLength(&parsedCall->arguments));
+            bool hadError = false;
+            ARRAY_FOR(i, parsedCall->arguments) {
+                ASTExprNode *arg = ARRAY_GET_AS(ASTExprNode *, &parsedCall->arguments, i);
+                arg = validateExpr(v, arg);
+                if(arg) {
+                    arrayPush(&checkedArguments, (void *)arg);
+                } else {
+                    hadError = true;
+                }
+            }
+            if(hadError) {
+                arrayFree(&checkedArguments);
+                break;
+            }
+            if(arrayLength(&checkedCallee->dataType->as.fn.parameterTypes) != arrayLength(&checkedArguments)) {
+                usize expected = arrayLength(&checkedCallee->dataType->as.fn.parameterTypes);
+                usize actual = arrayLength(&checkedArguments);
+                error(v, parsedExpr->location, "Expected %lu argument%s but got %lu.", expected, expected != 1 ? "s" : "", actual);
+                // TODO: hint to where fn is declared. Can't do simply right now since callee may be a variable refering to a function.
+                arrayFree(&checkedArguments);
+                break;
+            }
+            Type *calleeType = exprDataType(v, checkedCallee);
+            VERIFY(calleeType);
+            checkedExpr = (ASTExprNode *)astCallExprNew(getCurrentAllocator(v), parsedExpr->location, calleeType, checkedCallee, &checkedArguments);
+            arrayFree(&checkedArguments);
+            break;
+        }
         // Other nodes.
         case EXPR_IDENTIFIER: {
             // TODO: I think I can remove the last parameter from this function, since with the new
