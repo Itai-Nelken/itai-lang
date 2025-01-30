@@ -45,7 +45,7 @@ void typePrint(FILE *to, Type *ty, bool compact) {
             typePrint(to, ty->as.ptr.innerType, true);
             break;
         case TY_FUNCTION:
-            fputs(", \x1b[returnType:\x1b[0m ", to);
+            fputs(", \x1b[1mreturnType:\x1b[0m ", to);
             typePrint(to, ty->as.ptr.innerType, true);
             fputs("\x1b[1mparameterTypes:\x1b[0m [", to);
             ARRAY_FOR(i, ty->as.fn.parameterTypes) {
