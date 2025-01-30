@@ -1,4 +1,4 @@
-/// expect error: Error: Expected a variable.
+/// expect error: Error: Cannot dereference a non-pointer type.
 
 fn main() {
 	*123;
