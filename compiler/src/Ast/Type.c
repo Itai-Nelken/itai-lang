@@ -47,13 +47,14 @@ void typePrint(FILE *to, Type *ty, bool compact) {
         case TY_FUNCTION:
             fputs(", \x1b[1mreturnType:\x1b[0m ", to);
             typePrint(to, ty->as.ptr.innerType, true);
-            fputs("\x1b[1mparameterTypes:\x1b[0m [", to);
+            fputs(", \x1b[1mparameterTypes:\x1b[0m [", to);
             ARRAY_FOR(i, ty->as.fn.parameterTypes) {
                 typePrint(to, ARRAY_GET_AS(Type *, &ty->as.fn.parameterTypes, i), true);
                 if(i + 1 < arrayLength(&ty->as.fn.parameterTypes)) {
                     fputs(", ", to);
                 }
             }
+            fputs("]", to);
             break;
         case TY_STRUCT:
             LOG_ERR("Struct type pretty-printing not supported yet.");
