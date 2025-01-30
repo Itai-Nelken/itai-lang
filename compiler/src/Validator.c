@@ -489,7 +489,9 @@ static ASTVarDeclStmt *validateVariableDecl(Validator *v, ASTVarDeclStmt *parsed
     return checkedVarDecl;
 }
 
-// Note: C.R.E for [fn] to be NULL.
+// Notes:
+// * C.R.E for [fn] to be NULL.
+// * Adds the function object to the current scope.
 static ASTObj *validateFunction(Validator *v, ASTObj *fn) {
     // Note: (parsed) fn scope already contains params. They are added by the parser.
     Type *checkedReturnType = TRY(Type *, validateType(v, fn->as.fn.returnType));
@@ -511,6 +513,8 @@ static ASTObj *validateFunction(Validator *v, ASTObj *fn) {
     if(hadError) {
         return NULL;
     }
+    // Add function object to current scope to allow recursion.
+    scopeAddObject(getCurrentCheckedScope(v), checkedFn);
     v->current.function = checkedFn;
     ASTStmtNode *checkedBody = TRY(ASTStmtNode *, validateStmt(v, NODE_AS(ASTStmtNode, fn->as.fn.body)));
     v->current.function = NULL;
@@ -556,10 +560,8 @@ static bool validateCurrentScope(Validator *v) {
         ASTObj *parsedObj = ARRAY_GET_AS(ASTObj *, &objectsInScope, i);
         // TODO: Note: OBJ_VARs will be validated as the variables are declared (in validateStmt() probably.)
         if(parsedObj->type != OBJ_VAR) {
-            ASTObj *checkedObj = validateObject(v, parsedObj);
-            if(checkedObj) {
-                scopeAddObject(getCurrentCheckedScope(v), checkedObj);
-            } else {
+            // validateObject() adds the object to the current scope.
+            if(validateObject(v, parsedObj) == NULL) {
                 hadError = true;
             }
         }
