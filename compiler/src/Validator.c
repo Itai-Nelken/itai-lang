@@ -406,7 +406,17 @@ static ASTStmtNode *validateStmt(Validator *v, ASTStmtNode *parsedStmt) {
             break;
         }
         // Conditional nodes
-        case STMT_IF:
+        case STMT_IF: {
+            ASTConditionalStmt *parsedIf = NODE_AS(ASTConditionalStmt, parsedStmt);
+            ASTExprNode *checkedCondition = TRY(ASTExprNode *, validateExpr(v, parsedIf->condition));
+            ASTStmtNode *checkedThen = TRY(ASTStmtNode *, validateStmt(v, parsedIf->then));
+            ASTStmtNode *checkedElse = NULL;
+            if(parsedIf->else_) {
+                checkedElse = TRY(ASTStmtNode *, validateStmt(v, parsedIf->else_));
+            }
+            checkedStmt = NODE_AS(ASTStmtNode, astConditionalStmtNew(getCurrentAllocator(v), parsedStmt->location, checkedCondition, checkedThen, checkedElse));
+            break;
+        }
         // Loop nodes
         case STMT_LOOP:
             UNREACHABLE();
