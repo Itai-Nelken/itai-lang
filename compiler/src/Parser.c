@@ -508,11 +508,29 @@ static ASTStmtNode *parseReturnStmt(Parser *p) {
     return (ASTStmtNode *)astExprStmtNew(getCurrentAllocator(p), STMT_RETURN, locationMerge(loc, previous(p).location), operand);
 }
 
-// statement -> block | return_stmt | if_stmt | while_loop_stmt | defer_stmt | expression_stmt
+// while_loop -> 'while' expression block(function_body)
+static ASTStmtNode *parseWhileLoop(Parser *p) {
+    // Assumes 'while' was already consumed.
+    Location loc = previous(p).location;
+    ASTExprNode *condition = TRY(ASTExprNode *, parseExpression(p));
+    TRY_CONSUME(p, TK_LBRACE);
+    Scope *bodyScope = enterScope(p, SCOPE_DEPTH_BLOCK);
+    ASTBlockStmt *body = parseBlockStmt(p, bodyScope, parseFunctionBodyStatements);
+    leaveScope(p);
+    // Leave scope before failing (on error.)
+    if(!body) {
+        return NULL;
+    }
+    return NODE_AS(ASTStmtNode, astLoopStmtNew(getCurrentAllocator(p), locationMerge(loc, previous(p).location), NULL, condition, NULL, body));
+}
+
+// statement -> block(statement) | return_stmt | if_stmt | while_loop_stmt | defer_stmt | expression_stmt
 static ASTStmtNode *parseStatement(Parser *p) {
     ASTStmtNode *result = NULL;
     if(match(p, TK_IF)) {
         result = parseIfStmt(p);
+    } else if(match(p, TK_WHILE)) {
+        result = parseWhileLoop(p);
     } else if(match(p, TK_RETURN)) {
         result = parseReturnStmt(p);
     } else if(match(p, TK_LBRACE)) {

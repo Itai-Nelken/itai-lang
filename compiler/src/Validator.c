@@ -430,8 +430,22 @@ static ASTStmtNode *validateStmt(Validator *v, ASTStmtNode *parsedStmt) {
             break;
         }
         // Loop nodes
-        case STMT_LOOP:
-            UNREACHABLE();
+        case STMT_LOOP: {
+            ASTLoopStmt *parsedLoop = NODE_AS(ASTLoopStmt, parsedStmt);
+            ASTStmtNode *checkedInit = NULL;
+            if(parsedLoop->initializer) {
+                checkedInit = TRY(ASTStmtNode *, validateStmt(v, parsedLoop->initializer));
+            }
+            ASTExprNode *checkedCondition = TRY(ASTExprNode *, validateExpr(v, parsedLoop->condition));
+            ASTExprNode *checkedInc = NULL;
+            if(parsedLoop->increment) {
+                checkedInc = TRY(ASTExprNode *, validateExpr(v, parsedLoop->increment));
+            }
+            // Note: body will ALWAYS be a block. That is how the parser parses it.
+            ASTBlockStmt *checkedBody = NODE_AS(ASTBlockStmt, TRY(ASTStmtNode *, validateStmt(v, NODE_AS(ASTStmtNode, parsedLoop->body))));
+            checkedStmt = NODE_AS(ASTStmtNode, astLoopStmtNew(getCurrentAllocator(v), parsedStmt->location, checkedInit, checkedCondition, checkedInc, checkedBody));
+            break;
+        }
         // Expr nodes
         case STMT_RETURN: {
             // Can't use same code as STMT_EXPR due to return statements not requiring an operand.
