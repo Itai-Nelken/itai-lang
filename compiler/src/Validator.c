@@ -257,6 +257,8 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
         // Obj nodes
         case EXPR_VARIABLE:
         case EXPR_FUNCTION:
+            LOG_ERR("Validator: object expr nodes not supported yet.");
+            UNREACHABLE();
         // Binary nodes
         case EXPR_ASSIGN:
         case EXPR_PROPERTY_ACCESS:
@@ -500,7 +502,8 @@ static ASTVarDeclStmt *validateVariableDecl(Validator *v, ASTVarDeclStmt *parsed
 // Notes:
 // * C.R.E for [fn] to be NULL.
 // * Adds the function object to the current scope.
-static ASTObj *validateFunction(Validator *v, ASTObj *fn) {
+// * returns true on success, and false on failure.
+static bool validateFunction(Validator *v, ASTObj *fn) {
     // Note: (parsed) fn scope already contains params. They are added by the parser.
     Type *checkedReturnType = TRY(Type *, validateType(v, fn->as.fn.returnType));
     Type *checkedFnType = TRY(Type *, validateType(v, fn->dataType));
@@ -519,7 +522,7 @@ static ASTObj *validateFunction(Validator *v, ASTObj *fn) {
         }
     }
     if(hadError) {
-        return NULL;
+        return false;
     }
     // Add function object to current scope to allow recursion.
     scopeAddObject(getCurrentCheckedScope(v), checkedFn);
@@ -528,13 +531,16 @@ static ASTObj *validateFunction(Validator *v, ASTObj *fn) {
     v->current.function = NULL;
     checkedFn->as.fn.body = NODE_AS(ASTBlockStmt, checkedBody);
 
-    return checkedFn;
+    // checkedFn is already in the current scope. see above.
+    return true;
 }
 
-// Note: C.R.E for parsedObj to be NULL.
-static ASTObj *validateObject(Validator *v, ASTObj *parsedObj) {
+// Notes:
+// * C.R.E for parsedObj to be NULL.
+// * The checked object is added to the current scope.
+static bool validateObject(Validator *v, ASTObj *parsedObj) {
     VERIFY(parsedObj);
-    ASTObj *checkedObj = NULL;
+    bool result = false;
     switch(parsedObj->type) {
         case OBJ_VAR:
             // OBJ_VAR's should be validated when the variable they refer to is declared.
@@ -542,7 +548,8 @@ static ASTObj *validateObject(Validator *v, ASTObj *parsedObj) {
             LOG_ERR("OBJ_VAR not allowed in validateObject()");
             UNREACHABLE();
         case OBJ_FN:
-            checkedObj = validateFunction(v, parsedObj);
+            // validateFunction() adds the checked function to the current scope.
+            result = validateFunction(v, parsedObj);
             break;
         //case OBJ_STRUCT:
         //case OBJ_ENUM?:
@@ -550,7 +557,7 @@ static ASTObj *validateObject(Validator *v, ASTObj *parsedObj) {
             UNREACHABLE();
     }
 
-    return checkedObj;
+    return result;
 }
 
 // Note: scope here refers to a namespace type scope (i.e. SCOPE_DEPTH_MODULE_NAMESPACE or SCOPE_DEPTH_STRUCT)
@@ -569,7 +576,7 @@ static bool validateCurrentScope(Validator *v) {
         // TODO: Note: OBJ_VARs will be validated as the variables are declared (in validateStmt() probably.)
         if(parsedObj->type != OBJ_VAR) {
             // validateObject() adds the object to the current scope.
-            if(validateObject(v, parsedObj) == NULL) {
+            if(!validateObject(v, parsedObj)) {
                 hadError = true;
             }
         }
