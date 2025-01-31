@@ -219,6 +219,7 @@ typedef struct parse_rule {
 static ASTExprNode *parseExpression(Parser *p);
 static ASTExprNode *parsePrecedence(Parser *p, Precedence minPrec);
 static ASTExprNode *parse_number_literal_expr(Parser *p);
+static ASTExprNode *parse_string_literal_expr(Parser *p);
 static ASTExprNode *parse_binary_expr(Parser *p, ASTExprNode *lhs);
 static ASTExprNode *parse_unary_expr(Parser *p);
 static ASTExprNode *parse_grouping_expr(Parser *p);
@@ -255,7 +256,7 @@ static ParseRule rules[] = {
     [TK_GREATER]        = {NULL, parse_binary_expr, PREC_COMPARISON},
     [TK_GREATER_EQUAL]  = {NULL, parse_binary_expr, PREC_COMPARISON},
     [TK_NUMBER_LITERAL] = {parse_number_literal_expr, NULL, PREC_LOWEST},
-    [TK_STRING_LITERAL] = {NULL, NULL, PREC_LOWEST},
+    [TK_STRING_LITERAL] = {parse_string_literal_expr, NULL, PREC_LOWEST},
     [TK_IF]             = {NULL, NULL, PREC_LOWEST},
     [TK_ELSE]           = {NULL, NULL, PREC_LOWEST},
     [TK_WHILE]          = {NULL, NULL, PREC_LOWEST},
@@ -285,9 +286,19 @@ static ASTExprNode *parse_number_literal_expr(Parser *p) {
     Location loc = previous(p).location;
     // TODO: Support hex, octal, and binary literals
     u64 value = strtoul(previous(p).lexeme, NULL, 10);
-    // TODO: parse postfix types.
+    // TODO: parse postfix types
+    // TODO: set type here.
     ASTConstantValueExpr *n = astConstantValueExprNew(getCurrentAllocator(p), EXPR_NUMBER_CONSTANT, loc, NULL);
     n->as.number = value;
+    return NODE_AS(ASTExprNode, n);
+}
+
+static ASTExprNode *parse_string_literal_expr(Parser *p) {
+    Token tk = previous(p);
+    ASTString value = stringTableFormat(p->program->strings, "%.*s", tk.length, tk.lexeme);
+    // TODO: add string type here since string literals will always be of type 'str'.
+    ASTConstantValueExpr *n = astConstantValueExprNew(getCurrentAllocator(p), EXPR_STRING_CONSTANT, tk.location, NULL);
+    n->as.string = value;
     return NODE_AS(ASTExprNode, n);
 }
 

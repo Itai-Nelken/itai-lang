@@ -243,14 +243,14 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
     switch(parsedExpr->type) {
         // Constant value nodes.
         case EXPR_NUMBER_CONSTANT:
-            // FIXME: Can I call exprDataType() on an unvalidated expr? I think it will work in this specific case,
-            //        but is it something I should allow?
+            // FIXME: Can I call exprDataType() on a parsed (not checked) expr?
+            //        It will work in this specific case, but is it something I should allow?
             checkedExpr = (ASTExprNode *)astConstantValueExprNew(getCurrentAllocator(v), EXPR_NUMBER_CONSTANT, parsedExpr->location, exprDataType(v, parsedExpr));
             NODE_AS(ASTConstantValueExpr, checkedExpr)->as.number = NODE_AS(ASTConstantValueExpr, parsedExpr)->as.number;
             break;
         case EXPR_STRING_CONSTANT:
-            // FIXME: Can I call exprDataType() on an unvalidated expr? I think it will work in this specific case,
-            //        but is it something I should allow?
+            // FIXME: Can I call exprDataType() on a parsed (not checked) expr?
+            //        It will work in this specific case, but is it something I should allow?
             checkedExpr = (ASTExprNode *)astConstantValueExprNew(getCurrentAllocator(v), EXPR_STRING_CONSTANT, parsedExpr->location, exprDataType(v, parsedExpr));
             NODE_AS(ASTConstantValueExpr, checkedExpr)->as.string = NODE_AS(ASTConstantValueExpr, parsedExpr)->as.string;
             break;
