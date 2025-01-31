@@ -524,6 +524,33 @@ static ASTStmtNode *parseWhileLoop(Parser *p) {
     return NODE_AS(ASTStmtNode, astLoopStmtNew(getCurrentAllocator(p), locationMerge(loc, previous(p).location), NULL, condition, NULL, body));
 }
 
+// defer_operand -> block(expression_stmt) | expression_stmt
+static ASTStmtNode *parseDeferOperand(Parser *p) {
+    ASTStmtNode *result = NULL;
+    if(match(p, TK_LBRACE)) {
+        // Note: Because variable declarations are not allowed in defer blocks,
+        //       a scope isn't needed. But it isn't possible to use the current scope
+        //       because then it would be exited twice which isn't possible.
+        //       Because of that, a new scope is entered altough it isn't needed.
+        Scope *scope = enterScope(p, SCOPE_DEPTH_BLOCK);
+        result = NODE_AS(ASTStmtNode, parseBlockStmt(p, scope, parseExpressionStmt));
+        leaveScope(p);
+        // No semicolon needed after a block.
+    } else {
+        // Semicolon is consumed by parseExpressionStmt().
+        result = parseExpressionStmt(p);
+    }
+    return result;
+}
+
+// defer_stmt -> 'defer' defer_operand
+static ASTStmtNode *parseDeferStmt(Parser *p) {
+    // Assumes 'defer' was already consumed
+    Location loc = previous(p).location;
+    ASTStmtNode *operand = TRY(ASTStmtNode *, parseDeferOperand(p));
+    return NODE_AS(ASTStmtNode, astDeferStmtNew(getCurrentAllocator(p), locationMerge(loc, previous(p).location), operand));
+}
+
 // statement -> block(statement) | return_stmt | if_stmt | while_loop_stmt | defer_stmt | expression_stmt
 static ASTStmtNode *parseStatement(Parser *p) {
     ASTStmtNode *result = NULL;
@@ -533,6 +560,8 @@ static ASTStmtNode *parseStatement(Parser *p) {
         result = parseWhileLoop(p);
     } else if(match(p, TK_RETURN)) {
         result = parseReturnStmt(p);
+    } else if(match(p, TK_DEFER)) {
+        result = parseDeferStmt(p);
     } else if(match(p, TK_LBRACE)) {
         Scope *sc = enterScope(p, SCOPE_DEPTH_BLOCK);
         result = NODE_AS(ASTStmtNode, parseBlockStmt(p, sc, parseStatement));

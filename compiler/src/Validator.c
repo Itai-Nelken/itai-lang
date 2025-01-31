@@ -462,7 +462,11 @@ static ASTStmtNode *validateStmt(Validator *v, ASTStmtNode *parsedStmt) {
             break;
         }
         // Defer nodes
-        case STMT_DEFER:
+        case STMT_DEFER: {
+            ASTStmtNode *checkedOperand = TRY(ASTStmtNode *, validateStmt(v, NODE_AS(ASTDeferStmt, parsedStmt)->body));
+            checkedStmt = NODE_AS(ASTStmtNode, astDeferStmtNew(getCurrentAllocator(v), parsedStmt->location, checkedOperand));
+            break;
+        }
         default:
             UNREACHABLE();
     }
