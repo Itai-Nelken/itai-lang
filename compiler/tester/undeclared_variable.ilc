@@ -1,4 +1,4 @@
-/// expect error: Error: Variable 'a' is not declared yet.
+/// expect error: Identifier 'a' doesn't exist.
 
 fn main() {
 	a;
