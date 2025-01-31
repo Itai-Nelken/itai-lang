@@ -21,7 +21,7 @@ typedef usize ModuleID; // Ast/Program.h
  **/
 
 typedef enum type_type {
-    TY_VOID, TY_I32, // TY_U32, TY_STR,
+    TY_VOID, TY_I32, TY_U32, TY_STR,
     TY_POINTER,
     TY_FUNCTION,
     TY_STRUCT,

@@ -32,6 +32,8 @@ typedef struct parser {
     struct {
         Type *void_;
         Type *int32;
+        Type *uint32;
+        Type *str;
     } primitives;
 } Parser;
 

@@ -29,6 +29,8 @@ static void parser_init_internal(Parser *p, Compiler *c, Scanner *s) {
     p->state.prevSyncTo = TK_TYPE_COUNT; // Note: a way to say nothing (NULL).
     p->primitives.void_ = NULL;
     p->primitives.int32 = NULL;
+    p->primitives.uint32 = NULL;
+    p->primitives.str = NULL;
 }
 void parserInit(Parser *p, Compiler *c, Scanner *s) {
     parser_init_internal(p, c, s);
@@ -648,6 +650,12 @@ static Type *parsePrimitiveType(Parser *p) {
         case TK_I32:
             ty = p->primitives.int32;
             break;
+        case TK_U32:
+            ty = p->primitives.uint32;
+            break;
+        case TK_STR:
+            ty = p->primitives.str;
+            break;
         default:
             break;
     }
@@ -866,6 +874,8 @@ static void import_primitive_types(Parser *p, ModuleID mID) {
 
     DEF(TY_VOID, void_, "void");
     DEF(TY_I32, int32, "i32");
+    DEF(TY_U32, uint32, "u32");
+    DEF(TY_STR, str, "str");
 
 #undef DEF
 }

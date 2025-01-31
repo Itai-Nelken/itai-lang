@@ -177,8 +177,8 @@ static Type *validateType(Validator *v, Type *parsedType) {
     switch(parsedType->type) {
         case TY_VOID:
         case TY_I32:
-        //case TY_U32:
-        //case TY_STR:
+        case TY_U32:
+        case TY_STR:
             // Primitive types. Nothing to validate.
             checkedType = typeNew(parsedType->type, parsedType->name, parsedType->declLocation, v->current.module);
             break;

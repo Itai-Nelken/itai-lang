@@ -11,8 +11,8 @@ static inline const char *type_type_to_string(TypeType type) {
     const char *names[] = {
         [TY_VOID]     = "TY_VOID",
         [TY_I32]      = "TY_I32",
-        //[TY_U32]      = "TY_U32",
-        //[TY_STR]      = "TY_STR",
+        [TY_U32]      = "TY_U32",
+        [TY_STR]      = "TY_STR",
         [TY_POINTER]  = "TY_POINTER",
         [TY_FUNCTION] = "TY_FUNCTION",
         [TY_STRUCT]   = "TY_STRUCT"
@@ -37,8 +37,8 @@ void typePrint(FILE *to, Type *ty, bool compact) {
     switch(ty->type) {
         case TY_VOID:
         case TY_I32:
-        //case TY_U32:
-        //case TY_STR:
+        case TY_U32:
+        case TY_STR:
             break;
         case TY_POINTER:
             fputs(", \x1b[1minnerType:\x1b[0m ", to);
@@ -128,6 +128,8 @@ bool typeIsPrimitive(Type *ty) {
     switch(ty->type) {
         case TY_VOID:
         case TY_I32:
+        case TY_U32:
+        case TY_STR:
             return true;
         default:
             break; // The return is not here to make it clearer that all execution paths are covered.
