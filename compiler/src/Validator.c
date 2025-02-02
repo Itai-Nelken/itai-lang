@@ -593,7 +593,7 @@ static bool validateStruct(Validator *v, ASTObj *st) {
         }
     }
     arrayFree(&objects);
-    bool hadError = validateCurrentScope(v);
+    bool hadError = !validateCurrentScope(v);
     Scope *checkedScope = getCurrentCheckedScope(v);
     leaveScope(v);
     ASTObj *checkedStruct = astModuleNewObj(getCurrentCheckedModule(v), OBJ_STRUCT, st->location, st->name, getType(v, st->dataType->name));
@@ -688,6 +688,9 @@ static void validateModule(Validator *v, ModuleID moduleID) {
     v->current.checkedScope = checkedModule->moduleScope;
 
     tableMap(&parsedModule->types, validate_type_callback, (void *)v);
+    if(v->hadError) {
+        return;
+    }
 
     ARRAY_FOR(i, parsedModule->variableDecls) {
         ASTVarDeclStmt *parsedVarDecl = ARRAY_GET_AS(ASTVarDeclStmt *, &parsedModule->variableDecls, i);
