@@ -1,4 +1,4 @@
-/// expect error: Error: 'defer' is not allowed in this context.
+/// expect error: Error: 'defer' only allowed in function scope.
 
 fn main() {
 	while 1 {

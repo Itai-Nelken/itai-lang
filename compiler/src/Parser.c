@@ -548,6 +548,10 @@ static ASTStmtNode *parseDeferOperand(Parser *p) {
 static ASTStmtNode *parseDeferStmt(Parser *p) {
     // Assumes 'defer' was already consumed
     Location loc = previous(p).location;
+    if(getCurrentScope(p)->depth > SCOPE_DEPTH_BLOCK) {
+        errorAt(p, loc, "'defer' only allowed in function scope.");
+        return NULL;
+    }
     ASTStmtNode *operand = TRY(ASTStmtNode *, parseDeferOperand(p));
     return NODE_AS(ASTStmtNode, astDeferStmtNew(getCurrentAllocator(p), locationMerge(loc, previous(p).location), operand));
 }
