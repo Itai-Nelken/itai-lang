@@ -57,8 +57,15 @@ void typePrint(FILE *to, Type *ty, bool compact) {
             fputs("]", to);
             break;
         case TY_STRUCT:
-            LOG_ERR("Struct type pretty-printing not supported yet.");
-            // fallthrough
+            fputs(", \x1b[1mfieldTypes:\x1b[0m [", to);
+            ARRAY_FOR(i, ty->as.structure.fieldTypes) {
+                typePrint(to, ARRAY_GET_AS(Type *, &ty->as.structure.fieldTypes, i), true);
+                if(i + 1 < arrayLength(&ty->as.structure.fieldTypes)) {
+                    fputs(", ", to);
+                }
+            }
+            fputs("]", to);
+            break;
         default:
             UNREACHABLE();
     }
@@ -77,6 +84,9 @@ Type *typeNew(TypeType type, ASTString name, Location declLocation, ModuleID dec
         case TY_FUNCTION:
             arrayInit(&ty->as.fn.parameterTypes);
             break;
+        case TY_STRUCT:
+            arrayInit(&ty->as.structure.fieldTypes);
+            break;
         default:
             break;
     }
@@ -90,6 +100,9 @@ void typeFree(Type *ty) {
             // Note: types are owned by modules, and so should be freed by them as well.
             //       (refering to the parameter types here.)
             arrayFree(&ty->as.fn.parameterTypes);
+            break;
+        case TY_STRUCT:
+            arrayFree(&ty->as.structure.fieldTypes);
             break;
         default:
             break;
@@ -113,11 +126,33 @@ bool typeEqual(Type *a, Type *b) {
         case TY_POINTER:
             return typeEqual(a->as.ptr.innerType, b->as.ptr.innerType);
         case TY_FUNCTION:
-            // check return type, parameter types
+            if(!typeEqual(a->as.fn.returnType, b->as.fn.returnType)) {
+                return false;
+            }
+            if(arrayLength(&a->as.fn.parameterTypes) != arrayLength(&b->as.fn.parameterTypes)) {
+                return false;
+            }
+            ARRAY_FOR(i, a->as.fn.parameterTypes) {
+                Type *aParam = ARRAY_GET_AS(Type *, &a->as.fn.parameterTypes, i);
+                Type *bParam = ARRAY_GET_AS(Type *, &b->as.fn.parameterTypes, i);
+                if(!typeEqual(aParam, bParam)) {
+                    return false;
+                }
+            }
+            break;
         case TY_STRUCT:
-            // check field types.
+            if(arrayLength(&a->as.structure.fieldTypes) != arrayLength(&b->as.structure.fieldTypes)) {
+                return false;
+            }
+            ARRAY_FOR(i, a->as.structure.fieldTypes) {
+                Type *aField = ARRAY_GET_AS(Type *, &a->as.structure.fieldTypes, i);
+                Type *bField = ARRAY_GET_AS(Type *, &b->as.structure.fieldTypes, i);
+                if(!typeEqual(aField, bField)) {
+                    return false;
+                }
+            }
+            break;
         default:
-            LOG_ERR("TODO: typeEqual(): TY_FUNCTION, TY_STRUCT");
             UNREACHABLE();
     }
 

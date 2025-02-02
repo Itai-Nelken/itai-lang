@@ -42,9 +42,9 @@ typedef struct type {
             struct type *returnType;
             Array parameterTypes; // Array<Type *>
         } fn;
-        //struct {
-        //    Array fieldTypes; // Array<Type *>
-        //} structure;
+        struct {
+            Array fieldTypes; // Array<Type *>
+        } structure;
     } as;
 } Type;
 
