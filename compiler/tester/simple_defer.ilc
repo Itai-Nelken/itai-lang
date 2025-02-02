@@ -6,7 +6,7 @@ fn main() {
 	defer {
 		value = value + 10;
 		value = value + 2;
-	};
+	}
 	defer value = value * 2;
 }
 

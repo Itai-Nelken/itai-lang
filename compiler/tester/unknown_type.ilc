@@ -1,4 +1,4 @@
-/// expect error: Error: Unknown type 'TypeThatDoesNotExist'.
+/// expect error: Error: Type 'TypeThatDoesNotExist' doesn't exist.
 
 fn main() {
 	var a: TypeThatDoesNotExist;

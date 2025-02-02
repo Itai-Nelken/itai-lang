@@ -1,4 +1,4 @@
-/// expect error: Error: Unknown type 'T'.
+/// expect error: Error: Type 'T' doesn't exist.
 
 fn main() -> T {}
 
