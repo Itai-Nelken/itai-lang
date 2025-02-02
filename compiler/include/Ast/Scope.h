@@ -53,7 +53,7 @@ typedef struct scope {
     // Note: Key is obj.name for all tables.
     Table variables; // Table<char *, ASTObj *> (OBJ_VAR)
     Table functions; // Table<char *, ASTObj *> (OBJ_FN)
-    //Table structures; // Table<char *, ASTObj *> (OBJ_STRUCT)
+    Table structures; // Table<char *, ASTObj *> (OBJ_STRUCT)
 
     ScopeDepth depth;
     Array children; // Array<Scope *>
@@ -139,5 +139,13 @@ bool scopeAddObject(Scope *scope, ASTObj *obj);
  * @param objects an Array<ASTObj> to put all the objects in. C.R.E for arrayLength(objects) > 0.
  **/
 void scopeGetAllObjects(Scope *scope, Array *objects);
+
+/**
+ * Return the number of objects stored in this scope.
+ *
+ * @param scope The scope to get this info from.
+ * @return The number of objects in this scope.
+ **/
+usize scopeGetNumObjects(Scope *scope);
 
 #endif // AST_SCOPE_H

@@ -45,8 +45,9 @@ void scopePrint(FILE *to, Scope *sc, bool recursive) {
         .skip_last_comma = tableSize(&sc->functions) == 0 // if true, skip last comma.
     };
     tableMap(&sc->variables, print_object_callback, (void *)&objPrintData);
-    objPrintData.skip_last_comma = true;
     tableMap(&sc->functions, print_object_callback, (void *)&objPrintData);
+    objPrintData.skip_last_comma = true;
+    tableMap(&sc->structures, print_object_callback, (void *)&objPrintData);
 
     String depthStr = stringNew(33); // 33 is the length of SCOPE_DEPTH_MODULE_NAMESPACE
     switch(sc->depth) {
@@ -83,6 +84,7 @@ Scope *scopeNew(Scope *parent, ScopeDepth depth) {
     arrayInit(&sc->children);
     tableInit(&sc->variables, NULL, NULL);
     tableInit(&sc->functions, NULL, NULL);
+    tableInit(&sc->structures, NULL, NULL);
 
     return sc;
 }
@@ -94,6 +96,7 @@ void scopeFree(Scope *scope) {
 
     tableFree(&scope->variables);
     tableFree(&scope->functions);
+    tableFree(&scope->structures);
 
     // Finally, free the scope itself.
     FREE(scope);
@@ -119,6 +122,9 @@ ASTObj *scopeGetObject(Scope *scope, ASTObjType objType, ASTString name) {
             break;
         case OBJ_FN:
             tbl = &scope->functions;
+            break;
+        case OBJ_STRUCT:
+            tbl = &scope->structures;
             break;
         default:
             UNREACHABLE();
@@ -150,6 +156,9 @@ bool scopeAddObject(Scope *scope, ASTObj *obj) {
         case OBJ_FN:
             tbl = &scope->functions;
             break;
+        case OBJ_STRUCT:
+            tbl = &scope->structures;
+            break;
         default:
             UNREACHABLE();
     }
@@ -161,6 +170,10 @@ void scopeGetAllObjects(Scope *scope, Array *objects) {
     VERIFY(arrayLength(objects) == 0);
     tableMap(&scope->variables, collect_objects_callback, (void *)objects);
     tableMap(&scope->functions, collect_objects_callback, (void *)objects);
-    //tableMap(&scope->structures, collect_objects_callback, (void *)objects);
+    tableMap(&scope->structures, collect_objects_callback, (void *)objects);
     //tableMap(&scope->enums, collect_objects_callback, (void *)objects);
+}
+
+usize scopeGetNumObjects(Scope *scope) {
+    return tableSize(&scope->variables) + tableSize(&scope->functions) + tableSize(&scope->structures) /* + tableSize(&scope->enums)*/;
 }
