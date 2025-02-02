@@ -1,0 +1,6 @@
+/// expect error: Error: Identifier 'a' doesn't exist.
+
+fn main() {
+	var a = a;
+}
+

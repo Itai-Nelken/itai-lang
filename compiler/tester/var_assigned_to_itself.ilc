@@ -1,6 +1,0 @@
-/// expect error: Error: Variable 'a' is not declared yet.
-
-fn main() {
-	var a = a;
-}
-

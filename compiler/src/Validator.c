@@ -519,11 +519,6 @@ static ASTVarDeclStmt *validateVariableDecl(Validator *v, ASTVarDeclStmt *parsed
     ASTExprNode *checkedInitializer = NULL;
     if(parsedVarDecl->initializer) {
         checkedInitializer = TRY(ASTExprNode *, validateExpr(v, parsedVarDecl->initializer));
-        if(NODE_IS(checkedInitializer, EXPR_VARIABLE) &&
-        NODE_AS(ASTObjExpr, checkedInitializer)->obj->name == parsedVarDecl->variable->name) {
-            error(v, parsedVarDecl->header.location, "Variable assigned to itself in declaration.");
-            return NULL;
-        }
     }
 
 
