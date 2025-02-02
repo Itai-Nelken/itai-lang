@@ -235,7 +235,18 @@ static Type *validateType(Validator *v, Type *parsedType) {
             }
             if(hadError) {
                 typeFree(checkedType);
-                return false;
+                return NULL;
+            }
+            break;
+        }
+        case TY_IDENTIFIER: {
+            // Simply get the type the id type refers to and return it.
+            Type *ty = astModuleGetType(getCurrentParsedModule(v), parsedType->as.id.actualName);
+            if(ty == NULL) {
+                error(v, parsedType->declLocation, "Type '%s' doesn't exist.", parsedType->as.id.actualName);
+            } else {
+                // Note: we return early since the type is already added, so we don't want to re-add it because that will cause an abort.
+                return validateType(v, ty);
             }
             break;
         }
@@ -656,7 +667,10 @@ static void validate_type_callback(TableItem *item, bool is_last, void *validato
     UNUSED(is_last);
     Validator *v = (Validator *)validator;
     Type *parsedType = (Type *)item->value;
-    validateType(v, parsedType); // validateType() adds the type to the current module.
+    // Note: ID types are validated as used.
+    if(parsedType->type != TY_IDENTIFIER) {
+        validateType(v, parsedType); // validateType() adds the type to the current module.
+    }
 }
 
 // Notes:

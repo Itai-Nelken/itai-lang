@@ -26,6 +26,7 @@ typedef struct parser {
         bool had_error;
         bool need_sync;
         TokenType prevSyncTo; // The last token we synced to (to prevent sync->fail->sync->... infinite loops)
+        u32 idTypeCounter;
     } state;
 
     // Pointers to the primitive types in the current module

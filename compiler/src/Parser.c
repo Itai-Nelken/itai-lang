@@ -27,6 +27,7 @@ static void parser_init_internal(Parser *p, Compiler *c, Scanner *s) {
     p->state.had_error = false;
     p->state.need_sync = false;
     p->state.prevSyncTo = TK_TYPE_COUNT; // Note: a way to say nothing (NULL).
+    p->state.idTypeCounter = 0;
     p->primitives.void_ = NULL;
     p->primitives.int32 = NULL;
     p->primitives.uint32 = NULL;
@@ -581,16 +582,15 @@ static ASTString parseIdentifier(Parser *p) {
 
 // identifier_type -> identifier
 static Type *parseIdentifierType(Parser *p) {
-    LOG_ERR("identifier types not supported yet.");
     // An identifier type is an unkown type that could be a struct or a type alias.
-//    ASTString ident = TRY(ASTString, parseIdentifier(p));
-//    Location loc = previous(p).location;
-//    Type *ty = typeNew(TY_IDENTIFIER, ident, loc, p->current.module);
-//    astModuleAddType(getCurrentModule(p), ty);
-//    return ty;
-    UNUSED(p);
-    UNREACHABLE();
-    // FIXME: <thoughts>
+    ASTString ident = TRY(ASTString, parseIdentifier(p));
+    Location loc = previous(p).location;
+    ASTString name = stringTableFormat(p->program->strings, "%s%u", ident, p->state.idTypeCounter++);
+    Type *ty = typeNew(TY_IDENTIFIER, name, loc, p->current.module);
+    ty->as.id.actualName = ident;
+    astModuleAddType(getCurrentModule(p), ty);
+    return ty;
+    // TODO: <thoughts>
     //        This function should only parse, not add to the module maybe?
     //        Think about TY_IDENTIFIER. Should it be TY_UNKNOWN maybe? might be clearer.
     //          * Then there would be TY_STRUCT and TY_ALIAS for the two possible options an id type can be.
