@@ -527,6 +527,7 @@ static ASTVarDeclStmt *validateVariableDecl(Validator *v, ASTVarDeclStmt *parsed
         error(v, parsedVarDecl->variable->location, "A variable cannot have the type 'void'.");
         return NULL;
     }
+    dataType = validateType(v, dataType);
 
     ASTObj *checkedObj = astModuleNewObj(getCurrentCheckedModule(v), OBJ_VAR, parsedVarDecl->variable->location, parsedVarDecl->variable->name, dataType);
     bool added = scopeAddObject(getCurrentCheckedScope(v), checkedObj);
