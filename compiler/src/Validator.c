@@ -244,11 +244,10 @@ static Type *validateType(Validator *v, Type *parsedType) {
             Type *ty = astModuleGetType(getCurrentParsedModule(v), parsedType->as.id.actualName);
             if(ty == NULL) {
                 error(v, parsedType->declLocation, "Type '%s' doesn't exist.", parsedType->as.id.actualName);
-            } else {
-                // Note: we return early since the type is already added, so we don't want to re-add it because that will cause an abort.
-                return validateType(v, ty);
+                return NULL;
             }
-            break;
+            // Note: we return early since the type is already added, so we don't want to re-add it because that will cause an abort.
+            return validateType(v, ty);
         }
         default:
             UNREACHABLE();
