@@ -594,6 +594,7 @@ static bool validateStruct(Validator *v, ASTObj *st) {
         ASTObj *obj = ARRAY_GET_AS(ASTObj *, &objects, i);
         if(obj->type == OBJ_VAR) {
             ASTObj *checkedField = astModuleNewObj(getCurrentCheckedModule(v), obj->type, obj->location, obj->name, getType(v, obj->dataType->name));
+            // Note: parser checks for field re-declaration.
             scopeAddObject(getCurrentCheckedScope(v), checkedField);
         }
     }

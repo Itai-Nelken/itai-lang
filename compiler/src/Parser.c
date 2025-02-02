@@ -877,8 +877,14 @@ static ASTObj *parseStructDecl(Parser *p) {
                 error(p, tmp_buffer_format(p, "Field '%s' has no type.", field->name));
                 continue;
             }
-            scopeAddObject(getCurrentScope(p), field);
-            arrayPush(&fieldTypes, (void *)field->dataType);
+            if(scopeHasObject(getCurrentScope(p), field->name)) {
+                ASTObj *prefField = scopeGetAnyObject(getCurrentScope(p), field->name);
+                errorAt(p, field->location, tmp_buffer_format(p, "Redefinition of struct field '%s'.", field->name));
+                hint(p, prefField->location, "Previous definition was here.");
+            } else {
+                scopeAddObject(getCurrentScope(p), field);
+                arrayPush(&fieldTypes, (void *)field->dataType);
+            }
         } else {
             hadError = true;
         }
