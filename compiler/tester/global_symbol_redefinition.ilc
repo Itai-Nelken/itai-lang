@@ -1,4 +1,4 @@
-/// expect error: Error: Symbol 'test' already exists in this scope.
+/// expect error: Error: Redeclaration of symbol 'test'.
 
 fn test() {}
 var test: i32;

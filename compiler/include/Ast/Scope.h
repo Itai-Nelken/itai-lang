@@ -99,10 +99,10 @@ void scopeAddChild(Scope *parent, Scope *child);
  * Check if a scope contains an object.
  *
  * @param scope The scope to check in.
- * @param obj The object to check (C.R.E for obj == NULL).
- * @return true if [obj] exists in [scope] or false otherwise.
+ * @param name The name of the object to check (C.R.E for name == NULL).
+ * @return true if an obj of name [name] exists in [scope] or false otherwise.
  **/
-bool scopeHasObject(Scope *scope, ASTObj* obj);
+bool scopeHasObject(Scope *scope, ASTString name);
 
 /**
  * Get an object by name and type (e.g. an OBJ_VAR with name "myVar").

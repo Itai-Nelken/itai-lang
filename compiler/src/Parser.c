@@ -452,9 +452,9 @@ static ASTStmtNode *parseFunctionBodyStatements(Parser *p) {
     if(match(p, TK_VAR)) {
         ASTVarDeclStmt *vdecl = parseVarDecl(p, true);
         if(vdecl) {
-            if(scopeHasObject(sc, vdecl->variable)) {
-                ASTObj *prevDecl = scopeGetObject(sc, OBJ_VAR, vdecl->variable->name);
-                errorAt(p, vdecl->variable->location, tmp_buffer_format(p, "Redeclaration of variable '%s'.", vdecl->variable->name));
+            if(scopeHasObject(sc, vdecl->variable->name)) {
+                ASTObj *prevDecl = scopeGetAnyObject(sc, vdecl->variable->name);
+                errorAt(p, vdecl->variable->location, tmp_buffer_format(p, "Redeclaration of symbol '%s'.", vdecl->variable->name));
                 hint(p, prevDecl->location, "Previous declaration was here.");
             } else {
                 scopeAddObject(sc, vdecl->variable);
@@ -1005,9 +1005,9 @@ static bool parseModuleBody(Parser *p, ASTString name) {
         if(match(p, TK_VAR)) {
             ASTVarDeclStmt *varDecl = parseVarDecl(p, true);
             if(varDecl) {
-                if(scopeHasObject(getCurrentScope(p), varDecl->variable)) {
-                    ASTObj *prevDecl = scopeGetObject(getCurrentScope(p), OBJ_VAR, varDecl->variable->name);
-                    errorAt(p, varDecl->variable->location, tmp_buffer_format(p, "Redeclaration of variable '%s'.", varDecl->variable->name));
+                if(scopeHasObject(getCurrentScope(p), varDecl->variable->name)) {
+                    ASTObj *prevDecl = scopeGetAnyObject(getCurrentScope(p), varDecl->variable->name);
+                    errorAt(p, varDecl->variable->location, tmp_buffer_format(p, "Redeclaration of symbol '%s'.", varDecl->variable->name));
                     hint(p, prevDecl->location, "Previous declaration was here.");
                 } else {
                     scopeAddObject(getCurrentScope(p), varDecl->variable);
@@ -1017,7 +1017,13 @@ static bool parseModuleBody(Parser *p, ASTString name) {
         } else {
             ASTObj *obj = parseDeclaration(p);
             if(obj) {
-                scopeAddObject(getCurrentScope(p), obj);
+                if(scopeHasObject(getCurrentScope(p), obj->name)) {
+                    ASTObj *prevDecl = scopeGetAnyObject(getCurrentScope(p), obj->name);
+                    errorAt(p, obj->location, tmp_buffer_format(p, "Redeclaration of symbol '%s'.", obj->name));
+                    hint(p, prevDecl->location, "Previous declaration was here.");
+                } else {
+                    scopeAddObject(getCurrentScope(p), obj);
+                }
             } else {
                 failedInFunctionDecl = true;
             }

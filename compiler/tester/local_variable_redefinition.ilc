@@ -1,4 +1,4 @@
-/// expect error: Error: Redeclaration of variable 'a'.
+/// expect error: Error: Redeclaration of symbol 'a'.
 
 fn main() {
 	var a: i32;

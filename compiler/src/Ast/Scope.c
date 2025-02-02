@@ -108,9 +108,9 @@ void scopeAddChild(Scope *parent, Scope *child) {
     arrayPush(&parent->children, child);
 }
 
-bool scopeHasObject(Scope *scope, ASTObj* obj) {
-    VERIFY(obj != NULL);
-    return scopeGetObject(scope, obj->type, obj->name) != NULL;
+bool scopeHasObject(Scope *scope, ASTString name) {
+    VERIFY(name != NULL);
+    return scopeGetAnyObject(scope, name) != NULL;
 }
 
 ASTObj *scopeGetObject(Scope *scope, ASTObjType objType, ASTString name) {
@@ -145,7 +145,7 @@ ASTObj *scopeGetAnyObject(Scope *scope, ASTString name) {
 }
 
 bool scopeAddObject(Scope *scope, ASTObj *obj) {
-    if(scopeHasObject(scope, obj)) {
+    if(scopeHasObject(scope, obj->name)) {
         return false;
     }
     Table *tbl;
