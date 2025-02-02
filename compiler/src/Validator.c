@@ -209,7 +209,7 @@ static Type *validateType(Validator *v, Type *parsedType) {
                     typeFree(ARRAY_GET_AS(Type *, &validatedParameterTypes, i));
                 }
                 arrayFree(&validatedParameterTypes);
-                break; // checkedType will be NULL, and so NULL will be returned.
+                return NULL;
             }
 
             checkedType = typeNew(TY_FUNCTION, parsedType->name, parsedType->declLocation, v->current.module);
@@ -231,7 +231,11 @@ static Type *validateType(Validator *v, Type *parsedType) {
                     hadError = true;
                 }
                 Type *newfType = validateType(v, fType);
-                arrayPush(&checkedType->as.structure.fieldTypes, (void *)newfType);
+                if(newfType) {
+                    arrayPush(&checkedType->as.structure.fieldTypes, (void *)newfType);
+                } else {
+                    hadError = true;
+                }
             }
             if(hadError) {
                 typeFree(checkedType);
@@ -537,7 +541,7 @@ static ASTVarDeclStmt *validateVariableDecl(Validator *v, ASTVarDeclStmt *parsed
         error(v, parsedVarDecl->variable->location, "A variable cannot have the type 'void'.");
         return NULL;
     }
-    dataType = validateType(v, dataType);
+    dataType = TRY(Type *, validateType(v, dataType));
 
     ASTObj *checkedObj = astModuleNewObj(getCurrentCheckedModule(v), OBJ_VAR, parsedVarDecl->variable->location, parsedVarDecl->variable->name, dataType);
     bool added = scopeAddObject(getCurrentCheckedScope(v), checkedObj);
