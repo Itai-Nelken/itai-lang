@@ -10,6 +10,9 @@
 // Ast/StmtNode.h includes this file, so we can't include it.
 typedef struct ast_block_statement ASTBlockStmt;
 
+// Ast/Scope.h includes this file, so we can't include it.
+typedef struct scope Scope;
+
 /**
  * An ASTObj represents an object - i.e a variable, function, struct etc. (see ASTObjType).
  * An object stores the name, data type, and any additional information such as parameters or function body.
@@ -17,7 +20,7 @@ typedef struct ast_block_statement ASTBlockStmt;
 typedef enum ast_object_types {
     OBJ_VAR,
     OBJ_FN,
-    //OBJ_STRUCT,
+    OBJ_STRUCT,
     //OBJ_ENUM?
     OBJ_TYPE_COUNT
 } ASTObjType;
@@ -34,9 +37,9 @@ typedef struct ast_object {
             Type *returnType;
             ASTBlockStmt *body;
         } fn;
-        //struct {
-        //    Scope *scope;
-        //} structure;
+        struct {
+            Scope *scope;
+        } structure;
     } as;
 } ASTObj;
 

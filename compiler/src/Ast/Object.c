@@ -6,8 +6,9 @@
 static inline const char *obj_type_to_string(ASTObjType type) {
     VERIFY(type < OBJ_TYPE_COUNT);
     static const char *names[] = {
-        [OBJ_VAR] = "OBJ_VAR",
-        [OBJ_FN]  = "OBJ_FN"
+        [OBJ_VAR]    = "OBJ_VAR",
+        [OBJ_FN]     = "OBJ_FN",
+        [OBJ_STRUCT] = "OBJ_STRUCT"
     };
     return names[(int)type];
 }
@@ -40,6 +41,11 @@ void astObjectPrint(FILE *to, ASTObj *obj, bool compact) {
             typePrint(to, obj->as.fn.returnType, true);
             fputs(", \x1b[1mbody:\x1b[0m ", to);
             astStmtPrint(to, NODE_AS(ASTStmtNode, obj->as.fn.body));
+            break;
+        case OBJ_STRUCT:
+            fputs(", \x1b[1mscope: \x1b[0m", to);
+            scopePrint(to, obj->as.structure.scope, false);
+            break;
         default:
             break;
     }
@@ -60,6 +66,9 @@ ASTObj *astObjectNew(ASTObjType type, Location loc, ASTString name, Type *dataTy
             break;
         case OBJ_FN:
             arrayInit(&obj->as.fn.parameters);
+            break;
+        case OBJ_STRUCT:
+            // nothing
             break;
         default:
             UNREACHABLE();
@@ -83,6 +92,9 @@ void astObjectFree(ASTObj *obj) {
             //      objects here we will double free OBJ_VARs refering to parameters.
             //arrayMap(&obj->as.fn.parameters, free_object_callback, NULL);
             arrayFree(&obj->as.fn.parameters);
+            break;
+        case OBJ_STRUCT:
+            // nothing
             break;
         default:
             UNREACHABLE();
