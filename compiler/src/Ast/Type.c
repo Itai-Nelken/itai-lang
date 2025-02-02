@@ -9,13 +9,14 @@
 static inline const char *type_type_to_string(TypeType type) {
     VERIFY(type < TY_TYPE_COUNT);
     const char *names[] = {
-        [TY_VOID]     = "TY_VOID",
-        [TY_I32]      = "TY_I32",
-        [TY_U32]      = "TY_U32",
-        [TY_STR]      = "TY_STR",
-        [TY_POINTER]  = "TY_POINTER",
-        [TY_FUNCTION] = "TY_FUNCTION",
-        [TY_STRUCT]   = "TY_STRUCT"
+        [TY_VOID]       = "TY_VOID",
+        [TY_I32]        = "TY_I32",
+        [TY_U32]        = "TY_U32",
+        [TY_STR]        = "TY_STR",
+        [TY_POINTER]    = "TY_POINTER",
+        [TY_FUNCTION]   = "TY_FUNCTION",
+        [TY_STRUCT]     = "TY_STRUCT",
+        [TY_IDENTIFIER] = "TY_IDENTIFIER"
     };
     return names[(int)type];
 }
@@ -26,7 +27,7 @@ void typePrint(FILE *to, Type *ty, bool compact) {
         return;
     }
     if(compact) {
-        fprintf(to, "Type{%s}", ty->name);
+        fprintf(to, "Type{%s%s}", ty->type == TY_IDENTIFIER ? "\x1b[1mid:\x1b[0m " : "", ty->name);
         return;
     }
     // verbose output
@@ -39,6 +40,7 @@ void typePrint(FILE *to, Type *ty, bool compact) {
         case TY_I32:
         case TY_U32:
         case TY_STR:
+            // nothing
             break;
         case TY_POINTER:
             fputs(", \x1b[1minnerType:\x1b[0m ", to);
@@ -65,6 +67,9 @@ void typePrint(FILE *to, Type *ty, bool compact) {
                 }
             }
             fputs("]", to);
+            break;
+        case TY_IDENTIFIER:
+            fprintf(to, ", \x1b[1mactualName:\x1b[0m '%s'", ty->as.id.actualName);
             break;
         default:
             UNREACHABLE();
@@ -152,6 +157,8 @@ bool typeEqual(Type *a, Type *b) {
                 }
             }
             break;
+        case TY_IDENTIFIER:
+            // TODO: maybe actualName == actualName???
         default:
             UNREACHABLE();
     }

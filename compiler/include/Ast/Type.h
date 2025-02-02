@@ -25,6 +25,7 @@ typedef enum type_type {
     TY_POINTER,
     TY_FUNCTION,
     TY_STRUCT,
+    TY_IDENTIFIER,
     TY_TYPE_COUNT
 } TypeType;
 
@@ -45,6 +46,9 @@ typedef struct type {
         struct {
             Array fieldTypes; // Array<Type *>
         } structure;
+        struct {
+            ASTString actualName;
+        } id;
     } as;
 } Type;
 
