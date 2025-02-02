@@ -565,7 +565,7 @@ static ASTStmtNode *parseStatement(Parser *p) {
         result = parseDeferStmt(p);
     } else if(match(p, TK_LBRACE)) {
         Scope *sc = enterScope(p, SCOPE_DEPTH_BLOCK);
-        result = NODE_AS(ASTStmtNode, parseBlockStmt(p, sc, parseStatement));
+        result = NODE_AS(ASTStmtNode, parseBlockStmt(p, sc, parseFunctionBodyStatements));
         leaveScope(p);
     } else {
         result = parseExpressionStmt(p);
