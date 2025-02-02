@@ -1,4 +1,4 @@
-/// expect error: Error: Pointer types are not allowed in this context.
+/// expect error: Error: A struct field may not be a pointer.
 
 struct Test {
 	invalid_ptr_field: &i32;

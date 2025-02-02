@@ -877,6 +877,13 @@ static ASTObj *parseStructDecl(Parser *p) {
                 error(p, tmp_buffer_format(p, "Field '%s' has no type.", field->name));
                 continue;
             }
+            if(field->dataType->type == TY_VOID) {
+                errorAt(p, field->location, "A struct field cannot have the type 'void'.");
+                hadError = true;
+            } else if(field->dataType->type == TY_POINTER) {
+                errorAt(p, field->location, "A struct field may not be a pointer.");
+                hadError = true;
+            }
             if(scopeHasObject(getCurrentScope(p), field->name)) {
                 ASTObj *prefField = scopeGetAnyObject(getCurrentScope(p), field->name);
                 errorAt(p, field->location, tmp_buffer_format(p, "Redefinition of struct field '%s'.", field->name));

@@ -223,13 +223,7 @@ static Type *validateType(Validator *v, Type *parsedType) {
             checkedType = typeNew(TY_STRUCT, parsedType->name, parsedType->declLocation, parsedType->declModule);
             ARRAY_FOR(i, parsedType->as.structure.fieldTypes) {
                 Type *fType = ARRAY_GET_AS(Type *, &parsedType->as.structure.fieldTypes, i);
-                if(fType->type == TY_VOID) {
-                    error(v, fType->declLocation, "A struct field cannot have the type 'void'.");
-                    hadError = true;
-                } else if(fType->type == TY_POINTER) {
-                    error(v, fType->declLocation, "A struct field may not be a pointer.");
-                    hadError = true;
-                }
+                // Note: parser checks for 'void' and 'pointer' types.
                 Type *newfType = validateType(v, fType);
                 if(newfType) {
                     arrayPush(&checkedType->as.structure.fieldTypes, (void *)newfType);

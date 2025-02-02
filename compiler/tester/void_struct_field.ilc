@@ -1,4 +1,4 @@
-/// expect error: Error: A field cannot have the type 'void'.
+/// expect error: Error: A struct field cannot have the type 'void'.
 
 struct T {
 	a: void;
