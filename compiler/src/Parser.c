@@ -839,6 +839,66 @@ static ASTObj *parseFunctionDecl(Parser *p) {
     return fnObj;
 }
 
+static Type *makeStructType(Parser *p, ASTString name, Location declLoc, ModuleID declModule, Array *fields) {
+    Type *ty = typeNew(TY_STRUCT, name, declLoc, declModule);
+
+    Array *fieldTypes = &ty->as.structure.fieldTypes;
+    ARRAY_FOR(i, *fields) {
+        void *f = arrayGet(fields, i);
+        VERIFY(f);
+        arrayPush(fieldTypes, f);
+    }
+
+    // FIXME: What if there is a type with the same name that isn't a struct?
+    Type *existingType = astModuleGetType(getCurrentModule(p), name);
+    if(existingType) {
+        typeFree(ty);
+        return existingType;
+    }
+    astModuleAddType(getCurrentModule(p), ty);
+    return ty;
+}
+
+// struct_decl -> 'struct' identifier '{' (typed_var ';')* '}' 
+static ASTObj *parseStructDecl(Parser *p) {
+    // Assumes 'struct' was already consumed
+    Location loc = previous(p).location;
+    ASTString name = TRY(ASTString, parseIdentifier(p));
+    TRY_CONSUME(p, TK_LBRACE);
+
+    Array fieldTypes; // Array<Type *>
+    arrayInit(&fieldTypes);
+    Scope *sc = enterScope(p, SCOPE_DEPTH_STRUCT);
+    bool hadError = false;
+    while(current(p).type != TK_RBRACE) {
+        ASTObj *field = parseTypedVariable(p);
+        if(field) {
+            if(field->dataType == NULL) {
+                error(p, tmp_buffer_format(p, "Field '%s' has no type.", field->name));
+                continue;
+            }
+            scopeAddObject(getCurrentScope(p), field);
+            arrayPush(&fieldTypes, (void *)field->dataType);
+        } else {
+            hadError = true;
+        }
+        TRY_CONSUME(p, TK_SEMICOLON);
+    }
+    leaveScope(p);
+    TRY_CONSUME(p, TK_RBRACE);
+    loc = locationMerge(loc, previous(p).location);
+    if(hadError) {
+        arrayFree(&fieldTypes);
+        return NULL;
+    }
+    // Note: using p.current.module since we need the ModuleID.
+    Type *type = makeStructType(p, name, loc, p->current.module, &fieldTypes);
+    arrayFree(&fieldTypes);
+    ASTObj *st = astModuleNewObj(getCurrentModule(p), OBJ_STRUCT, loc, name, type);
+    st->as.structure.scope = sc;
+    return st;
+}
+
 // declaration -> var_decl | fn_decl | struct_decl | extern_decl
 static ASTObj *parseDeclaration(Parser *p) {
     // Notes: * Add nothing to scope. we only parse!
@@ -847,9 +907,8 @@ static ASTObj *parseDeclaration(Parser *p) {
     ASTObj *result = NULL;
     if(match(p, TK_FN)) {
         result = parseFunctionDecl(p);
-//
-//    } else if(match(p, TK_STRUCT)) {
-
+    } else if(match(p, TK_STRUCT)) {
+        result = parseStructDecl(p);
 //    } else if(match(p, TK_EXTERN)) {
 //
     } else {
@@ -889,11 +948,12 @@ static void synchronizeToDecl(Parser *p) {
 }
 
 static void synchronizeToFnStructDecl(Parser *p) {
-    // FIXME: I don't think we need this once we can parse
+    // FIXME: This will not be needed once we can parse
     //        TK_EXTERN and TK_STRUCT. The infinite loop happened because
     //        the parser doesn't know how to handle those tokens yet, but
     //        the synchronizer does.
     //        See notes in commit 5473080de67a0e1d38cf80c80189169492a9b003: Parser: don't get stuck in sync->fail->sync->... infinite loops
+    //        When removing, also remove from synchronizeToDecl().
     if(current(p).type == p->state.prevSyncTo) {
         advance(p); // So we don't get stuck in a sync->fail->sync->... infinite loop.
     }

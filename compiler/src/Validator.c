@@ -218,9 +218,27 @@ static Type *validateType(Validator *v, Type *parsedType) {
             arrayFree(&validatedParameterTypes);
             break;
         }
-        case TY_STRUCT:
-            LOG_ERR("Validator: Struct types are not supported yet.");
-            // fallthrough
+        case TY_STRUCT: {
+            bool hadError = false;
+            checkedType = typeNew(TY_STRUCT, parsedType->name, parsedType->declLocation, parsedType->declModule);
+            ARRAY_FOR(i, parsedType->as.structure.fieldTypes) {
+                Type *fType = ARRAY_GET_AS(Type *, &parsedType->as.structure.fieldTypes, i);
+                if(fType->type == TY_VOID) {
+                    error(v, fType->declLocation, "A struct field cannot have the type 'void'.");
+                    hadError = true;
+                } else if(fType->type == TY_POINTER) {
+                    error(v, fType->declLocation, "A struct field may not be a pointer.");
+                    hadError = true;
+                }
+                Type *newfType = validateType(v, fType);
+                arrayPush(&checkedType->as.structure.fieldTypes, (void *)newfType);
+            }
+            if(hadError) {
+                typeFree(checkedType);
+                return false;
+            }
+            break;
+        }
         default:
             UNREACHABLE();
     }
@@ -553,6 +571,32 @@ static bool validateFunction(Validator *v, ASTObj *fn) {
     return true;
 }
 
+static bool validateCurrentScope(Validator *v);
+static bool validateStruct(Validator *v, ASTObj *st) {
+    enterScope(v, st->as.structure.scope);
+    // FIXME: Why do I even need to care about the fields? I can't have 2 structs named 'Test' with a different number of fields!!
+    // Note: when we validate types, we validate the fields (their types.)
+    //       So here we only add them to the scope.
+    Array objects;
+    arrayInit(&objects);
+    scopeGetAllObjects(st->as.structure.scope, &objects);
+    ARRAY_FOR(i, objects) {
+        ASTObj *obj = ARRAY_GET_AS(ASTObj *, &objects, i);
+        if(obj->type == OBJ_VAR) {
+            ASTObj *checkedField = astModuleNewObj(getCurrentCheckedModule(v), obj->type, obj->location, obj->name, getType(v, obj->dataType->name));
+            scopeAddObject(getCurrentCheckedScope(v), checkedField);
+        }
+    }
+    arrayFree(&objects);
+    bool hadError = validateCurrentScope(v);
+    Scope *checkedScope = getCurrentCheckedScope(v);
+    leaveScope(v);
+    ASTObj *checkedStruct = astModuleNewObj(getCurrentCheckedModule(v), OBJ_STRUCT, st->location, st->name, getType(v, st->dataType->name));
+    checkedStruct->as.structure.scope = checkedScope;
+    scopeAddObject(getCurrentCheckedScope(v), checkedStruct);
+    return !hadError;
+}
+
 // Notes:
 // * C.R.E for parsedObj to be NULL.
 // * The checked object is added to the current scope.
@@ -569,7 +613,9 @@ static bool validateObject(Validator *v, ASTObj *parsedObj) {
             // validateFunction() adds the checked function to the current scope.
             result = validateFunction(v, parsedObj);
             break;
-        //case OBJ_STRUCT:
+        case OBJ_STRUCT:
+            result = validateStruct(v, parsedObj);
+            break;
         //case OBJ_ENUM?:
         default:
             UNREACHABLE();
@@ -583,9 +629,7 @@ static bool validateCurrentScope(Validator *v) {
     VERIFY(v->current.parsedScope);
 
     Array objectsInScope;
-    // TODO: change size calculation as more tables are added to scope (for structs, enums? etc.)
-    usize numObjects = tableSize(&getCurrentParsedScope(v)->variables) + tableSize(&getCurrentParsedScope(v)->functions);
-    arrayInitSized(&objectsInScope, numObjects);
+    arrayInitSized(&objectsInScope, scopeGetNumObjects(getCurrentParsedScope(v)));
     scopeGetAllObjects(getCurrentParsedScope(v), &objectsInScope);
 
     bool hadError = false;
