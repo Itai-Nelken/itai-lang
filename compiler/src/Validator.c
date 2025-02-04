@@ -101,6 +101,13 @@ static void hint(Validator *v, Location loc, const char *format, ...) {
     stringFree(msg);
 }
 
+static inline const char *typeName(Type *ty) {
+    if(ty == NULL) {
+        return "none";
+    }
+    return (const char *)ty->name;
+}
+
 // Find an ASTObj that is visible in the current scope (i.e. is in it or a parent scope.)
 // depth: if not NULL, the variable pointed to will be set to the scope depth of the return object.
 static ASTObj *findObjVisibleInCurrentScope(Validator *v, ASTString name, ScopeDepth *depth) {
@@ -132,8 +139,11 @@ static Type *exprDataType(Validator *v, ASTExprNode *expr) {
             return NODE_AS(ASTObjExpr, expr)->obj->dataType;
         case EXPR_FUNCTION:
             return NODE_AS(ASTObjExpr, expr)->obj->as.fn.returnType;
-        case EXPR_ASSIGN:
         case EXPR_PROPERTY_ACCESS:
+            // The type of a property access expression is the type of the rightmost element.
+            // For example, the type of 'a.b.c' is the type of 'c'.
+            return exprDataType(v, NODE_AS(ASTBinaryExpr, expr)->rhs);
+        case EXPR_ASSIGN:
         case EXPR_ADD:
         case EXPR_SUBTRACT:
         case EXPR_MULTIPLY:
@@ -256,6 +266,24 @@ static Type *validateType(Validator *v, Type *parsedType) {
     return checkedType;
 }
 
+// Note: C.R.E for [n] or [a] to be NULL or for [n] to not be an EXPR_PROPERTY_ACCESS
+static void unpackPropertyAccessExpr(Array *a, ASTExprNode *n) {
+    VERIFY(a);
+    VERIFY(n);
+    VERIFY(NODE_IS(n, EXPR_PROPERTY_ACCESS));
+
+    while(NODE_IS(NODE_AS(ASTBinaryExpr, n)->lhs, EXPR_PROPERTY_ACCESS)) {
+        arrayPush(a, (void *)NODE_AS(ASTBinaryExpr, n)->rhs);
+        n = NODE_AS(ASTBinaryExpr, n)->lhs;
+    }
+
+    arrayPush(a, NODE_AS(ASTBinaryExpr, n)->rhs);
+    arrayPush(a, NODE_AS(ASTBinaryExpr, n)->lhs);
+
+    // [a] will now contain all the identifier nodes from the property access expression in reverse order (root at top).
+    // For example, for the expression a.b.c, [a] will contain [c, b, a] <--top.
+}
+
 // Note: C.R.E for [parsedExpr] to be NULL.
 static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
     VERIFY(parsedExpr);
@@ -286,8 +314,90 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
             LOG_ERR("Validator: object expr nodes not supported yet.");
             UNREACHABLE();
         // Binary nodes
+        case EXPR_PROPERTY_ACCESS: {
+            Array stack; // Array<ASTExprNode *>
+            arrayInit(&stack);
+            // a.b.c will become [c, b, a] <--top.
+            unpackPropertyAccessExpr(&stack, parsedExpr);
+
+            // Validate the root variable (a in a.b.c).
+            ASTExprNode *checkedLhs = validateExpr(v, ARRAY_POP_AS(ASTExprNode *, &stack));
+            if(!checkedLhs) {
+                arrayFree(&stack);
+                return NULL;
+            }
+            // Is [lhs] a variable (EXPR_VARIABLE, EXPR_DEREF)?
+            if(!(NODE_IS(checkedLhs, EXPR_VARIABLE) || NODE_IS(checkedLhs, EXPR_DEREF))) {
+                error(v, checkedLhs->location, "Property access can only be done on variables.");
+                arrayFree(&stack);
+                break;
+            }
+
+            // This is generally done in the typechecker, but we need the type here, so we check.
+            if(exprDataType(v, checkedLhs) == NULL) {
+                ASTObj *lhsObj = NULL;
+                switch(checkedLhs->type) {
+                    case EXPR_VARIABLE:
+                        lhsObj = NODE_AS(ASTObjExpr, checkedLhs)->obj;
+                        break;
+                    case EXPR_DEREF:
+                        lhsObj = NODE_AS(ASTObjExpr, NODE_AS(ASTUnaryExpr, checkedLhs)->operand)->obj;
+                        break;
+                    default:
+                        UNREACHABLE();
+                }
+                error(v, checkedLhs->location, "Variable '%s' has no type.", lhsObj->name);
+                hint(v, lhsObj->location, "Consider adding an explicit type here.");
+                arrayFree(&stack);
+                break;
+            }
+
+            while(arrayLength(&stack) > 0) {
+                ASTExprNode *rhs = ARRAY_POP_AS(ASTExprNode *, &stack);
+                Type *lhsTy = exprDataType(v, checkedLhs);
+                // If [lhs] is of a pointer type, wrap it in a dereference (auto-deref in property access).
+                // An example of why we do this is as following:
+                // | var a: &someStruct = getPointerToStruct();
+                // If we didn't auto-dereference, we would have to access a's fields like this:
+                // | (*a).someField;
+                // With auto-deref we can simply access the fields as normal:
+                // | a.someField;
+                if(lhsTy->type == TY_POINTER && lhsTy->as.ptr.innerType->type == TY_STRUCT) {
+                    checkedLhs = NODE_AS(ASTExprNode, astUnaryExprNew(getCurrentAllocator(v), EXPR_DEREF, checkedLhs->location, lhsTy->as.ptr.innerType, checkedLhs));
+                    lhsTy = lhsTy->as.ptr.innerType;
+                }
+
+                // Does [lhs] refer to a struct-type variable?
+                if(lhsTy->type != TY_STRUCT) {
+                    error(v, checkedLhs->location, "Field access on value of non-struct type '%s'.", typeName(lhsTy));
+                    break;
+                }
+
+                // Get the struct ASTObj.
+                ASTObj *structure = scopeGetObject(getCurrentCheckedModule(v)->moduleScope, OBJ_STRUCT, lhsTy->name);
+                // FIXME: not getting the struct since it is not in the checked module scope yet...
+                //        * Use parsed scope to get complete (but unchecked) struct??
+                //        * Move this to typechecker pass?
+                VERIFY(structure);
+                ASTObj *field = scopeGetAnyObject(structure->as.structure.scope, NODE_AS(ASTIdentifierExpr, rhs)->id);
+                if(!field) {
+                    error(v, rhs->location, "Field '%s' doesn't exist in struct '%s'.", NODE_AS(ASTIdentifierExpr, rhs)->id, structure->name);
+                    break;
+                }
+                ASTExprNode *fieldNode = NODE_AS(ASTExprNode, astObjExprNew(getCurrentAllocator(v), EXPR_VARIABLE, field->location, field));
+                if(checkedExpr) {
+                    checkedExpr = NODE_AS(ASTExprNode, astBinaryExprNew(getCurrentAllocator(v), EXPR_PROPERTY_ACCESS, locationMerge(checkedExpr->location, rhs->location), rhs->dataType, checkedExpr, fieldNode));
+                } else {
+                    checkedExpr = NODE_AS(ASTExprNode, astBinaryExprNew(getCurrentAllocator(v), EXPR_PROPERTY_ACCESS, locationMerge(checkedLhs->location, rhs->location), field->dataType, checkedLhs, fieldNode));
+                }
+                checkedLhs = fieldNode;
+
+            }
+
+            arrayFree(&stack);
+            break;
+        }
         case EXPR_ASSIGN:
-        case EXPR_PROPERTY_ACCESS:
         case EXPR_ADD:
         case EXPR_SUBTRACT:
         case EXPR_MULTIPLY:
@@ -640,8 +750,21 @@ static bool validateCurrentScope(Validator *v) {
     bool hadError = false;
     ARRAY_FOR(i, objectsInScope) {
         ASTObj *parsedObj = ARRAY_GET_AS(ASTObj *, &objectsInScope, i);
-        // TODO: Note: OBJ_VARs will be validated as the variables are declared (in validateStmt() probably.)
-        if(parsedObj->type != OBJ_VAR) {
+        if(parsedObj->type == OBJ_STRUCT) {
+            if(!validateStruct(v, parsedObj)) {
+                hadError = true;
+            }
+        }
+    }
+    if(hadError) {
+        arrayFree(&objectsInScope);
+        return false;
+    }
+
+    ARRAY_FOR(i, objectsInScope) {
+        ASTObj *parsedObj = ARRAY_GET_AS(ASTObj *, &objectsInScope, i);
+        // Note: OBJ_VARs will be validated as the variables are declared (in validateStmt().)
+        if(parsedObj->type != OBJ_VAR && parsedObj->type != OBJ_STRUCT) {
             // validateObject() adds the object to the current scope.
             if(!validateObject(v, parsedObj)) {
                 hadError = true;

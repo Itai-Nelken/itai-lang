@@ -205,7 +205,7 @@ typedef enum precedence {
     PREC_TERM       = 8,  // infix + -
     PREC_FACTOR     = 9,  // infix * /
     PREC_UNARY      = 10, // unary + -
-    PREC_CALL       = 11, // ()
+    PREC_CALL       = 11, // (), a.b
     PREC_PRIMARY    = 12  // highest
 } Precedence;
 
@@ -229,6 +229,7 @@ static ASTExprNode *parse_grouping_expr(Parser *p);
 static ASTExprNode *parse_call_expr(Parser *p, ASTExprNode *callee);
 static ASTExprNode *parse_identifier_expr(Parser *p);
 static ASTExprNode *parse_assignment_expr(Parser *p, ASTExprNode *lhs);
+static ASTExprNode *parse_property_access_expr(Parser *p, ASTExprNode *lhs);
 
 /* Precedence/parse rule table */
 
@@ -245,7 +246,7 @@ static ParseRule rules[] = {
     [TK_SEMICOLON]      = {NULL, NULL, PREC_LOWEST},
     [TK_COLON]          = {NULL, NULL, PREC_LOWEST},
     [TK_COMMA]          = {NULL, NULL, PREC_LOWEST},
-    [TK_DOT]            = {NULL, NULL, PREC_LOWEST},
+    [TK_DOT]            = {NULL, parse_property_access_expr, PREC_CALL},
     [TK_HASH]           = {NULL, NULL, PREC_LOWEST},
     [TK_AMPERSAND]      = {parse_unary_expr, NULL, PREC_LOWEST},
     [TK_MINUS]          = {parse_unary_expr, parse_binary_expr, PREC_TERM},
@@ -374,6 +375,13 @@ static ASTExprNode *parse_identifier_expr(Parser *p) {
     Token prev = previous(p);
     ASTString id = stringTableFormat(p->program->strings, "%.*s", prev.length, prev.lexeme);
     return NODE_AS(ASTExprNode, astIdentifierExprNew(getCurrentAllocator(p), prev.location, id));
+}
+
+static ASTExprNode *parse_property_access_expr(Parser *p, ASTExprNode *lhs) {
+    TRY_CONSUME(p, TK_IDENTIFIER);
+    ASTExprNode *rhs = TRY(ASTExprNode *, NODE_AS(ASTExprNode, parse_identifier_expr(p)));
+    Location loc = locationMerge(lhs->location, previous(p).location);
+    return NODE_AS(ASTExprNode, astBinaryExprNew(getCurrentAllocator(p), EXPR_PROPERTY_ACCESS, loc, NULL, lhs, rhs));
 }
 
 static ASTExprNode *parsePrecedence(Parser *p, Precedence minPrec) {
