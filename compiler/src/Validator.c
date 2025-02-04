@@ -717,33 +717,6 @@ static bool validateStruct(Validator *v, ASTObj *st) {
     return !hadError;
 }
 
-// Notes:
-// * C.R.E for parsedObj to be NULL.
-// * The checked object is added to the current scope.
-static bool validateObject(Validator *v, ASTObj *parsedObj) {
-    VERIFY(parsedObj);
-    bool result = false;
-    switch(parsedObj->type) {
-        case OBJ_VAR:
-            // OBJ_VAR's should be validated when the variable they refer to is declared.
-            // Hence they are NOT allowed here.
-            LOG_ERR("OBJ_VAR not allowed in validateObject()");
-            UNREACHABLE();
-        case OBJ_FN:
-            // validateFunction() adds the checked function to the current scope.
-            result = validateFunction(v, parsedObj);
-            break;
-        case OBJ_STRUCT:
-            result = validateStruct(v, parsedObj);
-            break;
-        //case OBJ_ENUM?:
-        default:
-            UNREACHABLE();
-    }
-
-    return result;
-}
-
 // Note: scope here refers to a namespace type scope (i.e. SCOPE_DEPTH_MODULE_NAMESPACE or SCOPE_DEPTH_STRUCT)
 static bool validateCurrentScope(Validator *v) {
     VERIFY(v->current.parsedScope);
@@ -753,6 +726,7 @@ static bool validateCurrentScope(Validator *v) {
     scopeGetAllObjects(getCurrentParsedScope(v), &objectsInScope);
 
     bool hadError = false;
+    // Validate structs first
     ARRAY_FOR(i, objectsInScope) {
         ASTObj *parsedObj = ARRAY_GET_AS(ASTObj *, &objectsInScope, i);
         if(parsedObj->type == OBJ_STRUCT) {
@@ -766,12 +740,13 @@ static bool validateCurrentScope(Validator *v) {
         return false;
     }
 
+    // Now validate functions.
     ARRAY_FOR(i, objectsInScope) {
         ASTObj *parsedObj = ARRAY_GET_AS(ASTObj *, &objectsInScope, i);
         // Note: OBJ_VARs will be validated as the variables are declared (in validateStmt().)
-        if(parsedObj->type != OBJ_VAR && parsedObj->type != OBJ_STRUCT) {
+        if(parsedObj->type == OBJ_FN) {
             // validateObject() adds the object to the current scope.
-            if(!validateObject(v, parsedObj)) {
+            if(!validateFunction(v, parsedObj)) {
                 hadError = true;
             }
         }

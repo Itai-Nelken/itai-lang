@@ -1,4 +1,4 @@
-/// expect error: Error: Symbol 'a' doesn't exist in this scope.
+/// expect error: Error: Identifier 'a' doesn't exist.
 
 fn main() {
 	a.a;
