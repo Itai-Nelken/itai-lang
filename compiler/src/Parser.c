@@ -737,7 +737,8 @@ static Type *parseType(Parser *p) {
     if(isPointer) {
         // Note: using p.current.module because we need the ModuleID, not the module itself.
         Type *pointee = ty;
-        ty = typeNew(TY_POINTER, tmp_buffer_format(p, "&%s", ty->name), EMPTY_LOCATION, p->current.module);
+        ASTString ptrName = stringTableFormat(p->program->strings, "&%s", ty->type == TY_IDENTIFIER ? ty->as.id.actualName : ty->name);
+        ty = typeNew(TY_POINTER, ptrName, EMPTY_LOCATION, p->current.module);
         ty->as.ptr.innerType = pointee;
         astModuleAddType(getCurrentModule(p), ty);
     }
