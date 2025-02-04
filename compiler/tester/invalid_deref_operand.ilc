@@ -1,4 +1,4 @@
-/// expect error: Error: Cannot dereference a non-pointer type.
+/// expect error: Error: Cannot dereference non-variable object.
 
 fn main() {
 	*123;

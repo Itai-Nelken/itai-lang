@@ -429,9 +429,14 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
             ASTExprNode *checkedOperand = TRY(ASTExprNode *, validateExpr(v, NODE_AS(ASTUnaryExpr, parsedExpr)->operand));
             Type *exprTy = exprDataType(v, checkedOperand);
             checkedExpr = NODE_AS(ASTExprNode, astUnaryExprNew(getCurrentAllocator(v), parsedExpr->type, parsedExpr->location, exprTy, checkedOperand));
-            if(NODE_IS(checkedExpr, EXPR_DEREF) && !IS_POINTER(exprTy)) {
-                error(v, checkedExpr->location, "Cannot dereference a non-pointer type.");
-                checkedExpr = NULL;
+            if(NODE_IS(checkedExpr, EXPR_DEREF)) {
+                if(!(NODE_IS(checkedOperand, EXPR_VARIABLE) || NODE_IS(checkedOperand, EXPR_PROPERTY_ACCESS) || NODE_IS(checkedOperand, EXPR_DEREF) || NODE_IS(checkedOperand, EXPR_ADDROF))) {
+                    error(v, checkedOperand->location, "Cannot dereference non-variable object.");
+                    checkedExpr = NULL;
+                } else if(!IS_POINTER(exprTy) || (NODE_IS(checkedOperand, EXPR_CALL) && !IS_POINTER(checkedOperand->dataType))) {
+                    error(v, checkedOperand->location, "Cannot dereference non-pointer type '%s'.", exprTy->name);
+                    checkedExpr = NULL;
+                }
             }
             break;
             #undef IS_POINTER
