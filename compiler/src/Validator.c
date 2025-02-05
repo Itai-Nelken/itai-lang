@@ -424,7 +424,7 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
         case EXPR_NEGATE:
         case EXPR_ADDROF:
         case EXPR_DEREF: {
-            // TODO: move to Type.h/c (if made inline function)
+            // TODO: move to Type.h/c (header only if made inline function)
             #define IS_POINTER(ty) ((ty)->type == TY_POINTER)
             ASTExprNode *checkedOperand = TRY(ASTExprNode *, validateExpr(v, NODE_AS(ASTUnaryExpr, parsedExpr)->operand));
             Type *exprTy = exprDataType(v, checkedOperand);
@@ -693,7 +693,6 @@ static bool validateFunction(Validator *v, ASTObj *fn) {
 static bool validateCurrentScope(Validator *v);
 static bool validateStruct(Validator *v, ASTObj *st) {
     enterScope(v, st->as.structure.scope);
-    // FIXME: Why do I even need to care about the fields? I can't have 2 structs named 'Test' with a different number of fields!!
     // Note: when we validate types, we validate the fields (their types.)
     //       So here we only add them to the scope.
     Array objects;
@@ -726,7 +725,10 @@ static bool validateCurrentScope(Validator *v) {
     scopeGetAllObjects(getCurrentParsedScope(v), &objectsInScope);
 
     bool hadError = false;
-    // Validate structs first
+    // Validate structs first.
+    // This is done since functions likely will use the structs, which requires that their fields to be validated.
+    // TODO: When methods are added, will have to make a "validate fields only" pass
+    //       before methods are validated for the same reason.
     ARRAY_FOR(i, objectsInScope) {
         ASTObj *parsedObj = ARRAY_GET_AS(ASTObj *, &objectsInScope, i);
         if(parsedObj->type == OBJ_STRUCT) {
@@ -790,11 +792,13 @@ static void validateModule(Validator *v, ModuleID moduleID) {
     v->current.parsedScope = parsedModule->moduleScope;
     v->current.checkedScope = checkedModule->moduleScope;
 
+    // Validate types.
     tableMap(&parsedModule->types, validate_type_callback, (void *)v);
     if(v->hadError) {
         return;
     }
 
+    // Validate module scope level variable declarations ("globals".)
     ARRAY_FOR(i, parsedModule->variableDecls) {
         ASTVarDeclStmt *parsedVarDecl = ARRAY_GET_AS(ASTVarDeclStmt *, &parsedModule->variableDecls, i);
         // Note: validateVariableDecl() also validates the objects.
@@ -807,11 +811,11 @@ static void validateModule(Validator *v, ModuleID moduleID) {
     // * When validating a scope, we DON'T have enought info to validate OBJ_VARs.
     //   - Hence we validate them as we encounter them, which doesn't cause any problem for locals
     //     since we can't use them before they are declared.
-    //   - Since we validate OBJ_VARs as we encounter them, validateObject() just skips them and
-    //     that means we can validate "globals" before the scope (but after the types).
+    //   - Since we validate OBJ_VARs as we encounter them, we skip them when validating the objects
+    //     in a scope. This means we can validate "globals" before the scope (but after the types).
     // * When is validateCurrentScope() called then?
-    //   - Right now, when validating a module only. In the future, they will be called on structs
-    //     and on enums (which have methods.)
+    //   - When validating a module or a struct only. In the future, they will be called on enums
+    //     as well (unless they are implemented using structs.)
     //   - In any case, it should NOT be called in enterScope() since the "scope" it validates is actually a
     //     namespace, and enterScope() is also used for block scopes which ONLY have variables.
     //   - If I decide to allow lambdas/closures, then it will have to be called on functions as well.
