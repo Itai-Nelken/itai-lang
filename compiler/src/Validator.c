@@ -376,9 +376,6 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
 
                 // Get the struct ASTObj.
                 ASTObj *structure = scopeGetObject(getCurrentCheckedModule(v)->moduleScope, OBJ_STRUCT, lhsTy->name);
-                // FIXME: not getting the struct since it is not in the checked module scope yet...
-                //        * Use parsed scope to get complete (but unchecked) struct??
-                //        * Move this to typechecker pass?
                 VERIFY(structure);
                 ASTObj *field = scopeGetAnyObject(structure->as.structure.scope, NODE_AS(ASTIdentifierExpr, rhs)->id);
                 if(!field) {
@@ -454,6 +451,7 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
                 // Note: we can continue validating since we don't typecheck the arguments yet,
                 //       so we don't need to know what type they are supposed to be, info that's
                 //       only available if the type is callable (and eventually refers to a function.)
+                break;
             }
             #undef IS_CALLABLE
             // 2. validate arguments.
