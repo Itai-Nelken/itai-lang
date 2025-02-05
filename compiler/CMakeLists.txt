@@ -24,6 +24,7 @@ set(sources
     src/Scanner.c
     src/Table.c
     src/Token.c
+    src/Typechecker.c
     src/utilities.c
     src/Validator.c
     src/Strings.c

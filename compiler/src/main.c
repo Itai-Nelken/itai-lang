@@ -8,13 +8,15 @@
 #include "Scanner.h"
 #include "Parser.h"
 #include "Validator.h"
+#include "Typechecker.h"
 
 enum return_values {
     RET_SUCCESS = 0,
     RET_ARG_PARSE_FAILURE,
     RET_PARSE_FAILURE,
-    RET_VALIDATE_ERROR,
-    RET_CODEGEN_ERROR
+    RET_VALIDATE_FAILURE,
+    RET_TYPECHECK_FAILURE,
+    RET_CODEGEN_FAILURE
 };
 
 typedef struct options {
@@ -76,6 +78,7 @@ int main(int argc, char **argv) {
     Scanner s;
     Parser p;
     Validator v;
+    Typechecker typ;
     stringTableInit(&stringTable);
     astProgramInit(&parsedProgram, &stringTable);
     astProgramInit(&checkedProgram, &stringTable);
@@ -83,6 +86,7 @@ int main(int argc, char **argv) {
     scannerInit(&s, &c);
     parserInit(&p, &c, &s);
     validatorInit(&v, &c);
+    typecheckerInit(&typ, &c);
 
     Options opts = {
         .file_path = "./test.ilc",
@@ -123,7 +127,17 @@ int main(int argc, char **argv) {
         } else {
             fputs("\x1b[1;31mError:\x1b[0m Validator failed with no errors!\n", stderr);
         }
-        return_value = RET_VALIDATE_ERROR;
+        return_value = RET_VALIDATE_FAILURE;
+        goto end;
+    }
+
+    if(!typecheckerTypecheck(&typ, &checkedProgram)) {
+        if(compilerHadError(&c)) {
+            compilerPrintErrors(&c);
+        } else {
+            fputs("\x1b[1;31mError:\x1b[0m Typechecker failed with no errors!\n", stderr);
+        }
+        return_value = RET_TYPECHECK_FAILURE;
         goto end;
     }
 
@@ -140,6 +154,7 @@ int main(int argc, char **argv) {
     //}
 
 end:
+    typecheckerFree(&typ);
     validatorFree(&v);
     parserFree(&p);
     scannerFree(&s);
