@@ -392,7 +392,6 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
                     checkedExpr = NODE_AS(ASTExprNode, astBinaryExprNew(getCurrentAllocator(v), EXPR_PROPERTY_ACCESS, locationMerge(checkedLhs->location, rhs->location), field->dataType, checkedLhs, fieldNode));
                 }
                 checkedLhs = fieldNode;
-
             }
 
             arrayFree(&stack);
@@ -756,8 +755,7 @@ static bool validateCurrentScope(Validator *v) {
     }
     arrayFree(&objectsInScope);
 
-    // Note: no need to validate child scopes. They should be validated as necessary
-    //       when entered.
+    // Note: no need to validate child scopes. They are validated as necessary when entered.
 
     return !hadError;
 }
@@ -825,9 +823,7 @@ static void validateModule(Validator *v, ModuleID moduleID) {
     //   - If I decide to allow lambdas/closures, then it will have to be called on functions as well.
 
     // The module scope is already "entered" because we set the current scope to the module scope.
-    if(!validateCurrentScope(v)) {
-        return;
-    }
+    validateCurrentScope(v);
 
     // See notes above declaration of this function on how caller should check for errors.
 }

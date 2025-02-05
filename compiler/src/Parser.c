@@ -888,6 +888,10 @@ static ASTObj *parseStructDecl(Parser *p) {
         if(field) {
             if(field->dataType == NULL) {
                 error(p, tmp_buffer_format(p, "Field '%s' has no type.", field->name));
+                // Assume the syntax is correct apart from the missing type.
+                // This makes sure we don't emit a cascading error about expecting an identifier
+                // (the next field) but getting a semicolon.
+                TRY_CONSUME(p, TK_SEMICOLON);
                 continue;
             }
             if(field->dataType->type == TY_VOID) {
