@@ -157,8 +157,10 @@ static Type *exprDataType(Validator *v, ASTExprNode *expr) {
         case EXPR_GE:
             // Type of a binary expression is the type of the left side.
             return exprDataType(v, NODE_AS(ASTBinaryExpr, expr)->lhs);
-        case EXPR_NEGATE:
         case EXPR_ADDROF:
+            VERIFY(expr->dataType); // In case called on parsed expr.
+            return expr->dataType; // The pointer type.
+        case EXPR_NEGATE:
         case EXPR_DEREF:
             // Type of unary expression is the type of the operand
             return exprDataType(v, NODE_AS(ASTUnaryExpr, expr)->operand);
@@ -425,6 +427,11 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
             #define IS_POINTER(ty) ((ty)->type == TY_POINTER)
             ASTExprNode *checkedOperand = TRY(ASTExprNode *, validateExpr(v, NODE_AS(ASTUnaryExpr, parsedExpr)->operand));
             Type *exprTy = exprDataType(v, checkedOperand);
+            if(NODE_IS(parsedExpr, EXPR_ADDROF)) {
+                String ptrName = stringFormat("&%s", exprTy->name);
+                exprTy = getType(v, ptrName);
+                stringFree(ptrName);
+            }
             checkedExpr = NODE_AS(ASTExprNode, astUnaryExprNew(getCurrentAllocator(v), parsedExpr->type, parsedExpr->location, exprTy, checkedOperand));
             if(NODE_IS(checkedExpr, EXPR_DEREF)) {
                 if(!(NODE_IS(checkedOperand, EXPR_VARIABLE) || NODE_IS(checkedOperand, EXPR_PROPERTY_ACCESS) || NODE_IS(checkedOperand, EXPR_DEREF) || NODE_IS(checkedOperand, EXPR_ADDROF))) {
