@@ -66,6 +66,7 @@ static Type *getType(Validator *v, const char *name) {
 }
 
 // if !expr, returns NULL. otherwise expands to of expr.
+// Undefed at end of file.
 #define TRY(type, expr) ({ \
         type _tmp = (expr); \
         if(!_tmp) { \
@@ -806,6 +807,9 @@ static void validateModule(Validator *v, ModuleID moduleID) {
         if(checkedVarDecl) {
             arrayPush(&checkedModule->variableDecls, (void *)checkedVarDecl);
         }
+    }
+    if(v->hadError) {
+        return;
     }
     // Notes to clear my confusion:
     // * When validating a scope, we DON'T have enought info to validate OBJ_VARs.
