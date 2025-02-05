@@ -88,13 +88,17 @@ static bool checkTypes(Typechecker *typ, Location errLoc, Type *a, Type *b) {
     return true;
 }
 
+static void typecheckExpr(Typechecker *typ, ASTExprNode *expr);
 static void typecheckVariableDecl(Typechecker *typ, ASTVarDeclStmt *decl) {
     if(decl->variable->dataType->type == TY_POINTER) {
         error(typ, decl->header.location, "Pointer types are not allowed in this context.");
         return;
     }
-    if(decl->initializer && !checkTypes(typ, decl->header.location, decl->variable->dataType, decl->initializer->dataType)) {
-        return;
+    if(decl->initializer) {
+        typecheckExpr(typ, decl->initializer);
+        if(!checkTypes(typ, decl->header.location, decl->variable->dataType, decl->initializer->dataType)) {
+            return;
+        }
     }
 }
 
@@ -145,9 +149,21 @@ static void typecheckExpr(Typechecker *typ, ASTExprNode *expr) {
             // TODO: check if negatable, addrofable type. (derefable checked in validator.)
             break;
         // Call node
-        case EXPR_CALL:
-            // TODO: typecheck arguments vs parameters.
+        case EXPR_CALL: {
+            ASTCallExpr *call = NODE_AS(ASTCallExpr, expr);
+            Type *calleeType = call->callee->dataType;
+            // Guaranteed to be callable or validator is broken.
+            VERIFY(calleeType->type == TY_FUNCTION);
+            Array *parameterTypes = &calleeType->as.fn.parameterTypes;
+            // Guaranteed to be true or validator is broken.
+            VERIFY(arrayLength(parameterTypes) == arrayLength(&call->arguments));
+            ARRAY_FOR(i, call->arguments) {
+                ASTExprNode *arg = ARRAY_GET_AS(ASTExprNode *, &call->arguments, i);
+                Type *paramType = ARRAY_GET_AS(Type *, parameterTypes, i);
+                checkTypes(typ, arg->location, paramType, arg->dataType);
+            }
             break;
+        }
         // Other nodes.
         case EXPR_IDENTIFIER:
             // Identifier nodes should not exist at this stage.
@@ -183,6 +199,7 @@ static void typecheckStmt(Typechecker *typ, ASTStmtNode *stmt) {
         case STMT_RETURN:
             VERIFY(typ->current.function);
             if(NODE_AS(ASTExprStmt, stmt)->expression != NULL) {
+                typecheckExpr(typ, NODE_AS(ASTExprStmt, stmt)->expression);
                 checkTypes(typ, NODE_AS(ASTExprStmt, stmt)->expression->location, typ->current.function->as.fn.returnType, NODE_AS(ASTExprStmt, stmt)->expression->dataType);
             } else {
                 if(typ->current.function->as.fn.returnType->type != TY_VOID) {

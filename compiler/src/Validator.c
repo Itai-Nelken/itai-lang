@@ -740,6 +740,15 @@ static bool validateCurrentScope(Validator *v) {
         return false;
     }
 
+    // FIXME: functions are validated in the order they are stored in the table,
+    //        meaning that some combinations are simply impossible.
+    //        For example: fn doStuff() will always be after fn main(), meaning that main()
+    //                     will be validated first and always fail if it calls doStuff().
+    //        Even if I fix this, order will matter which doesn't align with the language spec.
+    // Ideas:
+    // * Since types are already validated, we could use the parsed scope but only access info from the checked type?
+    // * "predecl" pass? it would require a predecl object or be too complicated.
+
     // Now validate functions.
     ARRAY_FOR(i, objectsInScope) {
         ASTObj *parsedObj = ARRAY_GET_AS(ASTObj *, &objectsInScope, i);
