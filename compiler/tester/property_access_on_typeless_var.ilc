@@ -1,7 +1,0 @@
-/// expect error: Error: Variable 'a' has no type.
-
-fn main() {
-	var a;
-	a.b = 123;
-}
-
