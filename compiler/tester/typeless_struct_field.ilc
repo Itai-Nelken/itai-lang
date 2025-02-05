@@ -1,0 +1,9 @@
+/// expect error: Error: Field 'typelessField' has no type.
+
+struct T {
+	typelessField;
+	typedField: i32;
+}
+
+fn main() {}
+

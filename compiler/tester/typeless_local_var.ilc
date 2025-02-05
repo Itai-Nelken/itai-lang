@@ -1,0 +1,6 @@
+/// expect error: Error: Cannot infer type of variable 'a'.
+
+fn main() {
+	var a;
+}
+
