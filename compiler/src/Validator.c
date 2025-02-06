@@ -688,7 +688,9 @@ static bool validateStruct(Validator *v, ASTObj *st) {
     ARRAY_FOR(i, objects) {
         ASTObj *obj = ARRAY_GET_AS(ASTObj *, &objects, i);
         if(obj->type == OBJ_VAR) {
-            ASTObj *checkedField = astModuleNewObj(getCurrentCheckedModule(v), obj->type, obj->location, obj->name, getType(v, obj->dataType->name));
+            Type *checkedFieldType = validateType(v, obj->dataType);
+            VERIFY(checkedFieldType); // TODO: Guaranteed to exist I think (type validation in module)??
+            ASTObj *checkedField = astModuleNewObj(getCurrentCheckedModule(v), obj->type, obj->location, obj->name, checkedFieldType);
             // Note: parser checks for field re-declaration.
             scopeAddObject(getCurrentCheckedScope(v), checkedField);
         }
@@ -697,7 +699,9 @@ static bool validateStruct(Validator *v, ASTObj *st) {
     bool hadError = !validateCurrentScope(v);
     Scope *checkedScope = getCurrentCheckedScope(v);
     leaveScope(v);
-    ASTObj *checkedStruct = astModuleNewObj(getCurrentCheckedModule(v), OBJ_STRUCT, st->location, st->name, getType(v, st->dataType->name));
+    Type *checkedStructType = validateType(v, st->dataType);
+    VERIFY(checkedStructType); // TODO: guaranteed to exist I'm pretty sure (type validation in module)??
+    ASTObj *checkedStruct = astModuleNewObj(getCurrentCheckedModule(v), OBJ_STRUCT, st->location, st->name, checkedStructType);
     checkedStruct->as.structure.scope = checkedScope;
     scopeAddObject(getCurrentCheckedScope(v), checkedStruct);
     return !hadError;
