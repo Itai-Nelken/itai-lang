@@ -665,27 +665,9 @@ static ASTVarDeclStmt *validateVariableDecl(Validator *v, ASTVarDeclStmt *parsed
 // * returns true on success, and false on failure.
 static bool validateFunction(Validator *v, ASTObj *fn) {
     // Note: (parsed) fn scope already contains params. They are added by the parser.
-    Type *checkedReturnType = TRY(Type *, validateType(v, fn->as.fn.returnType));
-    Type *checkedFnType = TRY(Type *, validateType(v, fn->dataType));
-    // Create the object now so we can put any data in it and then not free it (since the object is owned by the module.)
-    ASTObj *checkedFn = astModuleNewObj(getCurrentCheckedModule(v), OBJ_FN, fn->location, fn->name, checkedFnType);
-    checkedFn->as.fn.returnType = checkedReturnType;
-    bool hadError = false;
-    ARRAY_FOR(i, fn->as.fn.parameters) {
-        ASTObj *param = ARRAY_GET_AS(ASTObj *, &fn->as.fn.parameters, i);
-        Type *checkedParamType = validateType(v, param->dataType);
-        if(checkedParamType) {
-            ASTObj *checkedParam = astModuleNewObj(getCurrentCheckedModule(v), OBJ_VAR, param->location, param->name, checkedParamType);
-            arrayPush(&checkedFn->as.fn.parameters, (void *)checkedParam);
-        } else {
-            hadError = true;
-        }
-    }
-    if(hadError) {
-        return false;
-    }
-    // Add function object to current scope to allow recursion.
-    scopeAddObject(getCurrentCheckedScope(v), checkedFn);
+    // Get the predecled checked function.
+    ASTObj *checkedFn = scopeGetObject(getCurrentCheckedScope(v), OBJ_FN, fn->name);
+    VERIFY(checkedFn); // MUST exist.
     v->current.function = checkedFn;
     ASTStmtNode *checkedBody = TRY(ASTStmtNode *, validateStmt(v, NODE_AS(ASTStmtNode, fn->as.fn.body)));
     v->current.function = NULL;
@@ -719,6 +701,29 @@ static bool validateStruct(Validator *v, ASTObj *st) {
     checkedStruct->as.structure.scope = checkedScope;
     scopeAddObject(getCurrentCheckedScope(v), checkedStruct);
     return !hadError;
+}
+
+static void predeclFunction(Validator *v, ASTObj *parsedFn) {
+    ASTObj *checkedFnPredecl = astModuleNewObj(getCurrentCheckedModule(v), OBJ_FN, parsedFn->location, parsedFn->name, NULL);
+    Type *checkedDataType = validateType(v, parsedFn->dataType);
+    checkedFnPredecl->dataType = checkedDataType;
+    Type *checkedReturnType = validateType(v, parsedFn->as.fn.returnType);
+    checkedFnPredecl->as.fn.returnType = checkedReturnType;
+    bool hadError = false;
+    ARRAY_FOR(i, parsedFn->as.fn.parameters) {
+        ASTObj *param = ARRAY_GET_AS(ASTObj *, &parsedFn->as.fn.parameters, i);
+        Type *checkedParamType = validateType(v, param->dataType);
+        if(checkedParamType) {
+            ASTObj *checkedParam = astModuleNewObj(getCurrentCheckedModule(v), OBJ_VAR, param->location, param->name, checkedParamType);
+            arrayPush(&checkedFnPredecl->as.fn.parameters, (void *)checkedParam);
+        } else {
+            hadError = true;
+        }
+    }
+    if(!checkedDataType || !checkedReturnType || hadError) {
+        return;
+    }
+    scopeAddObject(getCurrentCheckedScope(v), checkedFnPredecl);
 }
 
 // Note: scope here refers to a namespace type scope (i.e. SCOPE_DEPTH_MODULE_NAMESPACE or SCOPE_DEPTH_STRUCT)
@@ -755,6 +760,18 @@ static bool validateCurrentScope(Validator *v) {
     // Ideas:
     // * Since types are already validated, we could use the parsed scope but only access info from the checked type?
     // * "predecl" pass? it would require a predecl object or be too complicated.
+    // Predeclare functions so they all exist in the checked scope.
+    ARRAY_FOR(i, objectsInScope) {
+        ASTObj *parsedObj = ARRAY_GET_AS(ASTObj *, &objectsInScope, i);
+        // Note: OBJ_VARs will be validated as the variables are declared (in validateStmt().)
+        if(parsedObj->type == OBJ_FN) {
+            predeclFunction(v, parsedObj);
+        }
+    }
+    if(v->hadError) {
+        arrayFree(&objectsInScope);
+        return false;
+    }
 
     // Now validate functions.
     ARRAY_FOR(i, objectsInScope) {
