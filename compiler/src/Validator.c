@@ -598,6 +598,10 @@ static ASTStmtNode *validateStmt(Validator *v, ASTStmtNode *parsedStmt) {
             ASTExprNode *checkedOperand = NULL;
             if(NODE_AS(ASTExprStmt, parsedStmt)->expression) {
                 checkedOperand = TRY(ASTExprNode *, validateExpr(v, NODE_AS(ASTExprStmt, parsedStmt)->expression));
+                if(v->current.function->as.fn.returnType->type == TY_U32 && NODE_IS(checkedOperand, EXPR_NUMBER_CONSTANT)) {
+                    LOG_MSG("TODO: wrap operand in type conversion expression.\n");
+                    checkedOperand->dataType = getType(v, "u32");
+                }
             }
             checkedStmt = (ASTStmtNode *)astExprStmtNew(getCurrentAllocator(v), STMT_RETURN, parsedStmt->location, checkedOperand);
             break;
@@ -651,6 +655,11 @@ static ASTVarDeclStmt *validateVariableDecl(Validator *v, ASTVarDeclStmt *parsed
         return NULL;
     }
     dataType = TRY(Type *, validateType(v, dataType));
+
+    if(dataType->type == TY_U32 && NODE_IS(checkedInitializer, EXPR_NUMBER_CONSTANT)) {
+        LOG_MSG("TODO: wrap initializer in type conversion expression.\n");
+        checkedInitializer->dataType = getType(v, "u32");
+    }
 
     ASTObj *checkedObj = astModuleNewObj(getCurrentCheckedModule(v), OBJ_VAR, parsedVarDecl->variable->location, parsedVarDecl->variable->name, dataType);
     bool added = scopeAddObject(getCurrentCheckedScope(v), checkedObj);
