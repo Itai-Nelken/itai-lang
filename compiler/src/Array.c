@@ -1,5 +1,4 @@
 #include <stdlib.h>
-#include <assert.h>
 #include <sys/types.h> // ssize_t
 #include "common.h"
 #include "memory.h"
@@ -63,7 +62,7 @@ void *arrayPop(Array *a) {
 
 void arrayPrepend(Array *a, void *value) {
     arrayPush(a, NULL); // Hack to grow the array if neccesary without duplicating the code in arrayPush().
-    // ssize_t to remove the 'omparison of unsigned expression in ‘>= 0’ is always true' warning.
+    // ssize_t to remove the 'comparison of unsigned expression in ‘>= 0’ is always true' warning.
     for(ssize_t i = a->used - 2; i >= 0; --i) {
         a->data[i + 1] = a->data[i];
     }
@@ -71,7 +70,7 @@ void arrayPrepend(Array *a, void *value) {
 }
 
 void arrayInsert(Array *a, size_t index, void *value) {
-    assert(index < a->used);
+    VERIFY(index < a->used);
     a->data[index] = value;
 }
 
@@ -80,6 +79,18 @@ void *arrayGet(Array *a, size_t index) {
         return NULL;
     }
     return a->data[index];
+}
+
+void *arrayDelete(Array *a, size_t index) {
+    VERIFY(index < a->used);
+    void *value = arrayGet(a, index);
+
+    for(size_t i = index; i < a->used - 1; ++i) {
+        a->data[index] = a->data[index + 1];
+    }
+    // Set last element (that is now empty) to NULL.
+    a->data[--a->used] = NULL;
+    return value;
 }
 
 void arrayClear(Array *a) {

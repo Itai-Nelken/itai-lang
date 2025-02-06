@@ -72,7 +72,7 @@ size_t arrayPush(Array *a, void *value);
 void *arrayPop(Array *a);
 
 /***
- * Insert [value] at the start of the array (shofst the whole array right).
+ * Insert [value] at the start of the array (shift the whole array right).
  *
  * @param a The Array to use.
  * @param value The value to prepend.
@@ -97,6 +97,18 @@ void arrayInsert(Array *a, size_t index, void *value);
  * @return The value or NULL if the index is out of bounds.
  ***/
 void *arrayGet(Array *a, size_t index);
+
+/**
+ * Delete the value at index 'index' in an Array.
+ * Notes:
+ *  - All following values will be shifted back.
+ *  - C.R.E for index to be larger than the length of the array.
+ *
+ * @param a The array to use.
+ * @param index The index of the element to delete.
+ * @return The deleted element.
+ **/
+void *arrayDelete(Array *a, size_t index);
 
 /***
  * Clear an Array.
