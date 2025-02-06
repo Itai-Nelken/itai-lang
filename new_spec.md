@@ -341,7 +341,7 @@ The only times this feature should be used are:
 
 ## Type conversions/casts
 
-* There are no implicit type conversions the only exception being untyped number literals which are cast according to their context (e.g. when assigning to a variable with an unsigned type).
+* There are no implicit type conversions with the only exception being untyped number literals which are cast according to their context (e.g. when assigning to a variable with an unsigned type).
 * To cast a value to another type, the `as<T>(T)` operator is used. It will panic if the conversion fails (overflow, underflow, incompatible types etc.). Some casts can be and are typechecked at compile-time.
 
 ## Calling C functions (`extern` functions)

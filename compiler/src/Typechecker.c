@@ -79,9 +79,6 @@ static inline ASTModule *getCurrentModule(Typechecker *typ) {
 static bool checkTypes(Typechecker *typ, Location errLoc, Type *a, Type *b) {
     // ASTStrings can be compared by address (since they are unique).
     if(!a || !b || a->name != b->name) {
-        if(a->type == TY_U32 && b->type == TY_I32) {
-            return true;
-        }
         error(typ, errLoc, "Type mismatch: expected '%s' but got '%s'.", typeName(a), typeName(b));
         return false;
     }
