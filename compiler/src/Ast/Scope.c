@@ -38,16 +38,7 @@ void scopePrint(FILE *to, Scope *sc, bool recursive) {
         return;
     }
 
-    fputs("Scope{\x1b[1mobjects:\x1b[0m [", to);
-    struct object_print_data objPrintData = {
-        .to = to,
-        // Note: change table to last table printed when adding more tables.
-        .skip_last_comma = tableSize(&sc->functions) == 0 // if true, skip last comma.
-    };
-    tableMap(&sc->variables, print_object_callback, (void *)&objPrintData);
-    tableMap(&sc->functions, print_object_callback, (void *)&objPrintData);
-    objPrintData.skip_last_comma = true;
-    tableMap(&sc->structures, print_object_callback, (void *)&objPrintData);
+    fputs("Scope{", to);
 
     String depthStr = stringNew(33); // 33 is the length of SCOPE_DEPTH_MODULE_NAMESPACE
     switch(sc->depth) {
@@ -58,8 +49,23 @@ void scopePrint(FILE *to, Scope *sc, bool recursive) {
             stringAppend(&depthStr, "\x1b[1;33mSCOPE_DEPTH_BLOCK\x1b[0;31m+%u\x1b[0m", sc->depth - SCOPE_DEPTH_BLOCK);
             break;
     }
-    fprintf(to, "], \x1b[1mdepth: \x1b[31m%s\x1b[0m, \x1b[1mchildren:\x1b[0m [", depthStr);
+    fprintf(to, "\x1b[1mdepth: \x1b[31m%s\x1b[0m", depthStr);
+    fprintf(to, ", \x1b[1mparent:\x1b[0m %s", sc->parent ? "Scope{...}" : "(null)");
     stringFree(depthStr);
+
+    fputs(", \x1b[1mobjects:\x1b[0m [", to);
+    struct object_print_data objPrintData = {
+        .to = to,
+        // Note: change table to last table printed when adding more tables.
+        .skip_last_comma = tableSize(&sc->functions) == 0 // if true, skip last comma.
+    };
+    tableMap(&sc->variables, print_object_callback, (void *)&objPrintData);
+    tableMap(&sc->functions, print_object_callback, (void *)&objPrintData);
+    objPrintData.skip_last_comma = true;
+    tableMap(&sc->structures, print_object_callback, (void *)&objPrintData);
+    fputc(']', to);
+
+    fprintf(to, ", \x1b[1mchildren:\x1b[0m [");
     if(recursive) {
         ARRAY_FOR(i, sc->children) {
             scopePrint(to, ARRAY_GET_AS(Scope *, &sc->children, i), true);
@@ -73,10 +79,9 @@ void scopePrint(FILE *to, Scope *sc, bool recursive) {
         if(arrayLength(&sc->children) > 0) {
             fprintf(to, "...@%lu]", arrayLength(&sc->children));
         } else {
-            fputs("[]", to);
+            fputc(']', to);
         }
     }
-    fprintf(to, ", \x1b[1mparent:\x1b[0m %s", sc->parent ? "Scope{...}" : "(null)");
     fputc('}', to);
 }
 
