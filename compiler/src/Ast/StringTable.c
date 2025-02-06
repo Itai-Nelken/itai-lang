@@ -41,9 +41,9 @@ void stringTablePrint(FILE *to, StringTable *st) {
         return;
     }
 
-    fputs("StringTable{\x1b[1mstrings:\x1b[0m [", to);
+    fputs("StringTable{", to);
     tableMap(&st->strings, print_string_callback, (void *)to);
-    fputs("]}", to);
+    fputc('}', to);
 }
 
 void stringTableInit(StringTable *st) {
