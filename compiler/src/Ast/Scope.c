@@ -70,7 +70,11 @@ void scopePrint(FILE *to, Scope *sc, bool recursive) {
         fputc(']', to);
         // Note: no need to print the parent of [sc], since its the scope we are printing in the first place.
     } else {
-        fprintf(to, "...@%lu]", arrayLength(&sc->children));
+        if(arrayLength(&sc->children) > 0) {
+            fprintf(to, "...@%lu]", arrayLength(&sc->children));
+        } else {
+            fputs("[]", to);
+        }
     }
     fprintf(to, ", \x1b[1mparent:\x1b[0m %s", sc->parent ? "Scope{...}" : "(null)");
     fputc('}', to);

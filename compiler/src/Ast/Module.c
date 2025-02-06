@@ -18,7 +18,7 @@ static void free_type_callback(TableItem *item, bool is_last, void *cl) {
 
 static void print_type_table_callback(TableItem *item, bool is_last, void *stream) {
     FILE *to = (FILE *)stream;
-    typePrint(to, (Type *)item->value, true);
+    typePrint(to, (Type *)item->value, false);
     if(!is_last) {
         fputs(", ", to);
     }
