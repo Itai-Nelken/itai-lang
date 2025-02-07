@@ -161,9 +161,11 @@ static Type *exprDataType(Validator *v, ASTExprNode *expr) {
             VERIFY(expr->dataType); // In case called on parsed expr.
             return expr->dataType; // The pointer type.
         case EXPR_NEGATE:
-        case EXPR_DEREF:
             // Type of unary expression is the type of the operand
             return exprDataType(v, NODE_AS(ASTUnaryExpr, expr)->operand);
+        case EXPR_DEREF:
+            VERIFY(expr->dataType);
+            return expr->dataType;
         case EXPR_CALL:
             // Type of call expression is the return type of the callee.
             return exprDataType(v, NODE_AS(ASTCallExpr, expr)->callee);
@@ -440,9 +442,13 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
                 if(!(NODE_IS(checkedOperand, EXPR_VARIABLE) || NODE_IS(checkedOperand, EXPR_PROPERTY_ACCESS) || NODE_IS(checkedOperand, EXPR_DEREF) || NODE_IS(checkedOperand, EXPR_ADDROF))) {
                     error(v, checkedOperand->location, "Cannot dereference non-variable object.");
                     checkedExpr = NULL;
-                } else if(!IS_POINTER(exprTy) || (NODE_IS(checkedOperand, EXPR_CALL) && !IS_POINTER(checkedOperand->dataType))) {
+                } else if(!IS_POINTER(checkedOperand->dataType)) {
                     error(v, checkedOperand->location, "Cannot dereference non-pointer type '%s'.", exprTy->name);
                     checkedExpr = NULL;
+                } else {
+                    // If no errors, set deref expr type to correct type.
+                    VERIFY(exprTy->type == TY_POINTER);
+                    checkedExpr->dataType = exprTy->as.ptr.innerType;
                 }
             }
             break;
