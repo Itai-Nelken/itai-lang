@@ -177,10 +177,6 @@ static Type *exprDataType(Validator *v, ASTExprNode *expr) {
 //   * If the [parsedType] was already validated, the previously validated type will be returned.
 static Type *validateType(Validator *v, Type *parsedType) {
     VERIFY(parsedType);
-    // * pointer types -> validate pointee
-    // * fn types -> validate param types + return type
-    // * struct types -> TODO
-    // * id types -> the struct type they refer to.
 
     Type *checkedType = NULL;
     if((checkedType = astModuleGetType(getCurrentCheckedModule(v), parsedType->name)) != NULL) {
@@ -234,6 +230,8 @@ static Type *validateType(Validator *v, Type *parsedType) {
         case TY_STRUCT: {
             bool hadError = false;
             checkedType = typeNew(TY_STRUCT, parsedType->name, parsedType->declLocation, parsedType->declModule);
+            // To prevent recursion.
+            astModuleAddType(getCurrentCheckedModule(v), checkedType);
             ARRAY_FOR(i, parsedType->as.structure.fieldTypes) {
                 Type *fType = ARRAY_GET_AS(Type *, &parsedType->as.structure.fieldTypes, i);
                 // Note: parser checks for 'void' and 'pointer' types.
@@ -245,7 +243,8 @@ static Type *validateType(Validator *v, Type *parsedType) {
                 }
             }
             if(hadError) {
-                typeFree(checkedType);
+                // It doesn't matter that the type was already added since
+                // after validating all the types, validateModule() returns early on errors.
                 return NULL;
             }
             break;
@@ -265,7 +264,11 @@ static Type *validateType(Validator *v, Type *parsedType) {
     }
 
     VERIFY(checkedType != NULL);
-    astModuleAddType(getCurrentCheckedModule(v), checkedType);
+    // The check is because for TY_STRUCT we add the type earlier to prevent infinite recursion
+    // in the case of recursive structs.
+    if(astModuleGetType(getCurrentCheckedModule(v), checkedType->name) == NULL) {
+        astModuleAddType(getCurrentCheckedModule(v), checkedType);
+    }
     return checkedType;
 }
 
@@ -599,7 +602,7 @@ static ASTStmtNode *validateStmt(Validator *v, ASTStmtNode *parsedStmt) {
             if(NODE_AS(ASTExprStmt, parsedStmt)->expression) {
                 checkedOperand = TRY(ASTExprNode *, validateExpr(v, NODE_AS(ASTExprStmt, parsedStmt)->expression));
                 if(v->current.function->as.fn.returnType->type == TY_U32 && NODE_IS(checkedOperand, EXPR_NUMBER_CONSTANT)) {
-                    LOG_MSG("TODO: wrap operand in type conversion expression.\n");
+                    // TODO: wrap operand in type conversion expression.
                     checkedOperand->dataType = getType(v, "u32");
                 }
             }
@@ -657,7 +660,7 @@ static ASTVarDeclStmt *validateVariableDecl(Validator *v, ASTVarDeclStmt *parsed
     dataType = TRY(Type *, validateType(v, dataType));
 
     if(dataType->type == TY_U32 && NODE_IS(checkedInitializer, EXPR_NUMBER_CONSTANT)) {
-        LOG_MSG("TODO: wrap initializer in type conversion expression.\n");
+        // TODO: wrap initializer in type conversion expression.
         checkedInitializer->dataType = getType(v, "u32");
     }
 
@@ -765,14 +768,6 @@ static bool validateCurrentScope(Validator *v) {
         return false;
     }
 
-    // FIXME: functions are validated in the order they are stored in the table,
-    //        meaning that some combinations are simply impossible.
-    //        For example: fn doStuff() will always be after fn main(), meaning that main()
-    //                     will be validated first and always fail if it calls doStuff().
-    //        Even if I fix this, order will matter which doesn't align with the language spec.
-    // Ideas:
-    // * Since types are already validated, we could use the parsed scope but only access info from the checked type?
-    // * "predecl" pass? it would require a predecl object or be too complicated.
     // Predeclare functions so they all exist in the checked scope.
     ARRAY_FOR(i, objectsInScope) {
         ASTObj *parsedObj = ARRAY_GET_AS(ASTObj *, &objectsInScope, i);
