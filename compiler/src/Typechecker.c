@@ -223,24 +223,49 @@ static void typecheckFunction(Typechecker *typ, ASTObj *fn) {
     typ->current.function = NULL;
 }
 
-static bool typecheckCurrentScope(Typechecker *typ);
+static bool isRecursiveStruct(Type *rootStructType, Type *fieldType) {
+    VERIFY(rootStructType->type == TY_STRUCT);
+    if(fieldType->type != TY_STRUCT) {
+        return false;
+    }
+    ARRAY_FOR(i, fieldType->as.structure.fieldTypes) {
+        Type *field = ARRAY_GET_AS(Type *, &fieldType->as.structure.fieldTypes, i);
+        if(field->name == rootStructType->name || isRecursiveStruct(rootStructType, field)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool typecheckCurrentScope(Typechecker *typ, ASTObj *st);
 static void typecheckStruct(Typechecker *typ, ASTObj *st) {
     enterScope(typ, st->as.structure.scope);
-    // TODO: check for recursive structs.
-    typecheckCurrentScope(typ);
+    VERIFY(st->dataType->type == TY_STRUCT);
+    typecheckCurrentScope(typ, st);
     leaveScope(typ);
 }
 
 // Note: here scope means namespace scope (SCOPE_DEPTH_MODULE_NAMESPACE and SCOPE_DEPTH_STRUCT).
-static bool typecheckCurrentScope(Typechecker *typ) {
+// st: OBJ_STRUCT for when the scope being validated is a struct scope.
+static bool typecheckCurrentScope(Typechecker *typ, ASTObj *st) {
     Array objects; // Array<ASTObj *>
     arrayInitSized(&objects, scopeGetNumObjects(getCurrentScope(typ)));
     scopeGetAllObjects(getCurrentScope(typ), &objects);
+    if(getCurrentScope(typ)->depth == SCOPE_DEPTH_STRUCT) {
+        VERIFY(st);
+    }
 
+    bool hadError = false;
     ARRAY_FOR(i, objects) {
         ASTObj *obj = ARRAY_GET_AS(ASTObj *, &objects, i);
         switch(obj->type) {
             case OBJ_VAR:
+                if(getCurrentScope(typ)->depth == SCOPE_DEPTH_STRUCT) {
+                    if(isRecursiveStruct(st->dataType, obj->dataType)) {
+                        error(typ, obj->location, "Struct '%s' cannot have a field that recursively contains it.", st->name);
+                        hadError = true;
+                    }
+                }
                 // nothing. vars are typechecked as they are declared, assigned.
                 break;
             case OBJ_FN:
@@ -258,7 +283,7 @@ static bool typecheckCurrentScope(Typechecker *typ) {
 
     // Note: no need to typecheck child scopes. They are typechecked as necessary when entered.
 
-    return true;
+    return !hadError;
 }
 
 static void typecheckModule(Typechecker *typ, ASTModule *module) {
@@ -274,7 +299,7 @@ static void typecheckModule(Typechecker *typ, ASTModule *module) {
         goto typecheck_module_end;
     }
 
-    typecheckCurrentScope(typ);
+    typecheckCurrentScope(typ, NULL);
 
 typecheck_module_end:
     typ->current.module = NULL;
