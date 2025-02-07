@@ -227,7 +227,6 @@ private:
             test.options.should_fail = true;
         } else if(contents.at(pos) == 's') {
             if(match("skip")) {
-                parse("skip");
                 test.options.skip = true;
             } else {
                 parse("success");
