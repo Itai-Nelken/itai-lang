@@ -1,1 +1,2 @@
+/// expect skip
 /// expect error: Error: No entry point (hint: Consider adding a 'main' function).

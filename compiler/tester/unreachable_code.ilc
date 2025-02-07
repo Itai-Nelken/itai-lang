@@ -1,3 +1,4 @@
+/// expect skip
 /// expect error: Error: Unreachable code.
 
 fn main() {

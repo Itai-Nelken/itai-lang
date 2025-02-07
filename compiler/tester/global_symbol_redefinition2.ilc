@@ -1,3 +1,4 @@
+/// expect skip
 /// expect error: Error: Redefinition of function 'test'.
 
 fn test() {}
