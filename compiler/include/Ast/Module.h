@@ -22,7 +22,7 @@ typedef struct ast_module {
     } ast_allocator;
     Array objectOwner; // Array<ASTObj *> - owns all objects in this module.
     ASTString name;
-    Table types; // Table<char *, Type *>
+    Table types; // Table<ASTString, Type *>
     Scope *moduleScope; // owned by this struct.
     // Holds any "global" variable declarations.
     Array variableDecls; // Array<ASTVarDeclStmt *>
