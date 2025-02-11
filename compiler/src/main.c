@@ -9,6 +9,7 @@
 #include "Parser.h"
 #include "Validator.h"
 #include "Typechecker.h"
+#include "CGTargets/CCG.h"
 
 enum return_values {
     RET_SUCCESS = 0,
@@ -79,6 +80,7 @@ int main(int argc, char **argv) {
     Parser p;
     Validator v;
     Typechecker typ;
+    TargetCCG ccg;
     stringTableInit(&stringTable);
     astProgramInit(&parsedProgram, &stringTable);
     astProgramInit(&checkedProgram, &stringTable);
@@ -87,6 +89,7 @@ int main(int argc, char **argv) {
     parserInit(&p, &c, &s);
     validatorInit(&v, &c);
     typecheckerInit(&typ, &c);
+    targetCCGInit(&ccg, stdout);
 
     Options opts = {
         .file_path = "./test.ilc",
@@ -147,13 +150,9 @@ int main(int argc, char **argv) {
         puts("\n====== END ======"); // prints newline.
     }
 
-    //if(!codegenGenerate(stdout, &prog)) {
-    //    fputs("\x1b[1;31mError: Codegenerator failed!\x1b[0m\n", stderr);
-    //    return_value = RET_CODEGEN_ERROR;
-    //    goto end;
-    //}
-
+    targetCCGGenerate(&ccg, &checkedProgram);
 end:
+    targetCCGFree(&ccg);
     typecheckerFree(&typ);
     validatorFree(&v);
     parserFree(&p);
