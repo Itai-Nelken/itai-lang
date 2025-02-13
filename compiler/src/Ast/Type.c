@@ -159,6 +159,8 @@ bool typeEqual(Type *a, Type *b) {
             break;
         case TY_IDENTIFIER:
             // TODO: maybe actualName == actualName???
+            //       I'm pretty sure this would be correct since we make sure both types are in same module,
+            //       however I don't think identifier types should be comparable.
         default:
             UNREACHABLE();
     }

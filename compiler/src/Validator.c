@@ -643,6 +643,14 @@ static ASTVarDeclStmt *validateVariableDecl(Validator *v, ASTVarDeclStmt *parsed
     // make sure there is a type (that is not void.)
     // Make sure not assigned to itself (above two checks should catch this error.)
 
+    // TODO: properly define this. another global variable is also const.
+    #define IS_CONST_EXPR(expr) ((expr)->type == EXPR_NUMBER_CONSTANT || (expr)->type == EXPR_STRING_CONSTANT)
+    if(getCurrentCheckedScope(v)->depth == SCOPE_DEPTH_MODULE_NAMESPACE && parsedVarDecl->initializer && !IS_CONST_EXPR(parsedVarDecl->initializer)) {
+        error(v, parsedVarDecl->initializer->location, "Initializer of module variable is not a constant expression.");
+        return NULL;
+    }
+    #undef IS_CONST_EXPR
+
     ASTExprNode *checkedInitializer = NULL;
     if(parsedVarDecl->initializer) {
         checkedInitializer = TRY(ASTExprNode *, validateExpr(v, parsedVarDecl->initializer));

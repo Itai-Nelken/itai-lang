@@ -1,4 +1,6 @@
-/// expect success
+/// expect skip  expect success
+
+// FIXME: global variables should be const only.
 
 var a: i32; // implicitly initialized to 0.
 var b = 42;

@@ -1,11 +1,10 @@
 /// expect success
 
-var a = 42; // i32
-var b = a; // i32
-var c: i32; // i32
-var d = c; // i32
-
 fn main() {
+	var a = 42; // i32
+	var b = a; // i32
+	var c: i32; // i32
+	var d = c; // i32
 	var e = a + b + c + d; // i32
 }
 
