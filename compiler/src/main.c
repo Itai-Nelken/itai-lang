@@ -9,6 +9,7 @@
 #include "Parser.h"
 #include "Validator.h"
 #include "Typechecker.h"
+#include "Codegen.h"
 
 enum return_values {
     RET_SUCCESS = 0,
@@ -147,11 +148,7 @@ int main(int argc, char **argv) {
         puts("\n====== END ======"); // prints newline.
     }
 
-    //if(!codegenGenerate(stdout, &prog)) {
-    //    fputs("\x1b[1;31mError: Codegenerator failed!\x1b[0m\n", stderr);
-    //    return_value = RET_CODEGEN_ERROR;
-    //    goto end;
-    //}
+    codegenGenerate(stdout, &checkedProgram);
 
 end:
     typecheckerFree(&typ);

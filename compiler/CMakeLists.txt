@@ -17,6 +17,7 @@ set(sources
     src/Ast/StmtNode.c
     src/Ast/StringTable.c
     src/Ast/Type.c
+    src/Codegen.c
     src/Compiler.c
     src/Error.c
     src/memory.c
