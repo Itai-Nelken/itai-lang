@@ -434,9 +434,20 @@ static ASTBlockStmt *parseBlockStmt(Parser *p, Scope *scope, ASTStmtNode *(*pars
     Location loc = previous(p).location;
     Array nodes; // Array<ASTStmtNode *>
     arrayInit(&nodes);
+    bool hasUnreachableCode = false;
     while(!isEof(p) && current(p).type != TK_RBRACE) {
         ASTStmtNode *stmt = parseCallback(p);
         if(stmt) {
+            // If we get a return in the toplevel scope,
+            // any code under it is unreachable.
+            // FIXME: this won't report anything if next stmt is invalid.
+            if(NODE_IS(stmt, STMT_RETURN)) {
+                hasUnreachableCode = true;
+            } else if(hasUnreachableCode) {
+                errorAt(p, stmt->location, "Unreachable code.");
+                arrayFree(&nodes);
+                return NULL;
+            }
             arrayPush(&nodes, (void *)stmt);
         } else {
             synchronizeInBlock(p);
@@ -816,6 +827,7 @@ static ASTObj *parseFunctionDecl(Parser *p) {
         return NULL;
     }
 
+    // Default function return type is 'void'.
     Type *returnType = astModuleGetType(getCurrentModule(p), "void");
     VERIFY(returnType != NULL); // If this fails, there is a bug with the type management system.
     if(match(p, TK_ARROW)) {
