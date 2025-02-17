@@ -273,11 +273,8 @@ static void genStruct(Codegen *cg, ASTObj *st) {
 static void collect_type_callback(TableItem *item, bool is_last, void *type_array) {
     UNUSED(is_last);
     Type *ty = (Type *)item->value;
-    switch(ty->type) {
-        case TY_STRUCT:
-            arrayPush((Array *)type_array, (void *)ty);
-        default:
-            break;
+    if(ty->type == TY_STRUCT) {
+        arrayPush((Array *)type_array, (void *)ty);
     }
 }
 
@@ -288,7 +285,7 @@ static void topologicallySortTypes(Table *typeTable, Array *output) {
     arrayInit(&types);
     tableMap(typeTable, collect_type_callback, (void *)&types);
 
-    Table dependencies; // Table<ASTString, i64)
+    Table dependencies; // Table<ASTString, i64>
     tableInit(&dependencies, NULL, NULL);
 
     ARRAY_FOR(i, types) {
@@ -320,8 +317,8 @@ static void topologicallySortTypes(Table *typeTable, Array *output) {
     arrayClear(output);
     while(arrayLength(&stack) > 0) {
         Type *ty = ARRAY_POP_AS(Type *, &stack);
-        arrayPush(output, (void *)ty);
         VERIFY(ty->type == TY_STRUCT);
+        arrayPush(output, (void *)ty);
         ARRAY_FOR(i, ty->as.structure.fieldTypes) {
             Type *fieldTy = ARRAY_GET_AS(Type *, &ty->as.structure.fieldTypes, i);
             if(fieldTy->type == TY_STRUCT) {
@@ -329,7 +326,7 @@ static void topologicallySortTypes(Table *typeTable, Array *output) {
                 i64 existing = (i64)item->value;
                 tableSet(&dependencies, (void *)fieldTy->name, (void *)(existing - 1));
                 if(existing == 1) {
-                    arrayPush(&stack, item->key);
+                    arrayPush(&stack, fieldTy);
                 }
             }
         }
