@@ -265,9 +265,20 @@ static void genStmt(Codegen *cg, ASTStmtNode *stmt) {
 
 static void genScope(Codegen *cg, Scope *sc, Table *moduleTypeTable);
 static void genStruct(Codegen *cg, ASTObj *st) {
-    print(cg, "typedef struct %s {", st->name);
+    print(cg, "struct %s {\n", st->name); // typedef is done in predecl.
+    Array objects; // Array<ASTObj *>
+    arrayInitSized(&objects, scopeGetNumObjects(st->as.structure.scope));
+    scopeGetAllObjects(st->as.structure.scope, &objects);
+    ARRAY_FOR(i, objects) {
+        ASTObj *obj = ARRAY_GET_AS(ASTObj *, &objects, i);
+        if(obj->type == OBJ_VAR) {
+            genType(cg, obj->dataType);
+            print(cg, " %s;\n", obj->name);
+        }
+    }
+    arrayFree(&objects);
+    print(cg, "};\n");
     genScope(cg, st->as.structure.scope, NULL);
-    print(cg, "}\n");
 }
 
 static void collect_type_callback(TableItem *item, bool is_last, void *type_array) {
@@ -387,6 +398,7 @@ static void genScope(Codegen *cg, Scope *sc, Table *moduleTypeTable) {
         }
     }
     // Actually generate the rest of the objects (actually only functions).
+    print(cg, "// declarations: \n");
     ARRAY_FOR(i, objects) {
         ASTObj *obj = ARRAY_GET_AS(ASTObj *, &objects, i);
         if(obj->type == OBJ_FN) {
@@ -407,6 +419,7 @@ static void genScope(Codegen *cg, Scope *sc, Table *moduleTypeTable) {
             cg->currentFn = NULL;
         }
     }
+    print(cg, "/* end scope */\n");
     arrayFree(&objects);
 }
 
