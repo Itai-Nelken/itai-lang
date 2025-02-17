@@ -272,7 +272,7 @@ static void genStruct(Codegen *cg, ASTObj *st) {
 
 static void collect_type_callback(TableItem *item, bool is_last, void *type_array) {
     UNUSED(is_last);
-    Type *ty = (Type *)item->key;
+    Type *ty = (Type *)item->value;
     switch(ty->type) {
         case TY_STRUCT:
             arrayPush((Array *)type_array, (void *)ty);
