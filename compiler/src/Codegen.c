@@ -293,17 +293,14 @@ static void topologicallySortTypes(Table *typeTable, Array *output) {
 
     ARRAY_FOR(i, types) {
         Type *ty = ARRAY_GET_AS(Type *, &types, i);
-        if(ty->type == TY_STRUCT) {
-            ARRAY_FOR(j, ty->as.structure.fieldTypes) {
-                Type *fieldTy = ARRAY_GET_AS(Type *, &ty->as.structure.fieldTypes, j);
-                if(fieldTy->type == TY_STRUCT) {
-                    TableItem *item = tableGet(&dependencies, (void *)fieldTy->name);
-                    i64 existing = item == NULL ? 0 : (i64)item->value;
-                    tableSet(&dependencies, (void *)fieldTy->name, (void *)(existing + 1));
-                }
+        VERIFY(ty->type == TY_STRUCT);
+        ARRAY_FOR(j, ty->as.structure.fieldTypes) {
+            Type *fieldTy = ARRAY_GET_AS(Type *, &ty->as.structure.fieldTypes, j);
+            if(fieldTy->type == TY_STRUCT) {
+                TableItem *item = tableGet(&dependencies, (void *)fieldTy->name);
+                i64 existing = item == NULL ? 0 : (i64)item->value;
+                tableSet(&dependencies, (void *)fieldTy->name, (void *)(existing + 1));
             }
-        } else {
-            UNREACHABLE();
         }
         if(tableGet(&dependencies, (void *)ty->name) == NULL) {
             tableSet(&dependencies, (void *)ty->name, (void *)0l);
@@ -324,20 +321,17 @@ static void topologicallySortTypes(Table *typeTable, Array *output) {
     while(arrayLength(&stack) > 0) {
         Type *ty = ARRAY_POP_AS(Type *, &stack);
         arrayPush(output, (void *)ty);
-        if(ty->type == TY_STRUCT) {
-            ARRAY_FOR(i, ty->as.structure.fieldTypes) {
-                Type *fieldTy = ARRAY_GET_AS(Type *, &ty->as.structure.fieldTypes, i);
-                if(fieldTy->type == TY_STRUCT) {
-                    TableItem *item = tableGet(&dependencies, (void *)fieldTy->name);
-                    i64 existing = (i64)item->value;
-                    tableSet(&dependencies, (void *)fieldTy->name, (void *)(existing - 1));
-                    if(existing == 1) {
-                        arrayPush(&stack, item->key);
-                    }
+        VERIFY(ty->type == TY_STRUCT);
+        ARRAY_FOR(i, ty->as.structure.fieldTypes) {
+            Type *fieldTy = ARRAY_GET_AS(Type *, &ty->as.structure.fieldTypes, i);
+            if(fieldTy->type == TY_STRUCT) {
+                TableItem *item = tableGet(&dependencies, (void *)fieldTy->name);
+                i64 existing = (i64)item->value;
+                tableSet(&dependencies, (void *)fieldTy->name, (void *)(existing - 1));
+                if(existing == 1) {
+                    arrayPush(&stack, item->key);
                 }
             }
-        } else {
-            UNREACHABLE();
         }
     }
     arrayFree(&stack);
