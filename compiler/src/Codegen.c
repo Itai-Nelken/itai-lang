@@ -10,6 +10,10 @@
  * like this for example:
  * | typedef void (*fn0)(int, int);
  * would declare 'fn0' as the type for 'fn(i32, i32) -> void'
+ *
+ * Methods are also a bit tricky. Since C doesn't support methods,
+ * they are generated as normal functions with an internal name
+ * which is stored in the 'methodCNames' table.
  **/
 
 typedef struct codegen {
@@ -17,8 +21,10 @@ typedef struct codegen {
     ASTProgram *program;
     Table fnTypes; // Table<ASTString, ASTString> (typename, C typename)
     unsigned fnTypenameCounter;
+    bool isInCall; // For proper method call generation.
     ASTObj *currentFn;
     Array defersInCurrentFn; // Array<ASTStmtNode *>
+    Table methodCNames; // Table<ASTString, ASTString> (name, C name)
 } Codegen;
 
 static void print(Codegen *cg, const char *format, ...) {
@@ -112,7 +118,18 @@ static void genExpr(Codegen *cg, ASTExprNode *expr) {
             break;
         // Binary nodes
         case EXPR_PROPERTY_ACCESS:
-            genPropertyAccessExpr(cg, expr);
+            if(cg->isInCall) {
+                // Generate C method name.
+                ASTExprNode *methodNode = NODE_AS(ASTBinaryExpr, expr)->rhs;
+                VERIFY(NODE_IS(methodNode, EXPR_VARIABLE) && methodNode->dataType->type == TY_FUNCTION);
+                ASTString methodName = NODE_AS(ASTObjExpr, methodNode)->obj->name;
+                TableItem *item = tableGet(&cg->methodCNames, (void *)methodName);
+                VERIFY(item);
+                ASTString CName = (ASTString)item->value;
+                print(cg, "%s", CName);
+            } else {
+                genPropertyAccessExpr(cg, expr);
+            }
             break;
         case EXPR_ASSIGN:
         case EXPR_ADD:
@@ -145,6 +162,7 @@ static void genExpr(Codegen *cg, ASTExprNode *expr) {
             break;
         // Call nodes
         case EXPR_CALL:
+            cg->isInCall = true;
             genExpr(cg, NODE_AS(ASTCallExpr, expr)->callee);
             print(cg, "(");
             for(usize i = 0; i < arrayLength(&NODE_AS(ASTCallExpr, expr)->arguments); ++i) {
@@ -155,6 +173,7 @@ static void genExpr(Codegen *cg, ASTExprNode *expr) {
                 }
             }
             print(cg, ")");
+            cg->isInCall = false;
             break;
         // Other nodes
         case EXPR_IDENTIFIER:
@@ -263,7 +282,7 @@ static void genStmt(Codegen *cg, ASTStmtNode *stmt) {
     }
 }
 
-static void genScope(Codegen *cg, Scope *sc, Table *moduleTypeTable);
+static void genScope(Codegen *cg, Scope *sc, Table *moduleTypeTable, ASTObj *structure);
 static void genStruct(Codegen *cg, ASTObj *st) {
     print(cg, "struct %s {\n", st->name); // typedef is done in predecl.
     Array objects; // Array<ASTObj *>
@@ -278,7 +297,7 @@ static void genStruct(Codegen *cg, ASTObj *st) {
     }
     arrayFree(&objects);
     print(cg, "};\n");
-    genScope(cg, st->as.structure.scope, NULL);
+    genScope(cg, st->as.structure.scope, NULL, st);
 }
 
 static void collect_type_callback(TableItem *item, bool is_last, void *type_array) {
@@ -359,7 +378,8 @@ static void topologicallySortTypes(Table *typeTable, Array *output) {
 }
 
 // moduleTypeTable: for module scope ONLY. NULL otherwise
-static void genScope(Codegen *cg, Scope *sc, Table *moduleTypeTable) {
+// structure: Enclosing struct. for struct scope ONLY, NULL otherwise.
+static void genScope(Codegen *cg, Scope *sc, Table *moduleTypeTable, ASTObj *structure) {
     VERIFY(sc->depth == SCOPE_DEPTH_MODULE_NAMESPACE || sc->depth == SCOPE_DEPTH_STRUCT);
     print(cg, "/* scope, depth: %d */\n", sc->depth);
     if(moduleTypeTable) {
@@ -385,8 +405,13 @@ static void genScope(Codegen *cg, Scope *sc, Table *moduleTypeTable) {
         ASTObj *obj = ARRAY_GET_AS(ASTObj *, &objects, i);
         if(obj->type == OBJ_FN) {
             // function predecl
+            ASTString CName = obj->name;
+            if(sc->depth == SCOPE_DEPTH_STRUCT) {
+                CName = stringTableFormat(cg->program->strings, "___ilc_internal__struct%s_method_%s", structure->name, obj->name);
+                tableSet(&cg->methodCNames, (void *)obj->name, (void *)CName);
+            }
             genType(cg, obj->as.fn.returnType);
-            print(cg, " %s(", obj->name);
+            print(cg, " %s(", CName);
             ARRAY_FOR(i, obj->as.fn.parameters) {
                 ASTObj *param = ARRAY_GET_AS(ASTObj *, &obj->as.fn.parameters, i);
                 genType(cg, param->dataType);
@@ -403,9 +428,15 @@ static void genScope(Codegen *cg, Scope *sc, Table *moduleTypeTable) {
         ASTObj *obj = ARRAY_GET_AS(ASTObj *, &objects, i);
         if(obj->type == OBJ_FN) {
             cg->currentFn = obj;
+            ASTString CName = obj->name;
+            if(sc->depth == SCOPE_DEPTH_STRUCT) {
+                TableItem *item = tableGet(&cg->methodCNames, (void *)obj->name);
+                VERIFY(item);
+                CName = (ASTString)item->value;
+            }
             arrayClear(&cg->defersInCurrentFn);
             genType(cg, obj->as.fn.returnType);
-            print(cg, " %s(", obj->name);
+            print(cg, " %s(", CName);
             ARRAY_FOR(i, obj->as.fn.parameters) {
                 ASTObj *param = ARRAY_GET_AS(ASTObj *, &obj->as.fn.parameters, i);
                 genType(cg, param->dataType);
@@ -456,7 +487,7 @@ static void genModule(Codegen *cg, ASTModule *m) {
     // Declare function and struct types. See block comment at top of this file.
     tableMap(&m->types, predecl_types_cb, (void *)cg);
     print(cg, "// Module scope:\n");
-    genScope(cg, m->moduleScope, &m->types);
+    genScope(cg, m->moduleScope, &m->types, NULL);
 }
 
 static void genHeader(Codegen *cg) {
@@ -475,15 +506,18 @@ void codegenGenerate(FILE *output, ASTProgram *prog) {
         .output = output,
         .program = prog,
         .fnTypenameCounter = 0,
-        .currentFn = NULL
+        .currentFn = NULL,
+        .isInCall = false
     };
     tableInit(&cg.fnTypes, NULL, NULL);
     arrayInit(&cg.defersInCurrentFn);
+    tableInit(&cg.methodCNames, NULL, NULL);
     genHeader(&cg);
     ARRAY_FOR(i, prog->modules) {
         ASTModule *m = ARRAY_GET_AS(ASTModule *, &prog->modules, i);
         genModule(&cg, m);
     }
+    tableFree(&cg.methodCNames);
     arrayFree(&cg.defersInCurrentFn);
     tableFree(&cg.fnTypes);
 }
