@@ -20,6 +20,7 @@ static void parser_init_internal(Parser *p, Compiler *c, Scanner *s) {
     p->compiler = c;
     p->scanner = s;
     p->program = NULL;
+    p->dumpTokens = false;
     p->current.module = 0;
     p->current.scope = NULL;
     p->state.current_token.type = TK_GARBAGE;
@@ -46,6 +47,9 @@ void parserFree(Parser *p) {
     parser_init_internal(p, NULL, NULL);
 }
 
+void parserSetDumpTokens(Parser *p, bool dumpTokens) {
+    p->dumpTokens = dumpTokens;
+}
 
 /* Parser helper functions */
 
@@ -79,11 +83,10 @@ static Token advance(Parser *p) {
     // has already reported errors for them anyway.
     Token tk;
     while((tk = scannerNextToken(p->scanner)).type == TK_GARBAGE) {
-        // TODO: dump tokens support
-        //if(p->dump_tokens) { tokenPrint(stdout, &tk); putchar('\n'); }
+        if(p->dumpTokens) { tokenPrint(stdout, &tk); putchar('\n'); }
         p->state.had_error = true;
     }
-    //if(p->dump_tokens) { tokenPrint(stdout, &tk); putchar('\n'); }
+    if(p->dumpTokens) { tokenPrint(stdout, &tk); putchar('\n'); }
     p->state.previous_token = p->state.current_token;
     p->state.current_token = tk;
     return tk;

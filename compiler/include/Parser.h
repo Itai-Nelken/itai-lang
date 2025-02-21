@@ -12,6 +12,7 @@ typedef struct parser {
     Compiler *compiler;
     Scanner *scanner;
     ASTProgram *program;
+    bool dumpTokens;
 
     struct {
         ModuleID module;
@@ -63,5 +64,15 @@ void parserFree(Parser *p);
  **/
 bool parserParse(Parser *p, ASTProgram *prog);
 
+
+/**
+ * Set 'dump tokens' flag state.
+ * When set to 'true', the parser will print to stdout
+ * all tokens.
+ *
+ * @param p The parser to set the flag in.
+ * @param dumpTokens true to dump tokens, false to not.
+ **/
+void parserSetDumpTokens(Parser *p, bool dumpTokens);
 
 #endif // PARSER_H

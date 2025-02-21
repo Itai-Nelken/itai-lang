@@ -100,9 +100,9 @@ int main(int argc, char **argv) {
         goto end;
     }
 
-    //if(opts.dump_tokens) {
-    //    parserSetDumpTokens(&p, true);
-    //}
+    if(opts.dump_tokens) {
+        parserSetDumpTokens(&p, true);
+    }
 
     compilerAddFile(&c, opts.file_path);
 
