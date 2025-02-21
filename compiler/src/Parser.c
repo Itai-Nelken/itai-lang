@@ -1,5 +1,6 @@
 #include <stddef.h> // NULL
 #include "common.h"
+#include "Strings.h"
 #include "Compiler.h"
 #include "Scanner.h"
 #include "Error.h"
@@ -829,6 +830,14 @@ static bool parseParameterList(Parser *p, Array *parameters) {
             hadError = true;
             continue;
         }
+        // 'this' is reserved for the implicit first parameter passed to methods.
+        // Theoretically, it could be allowed in functions, but I don't think
+        // it's worth the extra work to be able to know if we are in a function or method here.
+        if(stringEqual(paramVar->name, "this")) {
+            error(p, tmp_buffer_format(p, "A parameter may not be named 'this'."));
+            hadError = true;
+            continue;
+        }
         arrayPush(parameters, (void *)paramVar);
         if(paramVar->dataType == NULL) {
             error(p, tmp_buffer_format(p, "Parameter '%s' is missing a type.", paramVar->name));
@@ -840,13 +849,25 @@ static bool parseParameterList(Parser *p, Array *parameters) {
 }
 
 // function_decl -> 'fn' identifier '(' parameter_list ')' ('->' type)+ block
-static ASTObj *parseFunctionDecl(Parser *p) {
+// structName: For methods ONLY. otherwise set to NULL.
+static ASTObj *parseFunctionDecl(Parser *p, ASTString structName) {
     // Assumes 'fn' was already consumed.
     Location loc = previous(p).location;
     ASTString name = TRY(ASTString, parseIdentifier(p));
     TRY_CONSUME(p, TK_LPAREN);
     Array parameters; // Array<ASTObj *>
     arrayInit(&parameters);
+    // If this is a method, add the 'this' parameter as the first one.
+    if(structName) {
+        Type *thisType = NULL;
+        if((thisType = astModuleGetType(getCurrentModule(p), tmp_buffer_format(p, "&%s", structName))) == NULL) {
+            thisType = typeNew(TY_POINTER, stringTableFormat(p->program->strings, "&%s", structName), EMPTY_LOCATION, p->current.module);
+            thisType->as.ptr.innerType = astModuleGetType(getCurrentModule(p), structName);
+            astModuleAddType(getCurrentModule(p), thisType);
+        }
+        ASTObj *thisParam = astModuleNewObj(getCurrentModule(p), OBJ_VAR, EMPTY_LOCATION, stringTableString(p->program->strings, "this"), thisType);
+        arrayPush(&parameters, (void *)thisParam);
+    }
     // Note: if current is ')', then there are no parameters.
     if(current(p).type != TK_RPAREN && !parseParameterList(p, &parameters)) {
         arrayFree(&parameters);
@@ -949,11 +970,10 @@ static bool parse_struct_field(Parser *p, Array *fieldTypes) {
     return field == NULL || hadError ? false : true;
 }
 
-// method_decl -> 'fn' fn_decl
-static bool parse_method_decl(Parser *p) {
-    // TODO: add 'this' param.
-    VERIFY(consume(p, TK_FN)); // MUST be true as called.
-    ASTObj *method = parseFunctionDecl(p);
+// method_decl -> function_decl (with extra 'this' parameter.)
+static bool parse_method_decl(Parser *p, ASTString structName) {
+    VERIFY(consume(p, TK_FN)); // MUST be true if this function is called by parseSTructDecl().
+    ASTObj *method = parseFunctionDecl(p, structName);
     if(!method) {
         return false;
     }
@@ -961,7 +981,7 @@ static bool parse_method_decl(Parser *p) {
     return true;
 }
 
-// struct_decl -> 'struct' identifier '{' (struct_field | method_decl)* '}'
+// struct_decl -> 'struct' identifier '{' struct_field* method_decl* '}'
 static ASTObj *parseStructDecl(Parser *p) {
     // Assumes 'struct' was already consumed
     Location loc = previous(p).location;
@@ -972,48 +992,54 @@ static ASTObj *parseStructDecl(Parser *p) {
     arrayInit(&fieldTypes);
     Scope *sc = enterScope(p, SCOPE_DEPTH_STRUCT);
     bool hadError = false;
-    while(current(p).type != TK_RBRACE) {
-        switch(current(p).type) {
-            case TK_IDENTIFIER:
-                if(!parse_struct_field(p, &fieldTypes)) {
-                    hadError = true;
-                }
-                break;
-            case TK_FN:
-                if(!parse_method_decl(p)) {
-                    hadError = true;
-                }
-                break;
-            default:
-                // Advance anyway to prevent infinite loop here.
-                advance(p);
-                error(p, tmp_buffer_format(p, "Expected field or method declaration but got '%s'.", tokenTypeString(previous(p).type)));
-                break;
+    // First parse any fields.
+    while(current(p).type != TK_RBRACE && current(p).type != TK_FN) {
+        if(current(p).type != TK_IDENTIFIER) {
+            // Advance anyway to prevent infinite loop here.
+            advance(p);
+            error(p, tmp_buffer_format(p, "Expected field declaration but got '%s'.", tokenTypeString(previous(p).type)));
+            continue;
+        }
+        if(!parse_struct_field(p, &fieldTypes)) {
+            hadError = true;
         }
     }
-    leaveScope(p);
-    TRY_CONSUME(p, TK_RBRACE);
     loc = locationMerge(loc, previous(p).location);
     if(hadError) {
         arrayFree(&fieldTypes);
         return NULL;
     }
+    // Need to make the type now so it can be used in the 'this' parameter passed to methods.
     // Note: using p.current.module since we need the ModuleID.
     Type *type = makeStructType(p, name, loc, p->current.module, &fieldTypes);
     arrayFree(&fieldTypes);
+    // Now parse any methods.
+    while(current(p).type != TK_RBRACE) {
+        if(current(p).type != TK_FN) {
+            // Advance anyway to prevent infinite loop here.
+            advance(p);
+            error(p, tmp_buffer_format(p, "Expected method declaration but got '%s'.", tokenTypeString(previous(p).type)));
+            continue;
+        }
+        if(!parse_method_decl(p, name)) {
+            hadError = true;
+        }
+    }
+    TRY_CONSUME(p, TK_RBRACE);
+    leaveScope(p);
     ASTObj *st = astModuleNewObj(getCurrentModule(p), OBJ_STRUCT, loc, name, type);
     st->as.structure.scope = sc;
     return st;
 }
 
-// declaration -> var_decl | fn_decl | struct_decl | extern_decl
+// declaration -> var_decl | function_decl | struct_decl | extern_decl
 static ASTObj *parseDeclaration(Parser *p) {
     // Notes: * Add nothing to scope. we only parse!
     //        * No need to TRY() since if 'result' is NULL, we will return NULL.
     //        * Variable declarations are handled in parseModuleBody().
     ASTObj *result = NULL;
     if(match(p, TK_FN)) {
-        result = parseFunctionDecl(p);
+        result = parseFunctionDecl(p, NULL);
     } else if(match(p, TK_STRUCT)) {
         result = parseStructDecl(p);
 //    } else if(match(p, TK_EXTERN)) {

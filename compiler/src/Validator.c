@@ -485,12 +485,34 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
                 break;
             }
             #undef IS_CALLABLE
-            // 2. validate arguments.
+
             Array checkedArguments;
-            arrayInitSized(&checkedArguments, arrayLength(&parsedCall->arguments));
+            // size + 1 for potential 'this' implicit argument.
+            arrayInitSized(&checkedArguments, arrayLength(&parsedCall->arguments) + 1);
+            // 1a. If callee is a method (i.e. callee node is EXPR_PROPERTY_ACCESS), pass 'this' as first argument.
+            if(NODE_IS(checkedCallee, EXPR_PROPERTY_ACCESS)) {
+                // Struct method belongs to is lhs/lhs.rhs of 'checkedCallee'.
+                // First option for expressions of the form 'a.b()' (struct is 'a',)
+                // and the second option for longer chains such as 'a.b.c.d()' (struct is 'c'.)
+                ASTBinaryExpr *callee = NODE_AS(ASTBinaryExpr, checkedCallee);
+                ASTExprNode *thisArg = NULL;
+                if(NODE_IS(callee->lhs, EXPR_PROPERTY_ACCESS)) {
+                    thisArg = NODE_AS(ASTBinaryExpr, callee->lhs)->rhs;
+                } else {
+                    VERIFY(NODE_IS(callee->lhs, EXPR_VARIABLE));
+                    thisArg = callee->lhs;
+                }
+                // Make the expression "passed" as 'this' generate a pointer.
+                Type *thisType = getType(v, stringTableFormat(v->checkedProgram->strings, "&%s", thisArg->dataType->name));
+                thisArg = (ASTExprNode *)astUnaryExprNew(getCurrentAllocator(v), EXPR_ADDROF, EMPTY_LOCATION, thisType, thisArg);
+                // Finally, add 'this' to the argument list (as the first argument.)
+                arrayPush(&checkedArguments, (void *)thisArg);
+            }
+            // 2. validate arguments.
             bool hadError = false;
             ARRAY_FOR(i, parsedCall->arguments) {
                 ASTExprNode *arg = ARRAY_GET_AS(ASTExprNode *, &parsedCall->arguments, i);
+                // When 'this' is validated, a new AST is created for it which is fine.
                 arg = validateExpr(v, arg);
                 if(arg) {
                     arrayPush(&checkedArguments, (void *)arg);
@@ -502,10 +524,10 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
                 arrayFree(&checkedArguments);
                 break;
             }
-            if(arrayLength(&checkedCallee->dataType->as.fn.parameterTypes) != arrayLength(&checkedArguments)) {
-                usize expected = arrayLength(&checkedCallee->dataType->as.fn.parameterTypes);
-                usize actual = arrayLength(&checkedArguments);
-                error(v, parsedExpr->location, "Expected %lu argument%s but got %lu.", expected, expected != 1 ? "s" : "", actual);
+            usize argumentCount = arrayLength(&checkedArguments);
+            usize expectedArgumentCount = arrayLength(&checkedCallee->dataType->as.fn.parameterTypes);
+            if(expectedArgumentCount != argumentCount) {
+                error(v, parsedExpr->location, "Expected %lu argument%s but got %lu.", expectedArgumentCount, expectedArgumentCount != 1 ? "s" : "", argumentCount);
                 // TODO: hint to where fn is declared. Can't do simply right now since callee may be a variable refering to a function.
                 arrayFree(&checkedArguments);
                 break;
@@ -748,14 +770,15 @@ static bool validateStruct(Validator *v, ASTObj *st) {
         }
     }
     arrayFree(&objects);
-    bool hadError = !validateCurrentScope(v);
-    Scope *checkedScope = getCurrentCheckedScope(v);
-    leaveScope(v);
+    // Make the checked struct object and add it to the module scope before validating methods
+    // since they use the struct.
     Type *checkedStructType = validateType(v, st->dataType);
-    VERIFY(checkedStructType); // TODO: guaranteed to exist I'm pretty sure (type validation in module)??
+    VERIFY(checkedStructType); // Guranteed to exist (types are validated in validateModule().)
     ASTObj *checkedStruct = astModuleNewObj(getCurrentCheckedModule(v), OBJ_STRUCT, st->location, st->name, checkedStructType);
-    checkedStruct->as.structure.scope = checkedScope;
-    scopeAddObject(getCurrentCheckedScope(v), checkedStruct);
+    checkedStruct->as.structure.scope = getCurrentCheckedScope(v);
+    scopeAddObject(getCurrentCheckedModule(v)->moduleScope, checkedStruct);
+    bool hadError = !validateCurrentScope(v);
+    leaveScope(v);
     return !hadError;
 }
 

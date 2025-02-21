@@ -1,13 +1,15 @@
 /// expect success
 
-struct T {
-	fn doSomething() -> i32 {
-		return 42;
+struct Value {
+	value: i32;
+	fn getValue() -> i32 {
+		return this.value;
 	}
 }
 
 fn main() {
-	var t: T;
-	var answer = t.doSomething();
+	var v: Value;
+	v.value = 42;
+	var answer = v.getValue(); // should be 42.
 }
 
