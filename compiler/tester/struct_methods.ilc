@@ -1,0 +1,13 @@
+/// expect success
+
+struct T {
+	fn doSomething() -> i32 {
+		return 42;
+	}
+}
+
+fn main() {
+	var t: T;
+	var answer = t.doSomething();
+}
+

@@ -911,7 +911,54 @@ static Type *makeStructType(Parser *p, ASTString name, Location declLoc, ModuleI
     return ty;
 }
 
-// struct_decl -> 'struct' identifier '{' (typed_var ';')* '}' 
+// struct_field -> typed_var ';'
+// fieldTypes: Array<Type *>
+static bool parse_struct_field(Parser *p, Array *fieldTypes) {
+    ASTObj *field = parseTypedVariable(p);
+    bool hadError = false;
+    if(field) {
+        if(field->dataType == NULL) {
+            error(p, tmp_buffer_format(p, "Field '%s' has no type.", field->name));
+            // Assume the syntax is correct apart from the missing type.
+            // This makes sure we don't emit a cascading error about expecting an identifier
+            // (the next field) but getting a semicolon.
+            TRY_CONSUME(p, TK_SEMICOLON);
+            return false; // Following checks depend on type existing, so return early.
+        }
+        if(field->dataType->type == TY_VOID) {
+            errorAt(p, field->location, "A struct field cannot have the type 'void'.");
+            hadError = true;
+        } else if(field->dataType->type == TY_POINTER) {
+            errorAt(p, field->location, "A struct field may not be a pointer.");
+            hadError = true;
+        }
+        if(scopeHasObject(getCurrentScope(p), field->name)) {
+            ASTObj *prefField = scopeGetAnyObject(getCurrentScope(p), field->name);
+            errorAt(p, field->location, tmp_buffer_format(p, "Redefinition of struct field '%s'.", field->name));
+            hint(p, prefField->location, "Previous definition was here.");
+        } else {
+            scopeAddObject(getCurrentScope(p), field);
+            arrayPush(fieldTypes, (void *)field->dataType);
+        }
+    }
+    // Always parse ';'
+    TRY_CONSUME(p, TK_SEMICOLON);
+    return field == NULL || hadError ? false : true;
+}
+
+// method_decl -> 'fn' fn_decl
+static bool parse_method_decl(Parser *p) {
+    // TODO: add 'this' param.
+    VERIFY(consume(p, TK_FN)); // MUST be true as called.
+    ASTObj *method = parseFunctionDecl(p);
+    if(!method) {
+        return false;
+    }
+    scopeAddObject(getCurrentScope(p), method);
+    return true;
+}
+
+// struct_decl -> 'struct' identifier '{' (struct_field | method_decl)* '}'
 static ASTObj *parseStructDecl(Parser *p) {
     // Assumes 'struct' was already consumed
     Location loc = previous(p).location;
@@ -923,35 +970,23 @@ static ASTObj *parseStructDecl(Parser *p) {
     Scope *sc = enterScope(p, SCOPE_DEPTH_STRUCT);
     bool hadError = false;
     while(current(p).type != TK_RBRACE) {
-        ASTObj *field = parseTypedVariable(p);
-        if(field) {
-            if(field->dataType == NULL) {
-                error(p, tmp_buffer_format(p, "Field '%s' has no type.", field->name));
-                // Assume the syntax is correct apart from the missing type.
-                // This makes sure we don't emit a cascading error about expecting an identifier
-                // (the next field) but getting a semicolon.
-                TRY_CONSUME(p, TK_SEMICOLON);
-                continue;
-            }
-            if(field->dataType->type == TY_VOID) {
-                errorAt(p, field->location, "A struct field cannot have the type 'void'.");
-                hadError = true;
-            } else if(field->dataType->type == TY_POINTER) {
-                errorAt(p, field->location, "A struct field may not be a pointer.");
-                hadError = true;
-            }
-            if(scopeHasObject(getCurrentScope(p), field->name)) {
-                ASTObj *prefField = scopeGetAnyObject(getCurrentScope(p), field->name);
-                errorAt(p, field->location, tmp_buffer_format(p, "Redefinition of struct field '%s'.", field->name));
-                hint(p, prefField->location, "Previous definition was here.");
-            } else {
-                scopeAddObject(getCurrentScope(p), field);
-                arrayPush(&fieldTypes, (void *)field->dataType);
-            }
-        } else {
-            hadError = true;
+        switch(current(p).type) {
+            case TK_IDENTIFIER:
+                if(!parse_struct_field(p, &fieldTypes)) {
+                    hadError = true;
+                }
+                break;
+            case TK_FN:
+                if(!parse_method_decl(p)) {
+                    hadError = true;
+                }
+                break;
+            default:
+                // Advance anyway to prevent infinite loop here.
+                advance(p);
+                error(p, tmp_buffer_format(p, "Expected field or method declaration but got '%s'.", tokenTypeString(previous(p).type)));
+                break;
         }
-        TRY_CONSUME(p, TK_SEMICOLON);
     }
     leaveScope(p);
     TRY_CONSUME(p, TK_RBRACE);

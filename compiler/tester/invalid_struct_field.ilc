@@ -1,4 +1,4 @@
-/// expect error: Error: Expected '<identifier>' but got '+'.
+/// expect error: Error: Expected field or method declaration but got '+'.
 
 struct T {
 	+;
