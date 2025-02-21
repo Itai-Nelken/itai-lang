@@ -1,0 +1,14 @@
+/// expect success
+
+
+var a = 123; // i32
+var b = 321u32; // u32
+var c: u32 = 12345; // u32
+var d = 654i32;
+
+fn main() {
+	// Check that the vars in modules scope are accesible here.
+	var locali32 = a + d;
+	var localu32 = b + c;
+}
+
