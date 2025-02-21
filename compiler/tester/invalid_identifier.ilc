@@ -1,0 +1,11 @@
+/// expect error: Error: Identifier 'T' does not refer to variable or function.
+
+
+struct T {}
+
+fn test() -> T {
+	return T;
+}
+
+fn main() {}
+

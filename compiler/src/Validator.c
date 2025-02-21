@@ -517,8 +517,19 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
                 error(v, parsedExpr->location, "Identifier '%s' doesn't exist.", name);
                 break;
             }
-            // FIXME: if I add more obj node types, the logic for expr type below will break.
-            checkedExpr = (ASTExprNode *)astObjExprNew(getCurrentAllocator(v), obj->type == OBJ_VAR ? EXPR_VARIABLE : EXPR_FUNCTION, parsedExpr->location, obj);
+            ASTExprType exprType;
+            switch(obj->type) {
+                case OBJ_VAR:
+                    exprType = EXPR_VARIABLE;
+                    break;
+                case OBJ_FN:
+                    exprType = EXPR_FUNCTION;
+                    break;
+                default:
+                    error(v, parsedExpr->location, "Identifier '%s' does not refer to variable or function.", name);
+                    return NULL;
+            }
+            checkedExpr = (ASTExprNode *)astObjExprNew(getCurrentAllocator(v), exprType, parsedExpr->location, obj);
             checkedExpr->dataType = obj->dataType;
             break;
         }
