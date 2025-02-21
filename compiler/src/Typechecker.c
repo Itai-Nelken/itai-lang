@@ -190,6 +190,7 @@ static void typecheckStmt(Typechecker *typ, ASTStmtNode *stmt) {
         }
         // Conditional nodes
         case STMT_IF:
+        case STMT_EXPECT:
         // Loop nodes
         case STMT_LOOP:
             // nothing for now.

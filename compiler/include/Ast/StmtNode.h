@@ -22,6 +22,7 @@ typedef enum ast_statement_types {
 
     // Conditional nodes
     STMT_IF,
+    STMT_EXPECT,
 
     // Loop nodes
     STMT_LOOP,
@@ -114,13 +115,14 @@ ASTBlockStmt *astBlockStmtNew(Allocator *a, Location loc, Scope *scope, Array *n
  * Create a new ASTConditionalStmt node.
  *
  * @param a The allocator to use to allocate the node.
+ * @param type The node type (e.g. STMT_IF.)
  * @param loc The location of the node.
  * @param cond The condition expression.
  * @param then The statement that represents what will be executed if the condition is true.
  * @param else_ The statement that represents what will be executed if the condition is false (optional).
  * @return A new node initialized with the above data.
  */
-ASTConditionalStmt *astConditionalStmtNew(Allocator *a, Location loc, ASTExprNode *cond, ASTStmtNode *then, ASTStmtNode *else_);
+ASTConditionalStmt *astConditionalStmtNew(Allocator *a, ASTStmtType type, Location loc, ASTExprNode *cond, ASTStmtNode *then, ASTStmtNode *else_);
 
 /**
  * Create a new ASTLoopStmt node.

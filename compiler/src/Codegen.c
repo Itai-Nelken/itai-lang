@@ -238,6 +238,18 @@ static void genStmt(Codegen *cg, ASTStmtNode *stmt) {
             break;
         }
         // Conditional nodes
+        case STMT_EXPECT:
+            if(NODE_AS(ASTConditionalStmt, stmt)->then == NULL) {
+                print(cg, "if(");
+                genExpr(cg, NODE_AS(ASTConditionalStmt, stmt)->condition);
+                print(cg, ") {\n");
+                // TODO: provide location info.
+                print(cg, "fprintf(stderr, \"Failed expect!\\n\");\n");
+                print(cg, "exit(1);\n");
+                print(cg, "}\n");
+                break;
+            }
+            // fallthrough
         case STMT_IF:
             print(cg, "if(");
             genExpr(cg, NODE_AS(ASTConditionalStmt, stmt)->condition);

@@ -638,7 +638,17 @@ static ASTStmtNode *validateStmt(Validator *v, ASTStmtNode *parsedStmt) {
             if(parsedIf->else_) {
                 checkedElse = TRY(ASTStmtNode *, validateStmt(v, parsedIf->else_));
             }
-            checkedStmt = NODE_AS(ASTStmtNode, astConditionalStmtNew(getCurrentAllocator(v), parsedStmt->location, checkedCondition, checkedThen, checkedElse));
+            checkedStmt = NODE_AS(ASTStmtNode, astConditionalStmtNew(getCurrentAllocator(v), STMT_IF, parsedStmt->location, checkedCondition, checkedThen, checkedElse));
+            break;
+        }
+        case STMT_EXPECT: {
+            ASTConditionalStmt *parsedExpect = NODE_AS(ASTConditionalStmt, parsedStmt);
+            ASTExprNode *checkedCondition = TRY(ASTExprNode *, validateExpr(v, parsedExpect->condition));
+            ASTStmtNode *checkedThen = NULL;
+            if(parsedExpect->then) {
+                checkedThen = TRY(ASTStmtNode *, validateStmt(v, parsedExpect->then));
+            }
+            checkedStmt = NODE_AS(ASTStmtNode, astConditionalStmtNew(getCurrentAllocator(v), STMT_EXPECT, parsedStmt->location, checkedCondition, checkedThen, NULL));
             break;
         }
         // Loop nodes

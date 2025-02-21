@@ -24,6 +24,7 @@ static const char *stmt_type_name(ASTStmtType type) {
             return "ASTBlockStmt";
         // Conditional nodes
         case STMT_IF:
+        case STMT_EXPECT:
             return "ASTConditionalStmt";
         // Loop nodes
         case STMT_LOOP:
@@ -44,12 +45,13 @@ static const char *stmt_type_to_string(ASTStmtType type) {
     VERIFY(type < STMT_TYPE_COUNT);
     static const char *names[] = {
         [STMT_VAR_DECL] = "STMT_VAR_DECL",
-        [STMT_BLOCK] = "STMT_BLOCK",
-        [STMT_IF] = "STMT_IF",
-        [STMT_LOOP] = "STMT_LOOP",
-        [STMT_RETURN] = "STMT_RETURN",
-        [STMT_EXPR] = "STMT_EXPR",
-        [STMT_DEFER] = "STMT_DEFER"
+        [STMT_BLOCK]    = "STMT_BLOCK",
+        [STMT_IF]       = "STMT_IF",
+        [STMT_EXPECT]   = "STMT_EXPECT",
+        [STMT_LOOP]     = "STMT_LOOP",
+        [STMT_RETURN]   = "STMT_RETURN",
+        [STMT_EXPR]     = "STMT_EXPR",
+        [STMT_DEFER]    = "STMT_DEFER"
     };
     return names[(int)type];
 }
@@ -88,6 +90,7 @@ void astStmtPrint(FILE *to, ASTStmtNode *stmt) {
         }
         // Conditional nodes
         case STMT_IF:
+        case STMT_EXPECT:
             fputs(", \x1b[1mcondition:\x1b[0m ", to);
             astExprPrint(to, NODE_AS(ASTConditionalStmt, stmt)->condition);
             fputs(", \x1b[1mthen:\x1b[0m ", to);
@@ -140,9 +143,9 @@ ASTBlockStmt *astBlockStmtNew(Allocator *a, Location loc, Scope *scope, Array *n
     return n;
 }
 
-ASTConditionalStmt *astConditionalStmtNew(Allocator *a, Location loc, ASTExprNode *cond, ASTStmtNode *then, ASTStmtNode *else_) {
+ASTConditionalStmt *astConditionalStmtNew(Allocator *a, ASTStmtType type, Location loc, ASTExprNode *cond, ASTStmtNode *then, ASTStmtNode *else_) {
     ASTConditionalStmt *n = allocatorAllocate(a, sizeof(*n));
-    n->header = make_header(STMT_IF, loc);
+    n->header = make_header(type, loc);
     n->condition = cond;
     n->then = then;
     n->else_ = else_;

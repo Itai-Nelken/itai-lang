@@ -545,7 +545,7 @@ static ASTStmtNode *parseIfStmt(Parser *p) {
         }
     }
     loc = locationMerge(loc, previous(p).location);
-    return NODE_AS(ASTStmtNode, astConditionalStmtNew(getCurrentAllocator(p), loc, condition, then, else_));
+    return NODE_AS(ASTStmtNode, astConditionalStmtNew(getCurrentAllocator(p), STMT_IF, loc, condition, then, else_));
 }
 
 // return_stmt -> 'return' expression ';'
@@ -607,6 +607,32 @@ static ASTStmtNode *parseDeferStmt(Parser *p) {
     return NODE_AS(ASTStmtNode, astDeferStmtNew(getCurrentAllocator(p), locationMerge(loc, previous(p).location), operand));
 }
 
+// expect_stmt -> 'expect' expression (';' | ('else' block(statement)))
+static ASTStmtNode *parseExpectStmt(Parser *p) {
+    // Assumes 'expect' was already consumed.
+    Location loc = previous(p).location;
+    ASTExprNode *condition = TRY(ASTExprNode *, parseExpression(p));
+    loc = locationMerge(loc, previous(p).location);
+    condition = NODE_AS(ASTExprNode, astUnaryExprNew(getCurrentAllocator(p), EXPR_NOT, loc, p->primitives.boolean, condition));
+    if(match(p, TK_SEMICOLON)) {
+        return NODE_AS(ASTStmtNode, astConditionalStmtNew(getCurrentAllocator(p), STMT_EXPECT, locationMerge(loc, previous(p).location), condition, NULL, NULL));
+    }
+    ASTStmtNode *else_ = NULL;
+    if(match(p, TK_ELSE)) {
+        Scope *sc = enterScope(p, SCOPE_DEPTH_BLOCK);
+        else_ = NODE_AS(ASTStmtNode, parseBlockStmt(p, sc, parseFunctionBodyStatements));
+        leaveScope(p);
+        // Leave scope before returning on error.
+        if(else_ == NULL) {
+            return NULL;
+        }
+    } else {
+        errorAt(p, current(p).location, tmp_buffer_format(p, "Expected 'else' but got '%s'.", tokenTypeString(current(p).type)));
+        return NULL;
+    }
+    return NODE_AS(ASTStmtNode, astConditionalStmtNew(getCurrentAllocator(p), STMT_EXPECT, locationMerge(loc, previous(p).location), condition, else_, NULL));
+}
+
 // statement -> block(statement) | return_stmt | if_stmt | while_loop_stmt | defer_stmt | expression_stmt
 static ASTStmtNode *parseStatement(Parser *p) {
     ASTStmtNode *result = NULL;
@@ -618,6 +644,8 @@ static ASTStmtNode *parseStatement(Parser *p) {
         result = parseReturnStmt(p);
     } else if(match(p, TK_DEFER)) {
         result = parseDeferStmt(p);
+    } else if(match(p, TK_EXPECT)) {
+        result = parseExpectStmt(p);
     } else if(match(p, TK_LBRACE)) {
         Scope *sc = enterScope(p, SCOPE_DEPTH_BLOCK);
         result = NODE_AS(ASTStmtNode, parseBlockStmt(p, sc, parseFunctionBodyStatements));
