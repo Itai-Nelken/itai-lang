@@ -290,10 +290,38 @@ static ASTExprNode *parse_number_literal_expr(Parser *p) {
     Location loc = previous(p).location;
     // TODO: Support hex, octal, and binary literals
     u64 value = strtoul(previous(p).lexeme, NULL, 10);
-    // TODO: parse postfix types
+    Type *postfixType = NULL;
+    // Note: It isn't possible to use parseType() here as the type
+    //       is optional and there isn't any way to know when there is
+    //       one and when there isn't one (using parseType()) without emitting an error.
+    switch(current(p).type) {
+        // Valid postfix types (for number literals)
+        case TK_I32:
+            postfixType = p->primitives.int32;
+            advance(p);
+            // Have to do this here because if we merged a location with itself, fn would crash.
+            loc = locationMerge(loc, previous(p).location);
+            break;
+        case TK_U32:
+            postfixType = p->primitives.uint32;
+            advance(p);
+            // Have to do this here because if we merged a location with itself, fn would crash.
+            loc = locationMerge(loc, previous(p).location);
+            break;
+        // Invalid postfix types
+        case TK_VOID:
+        case TK_STR:
+            // Consume the token anyway to suppress further errors because of it.
+            advance(p);
+            errorAt(p, previous(p).location, tmp_buffer_format(p, "Invalid postfix type '%s' (must be a numeric type.)", tokenTypeString(previous(p).type)));
+            return NULL;
+        default:
+            break;
+    }
     // TODO: set type here.
     ASTConstantValueExpr *n = astConstantValueExprNew(getCurrentAllocator(p), EXPR_NUMBER_CONSTANT, loc, NULL);
     n->as.number = value;
+    n->header.dataType = postfixType;
     return NODE_AS(ASTExprNode, n);
 }
 

@@ -1,5 +1,4 @@
-/// expect skip
-/// expect error: Error: Invalid type suffix 'void' (suffix must be a numeric type).
+/// expect error: Error: Invalid postfix type 'void' (must be a numeric type.)
 
 var i = 123void;
 

@@ -132,6 +132,11 @@ static Type *exprDataType(Validator *v, ASTExprNode *expr) {
     }
     switch(expr->type) {
         case EXPR_NUMBER_CONSTANT:
+            if(expr->dataType) {
+                // For postfix types.
+                VERIFY(expr->dataType->type == TY_I32 || expr->dataType->type == TY_U32);
+                return expr->dataType;
+            }
             // FIXME: should be i64 (??)
             return getType(v, "i32");
         case EXPR_STRING_CONSTANT:
