@@ -1,0 +1,6 @@
+/// expect error: Error: Initializer of module variable is not a constant expression.
+
+var c = a + b * a + b; // error b/c not a constant expression
+
+fn main() {}
+
