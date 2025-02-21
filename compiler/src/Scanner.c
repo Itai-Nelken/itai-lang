@@ -149,7 +149,17 @@ static TokenType scan_keyword_or_identifier_type(Scanner *s) {
                     result = CHECK("else", 4, TK_ELSE);
                     break;
                 case 6:
-                    result = CHECK("extern", 6, TK_EXTERN);
+                    // 'exTern'
+                    // 'exPect'
+                    //    ^- index 2.
+                    switch(lexeme[2]) {
+                        case 't':
+                            result = CHECK("extern", 6, TK_EXTERN);
+                            break;
+                        case 'p':
+                            result = CHECK("expect", 6, TK_EXPECT);
+                            break;
+                    }
                     break;
                 default:
                     result = TK_IDENTIFIER;
