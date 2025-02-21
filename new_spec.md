@@ -1,5 +1,62 @@
 # Itai-Lang
 
+Itai-Lang is aims to be a systems programming language that combines the simplicity and power of C
+with modern features such as object visibility (in modules and structs), memory safety,
+a strict type system, and support for object oriented programming (while not forcing it.)
+<br>
+This document attempts to cover the most important parts of the language, the parts that
+make it different than other similar languages, starting with the toplevel
+(code organization and visibility) and going all the way down to primitive types and basic operations.
+
+
+## Code organization and visibility
+### Modules
+The main unit of visibility in itai-lang is a module. A module represents a single file, and is
+declared by adding `module "<modulename>";` as the first line in a file.<br>
+The name of a module must match the actual filename (minus the file extension.)<br>
+#### Importing modules
+To import a module from within another module, use `import "/path/to/module/I/want/to/import"`.
+An example of a good way to organize code is as follows:
+```
+MyProject/
+└── src
+    ├── Helpers.ilc
+    ├── MyProject.ilc
+    └── Types
+        ├── HashTable.ilc
+        └── StringTable.ilc
+```
+To import `Helpers.ilc` from `MyProject.ilc`, `import "Helpers";` would be used.<br>
+To import `Types/StringTable.ilc` from `MyProject.ilc`, `import "Types/StringTable";` would be used.
+#### Visibility in modules
+By default, all types, structs, and functions in a module are private. To mark any one of those things
+as public, add the keyword `public` before the declarations.
+**Example:**
+```rust
+module "ValueOps";
+
+public struct Value<T> { // set as public (visible outside this module)
+    value: T; // private (only visible inside this struct)
+
+    public fn setValue(val: T) { // set as public (visible wherever Value<T> is visible)
+        this.value = val;
+    }
+    public fn getValue() -> T { // set as public (visible wherever Value<T> is visible)
+        return this.value;
+    }
+}
+
+fn doSomethingInternalToThisMoudle() { // private (only visible inside this module)
+    // stuff...
+}
+
+public fn makeIntValue(val: i32) -> Value<i32> { // set as public (visible outside this module)
+    var v = Value{};
+    v.setValue(val);
+    return v;
+}
+```
+
 ## Destructors
 A destructor is a bound function that is automatically called
 by the compiler when an object goes out of scope.<br>
