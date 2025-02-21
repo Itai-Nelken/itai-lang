@@ -454,7 +454,15 @@ static void genScope(Codegen *cg, Scope *sc, Table *moduleTypeTable, ASTObj *str
     arrayFree(&objects);
 }
 
-static void predecl_types_cb(TableItem *item, bool isLast, void *cl) {
+static void predecl_struct_types_cb(TableItem *item, bool isLast, void *cl) {
+    UNUSED(isLast);
+    Codegen *cg = (Codegen *)cl;
+    Type *ty = (Type *)item->value;
+    if(ty->type == TY_STRUCT) {
+        print(cg, "typedef struct %s %s;\n", ty->name, ty->name);
+    }
+}
+static void predecl_fn_types_cb(TableItem *item, bool isLast, void *cl) {
     UNUSED(isLast);
     Codegen *cg = (Codegen *)cl;
     Type *ty = (Type *)item->value;
@@ -472,8 +480,6 @@ static void predecl_types_cb(TableItem *item, bool isLast, void *cl) {
             }
         }
         print(cg, ");\n");
-    } else if(ty->type == TY_STRUCT) {
-        print(cg, "typedef struct %s %s;\n", ty->name, ty->name);
     }
 }
 
@@ -485,7 +491,9 @@ static void genModule(Codegen *cg, ASTModule *m) {
         genVarDecl(cg, vdecl);
     }
     // Declare function and struct types. See block comment at top of this file.
-    tableMap(&m->types, predecl_types_cb, (void *)cg);
+    print(cg, "// Struct & Function predeclarations:\n");
+    tableMap(&m->types, predecl_struct_types_cb, (void *)cg);
+    tableMap(&m->types, predecl_fn_types_cb, (void *)cg);
     print(cg, "// Module scope:\n");
     genScope(cg, m->moduleScope, &m->types, NULL);
 }
