@@ -126,7 +126,7 @@ static ASTObj *findObjVisibleInCurrentScope(Validator *v, ASTString name, ScopeD
     return NULL;
 }
 
-static Type *exprDataType(Validator *v, ASTExprNode *expr) {
+static Type *expr_data_type_complex(Validator *v, ASTExprNode *expr, bool isInCall) {
     if(!expr) {
         return NULL;
     }
@@ -141,14 +141,20 @@ static Type *exprDataType(Validator *v, ASTExprNode *expr) {
             return getType(v, "i32");
         case EXPR_STRING_CONSTANT:
             return getType(v, "str");
-        case EXPR_VARIABLE:
-            return NODE_AS(ASTObjExpr, expr)->obj->dataType;
+        case EXPR_VARIABLE: {
+            Type *ty = NODE_AS(ASTObjExpr, expr)->obj->dataType;
+            VERIFY(ty);
+            if(isInCall && ty->type == TY_FUNCTION) {
+                return ty->as.fn.returnType;
+            }
+            return ty;
+        }
         case EXPR_FUNCTION:
             return NODE_AS(ASTObjExpr, expr)->obj->as.fn.returnType;
         case EXPR_PROPERTY_ACCESS:
             // The type of a property access expression is the type of the rightmost element.
             // For example, the type of 'a.b.c' is the type of 'c'.
-            return exprDataType(v, NODE_AS(ASTBinaryExpr, expr)->rhs);
+            return expr_data_type_complex(v, NODE_AS(ASTBinaryExpr, expr)->rhs, isInCall);
         case EXPR_ASSIGN:
         case EXPR_ADD:
         case EXPR_SUBTRACT:
@@ -161,22 +167,26 @@ static Type *exprDataType(Validator *v, ASTExprNode *expr) {
         case EXPR_GT:
         case EXPR_GE:
             // Type of a binary expression is the type of the left side.
-            return exprDataType(v, NODE_AS(ASTBinaryExpr, expr)->lhs);
+            return expr_data_type_complex(v, NODE_AS(ASTBinaryExpr, expr)->lhs, isInCall);
         case EXPR_ADDROF:
             VERIFY(expr->dataType); // In case called on parsed expr.
             return expr->dataType; // The pointer type.
         case EXPR_NEGATE:
             // Type of unary expression is the type of the operand
-            return exprDataType(v, NODE_AS(ASTUnaryExpr, expr)->operand);
+            return expr_data_type_complex(v, NODE_AS(ASTUnaryExpr, expr)->operand, isInCall);
         case EXPR_DEREF:
             VERIFY(expr->dataType);
             return expr->dataType;
         case EXPR_CALL:
             // Type of call expression is the return type of the callee.
-            return exprDataType(v, NODE_AS(ASTCallExpr, expr)->callee);
+            return expr_data_type_complex(v, NODE_AS(ASTCallExpr, expr)->callee, isInCall);
         default:
             UNREACHABLE();
     }
+}
+
+static inline Type *exprDataType(Validator *v, ASTExprNode *expr) {
+    return expr_data_type_complex(v, expr, false);
 }
 
 // Notes:

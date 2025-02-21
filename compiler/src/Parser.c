@@ -318,7 +318,6 @@ static ASTExprNode *parse_number_literal_expr(Parser *p) {
         default:
             break;
     }
-    // TODO: set type here.
     ASTConstantValueExpr *n = astConstantValueExprNew(getCurrentAllocator(p), EXPR_NUMBER_CONSTANT, loc, NULL);
     n->as.number = value;
     n->header.dataType = postfixType;
