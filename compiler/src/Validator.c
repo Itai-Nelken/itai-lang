@@ -160,14 +160,17 @@ static Type *expr_data_type_complex(Validator *v, ASTExprNode *expr, bool isInCa
         case EXPR_SUBTRACT:
         case EXPR_MULTIPLY:
         case EXPR_DIVIDE:
+            // Type of a binary expression is the type of the left side.
+            return expr_data_type_complex(v, NODE_AS(ASTBinaryExpr, expr)->lhs, isInCall);
         case EXPR_EQ:
         case EXPR_NE:
         case EXPR_LT:
         case EXPR_LE:
         case EXPR_GT:
         case EXPR_GE:
-            // Type of a binary expression is the type of the left side.
-            return expr_data_type_complex(v, NODE_AS(ASTBinaryExpr, expr)->lhs, isInCall);
+        case EXPR_NOT: // Unary node, but fits here.
+            // Type of conditional expression is boolean.
+            return getType(v, "bool");
         case EXPR_ADDROF:
             VERIFY(expr->dataType); // In case called on parsed expr.
             return expr->dataType; // The pointer type.
@@ -205,6 +208,7 @@ static Type *validateType(Validator *v, Type *parsedType) {
         case TY_I32:
         case TY_U32:
         case TY_STR:
+        case TY_BOOL:
             // Primitive types. Nothing to validate.
             checkedType = typeNew(parsedType->type, parsedType->name, parsedType->declLocation, v->current.module);
             break;
@@ -441,6 +445,7 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
         }
         // Unary nodes
         case EXPR_NEGATE:
+        case EXPR_NOT:
         case EXPR_ADDROF:
         case EXPR_DEREF: {
             // TODO: move to Type.h/c (header only if made inline function)
@@ -451,6 +456,10 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
                 String ptrName = stringFormat("&%s", exprTy->name);
                 exprTy = getType(v, ptrName);
                 stringFree(ptrName);
+            }
+            // !<expr> generates a boolean value.
+            if(NODE_IS(parsedExpr, EXPR_NOT)) {
+                exprTy = getType(v, "bool"); // since exprTy was type of operand.
             }
             checkedExpr = NODE_AS(ASTExprNode, astUnaryExprNew(getCurrentAllocator(v), parsedExpr->type, parsedExpr->location, exprTy, checkedOperand));
             if(NODE_IS(checkedExpr, EXPR_DEREF)) {

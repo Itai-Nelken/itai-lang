@@ -25,7 +25,7 @@ typedef usize ModuleID; // Ast/Program.h
  **/
 
 typedef enum type_type {
-    TY_VOID, TY_I32, TY_U32, TY_STR,
+    TY_VOID, TY_I32, TY_U32, TY_STR, TY_BOOL,
     TY_POINTER,
     TY_FUNCTION,
     TY_STRUCT,
@@ -33,7 +33,6 @@ typedef enum type_type {
     TY_TYPE_COUNT
 } TypeType;
 
-// TODO: How to represent incomplete/unresolved types (i.e. TY_ID)
 typedef struct type {
     TypeType type;
     ASTString name;

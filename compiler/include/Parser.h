@@ -36,6 +36,7 @@ typedef struct parser {
         Type *int32;
         Type *uint32;
         Type *str;
+        Type *boolean;
     } primitives;
 } Parser;
 

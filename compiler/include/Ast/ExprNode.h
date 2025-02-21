@@ -39,6 +39,7 @@ typedef enum ast_expression_types {
 
     // Unary nodes
     EXPR_NEGATE,
+    EXPR_NOT,
     EXPR_ADDROF, // &<obj>
     EXPR_DEREF, // *<obj>
 

@@ -141,6 +141,7 @@ static void typecheckExpr(Typechecker *typ, ASTExprNode *expr) {
             break;
         // Unary nodes
         case EXPR_NEGATE:
+        case EXPR_NOT:
         case EXPR_ADDROF:
         case EXPR_DEREF:
             typecheckExpr(typ, NODE_AS(ASTUnaryExpr, expr)->operand);

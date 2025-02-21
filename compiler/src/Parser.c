@@ -34,6 +34,7 @@ static void parser_init_internal(Parser *p, Compiler *c, Scanner *s) {
     p->primitives.int32 = NULL;
     p->primitives.uint32 = NULL;
     p->primitives.str = NULL;
+    p->primitives.boolean = NULL;
 }
 void parserInit(Parser *p, Compiler *c, Scanner *s) {
     parser_init_internal(p, c, s);
@@ -257,7 +258,7 @@ static ParseRule rules[] = {
     [TK_ARROW]          = {NULL, NULL, PREC_LOWEST},
     [TK_EQUAL]          = {NULL, parse_assignment_expr, PREC_ASSIGNMENT},
     [TK_EQUAL_EQUAL]    = {NULL, parse_binary_expr, PREC_EQUALITY},
-    [TK_BANG]           = {NULL, NULL, PREC_LOWEST},
+    [TK_BANG]           = {parse_unary_expr, NULL, PREC_LOWEST},
     [TK_BANG_EQUAL]     = {NULL, parse_binary_expr, PREC_EQUALITY},
     [TK_LESS]           = {NULL, parse_binary_expr, PREC_COMPARISON},
     [TK_LESS_EQUAL]     = {NULL, parse_binary_expr, PREC_COMPARISON},
@@ -364,12 +365,12 @@ static ASTExprNode *parse_unary_expr(Parser *p) {
     ASTExprNode *operand = TRY(ASTExprNode *, parsePrecedence(p, PREC_UNARY));
 
     ASTExprType nodeType;
-    // TODO: not boolean operator (!<expr>)
     switch(operator.type) {
         case TK_PLUS: return operand; // +<expr> is the same as <expr>
         case TK_MINUS: nodeType = EXPR_NEGATE; break;
         case TK_AMPERSAND: nodeType = EXPR_ADDROF; break;
         case TK_STAR: nodeType = EXPR_DEREF; break;
+        case TK_BANG: nodeType = EXPR_NOT; break;
         default: UNREACHABLE();
     }
     return NODE_AS(ASTExprNode, astUnaryExprNew(getCurrentAllocator(p), nodeType, locationMerge(operator.location, operand->location), operand->dataType, operand));
@@ -1116,6 +1117,7 @@ static void import_primitive_types(Parser *p, ModuleID mID) {
     DEF(TY_I32, int32, "i32");
     DEF(TY_U32, uint32, "u32");
     DEF(TY_STR, str, "str");
+    DEF(TY_BOOL, boolean, "bool");
 
 #undef DEF
 }

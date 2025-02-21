@@ -13,6 +13,7 @@ static inline const char *type_type_to_string(TypeType type) {
         [TY_I32]        = "TY_I32",
         [TY_U32]        = "TY_U32",
         [TY_STR]        = "TY_STR",
+        [TY_BOOL]       = "TY_BOOL",
         [TY_POINTER]    = "TY_POINTER",
         [TY_FUNCTION]   = "TY_FUNCTION",
         [TY_STRUCT]     = "TY_STRUCT",
@@ -40,6 +41,7 @@ void typePrint(FILE *to, Type *ty, bool compact) {
         case TY_I32:
         case TY_U32:
         case TY_STR:
+        case TY_BOOL:
             // nothing
             break;
         case TY_POINTER:
@@ -174,6 +176,7 @@ bool typeIsPrimitive(Type *ty) {
         case TY_I32:
         case TY_U32:
         case TY_STR:
+        case TY_BOOL:
             return true;
         default:
             break; // The return is not here to make it clearer that all execution paths are covered.
