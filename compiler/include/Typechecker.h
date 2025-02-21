@@ -9,6 +9,7 @@ typedef struct typechecker {
     Compiler *compiler;
     ASTProgram *program;
     bool hadError;
+    bool foundMain;
 
     struct {
         Scope *scope;

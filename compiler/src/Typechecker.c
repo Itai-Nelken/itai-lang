@@ -10,6 +10,7 @@ static void typechecker_init_internal(Typechecker *typechecker, Compiler *c) {
     typechecker->compiler = c;
     typechecker->program = NULL; // set in typecheckerTypecheck()
     typechecker->hadError = false;
+    typechecker->foundMain = false;
     typechecker->current.scope = NULL;
     typechecker->current.function = NULL;
     typechecker->current.module = NULL;
@@ -269,6 +270,9 @@ static bool typecheckCurrentScope(Typechecker *typ, ASTObj *st) {
                 // nothing. vars are typechecked as they are declared, assigned.
                 break;
             case OBJ_FN:
+                if(getCurrentScope(typ)->depth == SCOPE_DEPTH_MODULE_NAMESPACE && stringEqual(obj->name, "main")) {
+                    typ->foundMain = true;
+                }
                 typecheckFunction(typ, obj);
                 break;
             case OBJ_STRUCT:
@@ -313,6 +317,14 @@ bool typecheckerTypecheck(Typechecker *typechecker, ASTProgram *prog) {
     ARRAY_FOR(i, prog->modules) {
         ASTModule *module = ARRAY_GET_AS(ASTModule *, &prog->modules, i);
         typecheckModule(typechecker, module);
+    }
+    if(!typechecker->foundMain) {
+        // Since this error doesn't have a location, we need to manually create it.
+        Error *err;
+        NEW0(err);
+        errorInit(err, ERR_ERROR, false, EMPTY_LOCATION, "No entry point (hint: Consider adding a 'main' function).");
+        typechecker->hadError = true;
+        compilerAddError(typechecker->compiler, err);
     }
     return !typechecker->hadError;
 }
