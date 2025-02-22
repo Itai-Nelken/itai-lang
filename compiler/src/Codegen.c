@@ -149,16 +149,19 @@ static void genExpr(Codegen *cg, ASTExprNode *expr) {
             break;
         // Unary nodes
         case EXPR_NEGATE:
-            print(cg, "-");
+            print(cg, "-(");
             genExpr(cg, NODE_AS(ASTUnaryExpr, expr)->operand);
+            print(cg, ")");
             break;
         case EXPR_NOT:
-            print(cg, "!");
+            print(cg, "!(");
             genExpr(cg, NODE_AS(ASTUnaryExpr, expr)->operand);
+            print(cg, ")");
             break;
         case EXPR_ADDROF:
-            print(cg, "&");
+            print(cg, "&(");
             genExpr(cg, NODE_AS(ASTUnaryExpr, expr)->operand);
+            print(cg, ")");
             break;
         case EXPR_DEREF:
             print(cg, "(*");
