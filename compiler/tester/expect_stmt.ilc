@@ -1,0 +1,12 @@
+/// expect success
+
+fn main() {
+	var a = 42;
+	var b = a;
+	expect a == b;
+	var c = 21;
+	expect c == a else {
+		c = c * 2;
+	}
+}
+

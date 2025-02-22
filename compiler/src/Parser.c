@@ -462,7 +462,7 @@ static void synchronizeInBlock(Parser *p) {
 
 // block(parseCallback) -> '{' parseCallback* '}'
 static ASTBlockStmt *parseBlockStmt(Parser *p, Scope *scope, ASTStmtNode *(*parseCallback)(Parser *p)) {
-    // Assumes '{' wasl already consumed
+    // Assumes '{' was already consumed
     Location loc = previous(p).location;
     Array nodes; // Array<ASTStmtNode *>
     arrayInit(&nodes);
@@ -619,6 +619,7 @@ static ASTStmtNode *parseExpectStmt(Parser *p) {
     }
     ASTStmtNode *else_ = NULL;
     if(match(p, TK_ELSE)) {
+        TRY_CONSUME(p, TK_LBRACE);
         Scope *sc = enterScope(p, SCOPE_DEPTH_BLOCK);
         else_ = NODE_AS(ASTStmtNode, parseBlockStmt(p, sc, parseFunctionBodyStatements));
         leaveScope(p);
