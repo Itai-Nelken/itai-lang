@@ -101,6 +101,7 @@ static void typecheckVariableDecl(Typechecker *typ, ASTVarDeclStmt *decl) {
 }
 
 static void typecheckExpr(Typechecker *typ, ASTExprNode *expr) {
+    VERIFY(expr);
     switch(expr->type) {
         // Constant value nodes.
         case EXPR_NUMBER_CONSTANT:
@@ -175,6 +176,7 @@ static void typecheckExpr(Typechecker *typ, ASTExprNode *expr) {
 }
 
 static void typecheckStmt(Typechecker *typ, ASTStmtNode *stmt) {
+    VERIFY(stmt);
     switch(stmt->type) {
         // VarDecl nodes
         case STMT_VAR_DECL:
@@ -206,9 +208,18 @@ static void typecheckStmt(Typechecker *typ, ASTStmtNode *stmt) {
             break;
         }
         // Loop nodes
-        case STMT_LOOP:
-            // nothing for now.
+        case STMT_LOOP: {
+            ASTLoopStmt *loopStmt = NODE_AS(ASTLoopStmt, stmt);
+            if(loopStmt->initializer) {
+                typecheckStmt(typ, loopStmt->initializer);
+            }
+            typecheckExpr(typ, loopStmt->condition); // MUST exist.
+            if(loopStmt->increment) {
+                typecheckExpr(typ, loopStmt->increment);
+            }
+            typecheckStmt(typ, NODE_AS(ASTStmtNode, loopStmt->body)); // MUST exist.
             break;
+        }
         // Expr nodes
         case STMT_RETURN:
             VERIFY(typ->current.function);
