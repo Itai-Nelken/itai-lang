@@ -77,10 +77,10 @@ static inline ASTModule *getCurrentModule(Typechecker *typ) {
     return typ->current.module;
 }
 
-static bool checkTypes(Typechecker *typ, Location errLoc, Type *a, Type *b) {
+static bool checkTypes(Typechecker *typ, Location errLoc, Type *expected, Type *actual) {
     // ASTStrings can be compared by address (since they are unique).
-    if(!a || !b || a->name != b->name) {
-        error(typ, errLoc, "Type mismatch: expected '%s' but got '%s'.", typeName(a), typeName(b));
+    if(!expected || !actual || expected->name != actual->name) {
+        error(typ, errLoc, "Type mismatch: expected '%s' but got '%s'.", typeName(expected), typeName(actual));
         return false;
     }
     return true;
@@ -145,6 +145,9 @@ static void typecheckExpr(Typechecker *typ, ASTExprNode *expr) {
         case EXPR_ADDROF:
         case EXPR_DEREF:
             typecheckExpr(typ, NODE_AS(ASTUnaryExpr, expr)->operand);
+            if(NODE_IS(expr, EXPR_NOT)) {
+                checkTypes(typ, NODE_AS(ASTUnaryExpr, expr)->operand->location, astModuleGetType(getCurrentModule(typ), "bool"), NODE_AS(ASTUnaryExpr, expr)->operand->dataType);
+            }
             // TODO: check if negatable, addrofable type. (derefable checked in validator.)
             break;
         // Call node
@@ -190,7 +193,18 @@ static void typecheckStmt(Typechecker *typ, ASTStmtNode *stmt) {
         }
         // Conditional nodes
         case STMT_IF:
-        case STMT_EXPECT:
+        case STMT_EXPECT: {
+            ASTConditionalStmt *conditionalStmt = NODE_AS(ASTConditionalStmt, stmt);
+            typecheckExpr(typ, conditionalStmt->condition);
+            if(conditionalStmt->then) { // expect stmt may not have a body.
+                typecheckStmt(typ, conditionalStmt->then);
+            }
+            if(conditionalStmt->else_) {
+                typecheckStmt(typ, conditionalStmt->else_);
+            }
+            checkTypes(typ, conditionalStmt->condition->location, astModuleGetType(getCurrentModule(typ), "bool"), conditionalStmt->condition->dataType);
+            break;
+        }
         // Loop nodes
         case STMT_LOOP:
             // nothing for now.
