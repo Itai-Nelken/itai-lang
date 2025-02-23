@@ -1,6 +1,6 @@
 # Itai-Lang
 
-Itai-Lang is aims to be a systems programming language that combines the simplicity and power of C
+Itai-Lang aims to be a systems programming language that combines the simplicity and power of C
 with modern features such as object visibility (in modules and structs), memory safety,
 a strict type system, and support for object oriented programming (while not forcing it.)
 <br>
