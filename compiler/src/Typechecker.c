@@ -105,8 +105,9 @@ static void typecheckExpr(Typechecker *typ, ASTExprNode *expr) {
     switch(expr->type) {
         // Constant value nodes.
         case EXPR_NUMBER_CONSTANT:
+            // Note: parser only parses valid postfix types, so nothing to check here.
         case EXPR_STRING_CONSTANT:
-            // TODO: When postfix types are supported, check that there isn't something stupid like 123str.
+        case EXPR_BOOLEAN_CONSTANT:
             break;
         // Obj nodes
         case EXPR_VARIABLE:

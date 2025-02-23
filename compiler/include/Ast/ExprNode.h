@@ -21,6 +21,7 @@ typedef enum ast_expression_types {
     // Constant value nodes.
     EXPR_NUMBER_CONSTANT,
     EXPR_STRING_CONSTANT,
+    EXPR_BOOLEAN_CONSTANT,
 
     // Obj nodes
     EXPR_VARIABLE,
@@ -64,6 +65,7 @@ typedef struct ast_constant_value_expression {
     union {
         u64 number;
         ASTString string;
+        bool boolean;
     } as;
 } ASTConstantValueExpr;
 

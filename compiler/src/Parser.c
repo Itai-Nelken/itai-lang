@@ -228,6 +228,7 @@ static ASTExprNode *parseExpression(Parser *p);
 static ASTExprNode *parsePrecedence(Parser *p, Precedence minPrec);
 static ASTExprNode *parse_number_literal_expr(Parser *p);
 static ASTExprNode *parse_string_literal_expr(Parser *p);
+static ASTExprNode *parse_boolean_literal_expr(Parser *p);
 static ASTExprNode *parse_binary_expr(Parser *p, ASTExprNode *lhs);
 static ASTExprNode *parse_unary_expr(Parser *p);
 static ASTExprNode *parse_grouping_expr(Parser *p);
@@ -266,6 +267,8 @@ static ParseRule rules[] = {
     [TK_GREATER_EQUAL]  = {NULL, parse_binary_expr, PREC_COMPARISON},
     [TK_NUMBER_LITERAL] = {parse_number_literal_expr, NULL, PREC_LOWEST},
     [TK_STRING_LITERAL] = {parse_string_literal_expr, NULL, PREC_LOWEST},
+    [TK_TRUE]           = {parse_boolean_literal_expr, NULL, PREC_LOWEST},
+    [TK_FALSE]          = {parse_boolean_literal_expr, NULL, PREC_LOWEST},
     [TK_IF]             = {NULL, NULL, PREC_LOWEST},
     [TK_ELSE]           = {NULL, NULL, PREC_LOWEST},
     [TK_WHILE]          = {NULL, NULL, PREC_LOWEST},
@@ -276,10 +279,12 @@ static ParseRule rules[] = {
     [TK_EXTERN]         = {NULL, NULL, PREC_LOWEST},
     [TK_DEFER]          = {NULL, NULL, PREC_LOWEST},
     [TK_MODULE]         = {NULL, NULL, PREC_LOWEST},
+    [TK_EXPECT]         = {NULL, NULL, PREC_LOWEST},
     [TK_VOID]           = {NULL, NULL, PREC_LOWEST},
     [TK_I32]            = {NULL, NULL, PREC_LOWEST},
     [TK_U32]            = {NULL, NULL, PREC_LOWEST},
     [TK_STR]            = {NULL, NULL, PREC_LOWEST},
+    [TK_BOOL]           = {NULL, NULL, PREC_LOWEST},
     [TK_IDENTIFIER]     = {parse_identifier_expr, NULL, PREC_LOWEST},
     [TK_GARBAGE]        = {NULL, NULL, PREC_LOWEST},
     [TK_EOF]            = {NULL, NULL, PREC_LOWEST}
@@ -316,6 +321,7 @@ static ASTExprNode *parse_number_literal_expr(Parser *p) {
         // Invalid postfix types
         case TK_VOID:
         case TK_STR:
+        case TK_BOOL:
             // Consume the token anyway to suppress further errors because of it.
             advance(p);
             errorAt(p, previous(p).location, tmp_buffer_format(p, "Invalid postfix type '%s' (must be a numeric type.)", tokenTypeString(previous(p).type)));
@@ -335,6 +341,24 @@ static ASTExprNode *parse_string_literal_expr(Parser *p) {
     // TODO: add string type here since string literals will always be of type 'str'.
     ASTConstantValueExpr *n = astConstantValueExprNew(getCurrentAllocator(p), EXPR_STRING_CONSTANT, tk.location, NULL);
     n->as.string = value;
+    return NODE_AS(ASTExprNode, n);
+}
+
+static ASTExprNode *parse_boolean_literal_expr(Parser *p) {
+    Location loc = previous(p).location;
+    bool value;
+    switch(previous(p).type) {
+        case TK_TRUE:
+            value = true;
+            break;
+        case TK_FALSE:
+            value = false;
+            break;
+        default:
+            UNREACHABLE(); // unreachable b/c only called on TK_TRUE & TK_FALSE.
+    }
+    ASTConstantValueExpr *n = astConstantValueExprNew(getCurrentAllocator(p), EXPR_BOOLEAN_CONSTANT, loc, p->primitives.boolean);
+    n->as.boolean = value;
     return NODE_AS(ASTExprNode, n);
 }
 
@@ -771,7 +795,7 @@ static Type *parseComplexType(Parser *p) {
     return NULL;
 }
 
-// primitive_type -> void | i32 | str etc.
+// primitive_type -> void | i32 | u32 | str | bool
 static Type *parsePrimitiveType(Parser *p) {
     Type *ty = NULL;
     switch(current(p).type) {
@@ -786,6 +810,9 @@ static Type *parsePrimitiveType(Parser *p) {
             break;
         case TK_STR:
             ty = p->primitives.str;
+            break;
+        case TK_BOOL:
+            ty = p->primitives.boolean;
             break;
         default:
             break;

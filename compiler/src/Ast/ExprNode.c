@@ -23,6 +23,7 @@ static const char *node_name_to_string(ASTExprType t) {
     switch(t) {
         case EXPR_NUMBER_CONSTANT:
         case EXPR_STRING_CONSTANT:
+        case EXPR_BOOLEAN_CONSTANT:
             return "ASTConstantValueExpr";
         case EXPR_VARIABLE:
         case EXPR_FUNCTION:
@@ -58,31 +59,32 @@ static const char *node_name_to_string(ASTExprType t) {
 static const char *node_type_to_string(ASTExprType t) {
     VERIFY(t < EXPR_TYPE_COUNT);
     const char *names[] = {
-        [EXPR_NUMBER_CONSTANT] = "EXPR_NUMBER_CONSTANT",
-        [EXPR_STRING_CONSTANT] = "EXPR_STRING_CONSTANT",
-        [EXPR_VARIABLE]        = "EXPR_VARIABLE",
-        [EXPR_FUNCTION]        = "EXPR_FUNCTION",
-        [EXPR_ASSIGN]          = "EXPR_ASSIGN",
-        [EXPR_PROPERTY_ACCESS] = "EXPR_PROPERTY_ACCESS",
-        [EXPR_ADD]             = "EXPR_ADD",
-        [EXPR_SUBTRACT]        = "EXPR_SUBTRACT",
-        [EXPR_MULTIPLY]        = "EXPR_MULTIPLY",
-        [EXPR_DIVIDE]          = "EXPR_DIVIDE",
-        [EXPR_EQ]              = "EXPR_EQ",
-        [EXPR_NE]              = "EXPR_NE",
-        [EXPR_LT]              = "EXPR_LT",
-        [EXPR_LE]              = "EXPR_LE",
-        [EXPR_GT]              = "EXPR_GT",
-        [EXPR_GE]              = "EXPR_GE",
+        [EXPR_NUMBER_CONSTANT]  = "EXPR_NUMBER_CONSTANT",
+        [EXPR_STRING_CONSTANT]  = "EXPR_STRING_CONSTANT",
+        [EXPR_BOOLEAN_CONSTANT] = "EXPR_BOOLEAN_CONSTANT",
+        [EXPR_VARIABLE]         = "EXPR_VARIABLE",
+        [EXPR_FUNCTION]         = "EXPR_FUNCTION",
+        [EXPR_ASSIGN]           = "EXPR_ASSIGN",
+        [EXPR_PROPERTY_ACCESS]  = "EXPR_PROPERTY_ACCESS",
+        [EXPR_ADD]              = "EXPR_ADD",
+        [EXPR_SUBTRACT]         = "EXPR_SUBTRACT",
+        [EXPR_MULTIPLY]         = "EXPR_MULTIPLY",
+        [EXPR_DIVIDE]           = "EXPR_DIVIDE",
+        [EXPR_EQ]               = "EXPR_EQ",
+        [EXPR_NE]               = "EXPR_NE",
+        [EXPR_LT]               = "EXPR_LT",
+        [EXPR_LE]               = "EXPR_LE",
+        [EXPR_GT]               = "EXPR_GT",
+        [EXPR_GE]               = "EXPR_GE",
         // Unary nodes
-        [EXPR_NEGATE]          = "EXPR_NEGATE",
-        [EXPR_NOT]             = "EXPR_NOT",
-        [EXPR_ADDROF]          = "EXPR_ADDROF",
-        [EXPR_DEREF]           = "EXPR_DEREF",
+        [EXPR_NEGATE]           = "EXPR_NEGATE",
+        [EXPR_NOT]              = "EXPR_NOT",
+        [EXPR_ADDROF]           = "EXPR_ADDROF",
+        [EXPR_DEREF]            = "EXPR_DEREF",
         // Call node
-        [EXPR_CALL]            = "EXPR_CALL",
+        [EXPR_CALL]             = "EXPR_CALL",
         // Other nodes.
-        [EXPR_IDENTIFIER]      = "EXPR_IDENTIFIER"
+        [EXPR_IDENTIFIER]       = "EXPR_IDENTIFIER"
     };
     return names[(int)t];
 }
@@ -111,6 +113,9 @@ void astExprPrint(FILE *to, ASTExprNode *n) {
             break;
         case EXPR_STRING_CONSTANT:
             fprintf(to, ", \x1b[1mvalue: \x1b[0;34m%s\x1b[0m", NODE_AS(ASTConstantValueExpr, n)->as.string);
+            break;
+        case EXPR_BOOLEAN_CONSTANT:
+            fprintf(to, ", \x1b[1mvalue: \x1b[0;34m%s\x1b[0m", NODE_AS(ASTConstantValueExpr, n)->as.boolean ? "true" : "false");
             break;
         case EXPR_VARIABLE:
         case EXPR_FUNCTION:

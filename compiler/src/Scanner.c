@@ -140,6 +140,9 @@ static TokenType scan_keyword_or_identifier_type(Scanner *s) {
 
     TokenType result;
     switch(*lexeme) {
+        case 'b':
+            result = CHECK("bool", 4, TK_BOOL);
+            break;
         case 'd':
             result = CHECK("defer", 5, TK_DEFER);
             break;
@@ -167,7 +170,17 @@ static TokenType scan_keyword_or_identifier_type(Scanner *s) {
             }
             break;
         case 'f':
-            result = CHECK("fn", 2, TK_FN);
+            switch(length) {
+                case 2:
+                    result = CHECK("fn", 2, TK_FN);
+                    break;
+                case 5:
+                    result = CHECK("false", 5, TK_FALSE);
+                    break;
+                default:
+                    result = TK_IDENTIFIER;
+                    break;
+            }
             break;
         case 'i':
             switch(length) {
@@ -200,6 +213,9 @@ static TokenType scan_keyword_or_identifier_type(Scanner *s) {
                     result = TK_IDENTIFIER;
                     break;
             }
+            break;
+        case 't':
+            result = CHECK("true", 4, TK_TRUE);
             break;
         case 'u':
             result = CHECK("u32", 3, TK_U32);

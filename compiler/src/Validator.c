@@ -141,6 +141,10 @@ static Type *expr_data_type_complex(Validator *v, ASTExprNode *expr, bool isInCa
             return getType(v, "i32");
         case EXPR_STRING_CONSTANT:
             return getType(v, "str");
+        case EXPR_BOOLEAN_CONSTANT:
+            // Must be true since parser sets it.
+            VERIFY(expr->dataType->type == TY_BOOL);
+            return expr->dataType;
         case EXPR_VARIABLE: {
             Type *ty = NODE_AS(ASTObjExpr, expr)->obj->dataType;
             VERIFY(ty);
@@ -334,6 +338,12 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
             //        It will work in this specific case, but is it something I should allow?
             checkedExpr = (ASTExprNode *)astConstantValueExprNew(getCurrentAllocator(v), EXPR_STRING_CONSTANT, parsedExpr->location, exprDataType(v, parsedExpr));
             NODE_AS(ASTConstantValueExpr, checkedExpr)->as.string = NODE_AS(ASTConstantValueExpr, parsedExpr)->as.string;
+            break;
+        case EXPR_BOOLEAN_CONSTANT:
+            // Parser sets the type since true/false are always of type bool.
+            VERIFY(parsedExpr->dataType->type == TY_BOOL);
+            checkedExpr = NODE_AS(ASTExprNode, astConstantValueExprNew(getCurrentAllocator(v), EXPR_BOOLEAN_CONSTANT, parsedExpr->location, parsedExpr->dataType));
+            NODE_AS(ASTConstantValueExpr, checkedExpr)->as.boolean = NODE_AS(ASTConstantValueExpr, parsedExpr)->as.boolean;
             break;
         // Obj nodes
         case EXPR_VARIABLE:

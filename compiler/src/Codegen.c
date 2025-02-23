@@ -112,6 +112,9 @@ static void genExpr(Codegen *cg, ASTExprNode *expr) {
         case EXPR_STRING_CONSTANT:
             print(cg, "%s", NODE_AS(ASTConstantValueExpr, expr)->as.string);
             break;
+        case EXPR_BOOLEAN_CONSTANT:
+            print(cg, "%s", NODE_AS(ASTConstantValueExpr, expr)->as.boolean ? "true" : "false");
+            break;
         // Obj nodes
         case EXPR_VARIABLE:
         case EXPR_FUNCTION:

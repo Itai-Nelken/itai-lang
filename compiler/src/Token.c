@@ -57,6 +57,8 @@ static const char *token_type_name(TokenType type) {
         [TK_GREATER_EQUAL]  = "TK_GREATER_EQUAL",
         [TK_NUMBER_LITERAL] = "TK_NUMBER_LITERAL",
         [TK_STRING_LITERAL] = "TK_STRING_LITERAL",
+        [TK_TRUE]           = "TK_TRUE",
+        [TK_FALSE]          = "TK_FALSE",
         [TK_IF]             = "TK_IF",
         [TK_ELSE]           = "TK_ELSE",
         [TK_WHILE]          = "TK_WHILE",
@@ -72,6 +74,7 @@ static const char *token_type_name(TokenType type) {
         [TK_I32]            = "TK_I32",
         [TK_U32]            = "TK_U32",
         [TK_STR]            = "TK_STR",
+        [TK_BOOL]           = "TK_BOOL",
         [TK_IDENTIFIER]     = "TK_IDENTIFIER",
         [TK_GARBAGE]        = "TK_GARBAGE",
         [TK_EOF]            = "TK_EOF"
@@ -130,6 +133,8 @@ const char *tokenTypeString(TokenType type) {
         [TK_GREATER_EQUAL]  = ">=",
         [TK_NUMBER_LITERAL] = "<number literal>",
         [TK_STRING_LITERAL] = "<string literal>",
+        [TK_TRUE]           = "true",
+        [TK_FALSE]          = "false",
         [TK_IF]             = "if",
         [TK_ELSE]           = "else",
         [TK_WHILE]          = "while",
@@ -145,6 +150,7 @@ const char *tokenTypeString(TokenType type) {
         [TK_I32]            = "i32",
         [TK_U32]            = "u32",
         [TK_STR]            = "str",
+        [TK_BOOL]           = "bool",
         [TK_IDENTIFIER]     = "<identifier>",
         [TK_GARBAGE]        = "<garbage>",
         [TK_EOF]            = "<eof>"
