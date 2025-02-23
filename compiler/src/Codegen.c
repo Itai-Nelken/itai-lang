@@ -98,6 +98,8 @@ static const char *binaryOperatorToString(ASTExprType node_type) {
         case EXPR_LE: return "<=";
         case EXPR_GT: return ">";
         case EXPR_GE: return ">=";
+        case EXPR_LOGICAL_AND: return "&&";
+        case EXPR_LOGICAL_OR: return "||";
         default:
             UNREACHABLE();
     }
@@ -146,9 +148,15 @@ static void genExpr(Codegen *cg, ASTExprNode *expr) {
         case EXPR_LE:
         case EXPR_GT:
         case EXPR_GE:
+        case EXPR_LOGICAL_AND:
+        case EXPR_LOGICAL_OR:
+            print(cg, "(");
             genExpr(cg, NODE_AS(ASTBinaryExpr, expr)->lhs);
+            print(cg, ")");
             print(cg, " %s ", binaryOperatorToString(expr->type));
+            print(cg, "(");
             genExpr(cg, NODE_AS(ASTBinaryExpr, expr)->rhs);
+            print(cg, ")");
             break;
         // Unary nodes
         case EXPR_NEGATE:
@@ -156,7 +164,7 @@ static void genExpr(Codegen *cg, ASTExprNode *expr) {
             genExpr(cg, NODE_AS(ASTUnaryExpr, expr)->operand);
             print(cg, ")");
             break;
-        case EXPR_NOT:
+        case EXPR_LOGICAL_NOT:
             print(cg, "!(");
             genExpr(cg, NODE_AS(ASTUnaryExpr, expr)->operand);
             print(cg, ")");

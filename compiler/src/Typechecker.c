@@ -129,6 +129,8 @@ static void typecheckExpr(Typechecker *typ, ASTExprNode *expr) {
         case EXPR_LE:
         case EXPR_GT:
         case EXPR_GE:
+        case EXPR_LOGICAL_AND:
+        case EXPR_LOGICAL_OR:
             typecheckExpr(typ, NODE_AS(ASTBinaryExpr, expr)->lhs);
             typecheckExpr(typ, NODE_AS(ASTBinaryExpr, expr)->rhs);
             if(NODE_IS(NODE_AS(ASTBinaryExpr, expr)->lhs, EXPR_PROPERTY_ACCESS)) {
@@ -143,11 +145,11 @@ static void typecheckExpr(Typechecker *typ, ASTExprNode *expr) {
             break;
         // Unary nodes
         case EXPR_NEGATE:
-        case EXPR_NOT:
+        case EXPR_LOGICAL_NOT:
         case EXPR_ADDROF:
         case EXPR_DEREF:
             typecheckExpr(typ, NODE_AS(ASTUnaryExpr, expr)->operand);
-            if(NODE_IS(expr, EXPR_NOT)) {
+            if(NODE_IS(expr, EXPR_LOGICAL_NOT)) {
                 checkTypes(typ, NODE_AS(ASTUnaryExpr, expr)->operand->location, astModuleGetType(getCurrentModule(typ), "bool"), NODE_AS(ASTUnaryExpr, expr)->operand->dataType);
             }
             // TODO: check if negatable, addrofable type. (derefable checked in validator.)

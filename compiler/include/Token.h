@@ -47,9 +47,10 @@ typedef enum token_type {
     TK_SEMICOLON, TK_COLON,
     TK_COMMA, TK_DOT,
     TK_HASH,
-    TK_AMPERSAND,
 
     // one or two character tokens
+    TK_AMPERSAND, TK_AND, // and is &&
+    TK_PIPE, TK_OR, // |, ||
     TK_MINUS, TK_ARROW,
     TK_EQUAL, TK_EQUAL_EQUAL,
     TK_BANG, TK_BANG_EQUAL,

@@ -1,0 +1,9 @@
+/// expect success
+
+fn main() {
+	var a: bool = true;
+	var b = false;
+	var c = a && b || a;
+	var d = a || c;
+}
+

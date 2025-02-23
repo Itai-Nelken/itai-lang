@@ -207,11 +207,13 @@ typedef enum precedence {
     PREC_EQUALITY   = 5,  // infix == !=
     PREC_COMPARISON = 6,  // infix > >= < <=
     PREC_BIT_SHIFT  = 7,  // infix >> <<
-    PREC_TERM       = 8,  // infix + -
-    PREC_FACTOR     = 9,  // infix * /
-    PREC_UNARY      = 10, // unary + -
-    PREC_CALL       = 11, // (), a.b
-    PREC_PRIMARY    = 12  // highest
+    PREC_LOGIC_AND  = 8,  // infix &&
+    PREC_LOGIC_OR   = 9,  // infix ||
+    PREC_TERM       = 10, // infix + -
+    PREC_FACTOR     = 1,  // infix * /
+    PREC_UNARY      = 12, // unary + -
+    PREC_CALL       = 13, // (), a.b
+    PREC_PRIMARY    = 14  // highest
 } Precedence;
 
 typedef ASTExprNode *(*PrefixParseFn)(Parser *p);
@@ -255,6 +257,9 @@ static ParseRule rules[] = {
     [TK_DOT]            = {NULL, parse_property_access_expr, PREC_CALL},
     [TK_HASH]           = {NULL, NULL, PREC_LOWEST},
     [TK_AMPERSAND]      = {parse_unary_expr, NULL, PREC_LOWEST},
+    [TK_AND]            = {NULL, parse_binary_expr, PREC_LOGIC_AND},
+    [TK_PIPE]           = {NULL, NULL, PREC_LOWEST},
+    [TK_OR]             = {NULL, parse_binary_expr, PREC_LOGIC_OR},
     [TK_MINUS]          = {parse_unary_expr, parse_binary_expr, PREC_TERM},
     [TK_ARROW]          = {NULL, NULL, PREC_LOWEST},
     [TK_EQUAL]          = {NULL, parse_assignment_expr, PREC_ASSIGNMENT},
@@ -379,6 +384,8 @@ static ASTExprNode *parse_binary_expr(Parser *p, ASTExprNode *lhs) {
         case TK_LESS_EQUAL: nodeType = EXPR_LE; break;
         case TK_GREATER: nodeType = EXPR_GT; break;
         case TK_GREATER_EQUAL: nodeType = EXPR_GE; break;
+        case TK_AND: nodeType = EXPR_LOGICAL_AND; break;
+        case TK_OR: nodeType = EXPR_LOGICAL_OR; break;
         default: UNREACHABLE();
     }
     return NODE_AS(ASTExprNode, astBinaryExprNew(getCurrentAllocator(p), nodeType, locationMerge(lhs->location, rhs->location), lhs->dataType, lhs, rhs));
@@ -394,7 +401,7 @@ static ASTExprNode *parse_unary_expr(Parser *p) {
         case TK_MINUS: nodeType = EXPR_NEGATE; break;
         case TK_AMPERSAND: nodeType = EXPR_ADDROF; break;
         case TK_STAR: nodeType = EXPR_DEREF; break;
-        case TK_BANG: nodeType = EXPR_NOT; break;
+        case TK_BANG: nodeType = EXPR_LOGICAL_NOT; break;
         default: UNREACHABLE();
     }
     return NODE_AS(ASTExprNode, astUnaryExprNew(getCurrentAllocator(p), nodeType, locationMerge(operator.location, operand->location), operand->dataType, operand));
@@ -637,7 +644,7 @@ static ASTStmtNode *parseExpectStmt(Parser *p) {
     Location loc = previous(p).location;
     ASTExprNode *condition = TRY(ASTExprNode *, parseExpression(p));
     loc = locationMerge(loc, previous(p).location);
-    condition = NODE_AS(ASTExprNode, astUnaryExprNew(getCurrentAllocator(p), EXPR_NOT, loc, p->primitives.boolean, condition));
+    condition = NODE_AS(ASTExprNode, astUnaryExprNew(getCurrentAllocator(p), EXPR_LOGICAL_NOT, loc, p->primitives.boolean, condition));
     if(match(p, TK_SEMICOLON)) {
         return NODE_AS(ASTStmtNode, astConditionalStmtNew(getCurrentAllocator(p), STMT_EXPECT, locationMerge(loc, previous(p).location), condition, NULL, NULL));
     }

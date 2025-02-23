@@ -40,9 +40,11 @@ static const char *node_name_to_string(ASTExprType t) {
         case EXPR_LE:
         case EXPR_GT:
         case EXPR_GE:
+        case EXPR_LOGICAL_AND:
+        case EXPR_LOGICAL_OR:
             return "ASTBinaryExpr";
         case EXPR_NEGATE:
-        case EXPR_NOT:
+        case EXPR_LOGICAL_NOT:
         case EXPR_ADDROF:
         case EXPR_DEREF:
             return "ASTUnaryExpr";
@@ -76,9 +78,11 @@ static const char *node_type_to_string(ASTExprType t) {
         [EXPR_LE]               = "EXPR_LE",
         [EXPR_GT]               = "EXPR_GT",
         [EXPR_GE]               = "EXPR_GE",
+        [EXPR_LOGICAL_AND]      = "EXPR_LOGICAL_AND",
+        [EXPR_LOGICAL_OR]       = "EXPR_LOGICAL_OR",
         // Unary nodes
         [EXPR_NEGATE]           = "EXPR_NEGATE",
-        [EXPR_NOT]              = "EXPR_NOT",
+        [EXPR_LOGICAL_NOT]      = "EXPR_LOGICAL_NOT",
         [EXPR_ADDROF]           = "EXPR_ADDROF",
         [EXPR_DEREF]            = "EXPR_DEREF",
         // Call node
@@ -134,13 +138,15 @@ void astExprPrint(FILE *to, ASTExprNode *n) {
         case EXPR_LE:
         case EXPR_GT:
         case EXPR_GE:
+        case EXPR_LOGICAL_AND:
+        case EXPR_LOGICAL_OR:
             fputs(", \x1b[1mlhs:\x1b[0m ", to);
             astExprPrint(to, NODE_AS(ASTBinaryExpr, n)->lhs);
             fputs(", \x1b[1mrhs:\x1b[0m ", to);
             astExprPrint(to, NODE_AS(ASTBinaryExpr, n)->rhs);
             break;
         case EXPR_NEGATE:
-        case EXPR_NOT:
+        case EXPR_LOGICAL_NOT:
         case EXPR_ADDROF:
         case EXPR_DEREF:
             fputs(", \x1b[1moperand:\x1b[0m ", to);

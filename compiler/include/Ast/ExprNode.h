@@ -37,10 +37,11 @@ typedef enum ast_expression_types {
     EXPR_EQ, EXPR_NE,
     EXPR_LT, EXPR_LE,
     EXPR_GT, EXPR_GE,
+    EXPR_LOGICAL_AND, EXPR_LOGICAL_OR, // &&, ||
 
     // Unary nodes
     EXPR_NEGATE,
-    EXPR_NOT,
+    EXPR_LOGICAL_NOT, // !<expr>
     EXPR_ADDROF, // &<obj>
     EXPR_DEREF, // *<obj>
 

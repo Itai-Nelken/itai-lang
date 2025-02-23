@@ -172,7 +172,9 @@ static Type *expr_data_type_complex(Validator *v, ASTExprNode *expr, bool isInCa
         case EXPR_LE:
         case EXPR_GT:
         case EXPR_GE:
-        case EXPR_NOT: // Unary node, but fits here.
+        case EXPR_LOGICAL_AND:
+        case EXPR_LOGICAL_OR:
+        case EXPR_LOGICAL_NOT: // Unary node, but fits here.
             // Type of conditional expression is boolean.
             return getType(v, "bool");
         case EXPR_ADDROF:
@@ -440,7 +442,9 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
         case EXPR_LT:
         case EXPR_LE:
         case EXPR_GT:
-        case EXPR_GE: {
+        case EXPR_GE:
+        case EXPR_LOGICAL_AND:
+        case EXPR_LOGICAL_OR: {
             #define IS_ASSIGNMENT_TARGET(expr) ((expr)->type == EXPR_VARIABLE || (expr)->type == EXPR_DEREF || (expr)->type == EXPR_PROPERTY_ACCESS)
             ASTExprNode *lhs = TRY(ASTExprNode *, validateExpr(v, NODE_AS(ASTBinaryExpr, parsedExpr)->lhs));
             if(NODE_IS(parsedExpr, EXPR_ASSIGN) && !IS_ASSIGNMENT_TARGET(lhs)) {
@@ -455,7 +459,7 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
         }
         // Unary nodes
         case EXPR_NEGATE:
-        case EXPR_NOT:
+        case EXPR_LOGICAL_NOT:
         case EXPR_ADDROF:
         case EXPR_DEREF: {
             // TODO: move to Type.h/c (header only if made inline function)
@@ -468,7 +472,7 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
                 stringFree(ptrName);
             }
             // !<expr> generates a boolean value.
-            if(NODE_IS(parsedExpr, EXPR_NOT)) {
+            if(NODE_IS(parsedExpr, EXPR_LOGICAL_NOT)) {
                 exprTy = getType(v, "bool"); // since exprTy was type of operand.
             }
             checkedExpr = NODE_AS(ASTExprNode, astUnaryExprNew(getCurrentAllocator(v), parsedExpr->type, parsedExpr->location, exprTy, checkedOperand));
