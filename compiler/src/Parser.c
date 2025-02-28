@@ -28,7 +28,6 @@ static void parser_init_internal(Parser *p, Compiler *c, Scanner *s) {
     p->state.previous_token.type = TK_GARBAGE;
     p->state.had_error = false;
     p->state.need_sync = false;
-    p->state.prevSyncTo = TK_TYPE_COUNT; // Note: a way to say nothing (NULL).
     p->state.idTypeCounter = 0;
     p->primitives.void_ = NULL;
     p->primitives.int32 = NULL;
@@ -1118,26 +1117,27 @@ static ASTObj *parseDeclaration(Parser *p) {
 }
 
 
-// TODO: unwind scope tree to module scope.
 // Sync to declaration boundaries
 static void synchronizeToDecl(Parser *p) {
-    if(current(p).type == p->state.prevSyncTo) {
-        advance(p); // So we don't get stuck in a sync->fail->sync->... infinite loop.
-    }
     // Unwind the scope tree/list to the module scope.
+    ScopeDepth scopeDepth = getCurrentScope(p)->depth;
     while(getCurrentScope(p)->depth != SCOPE_DEPTH_MODULE_NAMESPACE) {
         VERIFY(p->current.scope->parent != NULL); // Should never happen.
         p->current.scope = p->current.scope->parent;
     }
     while(!isEof(p)) {
         switch(current(p).type) {
-            case TK_VAR:
             case TK_FN:
-                // TODO: When structs with methods are supported, we need to not allow
-                //       TK_FN as exit condition if we were inside a struct.
+            // If we were parsing a struct when we failed, we want to exit it completely
+            // since we unwound the scope tree to the module scope, meaning that the state
+            // of the parser is not inside a struct anymore.
+            if(scopeDepth == SCOPE_DEPTH_STRUCT) {
+                break;
+            }
+            case TK_VAR:
             case TK_STRUCT:
-            case TK_EXTERN:
-                p->state.prevSyncTo = current(p).type;
+            //case TK_EXTERN:
+            case TK_IMPORT:
                 return;
             default:
                 break;
@@ -1147,21 +1147,11 @@ static void synchronizeToDecl(Parser *p) {
 }
 
 static void synchronizeToFnStructDecl(Parser *p) {
-    // FIXME: This will not be needed once we can parse
-    //        TK_EXTERN and TK_STRUCT. The infinite loop happened because
-    //        the parser doesn't know how to handle those tokens yet, but
-    //        the synchronizer does.
-    //        See notes in commit 5473080de67a0e1d38cf80c80189169492a9b003: Parser: don't get stuck in sync->fail->sync->... infinite loops
-    //        When removing, also remove from synchronizeToDecl().
-    if(current(p).type == p->state.prevSyncTo) {
-        advance(p); // So we don't get stuck in a sync->fail->sync->... infinite loop.
-    }
     while(!isEof(p)) {
         switch(current(p).type) {
             case TK_FN:
             case TK_STRUCT:
-            case TK_EXTERN:
-                p->state.prevSyncTo = current(p).type;
+            //case TK_EXTERN: // TODO: re-add once we parse extern structs (also in synchronizeToDecl().)
                 return;
             default:
                 break;
