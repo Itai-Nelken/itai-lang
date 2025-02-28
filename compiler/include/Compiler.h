@@ -13,6 +13,7 @@ typedef usize FileID;
 
 typedef struct file {
     String path;
+    String fileNameNoExtension; // only file name (without path or file extension.)
     String contents;
 } File;
 

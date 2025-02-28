@@ -9,12 +9,27 @@
 
 void fileInit(File *f, const char *path) {
     f->path = stringCopy(path);
+    // remove file extension.
+    char *extension = strrchr(f->path, '.');
+    char *basename = strrchr(f->path, '/');
+    if(basename) {
+        basename++; // trim '/'.
+    } else {
+        basename = f->path; // If path has no '/', basename is simply the path.
+    }
+    // 'f' 'o' 'l' 'd' 'e' 'r' '/' 'f' 'i' 'l' 'e' '.' 't' 'x' 't'
+    //  0   1   2   3   4   5   6   7   8   9   10  11  12  13  14
+    //                basename -^        extension -^
+    usize len = (usize)(extension - basename);
+    f->fileNameNoExtension = stringFormat("%.*s", len, basename);
     f->contents = NULL;
 }
 
 void fileFree(File *f) {
     stringFree(f->path);
+    stringFree(f->fileNameNoExtension);
     f->path = NULL;
+    f->fileNameNoExtension = NULL;
     if(f->contents) {
         stringFree(f->contents);
         f->contents = NULL;
