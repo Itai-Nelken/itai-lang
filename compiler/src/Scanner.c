@@ -305,6 +305,7 @@ static bool set_source(Scanner *s, FileID file) {
         return false;
     }
     s->source = contents;
+    s->start = s->current = 0;
     return true;
 }
 
