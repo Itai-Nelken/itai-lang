@@ -1178,7 +1178,8 @@ static void import_primitive_types(Parser *p, ModuleID mID) {
 }
 
 // Returns true on successful parse, or false on failure.
-// module_body -> declaration*
+// module_body -> import* declaration*
+// import -> 'import' <str> ';'
 static bool parseModuleBody(Parser *p, ASTString name) {
     ModuleID mID = astProgramNewModule(p->program, name);
     ASTModule *module = astProgramGetModule(p->program, mID);
@@ -1204,6 +1205,24 @@ static bool parseModuleBody(Parser *p, ASTString name) {
                     arrayPush(&getCurrentModule(p)->variableDecls, (void *)varDecl);
                 }
             }
+        } else if(match(p, TK_IMPORT)) {
+            if(!consume(p, TK_STRING_LITERAL)) {
+                continue;
+            }
+            Token importStrToken = previous(p);
+            if(!consume(p, TK_SEMICOLON)) {
+                continue;
+            }
+            // Trim '"'s from beginning and end of string.
+            ASTString importStr = stringTableFormat(p->program->strings, "%.*s", importStrToken.length-2, importStrToken.lexeme+1);
+            stringAppend(&importStr, ".ilc"); // TODO: change if file extension changes.
+            // TODO: replace "." with PATH variable of sorts (MODULE_PATH/IMPORT_PATH etc.)
+            if(!doesFileExist(".", importStr)) {
+                errorAt(p, importStrToken.location, tmp_buffer_format(p, "Cannot find module '%s'.", importStr));
+                hint(p, importStrToken.location, tmp_buffer_format(p, "Is the filename of requested module '%s'?", importStr));
+                continue;
+            }
+            compilerAddFile(p->compiler, importStr);
         } else {
             ASTObj *obj = parseDeclaration(p);
             if(obj) {
