@@ -116,7 +116,7 @@ void astExprPrint(FILE *to, ASTExprNode *n) {
             fprintf(to, ", \x1b[1mvalue: \x1b[0;34m%lu\x1b[0m", NODE_AS(ASTConstantValueExpr, n)->as.number);
             break;
         case EXPR_STRING_CONSTANT:
-            fprintf(to, ", \x1b[1mvalue: \x1b[0;34m%s\x1b[0m", NODE_AS(ASTConstantValueExpr, n)->as.string);
+            fprintf(to, ", \x1b[1mvalue: \"\x1b[0;34m%s\x1b[0m\"", NODE_AS(ASTConstantValueExpr, n)->as.string);
             break;
         case EXPR_BOOLEAN_CONSTANT:
             fprintf(to, ", \x1b[1mvalue: \x1b[0;34m%s\x1b[0m", NODE_AS(ASTConstantValueExpr, n)->as.boolean ? "true" : "false");

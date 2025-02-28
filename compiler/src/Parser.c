@@ -343,7 +343,8 @@ static ASTExprNode *parse_number_literal_expr(Parser *p) {
 
 static ASTExprNode *parse_string_literal_expr(Parser *p) {
     Token tk = previous(p);
-    ASTString value = stringTableFormat(p->program->strings, "%.*s", tk.length, tk.lexeme);
+    // trim '"' from beginning and end of string.
+    ASTString value = stringTableFormat(p->program->strings, "%.*s", tk.length-2, tk.lexeme+1);
     // TODO: add string type here since string literals will always be of type 'str'.
     ASTConstantValueExpr *n = astConstantValueExprNew(getCurrentAllocator(p), EXPR_STRING_CONSTANT, tk.location, NULL);
     n->as.string = value;
