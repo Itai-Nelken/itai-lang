@@ -72,6 +72,7 @@ typedef enum token_type {
     TK_DEFER,
     TK_MODULE,
     TK_EXPECT,
+    TK_IMPORT,
 
     // primitive types
     TK_VOID, TK_I32, TK_U32, TK_STR, TK_BOOL,

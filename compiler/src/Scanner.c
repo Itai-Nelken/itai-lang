@@ -190,6 +190,9 @@ static TokenType scan_keyword_or_identifier_type(Scanner *s) {
                 case 3:
                     result =  CHECK("i32", 3, TK_I32);
                     break;
+                case 6:
+                    result = CHECK("import", 6, TK_IMPORT);
+                    break;
                 default:
                     result = TK_IDENTIFIER;
                     break;

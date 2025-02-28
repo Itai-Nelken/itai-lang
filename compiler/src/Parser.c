@@ -285,6 +285,7 @@ static ParseRule rules[] = {
     [TK_DEFER]          = {NULL, NULL, PREC_LOWEST},
     [TK_MODULE]         = {NULL, NULL, PREC_LOWEST},
     [TK_EXPECT]         = {NULL, NULL, PREC_LOWEST},
+    [TK_IMPORT]         = {NULL, NULL, PREC_LOWEST},
     [TK_VOID]           = {NULL, NULL, PREC_LOWEST},
     [TK_I32]            = {NULL, NULL, PREC_LOWEST},
     [TK_U32]            = {NULL, NULL, PREC_LOWEST},
