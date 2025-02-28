@@ -1214,8 +1214,7 @@ static bool parseModuleBody(Parser *p, ASTString name) {
                 continue;
             }
             // Trim '"'s from beginning and end of string.
-            ASTString importStr = stringTableFormat(p->program->strings, "%.*s", importStrToken.length-2, importStrToken.lexeme+1);
-            stringAppend(&importStr, ".ilc"); // TODO: change if file extension changes.
+            ASTString importStr = stringTableFormat(p->program->strings, "%.*s.ilc", importStrToken.length-2, importStrToken.lexeme+1);
             // TODO: replace "." with PATH variable of sorts (MODULE_PATH/IMPORT_PATH etc.)
             if(!doesFileExist(".", importStr)) {
                 errorAt(p, importStrToken.location, tmp_buffer_format(p, "Cannot find module '%s'.", importStr));
@@ -1223,6 +1222,9 @@ static bool parseModuleBody(Parser *p, ASTString name) {
                 continue;
             }
             compilerAddFile(p->compiler, importStr);
+        } else if(match(p, TK_FILE_CHANGED)) {
+            // End of module. exit.
+            break;
         } else {
             ASTObj *obj = parseDeclaration(p);
             if(obj) {
@@ -1248,6 +1250,7 @@ static bool parseModuleBody(Parser *p, ASTString name) {
         }
     }
 
+    p->current.scope = NULL;
     return !p->state.had_error;
 }
 
@@ -1263,22 +1266,15 @@ bool parserParse(Parser *p, ASTProgram *prog) {
         return false;
     }
 
-    // TODO: create function parseModuleDecl() for this.
-    // module_decl -> ('module' identifier ';')+
-    if(match(p, TK_MODULE)) {
-        Location loc = previous(p).location;
-        TRY_CONSUME(p, TK_IDENTIFIER);
-        TRY_CONSUME(p, TK_SEMICOLON);
-        errorAt(p, loc, "Module declarations are not supported yet.");
-        p->program = NULL;
-        return false;
-    }
+    while(!isEof(p)) {
+        File *file = compilerGetFile(p->compiler, compilerGetCurrentFileID(p->compiler));
+        ASTString moduleName = stringTableString(p->program->strings, file->fileNameNoExtension);
 
-    // The root module represents the top level (file) scope).
-    if(!parseModuleBody(p, stringTableString(prog->strings, "___root_module___"))) {
-        // Errors have already been reported
-        p->program = NULL;
-        return false;
+        if(!parseModuleBody(p, moduleName)) {
+            // Errors have already been reported
+            p->program = NULL;
+            return false;
+        }
     }
 
     return true;

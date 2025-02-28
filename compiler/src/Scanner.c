@@ -328,7 +328,9 @@ Token scannerNextToken(Scanner *s) {
     Token tk = scan_token(s);
     if(tk.type == TK_EOF && compilerHasNextFile(s->compiler)) {
         set_source(s, compilerNextFile(s->compiler));
-        tk = scan_token(s);
+        File *newFile = compilerGetFile(s->compiler, compilerGetCurrentFileID(s->compiler));
+        VERIFY(newFile);
+        tk = tokenNew(TK_FILE_CHANGED, EMPTY_LOCATION, newFile->fileNameNoExtension, stringLength(newFile->fileNameNoExtension));
     }
     return tk;
 }

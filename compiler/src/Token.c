@@ -80,6 +80,7 @@ static const char *token_type_name(TokenType type) {
         [TK_STR]            = "TK_STR",
         [TK_BOOL]           = "TK_BOOL",
         [TK_IDENTIFIER]     = "TK_IDENTIFIER",
+        [TK_FILE_CHANGED]   = "TK_FILE_CHANGED",
         [TK_GARBAGE]        = "TK_GARBAGE",
         [TK_EOF]            = "TK_EOF"
     };
@@ -160,6 +161,7 @@ const char *tokenTypeString(TokenType type) {
         [TK_STR]            = "str",
         [TK_BOOL]           = "bool",
         [TK_IDENTIFIER]     = "<identifier>",
+        [TK_FILE_CHANGED]   = "<file change>",
         [TK_GARBAGE]        = "<garbage>",
         [TK_EOF]            = "<eof>"
     };

@@ -81,6 +81,7 @@ typedef enum token_type {
     TK_IDENTIFIER,
 
     // Other
+    TK_FILE_CHANGED, // emitted when the source file is changed. lexeme is name of new file,
     TK_GARBAGE,
     TK_EOF,
     TK_TYPE_COUNT
