@@ -59,6 +59,16 @@ const char *fileBasename(File *f);
  ***/
 String fileRead(File *f);
 
+/***
+ * Check if a file exists in a base directory.
+ * The path may include directories.
+ * For example: to check if the file "a/b/c.txt" exists in "current" directory, baseDir will ".".
+ *
+ * @param baseDir The base directory to search from.
+ * @param path The path to the file to check.
+ * @return true if the file exists, false if it doesn't.
+ ***/
+bool doesFileExist(const char *baseDir, const char *path);
 
 /** Compiler **/
 

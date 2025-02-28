@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h> // access()
 #include "common.h"
 #include "memory.h"
 #include "Strings.h"
@@ -23,6 +24,13 @@ void fileFree(File *f) {
 const char *fileBasename(File *f) {
     char *p = strrchr(f->path, '/');
     return (const char *)(p ? p + 1 : f->path);
+}
+
+bool doesFileExist(const char *baseDir, const char *path) {
+    String fullPath = stringFormat("%s/%s", baseDir, path);
+    bool result = access(fullPath, F_OK) == 0; // TODO: I don't think this is portable.
+    stringFree(fullPath);
+    return result;
 }
 
 String fileRead(File *f) {
