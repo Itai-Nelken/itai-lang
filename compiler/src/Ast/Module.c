@@ -29,6 +29,13 @@ static void free_object_callback(void *obj, void *cl) {
     astObjectFree((ASTObj *)obj);
 }
 
+static void print_imported_modules_callback(TableItem *item, bool isLast, void *stream) {
+    FILE *to = (FILE *)stream;
+    fprintf(to, "%s", (ASTString)item->key);
+    if(!isLast) {
+        fputs(", ", to);
+    }
+}
 
 /* Module functions */
 
@@ -53,6 +60,8 @@ void astModulePrint(FILE *to, ASTModule *m, bool compact) {
             fputs(", ", to);
         }
     }
+    fputs("], \x1b[1mimportedModules:\x1b[0m [", to);
+    tableMap(&m->importedModules, print_imported_modules_callback, (void *)to);
     fputs("]}", to);
 }
 
@@ -66,6 +75,7 @@ ASTModule *astModuleNew(ASTString name) {
     m->moduleScope = scopeNew(NULL, SCOPE_DEPTH_MODULE_NAMESPACE);
     tableInit(&m->types, NULL, NULL);
     arrayInit(&m->variableDecls);
+    tableInit(&m->importedModules, NULL, NULL);
     return m;
 }
 
@@ -80,6 +90,7 @@ void astModuleFree(ASTModule *module) {
     tableMap(&module->types, free_type_callback, NULL);
     tableFree(&module->types);
     arrayFree(&module->variableDecls); // ASTNodes are owned by the arena in the module.
+    tableFree(&module->importedModules);
     FREE(module);
 }
 
@@ -96,6 +107,14 @@ void astModuleAddType(ASTModule *module, Type *ty) {
 void astModuleAddVarDecl(ASTModule *module, ASTVarDeclStmt *decl) {
     VERIFY(decl != NULL);
     arrayPush(&module->variableDecls, (void *)decl);
+}
+
+void astModuleAddImport(ASTModule *module, ASTString importName, ModuleID moduleID) {
+    // If the modules was already imported, don't do anything.
+    if(tableGet(&module->importedModules, (void *)importName) != NULL) {
+        return;
+    }
+    tableSet(&module->importedModules, (void *)importName, (void *)moduleID);
 }
 
 ASTObj *astModuleNewObj(ASTModule *module, ASTObjType objType, Location objLoc, ASTString objName, Type *objDataType) {

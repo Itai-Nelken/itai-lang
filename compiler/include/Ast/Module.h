@@ -14,6 +14,8 @@
  * A Module is basically a wrapper around a scope to represent a certain namespace that we call a module.
  * It owns all the AST nodes and all the scopes for the module it represents. The module scope/root scope represents the module namespace.
  * A Module also owns and maintains a type table for all the types declared in this module. The primitive types exist in all modules, TODO: but are owned by the ASTProgram???
+ * A module also maintains a table of any other modules it imports. This is then used in the Validator to assign the correct ASTObj
+ * to variables/calls of type/to structs/functions/module variables from the imported modules.
  **/
 typedef struct ast_module {
     struct {
@@ -26,8 +28,12 @@ typedef struct ast_module {
     Scope *moduleScope; // owned by this struct.
     // Holds any "global" variable declarations.
     Array variableDecls; // Array<ASTVarDeclStmt *>
+    Table importedModules; // Table<ASTString, ModuleID> (ModuleID is only added in validator.)
 } ASTModule;
 
+
+// Can't include Ast/Program.h since it includes this files.
+typedef usize ModuleID;
 
 /**
  * Pretty print an ASTModule.
@@ -77,6 +83,15 @@ void astModuleAddType(ASTModule *module, Type *ty);
  * @param decl The declaration to add (C.R.E for decl == NULL).
  **/
 void astModuleAddVarDecl(ASTModule *module, ASTVarDeclStmt *decl);
+
+/**
+ * Add a module as imported.
+ *
+ * @param module The module to add the imported module to.
+ * @param importName The name of the module to import.
+ * @param moduleID The moduleID of the module to import.
+ **/
+void astModuleAddImport(ASTModule *module, ASTString importName, ModuleID moduleID);
 
 /**
  * Allocate an ASTObj using the module's object allocator.

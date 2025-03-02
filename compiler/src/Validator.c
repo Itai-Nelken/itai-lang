@@ -905,6 +905,23 @@ static void validate_type_callback(TableItem *item, bool is_last, void *validato
     }
 }
 
+static void validate_import_callback(TableItem *item, bool isLast, void *validator) {
+    UNUSED(isLast);
+    Validator *v = (Validator *)validator;
+    ASTString importName = (ASTString)item->key;
+    // TODO: store modules in a set (table with no value) for O(1) lookup.
+    ARRAY_FOR(i, v->parsedProgram->modules) {
+        ASTModule *m = ARRAY_GET_AS(ASTModule *, &v->parsedProgram->modules, i);
+        if(importName == m->name) {
+            astModuleAddImport(getCurrentCheckedModule(v), importName, (ModuleID)i);
+            return;
+        }
+    }
+    // Modules are checked for existence in parser.
+    // If the Validator is called, then all imports in the parsedProgram MUST exist.
+    UNREACHABLE();
+}
+
 // Notes:
 //   * The new module is created with astProgramNewModule(checked_prog), and so there is no need to return it.
 //   * C.R.E for moduleID > amount of modules in parsed module.
@@ -913,6 +930,7 @@ static void validateModule(Validator *v, ModuleID moduleID) {
     // Is the moduleID valid (withing the range of existing modules)?
     VERIFY(moduleID < arrayLength(&v->parsedProgram->modules));
     // validate:
+    //     imports
     //     types
     //     variable declarations (module scoppe)
     //     scopes
@@ -925,6 +943,12 @@ static void validateModule(Validator *v, ModuleID moduleID) {
     v->current.module = moduleID;
     v->current.parsedScope = parsedModule->moduleScope;
     v->current.checkedScope = checkedModule->moduleScope;
+
+    // Validate imports.
+    tableMap(&parsedModule->importedModules, validate_import_callback, (void *)v);
+    if(v->hadError) {
+        return;
+    }
 
     // Validate types.
     tableMap(&parsedModule->types, validate_type_callback, (void *)v);

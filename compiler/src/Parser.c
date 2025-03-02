@@ -1217,14 +1217,16 @@ static bool parseModuleBody(Parser *p, ASTString name) {
                 continue;
             }
             // Trim '"'s from beginning and end of string.
-            ASTString importStr = stringTableFormat(p->program->strings, "%.*s.ilc", importStrToken.length-2, importStrToken.lexeme+1);
+            ASTString importStr = stringTableFormat(p->program->strings, "%.*s", importStrToken.length-2, importStrToken.lexeme+1);
             // TODO: replace "." with PATH variable of sorts (MODULE_PATH/IMPORT_PATH etc.)
-            if(!doesFileExist(".", importStr)) {
+            if(!doesFileExist(".", tmp_buffer_format(p, "%s.ilc", importStr))) {
                 errorAt(p, importStrToken.location, tmp_buffer_format(p, "Cannot find module '%s'.", importStr));
-                hint(p, importStrToken.location, tmp_buffer_format(p, "Is the filename of requested module '%s'?", importStr));
+                hint(p, importStrToken.location, tmp_buffer_format(p, "Is the filename of requested module '%s.ilc'?", importStr));
                 continue;
             }
-            compilerAddFile(p->compiler, importStr);
+            compilerAddFile(p->compiler, stringTableFormat(p->program->strings, "%s.ilc", importStr));
+            // ModuleID is added in validator. for now, set it to -1 just to have a value that is unlikely to occur naturaly.
+            astModuleAddImport(getCurrentModule(p), importStr, (ModuleID)-1);
         } else if(match(p, TK_FILE_CHANGED)) {
             // End of module. exit.
             break;
