@@ -198,21 +198,22 @@ static void leaveScope(Parser *p) {
 /** Expression Parser **/
 
 typedef enum precedence {
-    PREC_LOWEST     = 0,  // lowest
-    PREC_ASSIGNMENT = 1,  // infix =
-    PREC_BIT_OR     = 2,  // infix |
-    PREC_BIT_XOR    = 3,  // infix ^
-    PREC_BIT_AND    = 4,  // infix &
-    PREC_EQUALITY   = 5,  // infix == !=
-    PREC_COMPARISON = 6,  // infix > >= < <=
-    PREC_BIT_SHIFT  = 7,  // infix >> <<
-    PREC_LOGIC_AND  = 8,  // infix &&
-    PREC_LOGIC_OR   = 9,  // infix ||
-    PREC_TERM       = 10, // infix + -
-    PREC_FACTOR     = 1,  // infix * /
-    PREC_UNARY      = 12, // unary + -
-    PREC_CALL       = 13, // (), a.b
-    PREC_PRIMARY    = 14  // highest
+    PREC_LOWEST           = 0,  // lowest
+    PREC_ASSIGNMENT       = 1,  // infix =
+    PREC_BIT_OR           = 2,  // infix |
+    PREC_BIT_XOR          = 3,  // infix ^
+    PREC_BIT_AND          = 4,  // infix &
+    PREC_EQUALITY         = 5,  // infix == !=
+    PREC_COMPARISON       = 6,  // infix > >= < <=
+    PREC_BIT_SHIFT        = 7,  // infix >> <<
+    PREC_LOGIC_AND        = 8,  // infix &&
+    PREC_LOGIC_OR         = 9,  // infix ||
+    PREC_TERM             = 10, // infix + -
+    PREC_FACTOR           = 1,  // infix * /
+    PREC_UNARY            = 12, // unary + -
+    PREC_CALL             = 13, // (), a.b
+    PREC_SCOPE_RESOLUTION = 14, // A::B
+    PREC_PRIMARY          = 15  // highest
 } Precedence;
 
 typedef ASTExprNode *(*PrefixParseFn)(Parser *p);
@@ -386,6 +387,7 @@ static ASTExprNode *parse_binary_expr(Parser *p, ASTExprNode *lhs) {
         case TK_LESS_EQUAL: nodeType = EXPR_LE; break;
         case TK_GREATER: nodeType = EXPR_GT; break;
         case TK_GREATER_EQUAL: nodeType = EXPR_GE; break;
+        case TK_SCOPE_RESOLUTION: nodeType = EXPR_SCOPE_RESOLUTION; break;
         case TK_AND: nodeType = EXPR_LOGICAL_AND; break;
         case TK_OR: nodeType = EXPR_LOGICAL_OR; break;
         default: UNREACHABLE();

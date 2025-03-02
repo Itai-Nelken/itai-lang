@@ -56,6 +56,7 @@ typedef enum token_type {
     TK_BANG, TK_BANG_EQUAL,
     TK_LESS, TK_LESS_EQUAL,
     TK_GREATER, TK_GREATER_EQUAL,
+    TK_SCOPE_RESOLUTION, // :: (as in Module::Type.)
 
     // Literals
     TK_NUMBER_LITERAL,
