@@ -70,7 +70,6 @@ typedef enum token_type {
     TK_STRUCT,
     TK_EXTERN,
     TK_DEFER,
-    TK_MODULE,
     TK_EXPECT,
     TK_IMPORT,
 
