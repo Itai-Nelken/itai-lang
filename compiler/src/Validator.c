@@ -494,20 +494,17 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
         }
         // Call node
         case EXPR_CALL: {
-            // a callable object is either a function or a variable that refers to a function.
-            #define IS_CALLABLE(expr) (NODE_IS(expr, EXPR_FUNCTION) || (NODE_IS(expr, EXPR_VARIABLE) && NODE_AS(ASTObjExpr, expr)->obj->dataType->type == TY_FUNCTION) || (NODE_IS(expr, EXPR_PROPERTY_ACCESS) && NODE_AS(ASTBinaryExpr, expr)->rhs->dataType->type == TY_FUNCTION))
             ASTCallExpr *parsedCall = NODE_AS(ASTCallExpr, parsedExpr);
             // 1. validate callee, make sure its callable.
             ASTExprNode *checkedCallee = TRY(ASTExprNode *, validateExpr(v, parsedCall->callee));
             VERIFY(checkedCallee->dataType);
-            if(!IS_CALLABLE(checkedCallee)) {
+            if(checkedCallee->dataType->type != TY_FUNCTION) {
                 error(v, checkedCallee->location, "Type '%s' isn't callable.", checkedCallee->dataType->name);
                 // Note: we can continue validating since we don't typecheck the arguments yet,
                 //       so we don't need to know what type they are supposed to be, info that's
                 //       only available if the type is callable (and eventually refers to a function.)
                 break;
             }
-            #undef IS_CALLABLE
 
             Array checkedArguments;
             // size + 1 for potential 'this' implicit argument.
