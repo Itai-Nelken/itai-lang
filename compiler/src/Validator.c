@@ -65,6 +65,17 @@ static Type *getType(Validator *v, const char *name) {
     return ty;
 }
 
+static ASTModule *getImportedModule(Validator *v, ASTString name) {
+    TableItem *item = tableGet(&getCurrentCheckedModule(v)->importedModules, (void *)name);
+    if(item == NULL) {
+        return NULL;
+    }
+    ModuleID mID = (ModuleID)item->value;
+    // FIXME: module might not necessarily exist. Need to make "predeclare" all modules for this to work.
+    //        This would be a similar solution to how I handle validated objects not necessarily existing yet.
+    return astProgramGetModule(v->checkedProgram, mID);
+}
+
 // if !expr, returns NULL. otherwise expands to of expr.
 // Undefed at end of file.
 #define TRY(type, expr) ({ \
@@ -177,6 +188,12 @@ static Type *expr_data_type_complex(Validator *v, ASTExprNode *expr, bool isInCa
         case EXPR_LOGICAL_NOT: // Unary node, but fits here.
             // Type of conditional expression is boolean.
             return getType(v, "bool");
+        case EXPR_SCOPE_RESOLUTION:
+            VERIFY(expr->dataType);
+            if(expr->dataType->type == TY_FUNCTION) {
+                return expr->dataType->as.fn.returnType;
+            }
+            return expr->dataType;
         case EXPR_ADDROF:
             VERIFY(expr->dataType); // In case called on parsed expr.
             return expr->dataType; // The pointer type.
@@ -457,6 +474,37 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
             break;
             #undef IS_ASSIGNMENT_TARGET
         }
+        case EXPR_SCOPE_RESOLUTION: {
+            ASTBinaryExpr *scopeResExpr = NODE_AS(ASTBinaryExpr, parsedExpr);
+            // Note: these names aren't accurate since rhs might be another scope resolution expression,
+            //       but its easier to just give it that name.
+            VERIFY(NODE_IS(scopeResExpr->lhs, EXPR_IDENTIFIER));
+            ASTIdentifierExpr *scopeNameNode = NODE_AS(ASTIdentifierExpr, scopeResExpr->lhs);
+            ASTModule *importedModule = NULL;
+            if((importedModule = getImportedModule(v, scopeNameNode->id)) == NULL) {
+                error(v, scopeNameNode->header.location, "Module '%s' has not been imported.", scopeNameNode->id);
+                return NULL;
+            }
+            // FIXME: this only work with single level scope resolution (i.e. A::B).
+            //        if there are more levels (A::B::C::D etc.) this will crash.
+            VERIFY(scopeResExpr->rhs->type == EXPR_IDENTIFIER);
+            ASTIdentifierExpr *objectNameNode = NODE_AS(ASTIdentifierExpr, scopeResExpr->rhs);
+            ASTObj *objectImported = scopeGetAnyObject(importedModule->moduleScope, objectNameNode->id);
+            if(objectImported == NULL) {
+                error(v, objectNameNode->header.location, "Identifier '%s' does not exist in module '%s'.", objectNameNode->id, scopeNameNode->id);
+                return NULL;
+            }
+            ASTExprType objNodeType;
+            switch(objectImported->type) {
+                case OBJ_VAR: objNodeType = EXPR_VARIABLE; break;
+                case OBJ_FN: objNodeType = EXPR_FUNCTION; break;
+                default: UNREACHABLE();
+            }
+            ASTExprNode *objectNode = (ASTExprNode *)astObjExprNew(getCurrentAllocator(v), objNodeType, objectNameNode->header.location, objectImported);
+            ASTExprNode *moduleNode = (ASTExprNode *)astModuleExprNew(getCurrentAllocator(v), scopeNameNode->header.location, importedModule);
+            checkedExpr = NODE_AS(ASTExprNode, astBinaryExprNew(getCurrentAllocator(v), EXPR_SCOPE_RESOLUTION, parsedExpr->location, objectNode->dataType, moduleNode, objectNode));
+            break;
+        }
         // Unary nodes
         case EXPR_NEGATE:
         case EXPR_LOGICAL_NOT:
@@ -585,6 +633,7 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
             checkedExpr->dataType = obj->dataType;
             break;
         }
+        case EXPR_MODULE: // Is only created by ourselves.
         default:
             UNREACHABLE();
     }
@@ -984,11 +1033,109 @@ static void validateModule(Validator *v, ModuleID moduleID) {
     // See notes above declaration of this function on how caller should check for errors.
 }
 
+static void collect_imports_callback(TableItem *item, bool isLast, void *output) {
+    UNUSED(isLast);
+    arrayPush((Array *)output, item->key);
+}
+
+static ASTModule *get_module_by_name(Array *modules, ASTString name) {
+    ARRAY_FOR(i, *modules) {
+        ASTModule *m = ARRAY_GET_AS(ASTModule *, modules, i);
+        if(name == m->name) {
+            return m;
+        }
+    }
+    UNREACHABLE();
+}
+
+static bool topographicallySortModules(Validator *v, Array *modules, Array *output) {
+    Table dependencies; // Table<ASTString, i64> (string is module name.)
+    tableInit(&dependencies, NULL, NULL);
+
+    ARRAY_FOR(i, *modules) {
+        ASTModule *m = ARRAY_GET_AS(ASTModule *, modules, i);
+        Array imports; // Array<ASTModule *>
+        arrayInitSized(&imports, tableSize(&m->importedModules));
+        tableMap(&m->importedModules, collect_imports_callback, (void *)&imports);
+        ARRAY_FOR(j, imports) {
+            ASTString importName = ARRAY_GET_AS(ASTString, &imports, j);
+            TableItem *item = tableGet(&dependencies, (void *)importName);
+            i64 existing = item == NULL ? 0 : (i64)item->value;
+            tableSet(&dependencies, (void *)importName, (void *)(existing + 1));
+        }
+        arrayFree(&imports);
+        if(tableGet(&dependencies, (void *)m->name) == NULL) {
+            tableSet(&dependencies, (void *)m->name, (void *)0l);
+        }
+    }
+
+    Array stack; // Array<ASTModule *>
+    arrayInit(&stack);
+    ARRAY_FOR(i, *modules) {
+        ASTModule *m = ARRAY_GET_AS(ASTModule *, modules, i);
+        TableItem *item = tableGet(&dependencies, (void *)m->name);
+        if((i64)item->value == 0) {
+            arrayPush(&stack, (void *)m);
+        }
+    }
+
+    arrayClear(output);
+    while(arrayLength(&stack) > 0) {
+        ASTModule *m = ARRAY_POP_AS(ASTModule *, &stack);
+        arrayPush(output, (void *)m);
+        Array imports; // Array<ASTString>
+        arrayInitSized(&imports, tableSize(&m->importedModules));
+        tableMap(&m->importedModules, collect_imports_callback, (void *)&imports);
+        ARRAY_FOR(i, imports) {
+            ASTString importName = ARRAY_GET_AS(ASTString, &imports, i);
+            TableItem *item = tableGet(&dependencies, (void *)importName);
+            i64 existing = (i64)item->value;
+            tableSet(&dependencies, (void *)importName, (void *)(existing - 1));
+            if(existing == 1) {
+                arrayPush(&stack, get_module_by_name(modules, importName));
+            }
+        }
+        arrayFree(&imports);
+    }
+    arrayFree(&stack);
+
+    if(arrayLength(output) != arrayLength(modules)) {
+        VERIFY(arrayLength(modules) > arrayLength(output));
+        for(usize i = arrayLength(output); i < arrayLength(modules); ++i) {
+            ASTModule *m = ARRAY_GET_AS(ASTModule *, modules, i);
+            String msg = stringFormat("Module '%s' has cyclic imports.", m->name);
+            add_error(v, false, EMPTY_LOCATION, ERR_ERROR, msg);
+            stringFree(msg);
+        }
+    }
+    // Reverse output array so the module with the least dependencies
+    // will be first, then the next one etc.
+    // The last modules has the most dependencies.
+    // Note: dependency means that another module imports it.
+    arrayReverse(output);
+
+    tableFree(&dependencies);
+    return true;
+}
+
 bool validatorValidate(Validator *v, ASTProgram *parsedProg, ASTProgram *checkedProg) {
     VERIFY(parsedProg);
     VERIFY(checkedProg);
     v->parsedProgram = parsedProg;
     v->checkedProgram = checkedProg;
+    // Sort all the modules by imports. This will also detect cyclic imports.
+    // Example: if a imports b and b imports c, c will be first, then b, then a.
+    //          It would be an error for a to import b, and for b to import a (directly or indeirectly.)
+    Array sortedModules; // Array<ASTModule *>
+    arrayInitSized(&sortedModules, arrayLength(&parsedProg->modules));
+    if(!topographicallySortModules(v, &parsedProg->modules, &sortedModules)) {
+        // error: cyclic modules. already reported.
+        return false;
+    }
+    // FIXME: This changes the ModuleIDs!!!!
+    arrayClear(&parsedProg->modules);
+    arrayCopy(&parsedProg->modules, &sortedModules);
+    arrayFree(&sortedModules);
     // Validate all modules.
     ARRAY_FOR(i, parsedProg->modules) {
         validateModule(v, i);

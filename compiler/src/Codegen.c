@@ -1,6 +1,7 @@
 #include <stdio.h> // FILE
 #include <stdarg.h>
 #include "common.h"
+#include "Strings.h"
 #include "Ast/Ast.h"
 #include "Codegen.h"
 
@@ -21,10 +22,14 @@ typedef struct codegen {
     ASTProgram *program;
     Table fnTypes; // Table<ASTString, ASTString> (typename, C typename)
     unsigned fnTypenameCounter;
+    String idBuffer;
     bool isInCall; // For proper method call generation.
     ASTObj *currentFn;
+    ASTModule *currentModule;
     Array defersInCurrentFn; // Array<ASTStmtNode *>
     Table methodCNames; // Table<ASTString, ASTString> (name, C name)
+    ASTObj *mainFn;
+    ASTString mainFNCname;
 } Codegen;
 
 static void print(Codegen *cg, const char *format, ...) {
@@ -39,6 +44,12 @@ static void genInternalID(Codegen *cg, const char *name, const char *prefix, con
     print(cg, "%s___ilc_internal__%s%s", prefix ? prefix : "", name, postfix ? postfix : "");
 }
 
+static const char *genID(Codegen *cg, const char *id) {
+    stringClear(cg->idBuffer);
+    stringAppend(&cg->idBuffer, "module%s_%s", cg->currentModule->name, id);
+    return (const char *)cg->idBuffer;
+}
+
 static void genType(Codegen *cg, Type *ty) {
     switch(ty->type) {
         case TY_VOID:
@@ -46,19 +57,21 @@ static void genType(Codegen *cg, Type *ty) {
         case TY_U32:
         case TY_STR:
         case TY_BOOL:
-        case TY_STRUCT: // yes, its here. This is intentional.
             print(cg, "%s", ty->name);
             break;
         case TY_POINTER:
             genType(cg, ty->as.ptr.innerType);
             print(cg, "*");
             break;
-        case TY_FUNCTION: {
-            TableItem *item = tableGet(&cg->fnTypes, (void *)ty->name);
-            VERIFY(item);
-            print(cg, "%s", (ASTString)item->value);
+            case TY_FUNCTION: {
+                TableItem *item = tableGet(&cg->fnTypes, (void *)ty->name);
+                VERIFY(item);
+                print(cg, "%s", (ASTString)item->value);
+                break;
+            }
+        case TY_STRUCT:
+            print(cg, "%s", genID(cg, ty->name));
             break;
-        }
         case TY_IDENTIFIER:
         default:
             UNREACHABLE();
@@ -158,6 +171,15 @@ static void genExpr(Codegen *cg, ASTExprNode *expr) {
             genExpr(cg, NODE_AS(ASTBinaryExpr, expr)->rhs);
             print(cg, ")");
             break;
+        case EXPR_SCOPE_RESOLUTION: {
+            ASTBinaryExpr *n = NODE_AS(ASTBinaryExpr, expr);
+            // TODO: this only supports one level of scope resolution
+            //       (which is fine for now since the validator currently doesn't support any more than that.)
+            VERIFY(NODE_IS(n->rhs, EXPR_VARIABLE) || NODE_IS(n->rhs, EXPR_FUNCTION));
+            VERIFY(NODE_IS(n->lhs, EXPR_MODULE));
+            print(cg, "module%s_%s", NODE_AS(ASTModuleExpr, n->lhs)->module->name, NODE_AS(ASTObjExpr, n->rhs)->obj->name);
+            break;
+        }
         // Unary nodes
         case EXPR_NEGATE:
             print(cg, "-(");
@@ -201,9 +223,13 @@ static void genExpr(Codegen *cg, ASTExprNode *expr) {
     }
 }
 
-static void genVarDecl(Codegen *cg, ASTVarDeclStmt *vdecl) {
+static void genVarDecl(Codegen *cg, ASTVarDeclStmt *vdecl, bool isModuleScope) {
     genType(cg, vdecl->variable->dataType);
-    print(cg, " %s", vdecl->variable->name);
+    if(isModuleScope) {
+        print(cg, " %s", genID(cg, vdecl->variable->name));
+    } else {
+        print(cg, " %s", vdecl->variable->name);
+    }
     if(vdecl->initializer) {
         print(cg, " = ");
         genExpr(cg, vdecl->initializer);
@@ -215,7 +241,7 @@ static void genStmt(Codegen *cg, ASTStmtNode *stmt) {
     switch(stmt->type) {
         // VarDecl nodes
         case STMT_VAR_DECL:
-            genVarDecl(cg, NODE_AS(ASTVarDeclStmt, stmt));
+            genVarDecl(cg, NODE_AS(ASTVarDeclStmt, stmt), false);
             break;
         // Block nodes
         case STMT_BLOCK:{
@@ -315,7 +341,7 @@ static void genStmt(Codegen *cg, ASTStmtNode *stmt) {
 
 static void genScope(Codegen *cg, Scope *sc, Table *moduleTypeTable, ASTObj *structure);
 static void genStruct(Codegen *cg, ASTObj *st) {
-    print(cg, "struct %s {\n", st->name); // typedef is done in predecl.
+    print(cg, "struct %s {\n", genID(cg, st->name)); // typedef is done in predecl.
     Array objects; // Array<ASTObj *>
     arrayInitSized(&objects, scopeGetNumObjects(st->as.structure.scope));
     scopeGetAllObjects(st->as.structure.scope, &objects);
@@ -436,9 +462,9 @@ static void genScope(Codegen *cg, Scope *sc, Table *moduleTypeTable, ASTObj *str
         ASTObj *obj = ARRAY_GET_AS(ASTObj *, &objects, i);
         if(obj->type == OBJ_FN) {
             // function predecl
-            ASTString CName = obj->name;
+            ASTString CName = (char *)genID(cg, obj->name);
             if(sc->depth == SCOPE_DEPTH_STRUCT) {
-                CName = stringTableFormat(cg->program->strings, "___ilc_internal__struct%s_method_%s", structure->name, obj->name);
+                CName = stringTableFormat(cg->program->strings, "___ilc_internal__struct%s_method_%s", genID(cg, structure->name), obj->name);
                 tableSet(&cg->methodCNames, (void *)obj->name, (void *)CName);
             }
             genType(cg, obj->as.fn.returnType);
@@ -459,11 +485,16 @@ static void genScope(Codegen *cg, Scope *sc, Table *moduleTypeTable, ASTObj *str
         ASTObj *obj = ARRAY_GET_AS(ASTObj *, &objects, i);
         if(obj->type == OBJ_FN) {
             cg->currentFn = obj;
-            ASTString CName = obj->name;
+            ASTString CName = (char *)genID(cg, obj->name);
             if(sc->depth == SCOPE_DEPTH_STRUCT) {
                 TableItem *item = tableGet(&cg->methodCNames, (void *)obj->name);
                 VERIFY(item);
                 CName = (ASTString)item->value;
+            }
+            if(stringEqual(obj->name, "main")) {
+                VERIFY(cg->mainFn == NULL);
+                cg->mainFn = obj;
+                cg->mainFNCname = CName;
             }
             arrayClear(&cg->defersInCurrentFn);
             genType(cg, obj->as.fn.returnType);
@@ -490,7 +521,8 @@ static void predecl_struct_types_cb(TableItem *item, bool isLast, void *cl) {
     Codegen *cg = (Codegen *)cl;
     Type *ty = (Type *)item->value;
     if(ty->type == TY_STRUCT) {
-        print(cg, "typedef struct %s %s;\n", ty->name, ty->name);
+        const char *name = genID(cg, ty->name);
+        print(cg, "typedef struct %s %s;\n", name, name);
     }
 }
 static void predecl_fn_types_cb(TableItem *item, bool isLast, void *cl) {
@@ -498,7 +530,7 @@ static void predecl_fn_types_cb(TableItem *item, bool isLast, void *cl) {
     Codegen *cg = (Codegen *)cl;
     Type *ty = (Type *)item->value;
     if(ty->type == TY_FUNCTION) {
-        ASTString fnCTypename = stringTableFormat(cg->program->strings, "fn%u", cg->fnTypenameCounter++);
+        ASTString fnCTypename = stringTableFormat(cg->program->strings, "%s%u", genID(cg, "fn"), cg->fnTypenameCounter++);
         tableSet(&cg->fnTypes, (void *)ty->name, (void *)fnCTypename);
         print(cg, "typedef ");
         genType(cg, ty->as.fn.returnType);
@@ -519,7 +551,7 @@ static void genModule(Codegen *cg, ASTModule *m) {
     print(cg, "// Module variables:\n");
     ARRAY_FOR(i, m->variableDecls) {
         ASTVarDeclStmt *vdecl = ARRAY_GET_AS(ASTVarDeclStmt *, &m->variableDecls, i);
-        genVarDecl(cg, vdecl);
+        genVarDecl(cg, vdecl, true);
     }
     // Declare function and struct types. See block comment at top of this file.
     print(cg, "// Struct & Function predeclarations:\n");
@@ -546,7 +578,10 @@ void codegenGenerate(FILE *output, ASTProgram *prog) {
         .program = prog,
         .fnTypenameCounter = 0,
         .currentFn = NULL,
-        .isInCall = false
+        .isInCall = false,
+        .currentModule = NULL,
+        .mainFn = NULL,
+        .idBuffer = stringNew(64) // random length that seems enough for most short ids.
     };
     tableInit(&cg.fnTypes, NULL, NULL);
     arrayInit(&cg.defersInCurrentFn);
@@ -554,9 +589,20 @@ void codegenGenerate(FILE *output, ASTProgram *prog) {
     genHeader(&cg);
     ARRAY_FOR(i, prog->modules) {
         ASTModule *m = ARRAY_GET_AS(ASTModule *, &prog->modules, i);
+        cg.currentModule = m;
         genModule(&cg, m);
     }
+    print(&cg, "// entry point:\n");
+    print(&cg, "int main(void) {\n");
+    if(cg.mainFn->dataType->as.fn.returnType->type != TY_VOID) {
+        print(&cg, "return %s();\n", cg.mainFNCname);
+    } else {
+        print(&cg, "%s();\n", cg.mainFNCname);
+        print(&cg, "return 0;\n");
+    }
+    print(&cg, "}\n");
     tableFree(&cg.methodCNames);
     arrayFree(&cg.defersInCurrentFn);
     tableFree(&cg.fnTypes);
+    stringFree(cg.idBuffer);
 }
