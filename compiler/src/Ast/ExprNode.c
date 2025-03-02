@@ -28,6 +28,8 @@ static const char *node_name_to_string(ASTExprType t) {
         case EXPR_VARIABLE:
         case EXPR_FUNCTION:
             return "ASTObjExpr";
+        case EXPR_MODULE:
+            return "ASTModuleExpr";
         case EXPR_ASSIGN:
         case EXPR_PROPERTY_ACCESS:
         case EXPR_ADD:
@@ -67,6 +69,7 @@ static const char *node_type_to_string(ASTExprType t) {
         [EXPR_BOOLEAN_CONSTANT] = "EXPR_BOOLEAN_CONSTANT",
         [EXPR_VARIABLE]         = "EXPR_VARIABLE",
         [EXPR_FUNCTION]         = "EXPR_FUNCTION",
+        [EXPR_MODULE]           = "EXPR_MODULE",
         [EXPR_ASSIGN]           = "EXPR_ASSIGN",
         [EXPR_PROPERTY_ACCESS]  = "EXPR_PROPERTY_ACCESS",
         [EXPR_ADD]              = "EXPR_ADD",
@@ -128,6 +131,9 @@ void astExprPrint(FILE *to, ASTExprNode *n) {
             fputs(", \x1b[1mobj:\x1b[0m ", to);
             astObjectPrint(to, NODE_AS(ASTObjExpr, n)->obj, true);
             break;
+        case EXPR_MODULE:
+            fprintf(to, ", \x1b[1mmodule:\x1b[0m '%s'", NODE_AS(ASTModuleExpr, n)->module->name);
+            break;
         case EXPR_ASSIGN:
         case EXPR_PROPERTY_ACCESS:
         case EXPR_ADD:
@@ -183,6 +189,14 @@ ASTObjExpr *astObjExprNew(Allocator *a, ASTExprType type, Location loc, ASTObj *
     ASTObjExpr *n = allocatorAllocate(a, sizeof(*n));
     n->header = make_header(type, loc, obj->dataType);
     n->obj = obj;
+    return n;
+}
+
+ASTModuleExpr *astModuleExprNew(Allocator *a, Location loc, ASTModule *module) {
+    VERIFY(module != NULL);
+    ASTModuleExpr *n = allocatorAllocate(a, sizeof(*n));
+    n->header = make_header(EXPR_MODULE, loc, NULL);
+    n->module = module;
     return n;
 }
 

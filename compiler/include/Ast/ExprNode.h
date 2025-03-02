@@ -27,6 +27,9 @@ typedef enum ast_expression_types {
     EXPR_VARIABLE,
     EXPR_FUNCTION, // represents a function passed as a function argument for example.
 
+    // Module nodes
+    EXPR_MODULE,
+
     // Binary nodes
     EXPR_ASSIGN,
     EXPR_PROPERTY_ACCESS, // a.b.c
@@ -75,6 +78,11 @@ typedef struct ast_object_expression {
     ASTExprNode header;
     ASTObj *obj;
 } ASTObjExpr;
+
+typedef struct ast_module_expression {
+    ASTExprNode header;
+    ASTModule *module;
+} ASTModuleExpr;
 
 typedef struct ast_binary_expression {
     ASTExprNode header;
@@ -129,6 +137,18 @@ ASTConstantValueExpr *astConstantValueExprNew(Allocator *a, ASTExprType type, Lo
  * @return A new node initialized with the above data.
  **/
 ASTObjExpr *astObjExprNew(Allocator *a, ASTExprType type, Location loc, ASTObj *obj);
+
+
+/**
+ * Create a new ASTModuleExpr.
+ * C.R.E for module == NULL.
+ *
+ * @param a The allocator to use to allocate the node.
+ * @param loc The location of the node.
+ * @param module The ASTModule that this node will represent.
+ * @return A new node initialized with the above data.
+ **/
+ASTModuleExpr *astModuleExprNew(Allocator *a, Location loc, ASTModule *module);
 
 /**
  * Create a new ASTBinaryExpr.
