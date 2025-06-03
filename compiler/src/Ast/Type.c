@@ -94,6 +94,9 @@ Type *typeNew(TypeType type, ASTString name, Location declLocation, ModuleID dec
         case TY_STRUCT:
             arrayInit(&ty->as.structure.fieldTypes);
             break;
+        case TY_SCOPE_RESOLUTION:
+            arrayInit(&ty->as.scopeResolution.path);
+            break;
         default:
             break;
     }
@@ -110,6 +113,11 @@ void typeFree(Type *ty) {
             break;
         case TY_STRUCT:
             arrayFree(&ty->as.structure.fieldTypes);
+            break;
+        case TY_SCOPE_RESOLUTION:
+            // Note: types are owned by modules, and so should be freed by them as well.
+            //       (refering to the scope res. types here.)
+            arrayFree(&ty->as.scopeResolution.path);
             break;
         default:
             break;

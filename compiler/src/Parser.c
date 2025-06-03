@@ -1,4 +1,7 @@
 #include <stddef.h> // NULL
+#include "Ast/Module.h"
+#include "Ast/StringTable.h"
+#include "Ast/Type.h"
 #include "common.h"
 #include "Strings.h"
 #include "Compiler.h"
@@ -795,12 +798,30 @@ static Type *parseFunctionType(Parser *p) {
     return ty;
 }
 
-// complex_type -> fn_type | identifier_type
+// complex_type -> fn_type | identifier_type (:: identifier_type)*
 static Type *parseComplexType(Parser *p) {
     if(match(p, TK_FN)) {
         return parseFunctionType(p);
     } else if(current(p).type == TK_IDENTIFIER) {
-        return parseIdentifierType(p);
+        Type *ty = TRY(Type *, parseIdentifierType(p));
+        Type *scResTy = NULL, *prev = ty;
+        while(match(p, TK_SCOPE_RESOLUTION)) {
+            if(scResTy == NULL) {
+                scResTy = typeNew(TY_SCOPE_RESOLUTION, stringTableString(p->program->strings, ty->as.id.actualName), ty->declLocation, p->current.module);
+                astModuleAddType(getCurrentModule(p), scResTy);
+            }
+            arrayPush(&scResTy->as.scopeResolution.path, (void *)prev);
+            ty = TRY(Type *, parseIdentifierType(p));
+            ASTString newName = stringTableFormat(p->program->strings, "%s::%s", prev->as.id.actualName, ty->as.id.actualName);
+            scResTy->name = newName;
+            prev = ty;
+            // Note: parseIdentifierType() adds the path identifiers to the type owner in the module.
+        }
+        if(scResTy != NULL) {
+            scResTy->as.scopeResolution.ty = ty;
+            return scResTy;
+        }
+        return ty;
     }
     errorAt(p, current(p).location, "Expected typename.");
     return NULL;

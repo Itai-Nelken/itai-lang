@@ -1,5 +1,7 @@
 #include <stdarg.h>
 #include <string.h>
+#include "Ast/Module.h"
+#include "Ast/Type.h"
 #include "common.h"
 #include "memory.h"
 #include "Array.h"
@@ -303,6 +305,39 @@ static Type *validateType(Validator *v, Type *parsedType) {
             // Note: we return early since the type is already added, so we don't want to re-add it because that will cause an abort.
             return validateType(v, ty);
         }
+        case TY_SCOPE_RESOLUTION: {
+            // Example 1: A::B
+            //  * What we get: Type{name = "A::B", path = [A], ty = B}
+            //  * Expected checked output: Type{name = "B", declModule = "A"}
+
+            // Example 2: A::B::C
+            //  * What we get: Type{name = "A::B::C", path = [A,B], ty = C}
+            //  * Expected checked output: Type{name = "C", declModule = ???}
+
+            // Notes:
+            //  * Example 2 shouldn't even be possible since nested modules aren't a thing.
+            //    However, nested types could be possible when type aliases (`type X = Y;`)
+            //    are implemented.
+            //  * So for now, the validator will only support single level type scope resolution.
+
+            if(arrayLength(&parsedType->as.scopeResolution.path) > 1) {
+                error(v, parsedType->declLocation, "Type scope resolution deeper than 1 level is not supported.");
+                return NULL;
+            }
+
+            // FIXME: The following code is hardcoded for single level scope resolution. Fix this eventually, see above notes.
+            Type *moduleID = ARRAY_GET_AS(Type *, &parsedType->as.scopeResolution.path, 0);
+            Type *actualTypeID = parsedType->as.scopeResolution.ty;
+            VERIFY(moduleID->type == TY_IDENTIFIER);
+            VERIFY(actualTypeID->type == TY_IDENTIFIER);
+            ASTModule *m = getImportedModule(v, moduleID->as.id.actualName);
+            if(!m) {
+                error(v, moduleID->declLocation, "Module '%s' has not been imported.", moduleID->as.id.actualName);
+                return NULL;
+            }
+            // Properly returns NULL if the type doesn't exist.
+            return astModuleGetType(m, actualTypeID->as.id.actualName);
+        }
         default:
             UNREACHABLE();
     }
@@ -485,7 +520,7 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
                 error(v, scopeNameNode->header.location, "Module '%s' has not been imported.", scopeNameNode->id);
                 return NULL;
             }
-            // FIXME: this only work with single level scope resolution (i.e. A::B).
+            // FIXME: this only works with single level scope resolution (i.e. A::B).
             //        if there are more levels (A::B::C::D etc.) this will crash.
             VERIFY(scopeResExpr->rhs->type == EXPR_IDENTIFIER);
             ASTIdentifierExpr *objectNameNode = NODE_AS(ASTIdentifierExpr, scopeResExpr->rhs);

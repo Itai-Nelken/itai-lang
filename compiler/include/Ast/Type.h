@@ -18,10 +18,15 @@ typedef usize ModuleID; // Ast/Program.h
  *  - The module in which it was defined.
  *  - The string representation of the type (e.g. "i32", "fn(i32, i32)->i32").
  *  - Any information required for the type (e.g. parameter and return types for function types).
+ *
  * Identifier types are a bit weird since they have 2 names, an "id" (the common name field) and an actual name.
  * This is because many identifier types refering to the same type (so with the same actual name) can exist
  * because we need the locations in them. To achieve this, the "name" of the type is the actual name and a number (see parser:parseIdentifierType()),
  * and the actual name of the type the ID type refers to is in the as.id.actualName field.
+ *
+ * Scope resolution is also tricky because we need to track the "path" to the type as well as the type itself.
+ * This is achieved by having an array storing the path, and the actual type. The parser makes use
+ * of this to store ID types representing the path to a type and the type itself.
  **/
 
 typedef enum type_type {
@@ -30,6 +35,7 @@ typedef enum type_type {
     TY_FUNCTION,
     TY_STRUCT,
     TY_IDENTIFIER,
+    TY_SCOPE_RESOLUTION,
     TY_TYPE_COUNT
 } TypeType;
 
@@ -52,6 +58,10 @@ typedef struct type {
         struct {
             ASTString actualName;
         } id;
+        struct {
+            Array path; // Array<Type *>
+            struct type *ty;
+        } scopeResolution;
     } as;
 } Type;
 
