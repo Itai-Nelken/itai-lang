@@ -1,6 +1,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include "Ast/Module.h"
+#include "Ast/Program.h"
 #include "Ast/Type.h"
 #include "common.h"
 #include "memory.h"
@@ -1018,9 +1019,8 @@ static void validateModule(Validator *v, ModuleID moduleID) {
 
     // Preliminary initialization, setting up of validator state.
     ASTModule *parsedModule = astProgramGetModule(v->parsedProgram, moduleID);
-    ModuleID checkedModuleID = astProgramNewModule(v->checkedProgram, parsedModule->name);
-    VERIFY(moduleID == checkedModuleID); // This should work the way this function is called. But its not nice code.
-    ASTModule *checkedModule = astProgramGetModule(v->checkedProgram, checkedModuleID);
+    astProgramNewModuleWithID(v->checkedProgram, moduleID, parsedModule->name);
+    ASTModule *checkedModule = astProgramGetModule(v->checkedProgram, moduleID);
     v->current.module = moduleID;
     v->current.parsedScope = parsedModule->moduleScope;
     v->current.checkedScope = checkedModule->moduleScope;
@@ -1167,14 +1167,12 @@ bool validatorValidate(Validator *v, ASTProgram *parsedProg, ASTProgram *checked
         // error: cyclic modules. already reported.
         return false;
     }
-    // FIXME: This changes the ModuleIDs!!!!
-    arrayClear(&parsedProg->modules);
-    arrayCopy(&parsedProg->modules, &sortedModules);
-    arrayFree(&sortedModules);
     // Validate all modules.
-    ARRAY_FOR(i, parsedProg->modules) {
-        validateModule(v, i);
+    ARRAY_FOR(i, sortedModules) {
+        ASTModule *m = ARRAY_GET_AS(ASTModule *, &sortedModules, i);
+        validateModule(v, m->id);
     }
+    arrayFree(&sortedModules);
     // If we had any error while parsing any of the modules, fail.
     return !v->hadError;
 }
