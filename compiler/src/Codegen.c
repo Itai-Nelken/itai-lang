@@ -1,5 +1,7 @@
 #include <stdio.h> // FILE
 #include <stdarg.h>
+#include "Ast/Program.h"
+#include "Ast/Type.h"
 #include "common.h"
 #include "Strings.h"
 #include "Ast/Ast.h"
@@ -44,10 +46,14 @@ static void genInternalID(Codegen *cg, const char *name, const char *prefix, con
     print(cg, "%s___ilc_internal__%s%s", prefix ? prefix : "", name, postfix ? postfix : "");
 }
 
-static const char *genID(Codegen *cg, const char *id) {
+static const char *genIDWithModule(Codegen *cg, ASTModule *m, const char *id) {
     stringClear(cg->idBuffer);
-    stringAppend(&cg->idBuffer, "module%s_%s", cg->currentModule->name, id);
+    stringAppend(&cg->idBuffer, "module%s_%s", m->name, id);
     return (const char *)cg->idBuffer;
+}
+
+static const char *genID(Codegen *cg, const char *id) {
+    return genIDWithModule(cg, cg->currentModule, id);
 }
 
 static void genType(Codegen *cg, Type *ty) {
@@ -69,10 +75,14 @@ static void genType(Codegen *cg, Type *ty) {
                 print(cg, "%s", (ASTString)item->value);
                 break;
             }
-        case TY_STRUCT:
-            print(cg, "%s", genID(cg, ty->name));
+        case TY_STRUCT: {
+            ASTModule *m = astProgramGetModule(cg->program, ty->declModule);
+            VERIFY(m);
+            print(cg, "%s", genIDWithModule(cg, m,ty->name));
             break;
+        }
         case TY_IDENTIFIER:
+        case TY_SCOPE_RESOLUTION:
         default:
             UNREACHABLE();
     }
@@ -494,7 +504,8 @@ static void genScope(Codegen *cg, Scope *sc, Table *moduleTypeTable, ASTObj *str
             if(stringEqual(obj->name, "main")) {
                 VERIFY(cg->mainFn == NULL);
                 cg->mainFn = obj;
-                cg->mainFNCname = CName;
+                // Otherwise mainFNCname changes as we reuse the CG string buffer.
+                cg->mainFNCname = stringTableString(cg->program->strings, CName);
             }
             arrayClear(&cg->defersInCurrentFn);
             genType(cg, obj->as.fn.returnType);
