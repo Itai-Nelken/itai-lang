@@ -17,11 +17,16 @@
  * A module also maintains a table of any other modules it imports. This is then used in the Validator to assign the correct ASTObj
  * to variables/calls of type/to structs/functions/module variables from the imported modules.
  **/
+
+// Can't include Ast/Program.h since it includes this files.
+typedef usize ModuleID;
+
 typedef struct ast_module {
     struct {
         Arena storage;
         Allocator alloc;
     } ast_allocator;
+    ModuleID id;
     Array objectOwner; // Array<ASTObj *> - owns all objects in this module.
     ASTString name;
     Table types; // Table<ASTString, Type *>
@@ -30,10 +35,6 @@ typedef struct ast_module {
     Array variableDecls; // Array<ASTVarDeclStmt *>
     Table importedModules; // Table<ASTString, ModuleID> (ModuleID is only added in validator.)
 } ASTModule;
-
-
-// Can't include Ast/Program.h since it includes this files.
-typedef usize ModuleID;
 
 /**
  * Pretty print an ASTModule.

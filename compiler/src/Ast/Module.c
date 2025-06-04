@@ -44,6 +44,7 @@ void astModulePrint(FILE *to, ASTModule *m, bool compact) {
         fputs("(null)", to);
         return;
     }
+    // TODO: print the ID.
     if(compact) {
         fprintf(to, "ASTModule{'%s'}", m->name);
         return;
