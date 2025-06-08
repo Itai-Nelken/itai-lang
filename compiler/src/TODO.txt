@@ -1,5 +1,12 @@
 TODO:
 
+ * Make this parameter explicit.
+ * Use this to differentiate between static and bound functions.
+ * Redo codegen to have name->cname tables per module/struct.
+ * Update docs: remove inheritance etc. & replace with "struct extending/embedding" - adding fields,methods to a struct and giving the extended version a new name.
+
+* Fix error printing when only one line exists.
+
 * Add compact pretty-printing to ASTString: ASTString{'%s'}
 * Implement the following naming scheme:
     <module><type><action>
