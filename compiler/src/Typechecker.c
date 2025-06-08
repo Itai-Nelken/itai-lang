@@ -143,9 +143,6 @@ static void typecheckExpr(Typechecker *typ, ASTExprNode *expr) {
                 checkTypes(typ, expr->location, NODE_AS(ASTBinaryExpr, expr)->lhs->dataType, NODE_AS(ASTBinaryExpr, expr)->rhs->dataType);
             }
             break;
-        case EXPR_SCOPE_RESOLUTION:
-            // nothing for now.
-            break;
         // Unary nodes
         case EXPR_NEGATE:
         case EXPR_LOGICAL_NOT:

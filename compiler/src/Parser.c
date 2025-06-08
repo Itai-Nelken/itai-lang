@@ -273,7 +273,7 @@ static ParseRule rules[] = {
     [TK_LESS_EQUAL]       = {NULL, parse_binary_expr, PREC_COMPARISON},
     [TK_GREATER]          = {NULL, parse_binary_expr, PREC_COMPARISON},
     [TK_GREATER_EQUAL]    = {NULL, parse_binary_expr, PREC_COMPARISON},
-    [TK_SCOPE_RESOLUTION] = {NULL, parse_binary_expr, PREC_SCOPE_RESOLUTION},
+    [TK_SCOPE_RESOLUTION] = {NULL, NULL, PREC_LOWEST},
     [TK_NUMBER_LITERAL]   = {parse_number_literal_expr, NULL, PREC_LOWEST},
     [TK_STRING_LITERAL]   = {parse_string_literal_expr, NULL, PREC_LOWEST},
     [TK_TRUE]             = {parse_boolean_literal_expr, NULL, PREC_LOWEST},
@@ -390,7 +390,6 @@ static ASTExprNode *parse_binary_expr(Parser *p, ASTExprNode *lhs) {
         case TK_LESS_EQUAL: nodeType = EXPR_LE; break;
         case TK_GREATER: nodeType = EXPR_GT; break;
         case TK_GREATER_EQUAL: nodeType = EXPR_GE; break;
-        case TK_SCOPE_RESOLUTION: nodeType = EXPR_SCOPE_RESOLUTION; break;
         case TK_AND: nodeType = EXPR_LOGICAL_AND; break;
         case TK_OR: nodeType = EXPR_LOGICAL_OR; break;
         default: UNREACHABLE();
@@ -443,8 +442,18 @@ static ASTExprNode *parse_call_expr(Parser *p, ASTExprNode *callee) {
 
 static ASTExprNode *parse_identifier_expr(Parser *p) {
     Token prev = previous(p);
+    Array path;
+    arrayInit(&path);
     ASTString id = stringTableFormat(p->program->strings, "%.*s", prev.length, prev.lexeme);
-    return NODE_AS(ASTExprNode, astIdentifierExprNew(getCurrentAllocator(p), prev.location, id));
+    while(match(p, TK_SCOPE_RESOLUTION)) {
+        arrayPush(&path, (void *)id);
+        advance(p);
+        prev = previous(p);
+        id = stringTableFormat(p->program->strings, "%.*s", prev.length, prev.lexeme);
+    }
+    ASTExprNode *idExpr = NODE_AS(ASTExprNode, astIdentifierExprNew(getCurrentAllocator(p), prev.location, &path, id));
+    arrayFree(&path);
+    return idExpr;
 }
 
 static ASTExprNode *parse_property_access_expr(Parser *p, ASTExprNode *lhs) {

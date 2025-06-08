@@ -181,15 +181,6 @@ static void genExpr(Codegen *cg, ASTExprNode *expr) {
             genExpr(cg, NODE_AS(ASTBinaryExpr, expr)->rhs);
             print(cg, ")");
             break;
-        case EXPR_SCOPE_RESOLUTION: {
-            ASTBinaryExpr *n = NODE_AS(ASTBinaryExpr, expr);
-            // TODO: this only supports one level of scope resolution
-            //       (which is fine for now since the validator currently doesn't support any more than that.)
-            VERIFY(NODE_IS(n->rhs, EXPR_VARIABLE) || NODE_IS(n->rhs, EXPR_FUNCTION));
-            VERIFY(NODE_IS(n->lhs, EXPR_MODULE));
-            print(cg, "module%s_%s", NODE_AS(ASTModuleExpr, n->lhs)->module->name, NODE_AS(ASTObjExpr, n->rhs)->obj->name);
-            break;
-        }
         // Unary nodes
         case EXPR_NEGATE:
             print(cg, "-(");

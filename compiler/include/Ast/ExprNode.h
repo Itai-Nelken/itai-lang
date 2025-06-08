@@ -16,6 +16,9 @@
  * Any additional data required for a specific expression is stored in a struct with an ASTExprNode as the first field.
  * This effectively allows us to represent all expression nodes as an ASTExprNode, and then using the expression typ
  * to know what node we actually have, we can cast it to the correct expression node to access the rest of the stored data.
+ *
+ * Identifier nodes have a "path" array that contains the scope "path" to the identifier.
+ * For example, A::B::C::D is represented as path=[A,B,C]; id=D.
  **/
 typedef enum ast_expression_types {
     // Constant value nodes.
@@ -41,7 +44,6 @@ typedef enum ast_expression_types {
     EXPR_LT, EXPR_LE,
     EXPR_GT, EXPR_GE,
     EXPR_LOGICAL_AND, EXPR_LOGICAL_OR, // &&, ||
-    EXPR_SCOPE_RESOLUTION, // ::
 
     // Unary nodes
     EXPR_NEGATE,
@@ -103,6 +105,7 @@ typedef struct ast_call_expression {
 typedef struct ast_identifier_expression {
     ASTExprNode header;
     ASTString id;
+    Array path; // Array<ASTString>
 } ASTIdentifierExpr;
 
 
@@ -194,8 +197,9 @@ ASTCallExpr *astCallExprNew(Allocator *a, Location loc, Type *exprTy, ASTExprNod
  * @param a The allocator to use to allocate the node.
  * @param loc The location of the node.
  * @param id The identifier as an ASTString.
+ * @param path An Array<ASTString> representing the path to the id (see explanation at top of header file.)
  * @return A new node initialized with the above data.
  **/
-ASTIdentifierExpr *astIdentifierExprNew(Allocator *a, Location loc, ASTString id);
+ASTIdentifierExpr *astIdentifierExprNew(Allocator *a, Location loc, Array *path, ASTString id);
 
 #endif // AST_EXPRNODE_H
