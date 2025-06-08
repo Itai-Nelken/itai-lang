@@ -1,7 +1,10 @@
 #include <stdarg.h>
 #include <string.h>
+#include "Ast/ExprNode.h"
 #include "Ast/Module.h"
+#include "Ast/Object.h"
 #include "Ast/Program.h"
+#include "Ast/Scope.h"
 #include "Ast/Type.h"
 #include "common.h"
 #include "memory.h"
@@ -123,10 +126,9 @@ static inline const char *typeName(Type *ty) {
     return (const char *)ty->name;
 }
 
-// Find an ASTObj that is visible in the current scope (i.e. is in it or a parent scope.)
+// Find an ASTObj that is visible in a scope (i.e. is in it or a parent scope.)
 // depth: if not NULL, the variable pointed to will be set to the scope depth of the return object.
-static ASTObj *findObjVisibleInCurrentScope(Validator *v, ASTString name, ScopeDepth *depth) {
-    Scope *sc = getCurrentCheckedScope(v);
+static ASTObj *findObjVisibleInScope(Scope *sc, ASTString name, ScopeDepth *depth) {
     while(sc != NULL) {
         ASTObj *obj = scopeGetAnyObject(sc, name);
         if(obj) {
@@ -138,6 +140,11 @@ static ASTObj *findObjVisibleInCurrentScope(Validator *v, ASTString name, ScopeD
         sc = sc->parent;
     }
     return NULL;
+}
+
+// same as above but uses current checked scope.
+static inline ASTObj *findObjVisibleInCurrentScope(Validator *v, ASTString name, ScopeDepth *depth) {
+    return findObjVisibleInScope(getCurrentCheckedScope(v), name, depth);
 }
 
 static Type *expr_data_type_complex(Validator *v, ASTExprNode *expr, bool isInCall) {
@@ -191,12 +198,6 @@ static Type *expr_data_type_complex(Validator *v, ASTExprNode *expr, bool isInCa
         case EXPR_LOGICAL_NOT: // Unary node, but fits here.
             // Type of conditional expression is boolean.
             return getType(v, "bool");
-        case EXPR_SCOPE_RESOLUTION:
-            VERIFY(expr->dataType);
-            if(expr->dataType->type == TY_FUNCTION) {
-                return expr->dataType->as.fn.returnType;
-            }
-            return expr->dataType;
         case EXPR_ADDROF:
             VERIFY(expr->dataType); // In case called on parsed expr.
             return expr->dataType; // The pointer type.
@@ -510,37 +511,6 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
             break;
             #undef IS_ASSIGNMENT_TARGET
         }
-        case EXPR_SCOPE_RESOLUTION: {
-            ASTBinaryExpr *scopeResExpr = NODE_AS(ASTBinaryExpr, parsedExpr);
-            // Note: these names aren't accurate since rhs might be another scope resolution expression,
-            //       but its easier to just give it that name.
-            VERIFY(NODE_IS(scopeResExpr->lhs, EXPR_IDENTIFIER));
-            ASTIdentifierExpr *scopeNameNode = NODE_AS(ASTIdentifierExpr, scopeResExpr->lhs);
-            ASTModule *importedModule = NULL;
-            if((importedModule = getImportedModule(v, scopeNameNode->id)) == NULL) {
-                error(v, scopeNameNode->header.location, "Module '%s' has not been imported.", scopeNameNode->id);
-                return NULL;
-            }
-            // FIXME: this only works with single level scope resolution (i.e. A::B).
-            //        if there are more levels (A::B::C::D etc.) this will crash.
-            VERIFY(scopeResExpr->rhs->type == EXPR_IDENTIFIER);
-            ASTIdentifierExpr *objectNameNode = NODE_AS(ASTIdentifierExpr, scopeResExpr->rhs);
-            ASTObj *objectImported = scopeGetAnyObject(importedModule->moduleScope, objectNameNode->id);
-            if(objectImported == NULL) {
-                error(v, objectNameNode->header.location, "Identifier '%s' does not exist in module '%s'.", objectNameNode->id, scopeNameNode->id);
-                return NULL;
-            }
-            ASTExprType objNodeType;
-            switch(objectImported->type) {
-                case OBJ_VAR: objNodeType = EXPR_VARIABLE; break;
-                case OBJ_FN: objNodeType = EXPR_FUNCTION; break;
-                default: UNREACHABLE();
-            }
-            ASTExprNode *objectNode = (ASTExprNode *)astObjExprNew(getCurrentAllocator(v), objNodeType, objectNameNode->header.location, objectImported);
-            ASTExprNode *moduleNode = (ASTExprNode *)astModuleExprNew(getCurrentAllocator(v), scopeNameNode->header.location, importedModule);
-            checkedExpr = NODE_AS(ASTExprNode, astBinaryExprNew(getCurrentAllocator(v), EXPR_SCOPE_RESOLUTION, parsedExpr->location, objectNode->dataType, moduleNode, objectNode));
-            break;
-        }
         // Unary nodes
         case EXPR_NEGATE:
         case EXPR_LOGICAL_NOT:
@@ -644,17 +614,67 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
         }
         // Other nodes.
         case EXPR_IDENTIFIER: {
-            // TODO: I think I can remove the last parameter from this function, since with the new
-            //        design of the validator the checked scopes track whether a local variable has
-            //        already been declared.
-            ASTString name = NODE_AS(ASTIdentifierExpr, parsedExpr)->id;
-            ASTObj *obj = findObjVisibleInCurrentScope(v, name, NULL);
-            if(!obj) {
-                error(v, parsedExpr->location, "Identifier '%s' doesn't exist.", name);
+            ASTIdentifierExpr *idExpr = NODE_AS(ASTIdentifierExpr, parsedExpr);
+            // An ID can have a maximum part count of 3: Module::Record::ID, where the maximum path length is 2 (b/c the actual ID is the last part.)
+            // (A record is a struct or enum.)
+            VERIFY(arrayLength(&idExpr->path) <= 2);
+
+            // Note: arrayGet() returns NULL on an out-of-bounds index.
+            ASTString modulePart = ARRAY_GET_AS(ASTString, &idExpr->path, 0);
+            ASTString recordPart = ARRAY_GET_AS(ASTString, &idExpr->path, 1);
+            ASTString idPart = idExpr->id;
+
+            // Refer to the names above. In the same order also.
+            ASTModule *importedModule = NULL;
+            ASTObj *record = NULL;
+            ASTObj *id = NULL;
+
+            // TODO for the following 4 errors: get better locations (involves making the parser save the location of each part.)
+
+            if(modulePart != NULL) {
+                importedModule = getImportedModule(v, modulePart);
+                if(!importedModule) {
+                    error(v, parsedExpr->location, "Module '%s' was not imported.", modulePart);
+                    break;
+                }
+            }
+
+            // Note: Since the parts come from an array, recordPart existing guranatees modulePart's existence.
+            if(recordPart != NULL) {
+                // TODO: I think I can remove the last parameter from this function, since with the new
+                //        design of the validator the checked scopes track whether a local variable has
+                //        already been declared.
+                record = findObjVisibleInScope(importedModule->moduleScope, recordPart, NULL);
+                if(!record) {
+                    // TODO: when enums are added, make "Structure" be either "Structure" or "Enum", depending on the type.
+                    error(v, parsedExpr->location, "Structure '%s' does not exist in module '%s'.", recordPart, modulePart);
+                    break;
+                }
+            }
+
+            // get the ID part (always exists b/c its the last part of the ID which always exists).
+            // Check if the record part exists first (since if it exists the id is inside of it.)
+            if(record != NULL) {
+                VERIFY(record->type == OBJ_STRUCT); // TODO: when enums are added, support them here (maybe generalize? probably overkill).
+                id = scopeGetAnyObject(record->as.structure.scope, idPart);
+                if(!id) {
+                    // TODO: when enums are added, change "structure" to "structure" or "enum" depending on the type.
+                    error(v, parsedExpr->location, "Function '%s' does not exist in structure '%s'.", idPart, recordPart);
+                    break;
+                }
+            } else if(importedModule != NULL) { // Now check if the module exists (and the record does not). If it does, get the id from it.
+                id = findObjVisibleInScope(importedModule->moduleScope, idPart, NULL);
+            } else { // Otherwise, simply get the id from the current scope (and parents).
+                id = findObjVisibleInCurrentScope(v, idPart, NULL);
+            }
+            if(!id) {
+                error(v, parsedExpr->location, "Identifier '%s' does not exist.", idPart);
                 break;
             }
+
+
             ASTExprType exprType;
-            switch(obj->type) {
+            switch(id->type) {
                 case OBJ_VAR:
                     exprType = EXPR_VARIABLE;
                     break;
@@ -662,11 +682,11 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
                     exprType = EXPR_FUNCTION;
                     break;
                 default:
-                    error(v, parsedExpr->location, "Identifier '%s' does not refer to variable or function.", name);
+                    error(v, parsedExpr->location, "Identifier '%s' does not refer to a variable or a function.", idExpr->id);
                     return NULL;
             }
-            checkedExpr = (ASTExprNode *)astObjExprNew(getCurrentAllocator(v), exprType, parsedExpr->location, obj);
-            checkedExpr->dataType = obj->dataType;
+            checkedExpr = (ASTExprNode *)astObjExprNew(getCurrentAllocator(v), exprType, parsedExpr->location, id);
+            checkedExpr->dataType = id->dataType;
             break;
         }
         case EXPR_MODULE: // Is only created by ourselves.
