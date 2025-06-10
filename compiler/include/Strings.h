@@ -12,6 +12,8 @@
 // In this API, the String type is used when a string created by this library is expected,
 // and 'char *' is used when both types can be used.
 // 'const char *' is used when ONLY C strings are expected.
+// FIXME: this whole design is flawed because the validity check will access
+//        memory it shouldn't touch, causing undefined behaviour probably...
 
 typedef char *String;
 
