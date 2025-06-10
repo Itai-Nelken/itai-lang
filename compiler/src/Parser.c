@@ -1,5 +1,6 @@
 #include <stddef.h> // NULL
 #include "Ast/Module.h"
+#include "Ast/Object.h"
 #include "Ast/StringTable.h"
 #include "Ast/Type.h"
 #include "common.h"
@@ -928,14 +929,6 @@ static bool parseParameterList(Parser *p, Array *parameters) {
             hadError = true;
             continue;
         }
-        // 'this' is reserved for the implicit first parameter passed to methods.
-        // Theoretically, it could be allowed in functions, but I don't think
-        // it's worth the extra work to be able to know if we are in a function or method here.
-        if(stringEqual(paramVar->name, "this")) {
-            error(p, tmp_buffer_format(p, "A parameter may not be named 'this'."));
-            hadError = true;
-            continue;
-        }
         arrayPush(parameters, (void *)paramVar);
         if(paramVar->dataType == NULL) {
             error(p, tmp_buffer_format(p, "Parameter '%s' is missing a type.", paramVar->name));
@@ -955,15 +948,29 @@ static ASTObj *parseFunctionDecl(Parser *p, ASTString structName) {
     TRY_CONSUME(p, TK_LPAREN);
     Array parameters; // Array<ASTObj *>
     arrayInit(&parameters);
-    // If this is a method, add the 'this' parameter as the first one.
-    if(structName) {
+    // If this is a method, parse the "this" parameter if it exists.
+    // "&this" is syntactic sugar for "this: &StructType", which means that the latter will also
+    // make the function a non-static bound method.
+    if(structName && match(p, TK_AMPERSAND)) {
+        ASTString thisIdentifier = parseIdentifier(p);
+        // FIXME: stringEqual() will cause undefined behaiviour when it
+        //        tries to check if the string literal "this" is a valid 'String'...
+        //        See FIXME in Strings.h.
+        if(!stringEqual(thisIdentifier, "this")) {
+            // Uses previous location (the identifier) which is ok.
+            error(p, "Expected 'this' after '&' in first parameter.");
+            return NULL;
+        }
+
+        // Get (or create if it doesn't exist yet) the pointer type for the enclosing struct.
         Type *thisType = NULL;
         if((thisType = astModuleGetType(getCurrentModule(p), tmp_buffer_format(p, "&%s", structName))) == NULL) {
             thisType = typeNew(TY_POINTER, stringTableFormat(p->program->strings, "&%s", structName), EMPTY_LOCATION, p->current.module);
             thisType->as.ptr.innerType = astModuleGetType(getCurrentModule(p), structName);
             astModuleAddType(getCurrentModule(p), thisType);
         }
-        ASTObj *thisParam = astModuleNewObj(getCurrentModule(p), OBJ_VAR, EMPTY_LOCATION, stringTableString(p->program->strings, "this"), thisType);
+
+        ASTObj *thisParam = astModuleNewObj(getCurrentModule(p), OBJ_VAR, EMPTY_LOCATION, thisIdentifier, thisType);
         arrayPush(&parameters, (void *)thisParam);
     }
     // Note: if current is ')', then there are no parameters.

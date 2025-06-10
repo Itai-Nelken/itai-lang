@@ -5,6 +5,12 @@ TODO:
  * Redo codegen to have name->cname tables per module/struct.
  * Update docs: remove inheritance etc. & replace with "struct extending/embedding" - adding fields,methods to a struct and giving the extended version a new name.
 
+* Note somewhere that the compiler currently treats any bound function with
+  a first parameter name "this" of type "&StructType" as a non-static bound function.
+* Also decide if I want to disallow calling to non-static bound methods like this:
+  > struct A {val: i32; fn getVal(&this) -> i32 {return this.val;}}
+  > fn main() {var a: A; A::getVal(&a);}
+
 * Fix error printing when only one line exists.
 
 * Add compact pretty-printing to ASTString: ASTString{'%s'}
