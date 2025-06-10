@@ -126,6 +126,10 @@ static inline const char *typeName(Type *ty) {
     return (const char *)ty->name;
 }
 
+// TODO: I think I can remove the last parameter, since with the new
+//        design of the validator the checked scopes track whether a local variable has
+//        already been declared.
+//
 // Find an ASTObj that is visible in a scope (i.e. is in it or a parent scope.)
 // depth: if not NULL, the variable pointed to will be set to the scope depth of the return object.
 static ASTObj *findObjVisibleInScope(Scope *sc, ASTString name, ScopeDepth *depth) {
@@ -617,6 +621,9 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
             ASTIdentifierExpr *idExpr = NODE_AS(ASTIdentifierExpr, parsedExpr);
             // An ID can have a maximum part count of 3: Module::Record::ID, where the maximum path length is 2 (b/c the actual ID is the last part.)
             // (A record is a struct or enum.)
+            // Note that Record::ID is also valid, so if we fail to get an imported module,
+            // the modulePart is "promoted" to be a "recordPart" and we try again as if
+            // the modulePart never existed.
             VERIFY(arrayLength(&idExpr->path) <= 2);
 
             // Note: arrayGet() returns NULL on an out-of-bounds index.
@@ -624,30 +631,45 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
             ASTString recordPart = ARRAY_GET_AS(ASTString, &idExpr->path, 1);
             ASTString idPart = idExpr->id;
 
-            // Refer to the names above. In the same order also.
-            ASTModule *importedModule = NULL;
-            ASTObj *record = NULL;
+            Scope *scope = NULL; // will contain the ID.
+            bool failedModule = false; // To handle the case of Record::ID.
+            ASTObj *record = NULL; // for the following case: Module::Record::ID.
             ASTObj *id = NULL;
 
-            // TODO for the following 4 errors: get better locations (involves making the parser save the location of each part.)
+            // TODO for the following 5 errors: get better locations (involves making the parser save the location of each part.)
 
             if(modulePart != NULL) {
-                importedModule = getImportedModule(v, modulePart);
-                if(!importedModule) {
-                    error(v, parsedExpr->location, "Module '%s' was not imported.", modulePart);
-                    break;
+                ASTModule *m = getImportedModule(v, modulePart);
+                if(!m) {
+                    // Failing to get the module could mean that this refers to a struct.
+                    // However, that is only possible if the recordPart doesn't exist.
+                    if(recordPart != NULL) {
+                        error(v, parsedExpr->location, "Module '%s' has not been imported.", modulePart);
+                        break;
+                    }
+                    failedModule = true;
+                    recordPart = modulePart;
+                } else {
+                    scope = m->moduleScope;
                 }
             }
 
             // Note: Since the parts come from an array, recordPart existing guranatees modulePart's existence.
             if(recordPart != NULL) {
-                // TODO: I think I can remove the last parameter from this function, since with the new
-                //        design of the validator the checked scopes track whether a local variable has
-                //        already been declared.
-                record = findObjVisibleInScope(importedModule->moduleScope, recordPart, NULL);
+                if(failedModule) {
+                    record = findObjVisibleInCurrentScope(v, recordPart, NULL);
+                } else {
+                    record = findObjVisibleInScope(scope, recordPart, NULL);
+                }
                 if(!record) {
-                    // TODO: when enums are added, make "Structure" be either "Structure" or "Enum", depending on the type.
-                    error(v, parsedExpr->location, "Structure '%s' does not exist in module '%s'.", recordPart, modulePart);
+                    if(failedModule) {
+                        // FIXME: Deduplicate errors that appear in multiple places. Otherwise this will get confusing.
+                        //        (this error also appears above.)
+                        error(v, parsedExpr->location, "Module '%s' has not been imported.", modulePart);
+                    } else {
+                        // TODO: when enums are added, make "Structure" be either "Structure" or "Enum", depending on the type.
+                        error(v, parsedExpr->location, "Structure '%s' does not exist in module '%s'.", recordPart, modulePart);
+                    }
                     break;
                 }
             }
@@ -662,8 +684,8 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
                     error(v, parsedExpr->location, "Function '%s' does not exist in structure '%s'.", idPart, recordPart);
                     break;
                 }
-            } else if(importedModule != NULL) { // Now check if the module exists (and the record does not). If it does, get the id from it.
-                id = findObjVisibleInScope(importedModule->moduleScope, idPart, NULL);
+            } else if(scope != NULL) { // Now check if the module exists (and the record does not). If it does, get the id from it.
+                id = findObjVisibleInScope(scope, idPart, NULL);
             } else { // Otherwise, simply get the id from the current scope (and parents).
                 id = findObjVisibleInCurrentScope(v, idPart, NULL);
             }
@@ -950,7 +972,7 @@ static bool validateCurrentScope(Validator *v) {
 
     bool hadError = false;
     // Validate structs first.
-    // This is done since functions likely will use the structs, which requires that their fields to be validated.
+    // This is done since functions likely will use the structs, which requires that their fields be validated.
     // TODO: When methods are added, will have to make a "validate fields only" pass
     //       before methods are validated for the same reason.
     ARRAY_FOR(i, objectsInScope) {
