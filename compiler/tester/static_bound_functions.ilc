@@ -1,0 +1,29 @@
+/// expect success
+
+struct Value {
+	value: i32;
+
+	fn new(val: i32) -> Value {
+		var v: Value;
+		v.value = val;
+		return v;
+	}
+
+	fn getValue(&this) -> i32 {
+		return this.value;
+	}
+
+	fn setValue(&this, v: i32) -> i32 {
+		var prev = this.value;
+		this.value = v;
+		return prev;
+	}
+}
+
+fn main() -> i32 {
+	var v = Value::new(40);
+	var p = v.setValue(2);
+	return p + v.getValue();
+}
+
+

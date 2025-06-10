@@ -1,0 +1,18 @@
+/// expect error: Error: Expected 'this' after '&' in first parameter.
+
+struct A {
+	value: i32;
+
+	fn new(val: i32) -> A {
+		var a: A;
+		a.val = val;
+		return a;
+	}
+
+	fn getValue(&paramNotNamedThis) {
+		return this.value;
+	}
+}
+
+fn main() {}
+
