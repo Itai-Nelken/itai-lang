@@ -959,6 +959,7 @@ static ASTObj *parseFunctionDecl(Parser *p, ASTString structName) {
         if(!stringEqual(thisIdentifier, "this")) {
             // Uses previous location (the identifier) which is ok.
             error(p, "Expected 'this' after '&' in first parameter.");
+            arrayFree(&parameters);
             return NULL;
         }
 

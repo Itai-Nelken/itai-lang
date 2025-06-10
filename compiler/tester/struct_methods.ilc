@@ -2,7 +2,7 @@
 
 struct Value {
 	value: i32;
-	fn getValue() -> i32 {
+	fn getValue(&this) -> i32 {
 		return this.value;
 	}
 }
