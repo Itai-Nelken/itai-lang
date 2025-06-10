@@ -1,4 +1,4 @@
-/// expect error: Error: Identifier 'T' does not refer to variable or function.
+/// expect error: Error: Identifier 'T' does not refer to a variable or a function.
 
 
 struct T {}

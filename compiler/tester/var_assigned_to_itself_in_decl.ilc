@@ -1,4 +1,4 @@
-/// expect error: Error: Identifier 'a' doesn't exist.
+/// expect error: Error: Identifier 'a' does not exist.
 
 fn main() {
 	var a = a;
