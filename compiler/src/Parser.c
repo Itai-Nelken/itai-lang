@@ -971,8 +971,14 @@ static ASTObj *parseFunctionDecl(Parser *p, ASTString structName) {
             astModuleAddType(getCurrentModule(p), thisType);
         }
 
+        // Create the "this" parameter.
         ASTObj *thisParam = astModuleNewObj(getCurrentModule(p), OBJ_VAR, EMPTY_LOCATION, thisIdentifier, thisType);
         arrayPush(&parameters, (void *)thisParam);
+
+        // If there are more parameters, consume a comma.
+        if(current(p).type != TK_RPAREN) {
+            TRY_CONSUME(p, TK_COMMA);
+        }
     }
     // Note: if current is ')', then there are no parameters.
     if(current(p).type != TK_RPAREN && !parseParameterList(p, &parameters)) {
@@ -1129,6 +1135,11 @@ static ASTObj *parseStructDecl(Parser *p) {
         }
         if(!parse_method_decl(p, name)) {
             hadError = true;
+            // Synchronize to bound function/struct boundaries.
+            // TODO: when the 'public' keyword is added, also sync to it.
+            while(!isEof(p) && current(p).type != TK_FN && current(p).type != TK_RBRACE) {
+                advance(p);
+            }
         }
     }
     TRY_CONSUME(p, TK_RBRACE);
