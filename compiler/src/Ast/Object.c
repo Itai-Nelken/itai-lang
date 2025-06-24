@@ -27,6 +27,7 @@ void astObjectPrint(FILE *to, ASTObj *obj, bool compact) {
 
     fprintf(to, "ASTObj{\x1b[1mtype: \x1b[33m%s\x1b[0;1m, name:\x1b[0m '%s', \x1b[1mdataType:\x1b[0m ", obj_type_to_string(obj->type), obj->name);
     typePrint(to, obj->dataType, true);
+    fprintf(to, ", \x1b[1mownerModule:\x1b[0m %zu", obj->ownerModule);
     switch(obj->type) {
         case OBJ_FN:
             fputs(", \x1b[1mparameters:\x1b[0m [", to);
@@ -52,13 +53,15 @@ void astObjectPrint(FILE *to, ASTObj *obj, bool compact) {
     fputc('}', to);
 }
 
-ASTObj *astObjectNew(ASTObjType type, Location loc, ASTString name, Type *dataType) {
+ASTObj *astObjectNew(ASTObjType type, Location loc, ASTString name, Type *dataType, ModuleID ownerModule, ASTObj *parent) {
     ASTObj *obj;
     NEW0(obj);
     obj->type = type;
     obj->location = loc;
     obj->name = name;
     obj->dataType = dataType;
+    obj->ownerModule = ownerModule;
+    obj->parent = parent;
 
     switch(type) {
         case OBJ_VAR:

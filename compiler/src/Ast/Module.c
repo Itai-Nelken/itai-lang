@@ -119,7 +119,7 @@ void astModuleAddImport(ASTModule *module, ASTString importName, ModuleID module
 }
 
 ASTObj *astModuleNewObj(ASTModule *module, ASTObjType objType, Location objLoc, ASTString objName, Type *objDataType) {
-    ASTObj *obj = astObjectNew(objType, objLoc, objName, objDataType);
+    ASTObj *obj = astObjectNew(objType, objLoc, objName, objDataType, module->id, NULL);
     VERIFY(obj); // FIXME: this is not the right way to use an assertion.
     arrayPush(&module->objectOwner, (void *)obj);
     return obj;

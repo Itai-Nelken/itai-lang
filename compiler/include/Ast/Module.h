@@ -96,6 +96,7 @@ void astModuleAddImport(ASTModule *module, ASTString importName, ModuleID module
 
 /**
  * Allocate an ASTObj using the module's object allocator.
+ * Note: sets object parent to NULL. If needed, set manually.
  *
  * @param module The module to allocate the object in.
  * @param objType The type of the ASTObj.
