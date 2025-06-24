@@ -1049,10 +1049,12 @@ static Type *makeStructType(Parser *p, ASTString name, Location declLoc, ModuleI
 
 // struct_field -> typed_var ';'
 // fieldTypes: Array<Type *>
-static bool parse_struct_field(Parser *p, Array *fieldTypes) {
+// structRef: The ASTObj* refering to the struct being parsed. NOT MODIFIED!
+static bool parse_struct_field(Parser *p, Array *fieldTypes, ASTObj *structRef) {
     ASTObj *field = parseTypedVariable(p);
     bool hadError = false;
     if(field) {
+        field->parent = structRef;
         if(field->dataType == NULL) {
             error(p, tmp_buffer_format(p, "Field '%s' has no type.", field->name));
             // Assume the syntax is correct apart from the missing type.
@@ -1082,13 +1084,15 @@ static bool parse_struct_field(Parser *p, Array *fieldTypes) {
     return field == NULL || hadError ? false : true;
 }
 
+// TODO: Remove this function since "this" is now parsed parseFunctionDecl().
 // method_decl -> function_decl (with extra 'this' parameter.)
-static bool parse_method_decl(Parser *p, ASTString structName) {
+static bool parse_method_decl(Parser *p, ASTObj *structure) {
     VERIFY(consume(p, TK_FN)); // MUST be true if this function is called by parseSTructDecl().
-    ASTObj *method = parseFunctionDecl(p, structName);
+    ASTObj *method = parseFunctionDecl(p, structure->name);
     if(!method) {
         return false;
     }
+    method->parent = structure;
     scopeAddObject(getCurrentScope(p), method);
     return true;
 }
@@ -1099,6 +1103,9 @@ static ASTObj *parseStructDecl(Parser *p) {
     Location loc = previous(p).location;
     ASTString name = TRY(ASTString, parseIdentifier(p));
     TRY_CONSUME(p, TK_LBRACE);
+    // WARNING: struct location is INCOMPLETE until the end of this function!
+    ASTObj *st = astModuleNewObj(getCurrentModule(p), OBJ_STRUCT, loc, name, NULL);
+
 
     Array fieldTypes; // Array<Type *>
     arrayInit(&fieldTypes);
@@ -1112,7 +1119,7 @@ static ASTObj *parseStructDecl(Parser *p) {
             error(p, tmp_buffer_format(p, "Expected field declaration but got '%s'.", tokenTypeString(previous(p).type)));
             continue;
         }
-        if(!parse_struct_field(p, &fieldTypes)) {
+        if(!parse_struct_field(p, &fieldTypes, st)) {
             hadError = true;
         }
     }
@@ -1133,7 +1140,7 @@ static ASTObj *parseStructDecl(Parser *p) {
             error(p, tmp_buffer_format(p, "Expected method declaration but got '%s'.", tokenTypeString(previous(p).type)));
             continue;
         }
-        if(!parse_method_decl(p, name)) {
+        if(!parse_method_decl(p, st)) {
             hadError = true;
             // Synchronize to bound function/struct boundaries.
             // TODO: when the 'public' keyword is added, also sync to it.
@@ -1144,8 +1151,9 @@ static ASTObj *parseStructDecl(Parser *p) {
     }
     TRY_CONSUME(p, TK_RBRACE);
     leaveScope(p);
-    ASTObj *st = astModuleNewObj(getCurrentModule(p), OBJ_STRUCT, loc, name, type);
     st->as.structure.scope = sc;
+    st->dataType = type;
+    st->location = loc;
     return st;
 }
 

@@ -2,7 +2,6 @@
 #define VALIDATOR_H
 
 #include <stdbool.h>
-#include "Table.h"
 #include "Compiler.h"
 #include "Ast/Scope.h"
 #include "Ast/Program.h"
@@ -13,8 +12,10 @@ typedef struct validator {
     Compiler *compiler;
     bool hadError;
     struct {
+        // TODO: add comments specifiyng if each field may be NULL or invalid and when.
         Scope *parsedScope, *checkedScope;
         ASTObj *function;
+        ASTObj *objParent; // May be NULL.
         ModuleID module;
     } current;
 } Validator;

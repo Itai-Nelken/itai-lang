@@ -22,6 +22,7 @@ void validatorInit(Validator *v, Compiler *c) {
     v->current.checkedScope = v->current.parsedScope = NULL;
     v->current.function = NULL;
     v->current.module = 0;
+    v->current.objParent = NULL;
 }
 
 void validatorFree(Validator *v) {
@@ -910,7 +911,17 @@ static bool validateFunction(Validator *v, ASTObj *fn) {
 
 static bool validateCurrentScope(Validator *v);
 static bool validateStruct(Validator *v, ASTObj *st) {
+    Type *checkedStructType = validateType(v, st->dataType);
+    VERIFY(checkedStructType); // Guranteed to exist (types are validated in validateModule().)
+    ASTObj *checkedStruct = astModuleNewObj(getCurrentCheckedModule(v), OBJ_STRUCT, st->location, st->name, checkedStructType);
+
+    // Note: need to enter scope before setting the scope in the checkedObj and adding it to the current module.
+    //       Otherwise we set the scope of the struct to the scope of the module...
     enterScope(v, st->as.structure.scope);
+
+    checkedStruct->as.structure.scope = getCurrentCheckedScope(v);
+    scopeAddObject(getCurrentCheckedModule(v)->moduleScope, checkedStruct);
+
     // Note: when we validate types, we validate the fields (their types.)
     //       So here we only add them to the scope.
     Array objects;
@@ -922,25 +933,28 @@ static bool validateStruct(Validator *v, ASTObj *st) {
             Type *checkedFieldType = validateType(v, obj->dataType);
             VERIFY(checkedFieldType); // TODO: Guaranteed to exist I think (type validation in module)??
             ASTObj *checkedField = astModuleNewObj(getCurrentCheckedModule(v), obj->type, obj->location, obj->name, checkedFieldType);
+            // Set the parent of the field as the struct.
+            checkedField->parent = checkedStruct;
             // Note: parser checks for field re-declaration.
             scopeAddObject(getCurrentCheckedScope(v), checkedField);
         }
     }
     arrayFree(&objects);
-    // Make the checked struct object and add it to the module scope before validating methods
-    // since they use the struct.
-    Type *checkedStructType = validateType(v, st->dataType);
-    VERIFY(checkedStructType); // Guranteed to exist (types are validated in validateModule().)
-    ASTObj *checkedStruct = astModuleNewObj(getCurrentCheckedModule(v), OBJ_STRUCT, st->location, st->name, checkedStructType);
-    checkedStruct->as.structure.scope = getCurrentCheckedScope(v);
-    scopeAddObject(getCurrentCheckedModule(v)->moduleScope, checkedStruct);
+    // Set objParent to this struct so that all of the functions in its scope have it as their parent.
+    v->current.objParent = checkedStruct;
+    // Note: the checked struct has to exist before validating the methods since they
+    //       use the struct. Here, the struct is now created at the beginning of this function.
     bool hadError = !validateCurrentScope(v);
+    v->current.objParent = NULL;
     leaveScope(v);
     return !hadError;
 }
 
+// Note: sets the parent of the new checked function to whatever v.current.objParent is.
 static void predeclFunction(Validator *v, ASTObj *parsedFn) {
     ASTObj *checkedFnPredecl = astModuleNewObj(getCurrentCheckedModule(v), OBJ_FN, parsedFn->location, parsedFn->name, NULL);
+    // Note: struct fields get this in validateStruct().
+    checkedFnPredecl->parent = v->current.objParent;
     Type *checkedDataType = validateType(v, parsedFn->dataType);
     checkedFnPredecl->dataType = checkedDataType;
     Type *checkedReturnType = validateType(v, parsedFn->as.fn.returnType);
