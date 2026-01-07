@@ -674,6 +674,7 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
                     break;
                 }
             }
+            // FIXME (not here): have a problem with the module scope being the same as the struct scope?????
 
             // get the ID part (always exists b/c its the last part of the ID which always exists).
             // Check if the record part exists first (since if it exists the id is inside of it.)
@@ -1008,7 +1009,7 @@ static bool validateCurrentScope(Validator *v) {
         // Note: OBJ_VARs will be validated as the variables are declared (in validateStmt().)
         if(parsedObj->type == OBJ_FN) {
             predeclFunction(v, parsedObj);
-        }
+        } // TODO: set parent (only if enclosing scope is a struct.)
     }
     if(v->hadError) {
         arrayFree(&objectsInScope);

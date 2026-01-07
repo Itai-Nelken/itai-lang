@@ -247,6 +247,13 @@ static void typecheckStmt(Typechecker *typ, ASTStmtNode *stmt) {
     }
 }
 
+/**
+ * Control flow analysis goals:
+ * - detect missing returns in function with return type.
+ * - In the future: if condition (in loop,if,expect) is a constant, can find control flow state of entire stmt.
+ * That's all. Unreachable code is detected by parser.
+ **/
+
 static void typecheckFunction(Typechecker *typ, ASTObj *fn) {
     // TODO: control flow
     typ->current.function = fn;

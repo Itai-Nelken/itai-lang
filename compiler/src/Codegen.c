@@ -1,6 +1,9 @@
 #include <stdio.h> // FILE
 #include <stdarg.h>
+#include "Ast/ExprNode.h"
+#include "Ast/Object.h"
 #include "Ast/Program.h"
+#include "Ast/Scope.h"
 #include "Ast/Type.h"
 #include "common.h"
 #include "Strings.h"
@@ -17,6 +20,9 @@
  * Methods are also a bit tricky. Since C doesn't support methods,
  * they are generated as normal functions with an internal name
  * which is stored in the 'methodCNames' table.
+ *
+ * Similarly, normal functions also have a name->CName table so functions
+ * with the same name but in different modules can be differentiated.
  **/
 
 typedef struct codegen {
@@ -30,8 +36,9 @@ typedef struct codegen {
     ASTModule *currentModule;
     Array defersInCurrentFn; // Array<ASTStmtNode *>
     Table methodCNames; // Table<ASTString, ASTString> (name, C name)
+    Table fnCNames; // Table<ASTString, ASTString> (name, C name)
     ASTObj *mainFn;
-    ASTString mainFNCname;
+    ASTString mainFNCname; // TODO: get from above table when I'm done implementing it.
 } Codegen;
 
 static void print(Codegen *cg, const char *format, ...) {
@@ -54,6 +61,24 @@ static const char *genIDWithModule(Codegen *cg, ASTModule *m, const char *id) {
 
 static const char *genID(Codegen *cg, const char *id) {
     return genIDWithModule(cg, cg->currentModule, id);
+}
+
+static const char *genIDFromObj(Codegen *cg, ASTObj *obj, bool genModuleName) {
+    // FIXME: handle NULL return value from getModule().
+    ASTString moduleName = astProgramGetModule(cg->program, obj->ownerModule)->name;
+    ASTString structName = obj->parent != NULL ? obj->parent->name : NULL;
+    ASTString objName = obj->name;
+
+    stringClear(cg->idBuffer);
+    if(genModuleName) {
+        stringAppend(&cg->idBuffer, "module%s_", moduleName);
+    }
+    // Variable objects only get moduleName (if they are module scope).
+    if(structName != NULL && obj->type != OBJ_VAR) {
+        stringAppend(&cg->idBuffer, "%s_", structName);
+    }
+    stringAppend(&cg->idBuffer, "%s", objName);
+    return (const char *)cg->idBuffer;
 }
 
 static void genType(Codegen *cg, Type *ty) {
@@ -142,9 +167,26 @@ static void genExpr(Codegen *cg, ASTExprNode *expr) {
             break;
         // Obj nodes
         case EXPR_VARIABLE:
-        case EXPR_FUNCTION:
-            print(cg, "%s", NODE_AS(ASTObjExpr, expr)->obj->name);
+        case EXPR_FUNCTION: {
+            ASTObj *obj = NODE_AS(ASTObjExpr, expr)->obj;
+            // If obj is not in fn,struct scope, gen module name. Handle methods.
+            // Specifically:
+            // OBJ_FN - always generate module name.
+            //   * If has a parent (i.e. is a method), also generate struct (parent) name.
+            // OBJ_VAR - if in module scope, generate module name.
+            bool genModuleName = true;
+            if(obj->type == OBJ_FN) {
+                genModuleName = true;
+            } else {
+                // OBJ_VAR
+                // generate module name only if in module scope.
+                Scope *moduleScope = astProgramGetModule(cg->program, obj->ownerModule)->moduleScope;
+                genModuleName = scopeGetObject(moduleScope, OBJ_VAR, obj->name) != NULL;
+            }
+            const char *name = genIDFromObj(cg, obj, genModuleName);
+            print(cg, "%s", name);
             break;
+        }
         // Binary nodes
         case EXPR_PROPERTY_ACCESS:
             if(cg->isInCall) {
@@ -588,10 +630,15 @@ void codegenGenerate(FILE *output, ASTProgram *prog) {
     tableInit(&cg.fnTypes, NULL, NULL);
     arrayInit(&cg.defersInCurrentFn);
     tableInit(&cg.methodCNames, NULL, NULL);
+    tableInit(&cg.fnCNames, NULL, NULL); // TODO: This is not the solution. I need to be able to know when an obj. is in a different module.
     genHeader(&cg);
     ARRAY_FOR(i, prog->modules) {
         ASTModule *m = ARRAY_GET_AS(ASTModule *, &prog->modules, i);
         cg.currentModule = m;
+        // Reset the function typename counter (used for fn type CNames) before every module
+        // since every module has a different name, which means that function typenames
+        // have different prefixes in each modules, so there is no need to keep the counter between modules.
+        cg.fnTypenameCounter = 0;
         genModule(&cg, m);
     }
     print(&cg, "// entry point:\n");
@@ -603,6 +650,7 @@ void codegenGenerate(FILE *output, ASTProgram *prog) {
         print(&cg, "return 0;\n");
     }
     print(&cg, "}\n");
+    tableFree(&cg.fnCNames);
     tableFree(&cg.methodCNames);
     arrayFree(&cg.defersInCurrentFn);
     tableFree(&cg.fnTypes);

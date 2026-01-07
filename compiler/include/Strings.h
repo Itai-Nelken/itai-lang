@@ -14,6 +14,7 @@
 // 'const char *' is used when ONLY C strings are expected.
 // FIXME: this whole design is flawed because the validity check will access
 //        memory it shouldn't touch, causing undefined behaviour probably...
+//        The solution is to just remove the validity check (it seems that the 'sds' library does that and it uses a similar design.)
 
 typedef char *String;
 
