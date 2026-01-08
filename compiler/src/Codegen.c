@@ -1,13 +1,16 @@
 #include <stdio.h> // FILE
 #include <stdarg.h>
+#include "Array.h"
 #include "Ast/ExprNode.h"
 #include "Ast/Object.h"
 #include "Ast/Program.h"
 #include "Ast/Scope.h"
+#include "Ast/StringTable.h"
 #include "Ast/Type.h"
 #include "common.h"
 #include "Strings.h"
 #include "Ast/Ast.h"
+#include "memory.h"
 #include "Codegen.h"
 
 /**
@@ -17,12 +20,15 @@
  * | typedef void (*fn0)(int, int);
  * would declare 'fn0' as the type for 'fn(i32, i32) -> void'
  *
- * Methods are also a bit tricky. Since C doesn't support methods,
- * they are generated as normal functions with an internal name
- * which is stored in the 'methodCNames' table.
- *
- * Similarly, normal functions also have a name->CName table so functions
- * with the same name but in different modules can be differentiated.
+ * All module scope ("global") IDs are a bit tricky since C doesn't have different namespaces per "module".
+ * To work around this, "global" IDs are mangled.
+ * Methods also present the same problem, with the added issue of the struct name.
+ * The same mangling idea is used here as well.
+ * The mangling format is as follows:
+ *  1) Module scope variables, functions, and structs: moduleXXX_{var/fn/struct}_<name>
+ *  2) Bound functions (methods): moduleXX_struct_<typename>_method_<name>
+ * The mangled IDs are cached in a ModuleID-indexed array named "CNames" which contains structs with 2 tables:
+ * one for module scope objects, and one for methods.
  **/
 
 typedef struct codegen {
@@ -35,10 +41,12 @@ typedef struct codegen {
     ASTObj *currentFn;
     ASTModule *currentModule;
     Array defersInCurrentFn; // Array<ASTStmtNode *>
-    Table methodCNames; // Table<ASTString, ASTString> (name, C name)
-    Table fnCNames; // Table<ASTString, ASTString> (name, C name)
+    struct {
+        Table globals; // Table<ASTString, ASTString> (name->CName)
+        Table methods; // Table<ASTString, ASTString> (name->CName)
+    } *CNames;
+    size_t numCNames;
     ASTObj *mainFn;
-    ASTString mainFNCname; // TODO: get from above table when I'm done implementing it.
 } Codegen;
 
 static void print(Codegen *cg, const char *format, ...) {
@@ -53,32 +61,55 @@ static void genInternalID(Codegen *cg, const char *name, const char *prefix, con
     print(cg, "%s___ilc_internal__%s%s", prefix ? prefix : "", name, postfix ? postfix : "");
 }
 
-static const char *genIDWithModule(Codegen *cg, ASTModule *m, const char *id) {
+/**
+ * Generates a module scope ID using the following format: moduleXXX_{var/fn/struct}_<name>
+ * The ID is then saved in the CG "global ID" table for the module the object belongs to.
+ **/
+static void genModuleScopeID(Codegen *cg, ModuleID module, ASTObjType type, ASTString name) {
+    TableItem *item = NULL;
+    if((item = tableGet(&cg->CNames[module].globals, (void *)name)) != NULL) {
+        print(cg, "%s", item->value);
+        return;
+    }
+    // format: moduleXX_{var/fn/struct}_<name>
+    ASTModule *m = astProgramGetModule(cg->program, module);
     stringClear(cg->idBuffer);
-    stringAppend(&cg->idBuffer, "module%s_%s", m->name, id);
-    return (const char *)cg->idBuffer;
+    stringAppend(&cg->idBuffer, "module%s_", m->name);
+    switch(type) {
+        case OBJ_VAR:
+            stringAppend(&cg->idBuffer, "var");
+            break;
+        case OBJ_FN:
+            stringAppend(&cg->idBuffer, "fn");
+            break;
+        case OBJ_STRUCT:
+            stringAppend(&cg->idBuffer, "struct");
+            break;
+        default:
+            UNREACHABLE();
+    }
+    stringAppend(&cg->idBuffer, "_%s", name);
+    // FIXME: stringTableString() uses normal strlen(), which is unnecessary since String keeps track of length in its header.
+    tableSet(&cg->CNames[module].globals, (void *)name, (void *)stringTableString(cg->program->strings, cg->idBuffer));
+    print(cg, "%s", cg->idBuffer);
 }
 
-static const char *genID(Codegen *cg, const char *id) {
-    return genIDWithModule(cg, cg->currentModule, id);
-}
-
-static const char *genIDFromObj(Codegen *cg, ASTObj *obj, bool genModuleName) {
-    // FIXME: handle NULL return value from getModule().
-    ASTString moduleName = astProgramGetModule(cg->program, obj->ownerModule)->name;
-    ASTString structName = obj->parent != NULL ? obj->parent->name : NULL;
-    ASTString objName = obj->name;
-
+static void genMethodID(Codegen *cg, ASTObj *obj) {
+    VERIFY(obj->type == OBJ_FN);
+    VERIFY(obj->parent != NULL);
+    TableItem *item = NULL;
+    if((item = tableGet(&cg->CNames[obj->ownerModule].methods, (void *)obj->name)) != NULL) {
+        print(cg, "%s", item->value);
+        return;
+    }
+    // format: moduleXX_{struct/type}_<typename>_method_<name>
+    ASTModule *m = astProgramGetModule(cg->program, obj->ownerModule);
+    ASTObj *parent = obj->parent;
     stringClear(cg->idBuffer);
-    if(genModuleName) {
-        stringAppend(&cg->idBuffer, "module%s_", moduleName);
-    }
-    // Variable objects only get moduleName (if they are module scope).
-    if(structName != NULL && obj->type != OBJ_VAR) {
-        stringAppend(&cg->idBuffer, "%s_", structName);
-    }
-    stringAppend(&cg->idBuffer, "%s", objName);
-    return (const char *)cg->idBuffer;
+    stringAppend(&cg->idBuffer, "module%s_struct_%s_method_%s", m->name, parent->name, obj->name);
+    // FIXME: stringTableString() uses normal strlen(), which is unnecessary since String keeps track of length in its header.
+    tableSet(&cg->CNames[obj->ownerModule].methods, (void *)obj->name, (void *)stringTableString(cg->program->strings, cg->idBuffer));
+    print(cg, "%s", cg->idBuffer);
 }
 
 static void genType(Codegen *cg, Type *ty) {
@@ -101,9 +132,7 @@ static void genType(Codegen *cg, Type *ty) {
                 break;
             }
         case TY_STRUCT: {
-            ASTModule *m = astProgramGetModule(cg->program, ty->declModule);
-            VERIFY(m);
-            print(cg, "%s", genIDWithModule(cg, m,ty->name));
+            genModuleScopeID(cg, ty->declModule, OBJ_STRUCT, ty->name);
             break;
         }
         case TY_IDENTIFIER:
@@ -174,17 +203,23 @@ static void genExpr(Codegen *cg, ASTExprNode *expr) {
             // OBJ_FN - always generate module name.
             //   * If has a parent (i.e. is a method), also generate struct (parent) name.
             // OBJ_VAR - if in module scope, generate module name.
-            bool genModuleName = true;
             if(obj->type == OBJ_FN) {
-                genModuleName = true;
+                if(obj->parent != NULL) {
+                    genMethodID(cg, obj);
+                } else {
+                    genModuleScopeID(cg, obj->ownerModule, obj->type, obj->name);
+                }
             } else {
                 // OBJ_VAR
-                // generate module name only if in module scope.
+                // generate module name only if in module scope (i.e. don't mangle local and field variable names).
                 Scope *moduleScope = astProgramGetModule(cg->program, obj->ownerModule)->moduleScope;
-                genModuleName = scopeGetObject(moduleScope, OBJ_VAR, obj->name) != NULL;
+                if(scopeGetObject(moduleScope, OBJ_VAR, obj->name) != NULL) {
+                    // is module scope.
+                    genModuleScopeID(cg, obj->ownerModule, obj->type, obj->name);
+                } else {
+                    print(cg, "%s", obj->name);
+                }
             }
-            const char *name = genIDFromObj(cg, obj, genModuleName);
-            print(cg, "%s", name);
             break;
         }
         // Binary nodes
@@ -193,11 +228,7 @@ static void genExpr(Codegen *cg, ASTExprNode *expr) {
                 // Generate C method name.
                 ASTExprNode *methodNode = NODE_AS(ASTBinaryExpr, expr)->rhs;
                 VERIFY(NODE_IS(methodNode, EXPR_VARIABLE) && methodNode->dataType->type == TY_FUNCTION);
-                ASTString methodName = NODE_AS(ASTObjExpr, methodNode)->obj->name;
-                TableItem *item = tableGet(&cg->methodCNames, (void *)methodName);
-                VERIFY(item);
-                ASTString CName = (ASTString)item->value;
-                print(cg, "%s", CName);
+                genMethodID(cg, NODE_AS(ASTObjExpr, methodNode)->obj);
             } else {
                 genPropertyAccessExpr(cg, expr);
             }
@@ -269,7 +300,7 @@ static void genExpr(Codegen *cg, ASTExprNode *expr) {
 static void genVarDecl(Codegen *cg, ASTVarDeclStmt *vdecl, bool isModuleScope) {
     genType(cg, vdecl->variable->dataType);
     if(isModuleScope) {
-        print(cg, " %s", genID(cg, vdecl->variable->name));
+        genModuleScopeID(cg, vdecl->variable->ownerModule, vdecl->variable->type, vdecl->variable->name);
     } else {
         print(cg, " %s", vdecl->variable->name);
     }
@@ -382,9 +413,12 @@ static void genStmt(Codegen *cg, ASTStmtNode *stmt) {
     }
 }
 
-static void genScope(Codegen *cg, Scope *sc, Table *moduleTypeTable, ASTObj *structure);
+static void genScope(Codegen *cg, Scope *sc, Table *moduleTypeTable);
 static void genStruct(Codegen *cg, ASTObj *st) {
-    print(cg, "struct %s {\n", genID(cg, st->name)); // typedef is done in predecl.
+    // Note: typedef is done in predecl.
+    print(cg, "struct ");
+    genModuleScopeID(cg, st->ownerModule, st->type, st->name);
+    print(cg, " {\n");
     Array objects; // Array<ASTObj *>
     arrayInitSized(&objects, scopeGetNumObjects(st->as.structure.scope));
     scopeGetAllObjects(st->as.structure.scope, &objects);
@@ -397,7 +431,7 @@ static void genStruct(Codegen *cg, ASTObj *st) {
     }
     arrayFree(&objects);
     print(cg, "};\n");
-    genScope(cg, st->as.structure.scope, NULL, st);
+    genScope(cg, st->as.structure.scope, NULL);
 }
 
 static void collect_type_callback(TableItem *item, bool is_last, void *type_array) {
@@ -478,8 +512,7 @@ static void topologicallySortTypes(Table *typeTable, Array *output) {
 }
 
 // moduleTypeTable: for module scope ONLY. NULL otherwise
-// structure: Enclosing struct. for struct scope ONLY, NULL otherwise.
-static void genScope(Codegen *cg, Scope *sc, Table *moduleTypeTable, ASTObj *structure) {
+static void genScope(Codegen *cg, Scope *sc, Table *moduleTypeTable) {
     VERIFY(sc->depth == SCOPE_DEPTH_MODULE_NAMESPACE || sc->depth == SCOPE_DEPTH_STRUCT);
     print(cg, "/* scope, depth: %d */\n", sc->depth);
     if(moduleTypeTable) {
@@ -496,7 +529,7 @@ static void genScope(Codegen *cg, Scope *sc, Table *moduleTypeTable, ASTObj *str
         }
         arrayFree(&sortedStructTypes);
     }
-    // Note: The newline before is printed by the loop/print() before the loop if no structs exist.
+    // Note: The newline before is printed by the loop, or if no structs exist by the print() before the loop.
     print(cg, "// predeclarations:\n");
     Array objects; // Array<ASTObj *>
     arrayInit(&objects);
@@ -504,14 +537,18 @@ static void genScope(Codegen *cg, Scope *sc, Table *moduleTypeTable, ASTObj *str
     ARRAY_FOR(i, objects) {
         ASTObj *obj = ARRAY_GET_AS(ASTObj *, &objects, i);
         if(obj->type == OBJ_FN) {
-            // function predecl
-            ASTString CName = (char *)genID(cg, obj->name);
-            if(sc->depth == SCOPE_DEPTH_STRUCT) {
-                CName = stringTableFormat(cg->program->strings, "___ilc_internal__struct%s_method_%s", genID(cg, structure->name), obj->name);
-                tableSet(&cg->methodCNames, (void *)obj->name, (void *)CName);
-            }
+            // function predecl:
+            // * Return type.
             genType(cg, obj->as.fn.returnType);
-            print(cg, " %s(", CName);
+            print(cg, " ");
+            // * Name (mangled).
+            if(sc->depth == SCOPE_DEPTH_STRUCT) {
+                genMethodID(cg, obj);
+            } else {
+                genModuleScopeID(cg, obj->ownerModule, obj->type, obj->name);
+            }
+            // * Parameter types.
+            print(cg, "(");
             ARRAY_FOR(i, obj->as.fn.parameters) {
                 ASTObj *param = ARRAY_GET_AS(ASTObj *, &obj->as.fn.parameters, i);
                 genType(cg, param->dataType);
@@ -522,27 +559,31 @@ static void genScope(Codegen *cg, Scope *sc, Table *moduleTypeTable, ASTObj *str
             print(cg, ");\n");
         }
     }
+
     // Actually generate the rest of the objects (actually only functions).
     print(cg, "// declarations: \n");
     ARRAY_FOR(i, objects) {
         ASTObj *obj = ARRAY_GET_AS(ASTObj *, &objects, i);
         if(obj->type == OBJ_FN) {
             cg->currentFn = obj;
-            ASTString CName = (char *)genID(cg, obj->name);
-            if(sc->depth == SCOPE_DEPTH_STRUCT) {
-                TableItem *item = tableGet(&cg->methodCNames, (void *)obj->name);
-                VERIFY(item);
-                CName = (ASTString)item->value;
-            }
+            arrayClear(&cg->defersInCurrentFn);
             if(stringEqual(obj->name, "main")) {
                 VERIFY(cg->mainFn == NULL);
                 cg->mainFn = obj;
-                // Otherwise mainFNCname changes as we reuse the CG string buffer.
-                cg->mainFNCname = stringTableString(cg->program->strings, CName);
             }
-            arrayClear(&cg->defersInCurrentFn);
+
+            // Return type.
             genType(cg, obj->as.fn.returnType);
-            print(cg, " %s(", CName);
+            print(cg, " ");
+            // Name (mangled).
+            if(sc->depth == SCOPE_DEPTH_STRUCT) {
+                genMethodID(cg, obj);
+            } else {
+                genModuleScopeID(cg, obj->ownerModule, obj->type, obj->name);
+            }
+
+            // Parameters.
+            print(cg, "(");
             ARRAY_FOR(i, obj->as.fn.parameters) {
                 ASTObj *param = ARRAY_GET_AS(ASTObj *, &obj->as.fn.parameters, i);
                 genType(cg, param->dataType);
@@ -565,8 +606,11 @@ static void predecl_struct_types_cb(TableItem *item, bool isLast, void *cl) {
     Codegen *cg = (Codegen *)cl;
     Type *ty = (Type *)item->value;
     if(ty->type == TY_STRUCT) {
-        const char *name = genID(cg, ty->name);
-        print(cg, "typedef struct %s %s;\n", name, name);
+        print(cg, "typedef struct ");
+        genModuleScopeID(cg, ty->declModule, OBJ_STRUCT, ty->name);
+        print(cg, " ");
+        genModuleScopeID(cg, ty->declModule, OBJ_STRUCT, ty->name);
+        print(cg, ";\n");
     }
 }
 static void predecl_fn_types_cb(TableItem *item, bool isLast, void *cl) {
@@ -574,7 +618,8 @@ static void predecl_fn_types_cb(TableItem *item, bool isLast, void *cl) {
     Codegen *cg = (Codegen *)cl;
     Type *ty = (Type *)item->value;
     if(ty->type == TY_FUNCTION) {
-        ASTString fnCTypename = stringTableFormat(cg->program->strings, "%s%u", genID(cg, "fn"), cg->fnTypenameCounter++);
+        ASTModule *m = astProgramGetModule(cg->program, ty->declModule);
+        ASTString fnCTypename = stringTableFormat(cg->program->strings, "module%s_fn%u", m->name, cg->fnTypenameCounter++);
         tableSet(&cg->fnTypes, (void *)ty->name, (void *)fnCTypename);
         print(cg, "typedef ");
         genType(cg, ty->as.fn.returnType);
@@ -602,7 +647,7 @@ static void genModule(Codegen *cg, ASTModule *m) {
     tableMap(&m->types, predecl_struct_types_cb, (void *)cg);
     tableMap(&m->types, predecl_fn_types_cb, (void *)cg);
     print(cg, "// Module scope:\n");
-    genScope(cg, m->moduleScope, &m->types, NULL);
+    genScope(cg, m->moduleScope, &m->types);
 }
 
 static void genHeader(Codegen *cg) {
@@ -629,8 +674,12 @@ void codegenGenerate(FILE *output, ASTProgram *prog) {
     };
     tableInit(&cg.fnTypes, NULL, NULL);
     arrayInit(&cg.defersInCurrentFn);
-    tableInit(&cg.methodCNames, NULL, NULL);
-    tableInit(&cg.fnCNames, NULL, NULL); // TODO: This is not the solution. I need to be able to know when an obj. is in a different module.
+    cg.numCNames = arrayLength(&prog->modules);
+    cg.CNames = CALLOC(cg.numCNames, sizeof(*cg.CNames));
+    for(size_t i = 0; i < cg.numCNames; ++i) {
+        tableInit(&cg.CNames[i].globals, NULL, NULL);
+        tableInit(&cg.CNames[i].methods, NULL, NULL);
+    }
     genHeader(&cg);
     ARRAY_FOR(i, prog->modules) {
         ASTModule *m = ARRAY_GET_AS(ASTModule *, &prog->modules, i);
@@ -644,14 +693,20 @@ void codegenGenerate(FILE *output, ASTProgram *prog) {
     print(&cg, "// entry point:\n");
     print(&cg, "int main(void) {\n");
     if(cg.mainFn->dataType->as.fn.returnType->type != TY_VOID) {
-        print(&cg, "return %s();\n", cg.mainFNCname);
+        print(&cg, "return ");
+        genModuleScopeID(&cg, cg.mainFn->ownerModule, cg.mainFn->type, cg.mainFn->name);
+        print(&cg, "();\n");
     } else {
-        print(&cg, "%s();\n", cg.mainFNCname);
+        genModuleScopeID(&cg, cg.mainFn->ownerModule, cg.mainFn->type, cg.mainFn->name);
+        print(&cg, "();\n");
         print(&cg, "return 0;\n");
     }
     print(&cg, "}\n");
-    tableFree(&cg.fnCNames);
-    tableFree(&cg.methodCNames);
+    for(size_t i = 0; i < cg.numCNames; ++i) {
+        tableFree(&cg.CNames[i].methods);
+        tableFree(&cg.CNames[i].globals);
+    }
+    FREE(cg.CNames);
     arrayFree(&cg.defersInCurrentFn);
     tableFree(&cg.fnTypes);
     stringFree(cg.idBuffer);
