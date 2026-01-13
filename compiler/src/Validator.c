@@ -6,6 +6,7 @@
 #include "Ast/Program.h"
 #include "Ast/Scope.h"
 #include "Ast/Type.h"
+#include "Token.h"
 #include "common.h"
 #include "memory.h"
 #include "Array.h"
@@ -66,7 +67,13 @@ static inline Allocator *getCurrentAllocator(Validator *v) {
 
 // Notes: * Typename MUST be valid (C.R.E).
 //        * Returned type is guaranteed to exist (not be NULL, C.R.E).
-static Type *getType(Validator *v, const char *name) {
+static Type *getType(Validator *v, ModuleID module, const char *name) {
+    Type *ty = astModuleGetType(astProgramGetModule(v->checkedProgram, module), name);
+    VERIFY(ty);
+    return ty;
+}
+
+static Type *getTypeInCurrentModule(Validator *v, const char *name) {
     Type *ty = astModuleGetType(getCurrentCheckedModule(v), name);
     VERIFY(ty);
     return ty;
@@ -164,9 +171,9 @@ static Type *expr_data_type_complex(Validator *v, ASTExprNode *expr, bool isInCa
                 return expr->dataType;
             }
             // FIXME: should be i64 (??)
-            return getType(v, "i32");
+            return getTypeInCurrentModule(v, "i32");
         case EXPR_STRING_CONSTANT:
-            return getType(v, "str");
+            return getTypeInCurrentModule(v, "str");
         case EXPR_BOOLEAN_CONSTANT:
             // Must be true since parser sets it.
             VERIFY(expr->dataType->type == TY_BOOL);
@@ -202,7 +209,7 @@ static Type *expr_data_type_complex(Validator *v, ASTExprNode *expr, bool isInCa
         case EXPR_LOGICAL_OR:
         case EXPR_LOGICAL_NOT: // Unary node, but fits here.
             // Type of conditional expression is boolean.
-            return getType(v, "bool");
+            return getTypeInCurrentModule(v, "bool");
         case EXPR_ADDROF:
             VERIFY(expr->dataType); // In case called on parsed expr.
             return expr->dataType; // The pointer type.
@@ -472,7 +479,8 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
                 }
 
                 // Get the struct ASTObj.
-                ASTObj *structure = scopeGetObject(getCurrentCheckedModule(v)->moduleScope, OBJ_STRUCT, lhsTy->name);
+                astProgramGetModule(v->checkedProgram, lhsTy->declModule);
+                ASTObj *structure = scopeGetObject(astProgramGetModule(v->checkedProgram, lhsTy->declModule)->moduleScope, OBJ_STRUCT, lhsTy->name);
                 VERIFY(structure);
                 ASTObj *field = scopeGetAnyObject(structure->as.structure.scope, NODE_AS(ASTIdentifierExpr, rhs)->id);
                 if(!field) {
@@ -527,12 +535,12 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
             Type *exprTy = exprDataType(v, checkedOperand);
             if(NODE_IS(parsedExpr, EXPR_ADDROF)) {
                 String ptrName = stringFormat("&%s", exprTy->name);
-                exprTy = getType(v, ptrName);
+                exprTy = getType(v, exprTy->declModule, ptrName);
                 stringFree(ptrName);
             }
             // !<expr> generates a boolean value.
             if(NODE_IS(parsedExpr, EXPR_LOGICAL_NOT)) {
-                exprTy = getType(v, "bool"); // since exprTy was type of operand.
+                exprTy = getTypeInCurrentModule(v, "bool"); // since exprTy was type of operand.
             }
             checkedExpr = NODE_AS(ASTExprNode, astUnaryExprNew(getCurrentAllocator(v), parsedExpr->type, parsedExpr->location, exprTy, checkedOperand));
             if(NODE_IS(checkedExpr, EXPR_DEREF)) {
@@ -578,11 +586,12 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
                 if(NODE_IS(callee->lhs, EXPR_PROPERTY_ACCESS)) {
                     thisArg = NODE_AS(ASTBinaryExpr, callee->lhs)->rhs;
                 } else {
-                    VERIFY(NODE_IS(callee->lhs, EXPR_VARIABLE));
                     thisArg = callee->lhs;
                 }
+                VERIFY(NODE_IS(thisArg, EXPR_VARIABLE));
+                ModuleID m = NODE_AS(ASTObjExpr, thisArg)->obj->ownerModule;
                 // Make the expression "passed" as 'this' generate a pointer.
-                Type *thisType = getType(v, stringTableFormat(v->checkedProgram->strings, "&%s", thisArg->dataType->name));
+                Type *thisType = getType(v, m, stringTableFormat(v->checkedProgram->strings, "&%s", thisArg->dataType->name));
                 thisArg = (ASTExprNode *)astUnaryExprNew(getCurrentAllocator(v), EXPR_ADDROF, EMPTY_LOCATION, thisType, thisArg);
                 // Finally, add 'this' to the argument list (as the first argument.)
                 arrayPush(&checkedArguments, (void *)thisArg);
@@ -816,7 +825,7 @@ static ASTStmtNode *validateStmt(Validator *v, ASTStmtNode *parsedStmt) {
                 checkedOperand = TRY(ASTExprNode *, validateExpr(v, NODE_AS(ASTExprStmt, parsedStmt)->expression));
                 if(v->current.function->as.fn.returnType->type == TY_U32 && NODE_IS(checkedOperand, EXPR_NUMBER_CONSTANT)) {
                     // TODO: wrap operand in type conversion expression.
-                    checkedOperand->dataType = getType(v, "u32");
+                    checkedOperand->dataType = getTypeInCurrentModule(v, "u32");
                 }
             }
             checkedStmt = (ASTStmtNode *)astExprStmtNew(getCurrentAllocator(v), STMT_RETURN, parsedStmt->location, checkedOperand);
@@ -882,7 +891,7 @@ static ASTVarDeclStmt *validateVariableDecl(Validator *v, ASTVarDeclStmt *parsed
 
     if(dataType->type == TY_U32 && NODE_IS(checkedInitializer, EXPR_NUMBER_CONSTANT)) {
         // TODO: wrap initializer in type conversion expression.
-        checkedInitializer->dataType = getType(v, "u32");
+        checkedInitializer->dataType = getTypeInCurrentModule(v, "u32");
     }
 
     ASTObj *checkedObj = astModuleNewObj(getCurrentCheckedModule(v), OBJ_VAR, parsedVarDecl->variable->location, parsedVarDecl->variable->name, dataType);
@@ -1034,13 +1043,31 @@ static bool validateCurrentScope(Validator *v) {
     return !hadError;
 }
 
+// MUST call when 'typename' has ALREADY BEEN VALIDATED!!!!
+static void generateTypeVariants(Validator *v, Type *checkedType) {
+    ASTModule *parsedModule = astProgramGetModule(v->parsedProgram, v->current.module);
+    ASTModule *checkedModule = astProgramGetModule(v->checkedProgram, v->current.module);
+    // FIXME: this currently creates pointer types even for non-pointable types...
+    // * Pointer:
+    ASTString ptrName = stringTableFormat(v->checkedProgram->strings, "&%s", checkedType->name);
+    // Check in parsedModule because we might have not validated the pointer type yet.
+    if(astModuleGetType(parsedModule, ptrName) == NULL) {
+        Type *ptr = typeNew(TY_POINTER, ptrName, checkedType->declLocation, v->current.module);
+        ptr->as.ptr.innerType = checkedType;
+        // Note: no need to validate the ptr type since the only thing validation does is check the
+        //       pointee type which is guaranteed to be validated by the time this function is called.
+        astModuleAddType(checkedModule, ptr);
+    }
+}
+
 static void validate_type_callback(TableItem *item, bool is_last, void *validator) {
     UNUSED(is_last);
     Validator *v = (Validator *)validator;
     Type *parsedType = (Type *)item->value;
     // Note: ID types are validated as used.
     if(parsedType->type != TY_IDENTIFIER) {
-        validateType(v, parsedType); // validateType() adds the type to the current module.
+        Type *checkedType = validateType(v, parsedType); // validateType() adds the type to the current module.
+        generateTypeVariants(v, checkedType);
     }
 }
 
