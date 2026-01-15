@@ -9,6 +9,8 @@ TODO:
   > struct A {val: i32; fn getVal(&this) -> i32 {return this.val;}}
   > fn main() {var a: A; A::getVal(&a);}
 
+* Note somewhere that currently pointer-to-pointer types are not allowed.
+
 * All: don't create a new type for types in a different module.
   - Validator should be able to find the correct type in the correct module.
 

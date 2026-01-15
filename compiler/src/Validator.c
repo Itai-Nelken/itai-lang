@@ -1047,16 +1047,17 @@ static bool validateCurrentScope(Validator *v) {
 static void generateTypeVariants(Validator *v, Type *checkedType) {
     ASTModule *parsedModule = astProgramGetModule(v->parsedProgram, v->current.module);
     ASTModule *checkedModule = astProgramGetModule(v->checkedProgram, v->current.module);
-    // FIXME: this currently creates pointer types even for non-pointable types...
-    // * Pointer:
-    ASTString ptrName = stringTableFormat(v->checkedProgram->strings, "&%s", checkedType->name);
-    // Check in parsedModule because we might have not validated the pointer type yet.
-    if(astModuleGetType(parsedModule, ptrName) == NULL) {
-        Type *ptr = typeNew(TY_POINTER, ptrName, checkedType->declLocation, v->current.module);
-        ptr->as.ptr.innerType = checkedType;
-        // Note: no need to validate the ptr type since the only thing validation does is check the
-        //       pointee type which is guaranteed to be validated by the time this function is called.
-        astModuleAddType(checkedModule, ptr);
+    // * Pointer (only if type is not fn. or ptr.):
+    if(checkedType->type != TY_POINTER && checkedType->type != TY_FUNCTION) {
+        ASTString ptrName = stringTableFormat(v->checkedProgram->strings, "&%s", checkedType->name);
+        // Check in parsedModule because we might have not validated the pointer type yet.
+        if(astModuleGetType(parsedModule, ptrName) == NULL) {
+            Type *ptr = typeNew(TY_POINTER, ptrName, checkedType->declLocation, v->current.module);
+            ptr->as.ptr.innerType = checkedType;
+            // Note: no need to validate the ptr type since the only thing validation does is check the
+            //       pointee type which is guaranteed to be validated by the time this function is called.
+            astModuleAddType(checkedModule, ptr);
+        }
     }
 }
 
