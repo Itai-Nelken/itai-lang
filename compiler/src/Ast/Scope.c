@@ -19,7 +19,7 @@ struct object_print_data {
 static void print_object_callback(TableItem *item, bool is_last, void *cl) {
     struct object_print_data *data = (struct object_print_data *)cl;
     astObjectPrint(data->to, (ASTObj *)item->value, false);
-    if(!is_last || !data->skip_last_comma) {
+    if(!is_last && !data->skip_last_comma) {
         fputs(", ", data->to);
     }
 }
@@ -68,7 +68,14 @@ void scopePrint(FILE *to, Scope *sc, bool recursive) {
     fprintf(to, ", \x1b[1mchildren:\x1b[0m [");
     if(recursive) {
         ARRAY_FOR(i, sc->children) {
-            scopePrint(to, ARRAY_GET_AS(Scope *, &sc->children, i), true);
+            Scope *child = ARRAY_GET_AS(Scope *, &sc->children, i);
+            // Skip non-function scopes since they were/will be printed when
+            // their module/struct is printed.
+            // Function scopes are not printed by function objects, so we do print them here.
+            if(child->depth < SCOPE_DEPTH_BLOCK) {
+                continue;
+            }
+            scopePrint(to, child, true);
             if(i + 1 < arrayLength(&sc->children)) {
                 fputs(", ", to);
             }
