@@ -1068,7 +1068,10 @@ static void validate_type_callback(TableItem *item, bool is_last, void *validato
     // Note: ID types are validated as used.
     if(parsedType->type != TY_IDENTIFIER) {
         Type *checkedType = validateType(v, parsedType); // validateType() adds the type to the current module.
-        generateTypeVariants(v, checkedType);
+        // Note: can't use TRY() here since this function doesn't return anything.
+        if(checkedType != NULL) {
+            generateTypeVariants(v, checkedType);
+        }
     }
 }
 
