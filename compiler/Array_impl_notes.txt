@@ -1,0 +1,80 @@
+Arrays:
+
+* Fixed-length only (so length can be known at compile-time).
+  - But have length-inferring where it makes sense (and doesn't make the code less readable).
+* Built-in subarrays (in O(1) time)
+* Internally, implement arrays as ptr+size. Allows for O(1) subarrays as I want.
+* This forces dynamic arrays to be implemented as a (gerenric) data structure, which is good.
+  - But need some sort of way to allocate dynamically-sized arrays (from heap).
+  - So need some sort of heap memory allocator, what syntax?
+  - 'new <type>[<size>]' (i.e. C++ style)? or 'fn allocate(size) -> <type>[]' ?
+* Either way, need some sort of support for arrays where the data is not on the stack.
+  - Do I expose this ability to user? or do I keep it as an internal implementation detail?
+  - Meaning: new/allocate() returns an array that acts like any other array, but internally
+             the compiler and runtime know it is heap allocated.
+  - But problem: I assume all array sizes are known at compile-time!
+  - What to do??? problems are not being able to do bound checks at compile-time etc.!
+  - Maybe have a separate array type that does all checks at runtime?
+  - I think syntax etc. can be the same, but internally there is "slice" and "storage".
+    A slice has a pointer to some storage, and a storage may or may not be known at compile-time.
+    * For example: stack array is represented as a slice that points to a known storage at compile-time.
+                   A heap array has a NULL storage at compile-time.
+    * Implementation in compiler frontend can be "Slice" but with types (SLICE_COMPTIME, SLICE_RUNTIME)
+      where RUNTIME<=>len. not known at compile time, and COMPTIME<=>len. known at compile time.
+    * Backend implementation can be as described below, where the codegen manages the storage and ILCArray refers to a slice.
+
+Runtime implementation ideas (C-codegen):
+struct ILCArray_<type> {
+    usize size;
+    <type> *data;
+};
+
+Because C, instantiate as such:
+
+struct ILCArray_<type> array;
+<type> __tmp[<size>];
+array.size = <size>;
+array.data = __tmp;
+
+Not very elegant, pollutes scope and all descendants with tmp variables.
+Only other option for stack arrays is alloca() which should not be used,
+even though compiler "knows" what it's doing.
+
+Could also have single generic ILCArray with extra type-size field:
+struct ILCArray {
+    usize size, typesize;
+    void *data;
+};
+
+But still have the same problem with allocating the array data itself.
+
+Idea:
+* Since all array sizes are known at compile time, have each function allocate a single buffer
+  of size of all arrays allocated in it. Also have a "next free byte" ptr.
+  Then ILCArrays are instantiated as such:
+  ILCArray{.size=size, .typesize=sizeof(<type>), .data=<next free byte>}; <next free byte> += size*sizeof(<type>)
+
+
+Conclusion:
+===========
+
+Arrays have two components:
+* Slice: ptr+len, associated with a "storage". if storage is NULL, len not known at compile time.
+* Storage: theoretical construct that is used to know whether a slice has a known-at-comptime storage or not.
+
+Slice syntax:
+[<type>; <size>] or [<type>] <- if size can be inferred (error if it can't).
+[<type>] can be used for function parameters to allow for receiving arbitrary-length arrays.
+
+* In practice, arrays (storage-slices) are just arrays. no indirection.
+* all slices/arrays have a length field that is ALWAYS known.
+* Need to implement a simple lifetime tracker
+  - Use scope numbers. Can't return pointer/slice that refers to a storage location
+    with lifetime less than the current scope.
+  - This means every "storage variable" (i.e. variable that is not a pointer/slice) needs to get a lifetime.
+    This means all "var"-type ASTObj.
+
+
+Misc. stuff:
+* Array literal syntax: [a,b,c,d] <-type+size inferred (all types must be the same).
+* Array assignment is always by-reference. Deep-copy is not a language feature (use loop or memcpy).

@@ -1,5 +1,7 @@
 TODO:
 
+* ARRAYS
+
 * Update docs: remove inheritance etc. & replace with "struct extending/embedding" - adding fields,methods to a struct and giving the extended version a new name.
   - Traits/Interfaces provide polymorphism.
 
