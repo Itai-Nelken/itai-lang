@@ -213,7 +213,7 @@ typedef enum precedence {
     PREC_LOGIC_AND        = 8,  // infix &&
     PREC_LOGIC_OR         = 9,  // infix ||
     PREC_TERM             = 10, // infix + -
-    PREC_FACTOR           = 1,  // infix * /
+    PREC_FACTOR           = 11, // infix * /
     PREC_UNARY            = 12, // unary + -
     PREC_CALL             = 13, // (), a.b
     PREC_SCOPE_RESOLUTION = 14, // A::B
