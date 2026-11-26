@@ -38,10 +38,10 @@ module "ValueOps";
 public struct Value<T> { // set as public (visible outside this module)
     value: T; // private (only visible inside this struct)
 
-    public fn setValue(val: T) { // set as public (visible wherever Value<T> is visible)
+    public fn setValue(&this, val: T) { // set as public (visible wherever Value<T> is visible)
         this.value = val;
     }
-    public fn getValue() -> T { // set as public (visible wherever Value<T> is visible)
+    public fn getValue(&readonly this) -> T { // set as public (visible wherever Value<T> is visible)
         return this.value;
     }
 }
@@ -288,7 +288,7 @@ Functions defined in traits must not be private, so they are automatically marke
 
 ```rust
 trait Printable {
-    fn print(&this);
+    fn print(&readonly this);
 }
 
 trait Add<Rhs, Output> {
@@ -298,7 +298,7 @@ trait Add<Rhs, Output> {
 struct NumberList implements Printable, Add<[i32], This> {
     public numbers: [i32];
 
-    public fn print(&this) {
+    public fn print(&readonly this) {
         println("%a", .numbers);
     }
 
@@ -328,13 +328,13 @@ A virtual function can't be private, and is marked as public automatically.
 
 ```rust
 struct Base {
-    virtual fn print() {
+    virtual fn print(&readonly this) {
         println("Base");
     }
 }
 
 struct Derived < Base {
-    public fn print() override {
+    public fn print(&readonly this) override {
         println("Derived");
     }
 }
@@ -441,3 +441,153 @@ var a = values.a;
 var b = values.b;
 ```
 
+## Variables
+There are three types of variables:
+1. Rebindable (i.e. they can be reassigned).
+2. Non-rebindable (i.e. they cannot be reassigned).
+3. Constants (compile-time constants).
+
+An exmaple is in order:
+```rust
+// 1. Rebindable variables:
+var myNumber: i32 = 123;
+// The following is ok:
+myNumber = 456;
+myNumber -= 56;
+
+// 2. Non-rebindable variables:
+let myDouble: f64 = 123.456;
+// The following cause compile-time errors:
+myDouble = 654.321; // BAD
+myDouble += 45.679; // BAD
+
+// 3. Compile time constants:
+const myConstant: i32 = 321;
+// The following cause compile-time errors:
+myConstant = 123; // BAD
+myConstant -= 23; // BAD
+```
+Non-rebindable deserves a clarification: it does NOT make the variable immutable. It can still be mutated using a pointer to it:
+```rust
+// 1. Rebindable variables
+var greeting: String = String::new("Hello");
+// The following are all ok:
+greeting = String::new("Hello, World");
+greeting.append("!"); // Note that append mutates the string itself.
+
+// 2. Non-rebindable variables
+let myString: String = String::new("my string");
+// This is ok:
+myString.append(" is very cool!"); // Note that 'myString' is being mutated here.
+// This is a compile-time error:
+myString = String::new("No longer cool"); // BAD
+```
+Note that the typename is not needed as long as it is possible to infer it from the initial value.
+
+Constants can NOT be of complex mutable types, meaning a struct that has bound functions that mutate it is NOT allowed (i.e. it has any bound function that takes `&this` rather than `&readonly this`).
+Arrays (see below) are allowed, and simply become truly immutable (unlike arrays bound to a `let` variable which can be mutated through pointers.)
+
+## Pointers/references (terms used interchangeably)
+A pointer is declared as such: `&<typename>` where `<typename>` is any type (e.g. `i32`, `String`, `f64` etc.).
+A pointer can be declared `readonly`. This means that the value it points to can NOT be modified through the pointer.
+To get a reference to a variable the prefix `&` operator is used, and to dereference a pointer the prefix `*` operator is used. The `&` operator can be modified with the `readonly` modifier to create a readonly reference whose type is `&readonly <typename>`, see the example below.
+```rust
+var x: i32 = 123;
+
+// Declare a variable of type "pointer to i32"
+// and assign to it a "refrence to the variable x"
+let myPtr: &i32 = &x;
+
+print(x); // "123"
+// dereference myPtr
+print(*myPtr); // "123"
+
+x = 456;
+print(x); // "456"
+print(*myPtr); // "456"
+
+*myPtr = 789;
+print(x); // "789"
+print(*myPtr); // "789"
+
+let myReadonlyPtr = &readonly x; // type inferred as &readonly i32
+// This is a compile time error:
+*myReadonlyPtr = 987; // BAD
+```
+When accessing struct fields through a pointer to the struct, said pointer is automatically dereferenced:
+```rust
+struct MyStruct {
+    value: i32
+}
+
+let x: MyStruct = MyStruct{value: 123};
+let ptr: &MyStruct = &x;
+
+// Technically, to access `value` through `ptr` you would need to do this:
+(*ptr).value += 1;
+
+// However for convenienve, the following is allowed:
+ptr.value -= 1; // The compiler automatically expands this to (*ptr).value -= 1;
+```
+When combined with the different variable declarations:
+```rust
+let value: i32 = 123;
+let otherValue: i32 = 456;
+
+// 1. rebindable read/write pointer
+var rebindableReadWritePtr: &i32 = &value;
+// The following is all ok:
+*rebindableReadWritePtr += 321;
+rebindableReadWritePtr = &otherValue;
+
+// 2. rebindable readonly pointer
+var rebindableReadonlyPtr: &readonly i32 = &value;
+// The following is ok:
+rebindableReadonlyPtr = &otherValue;
+// The following is a compile-time error:
+*rebindableReadonlyPtr += 654;
+
+// 3. non-rebindable read/write pointer
+let nonrebindableReadWritePtr: &i32 = &value;
+// This is ok:
+*nonrebindableReadWritePtr += 321;
+// This is a compile-time error:
+nonrebindableReadWritePtr = &otherValue;
+
+// 4. non-rebindable readonly pointer
+let nonrebindableReadonlyPtr: &readonly i32 = &value;
+// The following all cause a compile-time error:
+*nonrebindableReadonlyPtr += 321;
+nonrebindableReadonlyPtr = &otherValue;
+```
+**A very important clarification regarding `readonly`:** It ONLY prevents the variable pointed to from being changed through THIS pointer. The value itself might be changed directly or through other read/write pointers.
+
+## Arrays and slices
+An array is declared as such: `var array: [i32; 4] = [1,2,3,4];`, an array of i32 of length 4. In this case, the compiler is able to infer the size from the initializer.
+More generally, an array type is `[<typename>; <size>]` where `<size>` MUST be a compile-time constant such as a number literal or a `const` variable.
+Arrays cannot be resized once declared, and their length is stored as part of the type and fully tracked by the compiler. Additionally, they cannot be assigned to another variable of type array.
+This has an important implication: `[i32; 4]` and `[i32; 6]` are NOT the same type and can NOT be assigned to each other, and you can't pass arrays by value.
+This is where slices come in: a slice is basically a view into some backing array. Internally, it is represented as a pointer to the first element in it and a length field, both stored in runtime.
+
+A slice is logically a (fat) pointer into an array, and as such the syntax is the same as for pointers: `&[i32]` is a read/write slice, and `&readonly [i32]` is a read-only slice (i.e. it does not allow mutating elements of the backing array).
+Note that a `const` array (i.e. an array assigned to a `const` variable) can only have `&readonly` slices, since it cannot be mutated.
+```rust
+let myArray = [1,2,3,4]; // type inferred as [i32; 4]
+let mySlice = &myArray; // Type inferred as &[i32]
+
+mySlice[0] = 5; // myArray is now [5,2,3,4]
+
+let readonlySlice: &readonly [i32] = &readonly myArray;
+// This is a compile time error:
+readonlySlice[0] = 1; // BAD
+```
+Slices can be taken from any range of an array's elements using the following syntax: `&<array>[from:to]`. Note that `to` is EXCLUSIVE, meaning the range is `[from:to)`!
+Either `from` or `to` (but not both) can be ommited to mean "from the beginning" and "until the end" respectively.
+```rust
+let myArray = [1,2,3,4];
+
+let firstTwo = &myArray[:2];
+let lastTwo = &myArray[2:];
+
+let middleTwo = &myArray[1:3];
+```
