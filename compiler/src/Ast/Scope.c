@@ -32,6 +32,21 @@ static void collect_objects_callback(TableItem *item, bool is_last, void *cl) {
 
 /* Scope functions */
 
+void scopeDepthToString(String *buffer, ScopeDepth depth) {
+    if(depth < SCOPE_DEPTH_MODULE_NAMESPACE) {
+        stringAppend(buffer, "(invalid)");
+        return;
+    }
+    switch(depth) {
+        case SCOPE_DEPTH_MODULE_NAMESPACE: stringAppend(buffer, "\x1b[1;33mSCOPE_DEPTH_MODULE_NAMESPACE\x1b[0m"); break;
+        case SCOPE_DEPTH_STRUCT: stringAppend(buffer, "\x1b[1;33mSCOPE_DEPTH_STRUCT\x1b[0m"); break;
+        case SCOPE_DEPTH_BLOCK: stringAppend(buffer, "\x1b[1;33mSCOPE_DEPTH_BLOCK\x1b[0m"); break;
+        default:
+            stringAppend(buffer, "\x1b[1;33mSCOPE_DEPTH_BLOCK\x1b[0;31m+%u\x1b[0m", depth - SCOPE_DEPTH_BLOCK);
+            break;
+    }
+}
+
 void scopePrint(FILE *to, Scope *sc, bool recursive) {
     if(!sc) {
         fputs("(null)", to);
@@ -41,17 +56,10 @@ void scopePrint(FILE *to, Scope *sc, bool recursive) {
     fputs("Scope{", to);
 
     String depthStr = stringNew(33); // 33 is the length of SCOPE_DEPTH_MODULE_NAMESPACE
-    switch(sc->depth) {
-        case SCOPE_DEPTH_MODULE_NAMESPACE: stringAppend(&depthStr, "\x1b[1;33mSCOPE_DEPTH_MODULE_NAMESPACE\x1b[0m"); break;
-        case SCOPE_DEPTH_STRUCT: stringAppend(&depthStr, "\x1b[1;33mSCOPE_DEPTH_STRUCT\x1b[0m"); break;
-        case SCOPE_DEPTH_BLOCK: stringAppend(&depthStr, "\x1b[1;33mSCOPE_DEPTH_BLOCK\x1b[0m"); break;
-        default:
-            stringAppend(&depthStr, "\x1b[1;33mSCOPE_DEPTH_BLOCK\x1b[0;31m+%u\x1b[0m", sc->depth - SCOPE_DEPTH_BLOCK);
-            break;
-    }
+    scopeDepthToString(&depthStr, sc->depth);
     fprintf(to, "\x1b[1mdepth: \x1b[31m%s\x1b[0m", depthStr);
-    fprintf(to, ", \x1b[1mparent:\x1b[0m %s", sc->parent ? "Scope{...}" : "(null)");
     stringFree(depthStr);
+    fprintf(to, ", \x1b[1mparent:\x1b[0m %s", sc->parent ? "Scope{...}" : "(null)");
 
     fputs(", \x1b[1mobjects:\x1b[0m [", to);
     struct object_print_data objPrintData = {

@@ -29,6 +29,18 @@ void astObjectPrint(FILE *to, ASTObj *obj, bool compact) {
     typePrint(to, obj->dataType, true);
     fprintf(to, ", \x1b[1mownerModule:\x1b[0m %zu", obj->ownerModule);
     switch(obj->type) {
+        case OBJ_VAR: {
+            String buffer = stringNew(20); // 20 is SCOPE_DEPTH_BLOCK and a bit extra for the depth.
+            scopeDepthToString(&buffer, obj->as.var.containingScopeDepth);
+            fprintf(to, ", \x1b[1mcontainingScopeDepth:\x1b[0m \x1b[31m%s\x1b[0m", buffer);
+            if(obj->dataType->type == TY_POINTER) {
+                stringClear(buffer);
+                scopeDepthToString(&buffer, obj->as.var.pointeeScopeDepth);
+                fprintf(to, ", \x1b[1mpointeeScopeDepth:\x1b[0m \x1b[31m%s\x1b[0m", buffer);
+            }
+            stringFree(buffer);
+            break;
+        }
         case OBJ_FN:
             fputs(", \x1b[1mparameters:\x1b[0m [", to);
             ARRAY_FOR(i, obj->as.fn.parameters) {

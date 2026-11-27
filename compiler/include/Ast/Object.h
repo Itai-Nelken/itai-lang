@@ -12,6 +12,7 @@ typedef struct ast_block_statement ASTBlockStmt;
 
 // Ast/Scope.h includes this file, so we can't include it.
 typedef struct scope Scope;
+typedef i16 ScopeDepth;
 
 /**
  * An ASTObj represents an object - i.e a variable, function, struct etc. (see ASTObjType).
@@ -41,7 +42,21 @@ typedef struct ast_object {
     ModuleID ownerModule;
     struct ast_object *parent;
     union {
-        //struct {} var;
+        struct {
+            // A somewhat heuristic method for lifetime analysis for the purpose of pointer safety:
+            // each variable stores the scope depth of the scope it was declared in (containingScopeDepth).
+            // Pointers store the scope depth of the variable they are pointing to (pointeeScopeDepth).
+            // Then if pointeeScopeDepth >= containingScopeDepth, it cannot be returned from functions.
+            //
+            // containingScopeDepth should be initialized on declaration,
+            // and pointeeScopeDepth on declaration and/or assignment.
+            // Function parameters that are pointers represent a difficulty: each parameter refers to many
+            // different pointees (one for each call). However they all have in common that their scope
+            // depth is less than the function's scope depth,
+            // so a reasonable heuristic is to set pointeeScopeDepth to the function's scope depth - 1.
+            ScopeDepth containingScopeDepth;
+            ScopeDepth pointeeScopeDepth;
+        } var;
         struct {
             Array parameters; // Array<ASTObj *> (OBJ_VAR)
             Type *returnType;

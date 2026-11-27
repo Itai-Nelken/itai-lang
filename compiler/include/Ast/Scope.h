@@ -60,6 +60,18 @@ typedef struct scope {
     struct scope *parent;
 } Scope;
 
+/**
+ * Pretty-print a scope depth into 'buffer'.
+ * Output is one of:
+ *  - SCOPE_DEPTH_MODULE_NAMESPACE
+ *  - SCOPE_DEPTH_STRUCT
+ *  - SCOPE_DEPTH_BLOCK (function scope)
+ *  - SCOPE_DEPTH_BLOCK + d (where d is the additional block scope depth).
+ *
+ * @param buffer The string buffer to append the pretty-name into.
+ * @param depth The ScopeDEpth to pretty-print.
+ **/
+void scopeDepthToString(String *buffer, ScopeDepth depth);
 
 /**
  * Pretty print a Scope.
