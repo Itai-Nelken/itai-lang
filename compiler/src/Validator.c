@@ -159,6 +159,28 @@ static inline ASTObj *findObjVisibleInCurrentScope(Validator *v, ASTString name,
     return findObjVisibleInScope(getCurrentCheckedScope(v), name, depth);
 }
 
+static ASTObj *getObjInExpr(ASTExprNode *expr) {
+    ASTObj *obj = NULL;
+    // FIXME: I think a recusrive function would be nicer. i.e. EXPR_VARIABLE is base case and everything else recurses on correct side of the expr node.
+    switch(expr->type) {
+        case EXPR_VARIABLE:
+            obj = NODE_AS(ASTObjExpr, expr)->obj;
+            break;
+        case EXPR_PROPERTY_ACCESS:
+            VERIFY(NODE_AS(ASTBinaryExpr, expr)->rhs->type == EXPR_VARIABLE);
+            obj = NODE_AS(ASTObjExpr, NODE_AS(ASTBinaryExpr, expr)->rhs)->obj;
+            break;
+        case EXPR_ADDROF:
+            VERIFY(NODE_AS(ASTUnaryExpr, expr)->operand->type == EXPR_VARIABLE);
+            obj = NODE_AS(ASTObjExpr, NODE_AS(ASTUnaryExpr, expr)->operand)->obj;
+            break;
+        default:
+            LOG_ERR("TODO: implement other cases if they exist?");
+            UNREACHABLE();
+    }
+    return obj;
+}
+
 static Type *expr_data_type_complex(Validator *v, ASTExprNode *expr, bool isInCall) {
     if(!expr) {
         return NULL;
@@ -521,6 +543,16 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
             ASTExprNode *rhs = TRY(ASTExprNode *, validateExpr(v, NODE_AS(ASTBinaryExpr, parsedExpr)->rhs));
             checkedExpr = (ASTExprNode *)astBinaryExprNew(getCurrentAllocator(v), parsedExpr->type, parsedExpr->location, NULL, lhs, rhs);
             checkedExpr->dataType = exprDataType(v, checkedExpr);
+            // If assignment, need to set pointeeScopeDepth if necessary
+            if(parsedExpr->type == EXPR_ASSIGN && lhs->dataType->type == TY_POINTER) {
+                ASTObj *lval = getObjInExpr(lhs);
+                VERIFY(lval);
+                // Note: I'm assuming an assignment to a pointer must be an object, since that is the only way to get a pointer type value as of writing this (IIRC).
+                ASTObj *ref = getObjInExpr(rhs);
+                VERIFY(ref);
+                VERIFY(ref->type == OBJ_VAR); // FIXME: Figure out if functions will break this. I don't think so since function types are not treated as pointers.
+                lval->as.var.pointeeScopeDepth = ref->as.var.containingScopeDepth;
+            }
             break;
             #undef IS_ASSIGNMENT_TARGET
         }
@@ -646,7 +678,7 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
             ASTObj *record = NULL; // for the following case: Module::Record::ID.
             ASTObj *id = NULL;
 
-            // TODO for the following 5 errors: get better locations (involves making the parser save the location of each part.)
+            // TODO: for the following 5 errors: get better locations (involves making the parser save the location of each part.)
 
             if(modulePart != NULL) {
                 ASTModule *m = getImportedModule(v, modulePart);
@@ -655,7 +687,7 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
                     // However, that is only possible if the recordPart doesn't exist.
                     if(recordPart != NULL) {
                         error(v, parsedExpr->location, "Module '%s' has not been imported.", modulePart);
-                        break;
+                        break; // out of the switch statement.
                     }
                     failedModule = true;
                     recordPart = modulePart;
@@ -683,7 +715,7 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
                     break;
                 }
             }
-            // FIXME (not here): have a problem with the module scope being the same as the struct scope?????
+            // FIXME: (not here): have a problem with the module scope being the same as the struct scope?????
 
             // get the ID part (always exists b/c its the last part of the ID which always exists).
             // Check if the record part exists first (since if it exists the id is inside of it.)
@@ -710,6 +742,7 @@ static ASTExprNode *validateExpr(Validator *v, ASTExprNode *parsedExpr) {
             switch(id->type) {
                 case OBJ_VAR:
                     exprType = EXPR_VARIABLE;
+                    id->as.var.containingScopeDepth = getCurrentCheckedScope(v)->depth;
                     break;
                 case OBJ_FN:
                     exprType = EXPR_FUNCTION;
@@ -897,6 +930,12 @@ static ASTVarDeclStmt *validateVariableDecl(Validator *v, ASTVarDeclStmt *parsed
     ASTObj *checkedObj = astModuleNewObj(getCurrentCheckedModule(v), OBJ_VAR, parsedVarDecl->variable->location, parsedVarDecl->variable->name, dataType);
     bool added = scopeAddObject(getCurrentCheckedScope(v), checkedObj);
     VERIFY(added == true);
+    checkedObj->as.var.containingScopeDepth = getCurrentCheckedScope(v)->depth;
+    if(checkedObj->dataType->type == TY_POINTER && checkedInitializer != NULL) {
+        ASTObj *pointee = getObjInExpr(checkedInitializer);
+        VERIFY(pointee && pointee->type == OBJ_VAR);
+        checkedObj->as.var.pointeeScopeDepth = pointee->as.var.containingScopeDepth;
+    }
     ASTVarDeclStmt *checkedVarDecl = astVarDeclStmtNew(getCurrentAllocator(v), parsedVarDecl->header.location, checkedObj, checkedInitializer);
     return checkedVarDecl;
 }
@@ -906,10 +945,14 @@ static ASTVarDeclStmt *validateVariableDecl(Validator *v, ASTVarDeclStmt *parsed
 // * Adds the function object to the current scope.
 // * returns true on success, and false on failure.
 static bool validateFunction(Validator *v, ASTObj *fn) {
+    VERIFY(fn != NULL);
     // Note: (parsed) fn scope already contains params. They are added by the parser.
     // Get the predecled checked function.
     ASTObj *checkedFn = scopeGetObject(getCurrentCheckedScope(v), OBJ_FN, fn->name);
     VERIFY(checkedFn); // MUST exist.
+
+    // Note: parser sets containingScopeDepth for parameters.
+
     v->current.function = checkedFn;
     ASTStmtNode *checkedBody = TRY(ASTStmtNode *, validateStmt(v, NODE_AS(ASTStmtNode, fn->as.fn.body)));
     v->current.function = NULL;
@@ -975,6 +1018,9 @@ static void predeclFunction(Validator *v, ASTObj *parsedFn) {
         Type *checkedParamType = validateType(v, param->dataType);
         if(checkedParamType) {
             ASTObj *checkedParam = astModuleNewObj(getCurrentCheckedModule(v), OBJ_VAR, param->location, param->name, checkedParamType);
+            checkedParam->as.var.containingScopeDepth = param->as.var.containingScopeDepth;
+            // FIXME: do I need below? I don't remember if i already did this at this point.
+            checkedParam->as.var.pointeeScopeDepth = param->as.var.containingScopeDepth - 1;
             arrayPush(&checkedFnPredecl->as.fn.parameters, (void *)checkedParam);
         } else {
             hadError = true;

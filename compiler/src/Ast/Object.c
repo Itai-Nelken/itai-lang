@@ -77,7 +77,7 @@ ASTObj *astObjectNew(ASTObjType type, Location loc, ASTString name, Type *dataTy
 
     switch(type) {
         case OBJ_VAR:
-            // nothing
+            obj->as.var.containingScopeDepth = obj->as.var.pointeeScopeDepth = -2; // -2 is an invalid scope depth.
             break;
         case OBJ_FN:
             arrayInit(&obj->as.fn.parameters);

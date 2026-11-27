@@ -1010,6 +1010,7 @@ static ASTObj *parseFunctionDecl(Parser *p, ASTString structName) {
     Scope *scope = enterScope(p, SCOPE_DEPTH_BLOCK);
     ARRAY_FOR(i, parameters) {
         ASTObj *param = ARRAY_GET_AS(ASTObj *, &parameters, i);
+        param->as.var.containingScopeDepth = scope->depth;
         scopeAddObject(scope, param);
     }
     ASTBlockStmt *body = parseBlockStmt(p, scope, parseFunctionBodyStatements);
