@@ -1,6 +1,24 @@
 TODO:
 
-* ARRAYS
+Roadmap to arrays and slices:
+
+* Simple lifetime analysis, to prevent pointers to dead variables from being returned.
+  Ideas: use scope depth for simple analysis - if pointee depth > current depth, BAD.
+  Problems I need to solve: populating pointeeDepth.
+    - For normal variables, do it on declaration and assignment.
+    - For function parameters, it is difficult because each pointer parameter has multiple pointees (one for each call).
+      However they all have in common that their scope is ALWAYS less than the function scope.
+      So hardcode pointeeDepth of parameters to functionDepth-1.
+      It isn't strictly true, but it should result in correct results.
+
+* Once above is implemented, allow for pointers in normal variables (not only function parameters).
+
+* Implement variable declaration semantics from new_spec.md (var,let etc.)
+
+* Implement readonly pointers.
+
+* ARRAYS and SLICES (finally!)
+===
 
 * Update docs: remove inheritance etc. & replace with "struct extending/embedding" - adding fields,methods to a struct and giving the extended version a new name.
   - Traits/Interfaces provide polymorphism.
@@ -10,8 +28,6 @@ TODO:
 * Also decide if I want to disallow calling to non-static bound methods like this:
   > struct A {val: i32; fn getVal(&this) -> i32 {return this.val;}}
   > fn main() {var a: A; A::getVal(&a);}
-
-* Note somewhere that currently pointer-to-pointer types are not allowed.
 
 * All: don't create a new type for types in a different module.
   - Validator should be able to find the correct type in the correct module.
